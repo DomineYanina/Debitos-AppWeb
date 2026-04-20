@@ -52,7 +52,7 @@ export class AuditoriaComponent {
         { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000 }
       ];
 
-      this.prepararFiltros();
+      this.prepararFiltros(this.prestaciones);
       this.aplicarFiltros();
     } else {
       // Como me pediste siempre la verdad: en producción es mejor pintar los bordes de rojo,
@@ -62,16 +62,17 @@ export class AuditoriaComponent {
     }
   }
 
-  prepararFiltros() {
+  prepararFiltros(datos: Prestacion[]) {
     // Extraemos valores únicos usando Set y ordenamos alfabéticamente
-    this.pacientesList = [...new Set(this.prestaciones.map(p => p.paciente))].sort();
-    this.profesionalesList = [...new Set(this.prestaciones.map(p => p.medico))].sort();
-    this.prestacionesList = [...new Set(this.prestaciones.map(p => p.modulo))].sort();
-    this.gruposList = [...new Set(this.prestaciones.map(p => p.grupomodulo))].sort();
-    this.fechasList = [...new Set(this.prestaciones.map(p => p.fecha))].sort();
+    this.pacientesList = [...new Set(datos.map(p => p.paciente))].sort();
+    this.profesionalesList = [...new Set(datos.map(p => p.medico))].sort();
+    this.prestacionesList = [...new Set(datos.map(p => p.modulo))].sort();
+    this.gruposList = [...new Set(datos.map(p => p.grupomodulo))].sort();
+    this.fechasList = [...new Set(datos.map(p => p.fecha))].sort();
   }
 
   aplicarFiltros() {
+    // 1. Primero filtramos la lista original basándonos en los selectores
     this.prestacionesFiltradas = this.prestaciones.filter(p => {
       return (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
         (this.filtroProfesional === '' || p.medico === this.filtroProfesional) &&
@@ -79,6 +80,11 @@ export class AuditoriaComponent {
         (this.filtroGrupo === '' || p.grupomodulo === this.filtroGrupo) &&
         (this.filtroFecha === '' || p.fecha === this.filtroFecha);
     });
+
+    // 2. RE-LLENAMOS los combos usando la lista que resultó del filtro
+    // Esto hace que si elegís un Paciente, el combo de Profesional solo muestre
+    // los médicos que atendieron a ESE paciente.
+    this.prepararFiltros(this.prestacionesFiltradas);
   }
 
   resetFiltros() {
@@ -87,6 +93,7 @@ export class AuditoriaComponent {
     this.filtroPrestacion = '';
     this.filtroGrupo = '';
     this.filtroFecha = '';
+    this.prepararFiltros(this.prestaciones);
     this.aplicarFiltros();
   }
 
