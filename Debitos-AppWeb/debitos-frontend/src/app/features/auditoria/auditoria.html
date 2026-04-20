@@ -40,8 +40,47 @@
   </section>
 
   <section class="grilla-section">
-    <div class="grilla-placeholder">
-      <p>Acá se va a renderizar la grilla con las prestaciones del documento...</p>
+    <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
+      <table>
+        <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>Fecha</th>
+          <th>Código</th>
+          <th>Módulo/Prestación</th>
+          <th>Cant.</th>
+          <th>Total Fact.</th>
+          <th>Imp. Débito</th>
+          <th>Motivo</th>
+          <th>Acciones</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let p of prestaciones">
+          <td>{{ p.paciente }}</td>
+          <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+          <td>{{ p.codigo }}</td>
+          <td>{{ p.modulo }}</td>
+          <td class="text-center">{{ p.cantidad }}</td>
+          <td class="text-right">{{ p.total | currency }}</td>
+          <td>
+            <input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla">
+          </td>
+          <td>
+            <input type="text" [(ngModel)]="p.motivoDebito" class="input-grilla" placeholder="Motivo...">
+          </td>
+          <td>
+            <button class="btn-accion">Historial</button>
+          </td>
+        </tr>
+        </tbody>
+      </table>
     </div>
+
+    <ng-template #sinDatos>
+      <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+        <p>No se encontraron prestaciones para este documento.</p>
+      </div>
+    </ng-template>
   </section>
 </div>
