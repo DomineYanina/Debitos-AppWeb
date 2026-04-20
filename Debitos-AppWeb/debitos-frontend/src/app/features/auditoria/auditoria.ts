@@ -49,7 +49,8 @@ export class AuditoriaComponent {
       this.prestaciones = [
         { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'CONSULTA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '1', cantidad: 1, total: 5000 },
         { paciente: 'SEEHOFER NICOLAS', plan: 'SWISS MEDICAL', grupomodulo: 'MODULO B', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 5, total: 12500 },
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000 }
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000 },
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 1, total: 3000 }
       ];
 
       this.prepararFiltros(this.prestaciones);
@@ -60,6 +61,20 @@ export class AuditoriaComponent {
       this.busquedaForm.markAllAsTouched();
       alert('Por favor, completá los 4 campos correctamente.');
     }
+  }
+
+  limpiarFiltro(campo: string) {
+    // Reseteamos solo el campo solicitado
+    switch (campo) {
+      case 'paciente': this.filtroPaciente = ''; break;
+      case 'profesional': this.filtroProfesional = ''; break;
+      case 'prestacion': this.filtroPrestacion = ''; break;
+      case 'grupo': this.filtroGrupo = ''; break;
+      case 'fecha': this.filtroFecha = ''; break;
+    }
+
+    // Re-aplicamos filtros para que la grilla y los combos se expandan
+    this.aplicarFiltros();
   }
 
   prepararFiltros(datos: Prestacion[]) {

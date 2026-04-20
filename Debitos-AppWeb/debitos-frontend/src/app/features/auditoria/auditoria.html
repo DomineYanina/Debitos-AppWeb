@@ -6,7 +6,6 @@
 
   <section class="busqueda-section">
     <form [formGroup]="busquedaForm" (ngSubmit)="onBuscar()" class="fila-filtros">
-
       <div class="form-group">
         <label for="tipo">Tipo</label>
         <select id="tipo" formControlName="tipo">
@@ -35,14 +34,17 @@
       <div class="form-group btn-container">
         <button type="submit" [disabled]="busquedaForm.invalid" class="btn-buscar">Buscar</button>
       </div>
-
     </form>
   </section>
 
   <section class="filtros-dinamicos-section" *ngIf="prestaciones.length > 0">
     <div class="filtros-grid">
+
       <div class="filter-item">
-        <label>Paciente</label>
+        <div class="label-container">
+          <label>Paciente</label>
+          <button *ngIf="filtroPaciente" class="btn-undo" (click)="limpiarFiltro('paciente')">✕</button>
+        </div>
         <select [(ngModel)]="filtroPaciente" (change)="aplicarFiltros()">
           <option value="">Todos</option>
           <option *ngFor="let item of pacientesList" [value]="item">{{ item }}</option>
@@ -50,7 +52,10 @@
       </div>
 
       <div class="filter-item">
-        <label>Profesional</label>
+        <div class="label-container">
+          <label>Profesional</label>
+          <button *ngIf="filtroProfesional" class="btn-undo" (click)="limpiarFiltro('profesional')">✕</button>
+        </div>
         <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
           <option value="">Todos</option>
           <option *ngFor="let item of profesionalesList" [value]="item">{{ item }}</option>
@@ -58,7 +63,10 @@
       </div>
 
       <div class="filter-item">
-        <label>Prestación</label>
+        <div class="label-container">
+          <label>Prestación</label>
+          <button *ngIf="filtroPrestacion" class="btn-undo" (click)="limpiarFiltro('prestacion')">✕</button>
+        </div>
         <select [(ngModel)]="filtroPrestacion" (change)="aplicarFiltros()">
           <option value="">Todas</option>
           <option *ngFor="let item of prestacionesList" [value]="item">{{ item }}</option>
@@ -66,7 +74,10 @@
       </div>
 
       <div class="filter-item">
-        <label>Grupo</label>
+        <div class="label-container">
+          <label>Grupo</label>
+          <button *ngIf="filtroGrupo" class="btn-undo" (click)="limpiarFiltro('grupo')">✕</button>
+        </div>
         <select [(ngModel)]="filtroGrupo" (change)="aplicarFiltros()">
           <option value="">Todos</option>
           <option *ngFor="let item of gruposList" [value]="item">{{ item }}</option>
@@ -74,19 +85,19 @@
       </div>
 
       <div class="filter-item">
-        <label>Fecha</label>
+        <div class="label-container">
+          <label>Fecha</label>
+          <button *ngIf="filtroFecha" class="btn-undo" (click)="limpiarFiltro('fecha')">✕</button>
+        </div>
         <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
           <option value="">Todas</option>
           <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
         </select>
       </div>
 
-      <button class="btn-clear" (click)="resetFiltros()">Limpiar Filtros</button>
+      <button class="btn-clear" (click)="resetFiltros()">Limpiar Todo</button>
     </div>
   </section>
-
-  <tr *ngFor="let p of prestacionesFiltradas">
-  </tr>
 
   <section class="grilla-section">
     <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
