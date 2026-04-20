@@ -164,6 +164,25 @@
           </td>
         </tr>
         </tbody>
+        <tfoot>
+        <tr class="fila-totales">
+          <td colspan="4">TOTALES VISIBLES</td>
+
+          <td class="text-center font-bold">
+            {{ totalCantidad }}
+          </td>
+
+          <td class="text-right font-bold">
+            {{ totalFacturado | currency }}
+          </td>
+
+          <td class="text-right font-bold text-danger">
+            {{ totalDebitado | currency }}
+          </td>
+
+          <td colspan="2"></td>
+        </tr>
+        </tfoot>
       </table>
     </div>
 

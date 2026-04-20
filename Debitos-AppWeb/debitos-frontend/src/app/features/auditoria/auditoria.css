@@ -276,3 +276,24 @@ min-width: 160px;
   cursor: pointer;
   user-select: none;
 }
+
+.fila-totales {
+  background-color: #f1f5f9; // Gris muy suave
+border-top: 2px solid #cbd5e0;
+
+  td {
+    padding: 1rem !important;
+    font-weight: bold;
+    color: #1e293b;
+  }
+}
+
+.font-bold { font-weight: 700; }
+
+.text-danger {
+  color: #e53e3e; // Rojo para resaltar el débito
+}
+
+   tfoot tr td {
+     border-top: 2px solid #cbd5e0;
+   }

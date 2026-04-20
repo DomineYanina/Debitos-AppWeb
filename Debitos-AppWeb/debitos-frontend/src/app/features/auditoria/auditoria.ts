@@ -166,4 +166,16 @@ export class AuditoriaComponent {
       return 0;
     });
   }
+
+  get totalFacturado(): number {
+    return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.total || 0), 0);
+  }
+
+  get totalDebitado(): number {
+    return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.importeDebitado || 0), 0);
+  }
+
+  get totalCantidad(): number {
+    return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.cantidad || 0), 0);
+  }
 }
