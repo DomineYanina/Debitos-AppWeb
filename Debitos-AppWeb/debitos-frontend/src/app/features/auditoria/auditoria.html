@@ -6,7 +6,6 @@
 
   <section class="busqueda-section">
     <form [formGroup]="busquedaForm" (ngSubmit)="onBuscar()" class="fila-filtros">
-
       <div class="form-group">
         <label for="tipo">Tipo</label>
         <select id="tipo" formControlName="tipo">
@@ -35,13 +34,162 @@
       <div class="form-group btn-container">
         <button type="submit" [disabled]="busquedaForm.invalid" class="btn-buscar">Buscar</button>
       </div>
-
     </form>
   </section>
 
-  <section class="grilla-section">
-    <div class="grilla-placeholder">
-      <p>Acá se va a renderizar la grilla con las prestaciones del documento...</p>
+  <section class="filtros-dinamicos-section" *ngIf="prestaciones.length > 0">
+    <div class="filtros-grid">
+
+      <div class="filter-item">
+        <div class="label-container">
+          <label>Paciente</label>
+          <button *ngIf="filtroPaciente" class="btn-undo" (click)="limpiarFiltro('paciente')">✕</button>
+        </div>
+        <select [(ngModel)]="filtroPaciente" (change)="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option *ngFor="let item of pacientesList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <div class="label-container">
+          <label>Profesional</label>
+          <button *ngIf="filtroProfesional" class="btn-undo" (click)="limpiarFiltro('profesional')">✕</button>
+        </div>
+        <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option *ngFor="let item of profesionalesList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <div class="label-container">
+          <label>Prestación</label>
+          <button *ngIf="filtroPrestacion" class="btn-undo" (click)="limpiarFiltro('prestacion')">✕</button>
+        </div>
+        <select [(ngModel)]="filtroPrestacion" (change)="aplicarFiltros()">
+          <option value="">Todas</option>
+          <option *ngFor="let item of prestacionesList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <div class="label-container">
+          <label>Grupo</label>
+          <button *ngIf="filtroGrupo" class="btn-undo" (click)="limpiarFiltro('grupo')">✕</button>
+        </div>
+        <select [(ngModel)]="filtroGrupo" (change)="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option *ngFor="let item of gruposList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <div class="label-container">
+          <label>Fecha</label>
+          <button *ngIf="filtroFecha" class="btn-undo" (click)="limpiarFiltro('fecha')">✕</button>
+        </div>
+        <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
+          <option value="">Todas</option>
+          <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
+        </select>
+      </div>
+
+      <div class="checkbox-filters">
+        <div class="check-item">
+          <input type="checkbox" id="checkVal" [(ngModel)]="soloValorizadas" (change)="aplicarFiltros()">
+          <label for="checkVal">Ver solo prestaciones valorizadas</label>
+        </div>
+
+        <div class="check-item">
+          <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
+          <label for="checkDebito">Ver solo prest. sin mot. de débito</label>
+        </div>
+
+        <div class="check-item">
+          <input type="checkbox" id="checkRefac" [(ngModel)]="soloSinMotivoRefactura" (change)="aplicarFiltros()">
+          <label for="checkRefac">Ver solo prest. sin mot. de refactura</label>
+        </div>
+      </div>
+
+      <button class="btn-clear" (click)="resetFiltros()">Limpiar Todo</button>
     </div>
+
+  </section>
+
+  <section class="grilla-section">
+    <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
+      <table>
+        <thead>
+        <tr>
+          <th (click)="onSort('paciente')" class="cursor-pointer">
+            Paciente {{ getIcono('paciente') }}
+          </th>
+          <th (click)="onSort('fecha')" class="cursor-pointer">
+            Fecha {{ getIcono('fecha') }}
+          </th>
+          <th (click)="onSort('codigo')" class="cursor-pointer">
+            Código {{ getIcono('codigo') }}
+          </th>
+          <th (click)="onSort('modulo')" class="cursor-pointer">
+            Módulo/Prestación {{ getIcono('modulo') }}
+          </th>
+          <th (click)="onSort('cantidad')" class="cursor-pointer text-center">
+            Cant. {{ getIcono('cantidad') }}
+          </th>
+          <th (click)="onSort('total')" class="cursor-pointer text-right">
+            Total Fact. {{ getIcono('total') }}
+          </th>
+          <th>Imp. Débito</th>
+          <th>Motivo</th>
+          <th>Acciones</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let p of prestacionesFiltradas">
+          <td>{{ p.paciente }}</td>
+          <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+          <td>{{ p.codigo }}</td>
+          <td>{{ p.modulo }}</td>
+          <td class="text-center">{{ p.cantidad }}</td>
+          <td class="text-right">{{ p.total | currency }}</td>
+          <td>
+            <input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla">
+          </td>
+          <td>
+            <input type="text" [(ngModel)]="p.motivoDebito" class="input-grilla" placeholder="Motivo...">
+          </td>
+          <td>
+            <button class="btn-accion">Historial</button>
+          </td>
+        </tr>
+        </tbody>
+        <tfoot>
+        <tr class="fila-totales">
+          <td colspan="4">TOTALES VISIBLES</td>
+
+          <td class="text-center font-bold">
+            {{ totalCantidad }}
+          </td>
+
+          <td class="text-right font-bold">
+            {{ totalFacturado | currency }}
+          </td>
+
+          <td class="text-right font-bold text-danger">
+            {{ totalDebitado | currency }}
+          </td>
+
+          <td colspan="2"></td>
+        </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <ng-template #sinDatos>
+      <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+        <p>No se encontraron prestaciones para este documento.</p>
+      </div>
+    </ng-template>
   </section>
 </div>
