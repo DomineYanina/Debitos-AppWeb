@@ -35,6 +35,10 @@ export class AuditoriaComponent {
   filtroGrupo: string = '';
   filtroFecha: string = '';
 
+  soloSinMotivoDebito: boolean = false;
+  soloSinMotivoRefactura: boolean = false;
+  soloValorizadas: boolean = false;
+
   // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
@@ -47,10 +51,10 @@ export class AuditoriaComponent {
     if (this.busquedaForm.valid) {
       // Simulación de datos (En el futuro esto vendrá del servicio)
       this.prestaciones = [
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'CONSULTA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '1', cantidad: 1, total: 5000 },
-        { paciente: 'SEEHOFER NICOLAS', plan: 'SWISS MEDICAL', grupomodulo: 'MODULO B', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 5, total: 12500 },
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000 },
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 1, total: 3000 }
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'CONSULTA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '1', cantidad: 1, total: 0, motivoDebito: 'Falta Firma', motivoRefactura: '' },
+        { paciente: 'SEEHOFER NICOLAS', plan: 'SWISS MEDICAL', grupomodulo: 'MODULO B', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 5, total: 12500, motivoDebito: '', motivoRefactura: 'Falta firma' },
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000, motivoDebito: 'Falta Firma', motivoRefactura: '' },
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 1, total: 3000, motivoDebito: '', motivoRefactura: '' }
       ];
 
       this.prepararFiltros(this.prestaciones);
@@ -87,18 +91,24 @@ export class AuditoriaComponent {
   }
 
   aplicarFiltros() {
-    // 1. Primero filtramos la lista original basándonos en los selectores
     this.prestacionesFiltradas = this.prestaciones.filter(p => {
-      return (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
+      // Filtros de combos (los que ya tenías)
+      const cumpleCombos =
+        (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
         (this.filtroProfesional === '' || p.medico === this.filtroProfesional) &&
         (this.filtroPrestacion === '' || p.modulo === this.filtroPrestacion) &&
         (this.filtroGrupo === '' || p.grupomodulo === this.filtroGrupo) &&
         (this.filtroFecha === '' || p.fecha === this.filtroFecha);
+
+      // Filtros de Checkbox (Lógica inversa: si el check está activo, filtramos)
+      const cumpleSinDebito = !this.soloSinMotivoDebito || (!p.motivoDebito || p.motivoDebito.trim() === '');
+      const cumpleSinRefactura = !this.soloSinMotivoRefactura || (!p.motivoRefactura || p.motivoRefactura.trim() === '');
+      const cumpleValorizadas = !this.soloValorizadas || (p.total > 0);
+
+      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas;
     });
 
-    // 2. RE-LLENAMOS los combos usando la lista que resultó del filtro
-    // Esto hace que si elegís un Paciente, el combo de Profesional solo muestre
-    // los médicos que atendieron a ESE paciente.
+    // Actualizamos los combos en cascada
     this.prepararFiltros(this.prestacionesFiltradas);
   }
 
@@ -108,6 +118,9 @@ export class AuditoriaComponent {
     this.filtroPrestacion = '';
     this.filtroGrupo = '';
     this.filtroFecha = '';
+    this.soloSinMotivoDebito = false;
+    this.soloSinMotivoRefactura = false;
+    this.soloValorizadas = false;
     this.prepararFiltros(this.prestaciones);
     this.aplicarFiltros();
   }

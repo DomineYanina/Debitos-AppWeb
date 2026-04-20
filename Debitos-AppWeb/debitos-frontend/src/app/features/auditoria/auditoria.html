@@ -95,8 +95,26 @@
         </select>
       </div>
 
+      <div class="checkbox-filters">
+        <div class="check-item">
+          <input type="checkbox" id="checkVal" [(ngModel)]="soloValorizadas" (change)="aplicarFiltros()">
+          <label for="checkVal">Ver solo prestaciones valorizadas</label>
+        </div>
+
+        <div class="check-item">
+          <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
+          <label for="checkDebito">Ver solo prest. sin mot. de débito</label>
+        </div>
+
+        <div class="check-item">
+          <input type="checkbox" id="checkRefac" [(ngModel)]="soloSinMotivoRefactura" (change)="aplicarFiltros()">
+          <label for="checkRefac">Ver solo prest. sin mot. de refactura</label>
+        </div>
+      </div>
+
       <button class="btn-clear" (click)="resetFiltros()">Limpiar Todo</button>
     </div>
+
   </section>
 
   <section class="grilla-section">
