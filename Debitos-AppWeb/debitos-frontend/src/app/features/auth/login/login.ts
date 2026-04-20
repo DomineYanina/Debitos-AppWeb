@@ -25,10 +25,11 @@ export class LoginComponent {
     if (this.loginForm.valid) {
       this.authService.login(this.loginForm.value).subscribe({
         next: (respuesta) => {
-          // AGREGAMOS ESTE ALERTA TEMPORAL
-          alert('¡Conexión EXITOSA con Spring Boot! Todo funciona perfecto.');
+          // 1. Guardamos los datos
           this.authService.guardarToken(respuesta.token, respuesta.usuario);
-          // this.router.navigate(['/auditoria']); <-- Comentá esta línea por ahora
+
+          // 2. Redirigimos automáticamente a auditoría
+          this.router.navigate(['/auditoria']);
         },
         error: (err) => {
           alert('Credenciales incorrectas o el servidor está apagado.');

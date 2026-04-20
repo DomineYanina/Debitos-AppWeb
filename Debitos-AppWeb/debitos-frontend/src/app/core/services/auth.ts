@@ -18,4 +18,13 @@ export class AuthService {
     localStorage.setItem('token', token);
     localStorage.setItem('usuario', usuario); // Guardamos el usuario para usarlo como hacías en C#
   }
+
+  isLoggedIn(): boolean {
+    return !!localStorage.getItem('token');
+  }
+
+  logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+  }
 }
