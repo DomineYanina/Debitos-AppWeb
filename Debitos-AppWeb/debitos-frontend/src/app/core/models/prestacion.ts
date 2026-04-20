@@ -6,6 +6,7 @@ export interface Prestacion {
   fecha: string;
   codigo: string;
   modulo: string;
+  grupomodulo?: string;
   cantidad: number;
   total: number;
   // Campos de auditoría (los que el usuario edita)

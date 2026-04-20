@@ -39,24 +39,85 @@
     </form>
   </section>
 
+  <section class="filtros-dinamicos-section" *ngIf="prestaciones.length > 0">
+    <div class="filtros-grid">
+      <div class="filter-item">
+        <label>Paciente</label>
+        <select [(ngModel)]="filtroPaciente" (change)="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option *ngFor="let item of pacientesList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Profesional</label>
+        <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option *ngFor="let item of profesionalesList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Prestación</label>
+        <select [(ngModel)]="filtroPrestacion" (change)="aplicarFiltros()">
+          <option value="">Todas</option>
+          <option *ngFor="let item of prestacionesList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Grupo</label>
+        <select [(ngModel)]="filtroGrupo" (change)="aplicarFiltros()">
+          <option value="">Todos</option>
+          <option *ngFor="let item of gruposList" [value]="item">{{ item }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Fecha</label>
+        <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
+          <option value="">Todas</option>
+          <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
+        </select>
+      </div>
+
+      <button class="btn-clear" (click)="resetFiltros()">Limpiar Filtros</button>
+    </div>
+  </section>
+
+  <tr *ngFor="let p of prestacionesFiltradas">
+  </tr>
+
   <section class="grilla-section">
     <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
       <table>
         <thead>
         <tr>
-          <th>Paciente</th>
-          <th>Fecha</th>
-          <th>Código</th>
-          <th>Módulo/Prestación</th>
-          <th>Cant.</th>
-          <th>Total Fact.</th>
+          <th (click)="onSort('paciente')" class="cursor-pointer">
+            Paciente {{ getIcono('paciente') }}
+          </th>
+          <th (click)="onSort('fecha')" class="cursor-pointer">
+            Fecha {{ getIcono('fecha') }}
+          </th>
+          <th (click)="onSort('codigo')" class="cursor-pointer">
+            Código {{ getIcono('codigo') }}
+          </th>
+          <th (click)="onSort('modulo')" class="cursor-pointer">
+            Módulo/Prestación {{ getIcono('modulo') }}
+          </th>
+          <th (click)="onSort('cantidad')" class="cursor-pointer text-center">
+            Cant. {{ getIcono('cantidad') }}
+          </th>
+          <th (click)="onSort('total')" class="cursor-pointer text-right">
+            Total Fact. {{ getIcono('total') }}
+          </th>
           <th>Imp. Débito</th>
           <th>Motivo</th>
           <th>Acciones</th>
         </tr>
         </thead>
         <tbody>
-        <tr *ngFor="let p of prestaciones">
+        <tr *ngFor="let p of prestacionesFiltradas">
           <td>{{ p.paciente }}</td>
           <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
           <td>{{ p.codigo }}</td>

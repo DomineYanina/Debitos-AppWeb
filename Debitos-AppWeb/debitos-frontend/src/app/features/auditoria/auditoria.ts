@@ -17,6 +17,23 @@ export class AuditoriaComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
   prestaciones: Prestacion[] = [];
+  prestacionesFiltradas: Prestacion[] = [];
+  columnaOrden: string = '';
+  direccionOrden: 'asc' | 'desc' = 'asc';
+
+  // Listas para llenar los combos
+  pacientesList: string[] = [];
+  profesionalesList: string[] = [];
+  prestacionesList: string[] = [];
+  gruposList: (string | undefined)[] = [];
+  fechasList: string[] = [];
+
+  // Valores seleccionados en los filtros
+  filtroPaciente: string = '';
+  filtroProfesional: string = '';
+  filtroPrestacion: string = '';
+  filtroGrupo: string = '';
+  filtroFecha: string = '';
 
   // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
@@ -28,12 +45,15 @@ export class AuditoriaComponent {
 
   onBuscar() {
     if (this.busquedaForm.valid) {
+      // Simulación de datos (En el futuro esto vendrá del servicio)
       this.prestaciones = [
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '420101', modulo: 'CONSULTA', cantidad: 1, total: 5000, importeDebitado: 0 },
-        { paciente: 'SEEHOFER NICOLAS', plan: 'SWISS MEDICAL', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '880101', modulo: 'LABORATORIO', cantidad: 5, total: 12500, importeDebitado: 2500, motivoDebito: 'Falta firma' }
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'CONSULTA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '1', cantidad: 1, total: 5000 },
+        { paciente: 'SEEHOFER NICOLAS', plan: 'SWISS MEDICAL', grupomodulo: 'MODULO B', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 5, total: 12500 },
+        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000 }
       ];
-      // Por ahora solo imprimimos en consola para ver que funciona
-      console.log('Datos a buscar en Java:', this.busquedaForm.value);
+
+      this.prepararFiltros();
+      this.aplicarFiltros();
     } else {
       // Como me pediste siempre la verdad: en producción es mejor pintar los bordes de rojo,
       // pero por ahora un alert nos sirve para saber que algo falta.
@@ -42,8 +62,73 @@ export class AuditoriaComponent {
     }
   }
 
+  prepararFiltros() {
+    // Extraemos valores únicos usando Set y ordenamos alfabéticamente
+    this.pacientesList = [...new Set(this.prestaciones.map(p => p.paciente))].sort();
+    this.profesionalesList = [...new Set(this.prestaciones.map(p => p.medico))].sort();
+    this.prestacionesList = [...new Set(this.prestaciones.map(p => p.modulo))].sort();
+    this.gruposList = [...new Set(this.prestaciones.map(p => p.grupomodulo))].sort();
+    this.fechasList = [...new Set(this.prestaciones.map(p => p.fecha))].sort();
+  }
+
+  aplicarFiltros() {
+    this.prestacionesFiltradas = this.prestaciones.filter(p => {
+      return (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
+        (this.filtroProfesional === '' || p.medico === this.filtroProfesional) &&
+        (this.filtroPrestacion === '' || p.modulo === this.filtroPrestacion) &&
+        (this.filtroGrupo === '' || p.grupomodulo === this.filtroGrupo) &&
+        (this.filtroFecha === '' || p.fecha === this.filtroFecha);
+    });
+  }
+
+  resetFiltros() {
+    this.filtroPaciente = '';
+    this.filtroProfesional = '';
+    this.filtroPrestacion = '';
+    this.filtroGrupo = '';
+    this.filtroFecha = '';
+    this.aplicarFiltros();
+  }
+
+  getIcono(col:string){
+    if(this.columnaOrden === col){
+      return this.direccionOrden === 'asc' ? '▲' : '▼';
+    }
+    return '';
+  }
+
   onLogout() {
     this.authService.logout();
     this.router.navigate(['/login']);
+  }
+
+  onSort(columna: keyof Prestacion) {
+    // Si cliqueamos la misma columna, invertimos la dirección
+    if (this.columnaOrden === columna) {
+      this.direccionOrden = this.direccionOrden === 'asc' ? 'desc' : 'asc';
+    } else {
+      // Si es una columna nueva, empezamos por ascendente
+      this.columnaOrden = columna;
+      this.direccionOrden = 'asc';
+    }
+
+    // Aplicamos el ordenamiento al array
+    this.prestacionesFiltradas.sort((a, b) => {
+      const valorA = a[columna];
+      const valorB = b[columna];
+
+      // Manejo de valores nulos o indefinidos
+      if (valorA == null) return 1;
+      if (valorB == null) return -1;
+
+      // Comparación lógica
+      if (valorA < valorB) {
+        return this.direccionOrden === 'asc' ? -1 : 1;
+      }
+      if (valorA > valorB) {
+        return this.direccionOrden === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
   }
 }
