@@ -10,9 +10,9 @@
         <label for="tipo">Tipo</label>
         <select id="tipo" formControlName="tipo">
           <option value="">Seleccionar...</option>
-          <option value="Factura">Factura (FC)</option>
-          <option value="NotaCredito">Nota de Crédito (NC)</option>
-          <option value="NotaDebito">Nota de Débito (ND)</option>
+          <option value="FC">Factura (FC)</option>
+          <option value="NC">Nota de Crédito (NC)</option>
+          <option value="ND">Nota de Débito (ND)</option>
         </select>
       </div>
 
@@ -37,7 +37,7 @@
     </form>
   </section>
 
-  <section class="filtros-dinamicos-section" *ngIf="prestaciones.length > 0">
+  <section class="filtros-dinamicos-section" *ngIf="prestacionesFiltradas.length > 0">
     <div class="filtros-grid">
 
       <div class="filter-item">
@@ -188,6 +188,7 @@
 
     <ng-template #sinDatos>
       <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+        {{ prestacionesFiltradas.length }}
         <p>No se encontraron prestaciones para este documento.</p>
       </div>
     </ng-template>
