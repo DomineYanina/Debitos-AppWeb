@@ -187,4 +187,24 @@ export class AuditoriaComponent {
   get totalCantidad(): number {
     return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.cantidad || 0), 0);
   }
+
+  // Devuelve true solo si hay datos y TODOS están seleccionados
+  get todasSeleccionadas(): boolean {
+    return this.prestacionesFiltradas.length > 0 &&
+      this.prestacionesFiltradas.every(p => p.seleccionada);
+  }
+
+// Función para el checkbox principal de la cabecera
+  toggleSelectAll(event: Event) {
+    const checkbox = event.target as HTMLInputElement;
+    const marcado = checkbox.checked;
+
+    // Aplicamos el cambio SOLO a lo que el usuario está viendo actualmente
+    this.prestacionesFiltradas.forEach(p => p.seleccionada = marcado);
+  }
+
+// Un getter útil para cuando necesites saber qué eligió el usuario
+  get registrosSeleccionados(): Prestacion[] {
+    return this.prestaciones.filter(p => p.seleccionada);
+  }
 }

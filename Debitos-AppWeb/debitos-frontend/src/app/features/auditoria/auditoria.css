@@ -384,3 +384,29 @@ border-top: 2px solid #cbd5e0;
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Ancho fijo y centrado para la columna de los checkboxes */
+.col-checkbox {
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  text-align: center;
+  padding: 0 !important; /* Para que el checkbox quede bien centrado */
+}
+
+/* Hacemos los checkboxes un poco más grandes para mejor clickeabilidad */
+.col-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Efecto visual cuando la fila está seleccionada */
+tr.row-selected {
+  background-color: #ebf8ff !important; /* Un celeste muy suave */
+}
+
+/* Aseguramos que el hover no pise el color de selección */
+.tabla-container table tbody tr.row-selected:hover {
+  background-color: #bee3f8 !important; /* Un celeste un poco más oscuro al pasar el mouse */
+}

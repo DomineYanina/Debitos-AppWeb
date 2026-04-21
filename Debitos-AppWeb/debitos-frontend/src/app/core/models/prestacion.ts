@@ -1,4 +1,5 @@
 export interface Prestacion {
+  seleccionada?: boolean; // Para marcar la prestación seleccionada en la tabla
   id?: number;
   paciente: string;
   plan: string;

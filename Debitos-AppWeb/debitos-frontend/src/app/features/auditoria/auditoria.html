@@ -126,6 +126,12 @@
       <table>
         <thead>
         <tr>
+          <th class="col-checkbox">
+            <input type="checkbox"
+                   [checked]="todasSeleccionadas"
+                   (change)="toggleSelectAll($event)"
+                   title="Seleccionar todo">
+          </th>
           <th (click)="onSort('paciente')" class="cursor-pointer">
             Paciente {{ getIcono('paciente') }}
           </th>
@@ -151,6 +157,9 @@
         </thead>
         <tbody>
         <tr *ngFor="let p of prestacionesFiltradas">
+          <td class="col-checkbox">
+            <input type="checkbox" [(ngModel)]="p.seleccionada">
+          </td>
           <td>{{ p.paciente }}</td>
           <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
           <td>{{ p.codigo }}</td>
