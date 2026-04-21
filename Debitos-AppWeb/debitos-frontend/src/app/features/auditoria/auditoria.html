@@ -32,7 +32,9 @@
       </div>
 
       <div class="form-group btn-container">
-        <button type="submit" [disabled]="busquedaForm.invalid" class="btn-buscar">Buscar</button>
+        <button type="submit" [disabled]="busquedaForm.invalid || cargando" class="btn-buscar">
+          {{ cargando ? 'Buscando...' : 'Buscar' }}
+        </button>
       </div>
     </form>
   </section>
@@ -118,6 +120,8 @@
   </section>
 
   <section class="grilla-section">
+    <div class="overlay-cargando" *ngIf="cargando">
+      <div class="spinner"></div> <p>Procesando documentos...</p> </div>
     <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
       <table>
         <thead>

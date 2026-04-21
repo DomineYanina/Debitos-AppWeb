@@ -14,6 +14,7 @@ import { AuditoriaService } from '../../core/services/auditoria';
   styleUrl: './auditoria.css'
 })
 export class AuditoriaComponent {
+  cargando : boolean = false;
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
   private authService = inject(AuthService);
@@ -52,19 +53,23 @@ export class AuditoriaComponent {
 
   onBuscar() {
     if (this.busquedaForm.valid) {
+      this.cargando = true; // Bloqueamos la UI
+
       this.auditoriaService.buscarPrestaciones(this.busquedaForm.value).subscribe({
         next: (data) => {
           this.prestaciones = data;
-
-          console.log('Registros cargados para vista:', this.prestaciones.length);
-
           this.prestacionesFiltradas = [...this.prestaciones];
 
           this.prepararFiltros(this.prestaciones);
-          this.aplicarFiltros(); // <-- Esto llena 'prestacionesFiltradas'
+          this.aplicarFiltros();
           this.cdr.detectChanges();
+
+          this.cargando = false; // Liberamos la UI (Éxito)
         },
-        error: (err) => alert('Error en el servidor')
+        error: (err) => {
+          alert('Error en el servidor');
+          this.cargando = false; // Liberamos la UI (Error)
+        }
       });
     }
   }
