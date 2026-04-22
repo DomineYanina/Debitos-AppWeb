@@ -119,9 +119,34 @@
 
   </section>
 
-  <section class="grilla-section">
+  <section class="grilla-section" style="position: relative;">
+
+    <div class="acciones-masivas-bar" *ngIf="registrosSeleccionados.length > 0 && !cargando">
+      <div class="info-seleccion">
+        <span class="badge">{{ registrosSeleccionados.length }}</span> filas seleccionadas
+      </div>
+
+      <div class="accion-controles">
+        <label for="motivoMasivo">Aplicar a seleccionadas:</label>
+        <select id="motivoMasivo" [(ngModel)]="motivoMasivoSeleccionado">
+          <option value="">Seleccionar motivo...</option>
+          <option *ngFor="let motivo of listaMotivos" [value]="motivo">{{ motivo }}</option>
+        </select>
+
+        <button
+          class="btn-aplicar-masivo"
+          (click)="aplicarMotivoMasivo()"
+          [disabled]="!motivoMasivoSeleccionado">
+          Aplicar
+        </button>
+      </div>
+    </div>
+
     <div class="overlay-cargando" *ngIf="cargando">
-      <div class="spinner"></div> <p>Procesando documentos...</p> </div>
+      <div class="spinner"></div>
+      <p>Procesando documentos...</p>
+    </div>
+
     <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
       <table>
         <thead>
@@ -156,9 +181,11 @@
         </tr>
         </thead>
         <tbody>
-        <tr *ngFor="let p of prestacionesFiltradas">
+        <tr *ngFor="let p of prestacionesPaginadas; trackBy: trackByPrestacion" [class.row-selected]="p.seleccionada">
           <td class="col-checkbox">
-            <input type="checkbox" [(ngModel)]="p.seleccionada">
+            <input type="checkbox"
+                   [checked]="p.seleccionada"
+                   (change)="toggleRow(p, $event)">
           </td>
           <td>{{ p.paciente }}</td>
           <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
@@ -177,26 +204,29 @@
           </td>
         </tr>
         </tbody>
+
         <tfoot>
         <tr class="fila-totales">
-          <td colspan="4">TOTALES VISIBLES</td>
-
-          <td class="text-center font-bold">
-            {{ totalCantidad }}
-          </td>
-
-          <td class="text-right font-bold">
-            {{ totalFacturado | currency }}
-          </td>
-
-          <td class="text-right font-bold text-danger">
-            {{ totalDebitado | currency }}
-          </td>
-
+          <td colspan="5">TOTALES VISIBLES</td>
+          <td class="text-center font-bold">{{ totalCantidad }}</td>
+          <td class="text-right font-bold">{{ totalFacturado | currency }}</td>
+          <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
           <td colspan="2"></td>
         </tr>
         </tfoot>
+
       </table>
+
+    </div>
+
+    <div class="paginador-container" *ngIf="totalPaginas > 1">
+      <button class="btn-pagina" (click)="cambiarPagina(1)" [disabled]="paginaActual === 1">Inicio</button>
+      <button class="btn-pagina" (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">Anterior</button>
+
+      <span class="info-pagina">Página <strong>{{ paginaActual }}</strong> de {{ totalPaginas }}</span>
+
+      <button class="btn-pagina" (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas">Siguiente</button>
+      <button class="btn-pagina" (click)="cambiarPagina(totalPaginas)" [disabled]="paginaActual === totalPaginas">Fin</button>
     </div>
 
     <ng-template #sinDatos>

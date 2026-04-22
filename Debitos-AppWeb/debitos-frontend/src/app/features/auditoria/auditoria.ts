@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
@@ -11,9 +11,76 @@ import { AuditoriaService } from '../../core/services/auditoria';
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule, FormsModule],
   templateUrl: './auditoria.html',
-  styleUrl: './auditoria.css'
+  styleUrl: './auditoria.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AuditoriaComponent {
+  listaMotivos: string[] = [
+    'Borrar',
+    'No aplica',
+    'Afiliado capitado',
+    'Afiliado dado de baja',
+    'Alta demorada criterio audotoria medica',
+    'Conteo de medicacion erroneo hojas de enfermeria no identificadas con fecha',
+    'Coseguro no cobrado',
+    'Debito 20% urgencia modulos',
+    'Debito 20% urgencia prestaciones',
+    'Debito por diferencia en la inclusiones modulares',
+    'Debito por falta de historia clinica',
+    'Debito por historias clinicas de distintos pacientes en la misma internacion',
+    'Debito por normas contractuales (ejemplo veda+vcc)',
+    'Debito por normas operativas',
+    'Debito segun normas del nomenclador',
+    'Débitos varios, recibido fuera de término por Tesorería, emisión de nc condicional al cobro de la factura',
+    'Demora en Inter Consulta',
+    'Demora en resolución quirúrgica',
+    'Diagnostico ilegible',
+    'Diagnostico no reconocido',
+    'Diferencia de aranceles',
+    'Diferencia de coseguro',
+    'Diferencia de criterio medico/prestaciones no justificadas',
+    'Diferencia de valor en medicamentos/descartables',
+    'Documentacion adulterada',
+    'Ecografia de partes blandas incluida en ecografia abdominal',
+    'Ecografia renal incluida en abdominal',
+    'El valor de los impuestos a abonar en el proceso de la refactura superan el importe a refacturar',
+    'Error de carga (codigos-inclusiones)',
+    'Error de Open',
+    'Error en el cálculo de porcentaje de códigos múltiples',
+    'Exceso de facturacion en medicamentos y descartables',
+    'Facturacion duplicada',
+    'Facturado a financiador incorrecto',
+    'Facturado con nota de departamento comercial',
+    'Falta de autorizacion',
+    'Falta de documentacion avalatoria',
+    'Falta de historia/informe.',
+    'Falta de troqueles-stickers de medicacion o materiales',
+    'Falta firma paciente',
+    'Falta firma profesional',
+    'Falta informe',
+    'Historia clinica incompleta',
+    'Honorarios profesionales pagados en forma directa',
+    'Incluido en APB',
+    'Iva mal facturado',
+    'Material/ Medicamentos provistos por O.S.',
+    'Material no utilizado',
+    'Medicación no suministrada',
+    'No indicado',
+    'No reconoce prestación',
+    'Orden sin diagnóstico',
+    'Prestacion fuera de termino',
+    'Prestacion incluida en otra',
+    'Prestacion incluida en otra liquidacion',
+    'Prestacion no homologada',
+    'Prestacion no justificada',
+    'Prestacion sin convenio',
+    'Presupuesto facturado con nota no reconocido',
+    'Presupuesto rechazado y facturados con indicacion comercial',
+    'Rechazo de refactura por mantener motivos de debitos originales',
+    'Supera tope anual'
+  ];
+
+  motivoMasivoSeleccionado: string = '';
   cargando : boolean = false;
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
@@ -43,6 +110,11 @@ export class AuditoriaComponent {
   soloSinMotivoRefactura: boolean = false;
   soloValorizadas: boolean = false;
 
+  prestacionesPaginadas: Prestacion[] = []; // Esta es la que va a leer el HTML
+  paginaActual: number = 1;
+  itemsPorPagina: number = 100;
+  totalPaginas: number = 1;
+
   // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
@@ -50,6 +122,29 @@ export class AuditoriaComponent {
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]]
   });
+
+  actualizarPaginacion() {
+    this.totalPaginas = Math.ceil(this.prestacionesFiltradas.length / this.itemsPorPagina);
+
+    // Validamos que la página actual no quede fuera de rango tras un filtro
+    if (this.paginaActual > this.totalPaginas && this.totalPaginas > 0) {
+      this.paginaActual = 1;
+    }
+
+    const indiceInicio = (this.paginaActual - 1) * this.itemsPorPagina;
+    const indiceFin = indiceInicio + this.itemsPorPagina;
+
+    // Le pasamos al HTML solo la porción que debe renderizar
+    this.prestacionesPaginadas = this.prestacionesFiltradas.slice(indiceInicio, indiceFin);
+  }
+
+  cambiarPagina(nuevaPagina: number) {
+    if (nuevaPagina >= 1 && nuevaPagina <= this.totalPaginas) {
+      this.paginaActual = nuevaPagina;
+      this.actualizarPaginacion();
+      this.cdr.detectChanges(); // Forzamos el renderizado de la nueva página
+    }
+  }
 
   onBuscar() {
     if (this.busquedaForm.valid) {
@@ -72,6 +167,25 @@ export class AuditoriaComponent {
         }
       });
     }
+  }
+
+  aplicarMotivoMasivo() {
+    const seleccionados = this.registrosSeleccionados; // Usamos el getter que creamos antes
+
+    if (seleccionados.length === 0 || !this.motivoMasivoSeleccionado) {
+      return;
+    }
+
+    // Si elige "Borrar", pasamos un string vacío para limpiar el campo
+    const valorParaAsignar = this.motivoMasivoSeleccionado === 'Borrar' ? '' : this.motivoMasivoSeleccionado;
+
+    // Angular se encarga de actualizar los inputs automáticamente al cambiar el modelo
+    seleccionados.forEach(p => {
+      p.motivoDebito = valorParaAsignar;
+    });
+
+    // Limpiamos el combo después de aplicar
+    this.motivoMasivoSeleccionado = '';
   }
 
   limpiarFiltro(campo: string) {
@@ -99,9 +213,7 @@ export class AuditoriaComponent {
   }
 
   aplicarFiltros() {
-    console.log(this.prestacionesFiltradas.length);
     this.prestacionesFiltradas = this.prestaciones.filter(p => {
-      // Filtros de combos (los que ya tenías)
       const cumpleCombos =
         (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
         (this.filtroProfesional === '' || p.medico === this.filtroProfesional) &&
@@ -109,16 +221,25 @@ export class AuditoriaComponent {
         (this.filtroGrupo === '' || p.grupomodulo === this.filtroGrupo) &&
         (this.filtroFecha === '' || p.fecha === this.filtroFecha);
 
-      // Filtros de Checkbox (Lógica inversa: si el check está activo, filtramos)
       const cumpleSinDebito = !this.soloSinMotivoDebito || (!p.motivoDebito || p.motivoDebito.trim() === '');
       const cumpleSinRefactura = !this.soloSinMotivoRefactura || (!p.motivoRefactura || p.motivoRefactura.trim() === '');
       const cumpleValorizadas = !this.soloValorizadas || (p.total > 0);
 
       return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas;
     });
-    console.log(this.prestacionesFiltradas.length);
-    // Actualizamos los combos en cascada
+
     this.prepararFiltros(this.prestacionesFiltradas);
+
+    // ¡CLAVE! Calculamos totales solo una vez después de filtrar
+    this.calcularTotales();
+    this.actualizarEstadoSeleccion();
+    this.actualizarPaginacion();
+  }
+
+  actualizarEstadoSeleccion() {
+    this.registrosSeleccionados = this.prestacionesFiltradas.filter(p => p.seleccionada);
+    this.todasSeleccionadas = this.prestacionesFiltradas.length > 0 &&
+      this.registrosSeleccionados.length === this.prestacionesFiltradas.length;
   }
 
   resetFiltros() {
@@ -174,37 +295,46 @@ export class AuditoriaComponent {
       }
       return 0;
     });
+    this.actualizarPaginacion();
   }
 
-  get totalFacturado(): number {
-    return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.total || 0), 0);
-  }
-
-  get totalDebitado(): number {
-    return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.importeDebitado || 0), 0);
-  }
-
-  get totalCantidad(): number {
-    return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.cantidad || 0), 0);
-  }
-
-  // Devuelve true solo si hay datos y TODOS están seleccionados
-  get todasSeleccionadas(): boolean {
-    return this.prestacionesFiltradas.length > 0 &&
-      this.prestacionesFiltradas.every(p => p.seleccionada);
-  }
+  totalFacturado: number = 0;
+  totalDebitado: number = 0;
+  totalCantidad: number = 0;
+  todasSeleccionadas: boolean = false;
 
 // Función para el checkbox principal de la cabecera
   toggleSelectAll(event: Event) {
     const checkbox = event.target as HTMLInputElement;
     const marcado = checkbox.checked;
 
-    // Aplicamos el cambio SOLO a lo que el usuario está viendo actualmente
+    // Actualizamos toda la lista filtrada (rápido en memoria)
     this.prestacionesFiltradas.forEach(p => p.seleccionada = marcado);
+    this.actualizarEstadoSeleccion();
+    // El HTML solo actualizará las 100 filas de 'prestacionesPaginadas' gracias a OnPush
   }
 
-// Un getter útil para cuando necesites saber qué eligió el usuario
-  get registrosSeleccionados(): Prestacion[] {
-    return this.prestaciones.filter(p => p.seleccionada);
+  registrosSeleccionados: Prestacion[] = [];
+
+  trackByPrestacion(index: number, p: Prestacion): any {
+    return p.id || index;
+  }
+
+  toggleRow(p: Prestacion, event: Event) {
+    const checkbox = event.target as HTMLInputElement;
+    p.seleccionada = checkbox.checked;
+    this.actualizarEstadoSeleccion();
+  }
+
+  calcularTotales() {
+    this.totalFacturado = 0;
+    this.totalDebitado = 0;
+    this.totalCantidad = 0;
+
+    for (const p of this.prestacionesFiltradas) {
+      this.totalFacturado += (p.total || 0);
+      this.totalDebitado += (p.importeDebitado || 0);
+      this.totalCantidad += (p.cantidad || 0);
+    }
   }
 }
