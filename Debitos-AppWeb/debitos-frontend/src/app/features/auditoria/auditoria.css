@@ -253,11 +253,14 @@ min-width: 160px;
 .checkbox-filters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 15px;
-  padding-top: 15px;
+  justify-content: space-between; /* CRÍTICO: Separa los 3 checkboxes uniformemente */
+  height: 100%; /* Ocupa el mismo alto total que las otras columnas */
+  margin: 0;
+  padding: 0;
+  /* Borramos el "gap: 12px" y el "justify-content: center" que tenías antes */
 }
 
+/* Mantenemos el check-item alineado internamente */
 .check-item {
   display: flex;
   align-items: center;
@@ -706,4 +709,136 @@ tr.row-selected {
 .tabla-container table td.col-refactura,
 .tabla-container table td.col-aceptado {
   padding: 0.4rem !important;
+}
+/* ==========================================================================
+   SECCIÓN DE FILTROS DINÁMICOS (GRID 4 COLUMNAS)
+   ========================================================================== */
+
+.filtros-dinamicos-section {
+  display: flex;
+  background: #f8fafc;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  align-content: center;
+  justify-content: space-evenly;
+  align-items: stretch;
+
+}
+
+.filtros-grid {
+  display: grid;
+  /* CRÍTICO: Agregamos un segundo "auto" al final para la 5ta columna */
+  grid-template-columns: repeat(3, minmax(180px, 1fr)) auto auto;
+  gap: 2rem;
+  align-items: stretch;
+}
+
+/* El nuevo contenedor de las columnas 1, 2 y 3 */
+.filtro-columna {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* CRÍTICO: Pega el 1er elemento arriba y el 2do abajo */
+  height: 100%;
+  /* Borramos el "gap: 1.5rem" que tenías acá para que space-between haga el trabajo */
+}
+
+.filter-item {
+  /* Ya no necesita min-width porque el grid lo controla, pero ocupa todo su espacio */
+  width: 100%;
+}
+
+.filter-item select {
+  width: 100%; /* Obliga al select a llegar hasta el borde de su columna */
+  padding: 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #cbd5e0;
+  font-size: 0.85rem;
+}
+
+/* Modificamos el botón para que se empuje al fondo de la Columna 3 */
+.filtros-grid .filtro-columna .btn-clear {
+  margin-top: auto; /* Truco de flexbox: empuja el elemento hasta el final abajo */
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filtros-grid .filtro-columna .btn-clear:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* Limpieza de la Columna 4 (Checkboxes) para que alinee perfecto */
+.checkbox-filters {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Los centra verticalmente en el bloque */
+  gap: 12px;
+  /* IMPORTANTE: Le saqué el margin-top y padding-top rígido que tenían antes */
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.btn-clear {
+  margin-top: 0; /* Borramos cualquier margen automático anterior */
+  width: 100%; /* Hacemos que mida igual de ancho que el selector de Fecha */
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+}
+.resumen-contadores {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  border-left: 2px solid #e2e8f0; /* Línea separadora sutil desde los checkboxes */
+  padding-left: 1.5rem;
+}
+
+.contador-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Le da un poco de volumen */
+}
+
+.contador-label {
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.contador-valor {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.text-success {
+  color: #16a34a !important; /* Verde oscuro para refacturación (positivo para ustedes) */
 }

@@ -42,59 +42,70 @@
   <section class="filtros-dinamicos-section" *ngIf="prestacionesFiltradas.length > 0">
     <div class="filtros-grid">
 
-      <div class="filter-item">
-        <div class="label-container">
-          <label>Paciente</label>
-          <button *ngIf="filtroPaciente" class="btn-undo" (click)="limpiarFiltro('paciente')">✕</button>
+      <div class="filtro-columna">
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Paciente</label>
+            <button *ngIf="filtroPaciente" class="btn-undo" (click)="limpiarFiltro('paciente')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroPaciente" (change)="aplicarFiltros()">
+            <option value="">Todos</option>
+            <option *ngFor="let item of pacientesList" [value]="item">{{ item }}</option>
+          </select>
         </div>
-        <select [(ngModel)]="filtroPaciente" (change)="aplicarFiltros()">
-          <option value="">Todos</option>
-          <option *ngFor="let item of pacientesList" [value]="item">{{ item }}</option>
-        </select>
+
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Profesional</label>
+            <button *ngIf="filtroProfesional" class="btn-undo" (click)="limpiarFiltro('profesional')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
+            <option value="">Todos</option>
+            <option *ngFor="let item of profesionalesList" [value]="item">{{ item }}</option>
+          </select>
+        </div>
       </div>
 
-      <div class="filter-item">
-        <div class="label-container">
-          <label>Profesional</label>
-          <button *ngIf="filtroProfesional" class="btn-undo" (click)="limpiarFiltro('profesional')">✕</button>
+      <div class="filtro-columna">
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Prestación</label>
+            <button *ngIf="filtroPrestacion" class="btn-undo" (click)="limpiarFiltro('prestacion')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroPrestacion" (change)="aplicarFiltros()">
+            <option value="">Todas</option>
+            <option *ngFor="let item of prestacionesList" [value]="item">{{ item }}</option>
+          </select>
         </div>
-        <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
-          <option value="">Todos</option>
-          <option *ngFor="let item of profesionalesList" [value]="item">{{ item }}</option>
-        </select>
+
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Grupo</label>
+            <button *ngIf="filtroGrupo" class="btn-undo" (click)="limpiarFiltro('grupo')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroGrupo" (change)="aplicarFiltros()">
+            <option value="">Todos</option>
+            <option *ngFor="let item of gruposList" [value]="item">{{ item }}</option>
+          </select>
+        </div>
       </div>
 
-      <div class="filter-item">
-        <div class="label-container">
-          <label>Prestación</label>
-          <button *ngIf="filtroPrestacion" class="btn-undo" (click)="limpiarFiltro('prestacion')">✕</button>
+      <div class="filtro-columna">
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Fecha</label>
+            <button *ngIf="filtroFecha" class="btn-undo" (click)="limpiarFiltro('fecha')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
+            <option value="">Todas</option>
+            <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
+          </select>
         </div>
-        <select [(ngModel)]="filtroPrestacion" (change)="aplicarFiltros()">
-          <option value="">Todas</option>
-          <option *ngFor="let item of prestacionesList" [value]="item">{{ item }}</option>
-        </select>
-      </div>
+        <div class="filter-item">
+          <button class="btn-clear" (click)="resetFiltros()">Limpiar Todo</button>
+        </div>
 
-      <div class="filter-item">
-        <div class="label-container">
-          <label>Grupo</label>
-          <button *ngIf="filtroGrupo" class="btn-undo" (click)="limpiarFiltro('grupo')">✕</button>
-        </div>
-        <select [(ngModel)]="filtroGrupo" (change)="aplicarFiltros()">
-          <option value="">Todos</option>
-          <option *ngFor="let item of gruposList" [value]="item">{{ item }}</option>
-        </select>
-      </div>
 
-      <div class="filter-item">
-        <div class="label-container">
-          <label>Fecha</label>
-          <button *ngIf="filtroFecha" class="btn-undo" (click)="limpiarFiltro('fecha')">✕</button>
-        </div>
-        <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
-          <option value="">Todas</option>
-          <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
-        </select>
       </div>
 
       <div class="checkbox-filters">
@@ -114,9 +125,21 @@
         </div>
       </div>
 
-      <button class="btn-clear" (click)="resetFiltros()">Limpiar Todo</button>
     </div>
-
+    <div class="resumen-contadores">
+      <div class="contador-box">
+        <span class="contador-label">Aceptados:</span>
+        <span class="contador-valor">{{ cantAceptados }}</span>
+      </div>
+      <div class="contador-box">
+        <span class="contador-label">Total Debitado:</span>
+        <span class="contador-valor text-danger">{{ totalDebitadoAceptado | currency }}</span>
+      </div>
+      <div class="contador-box">
+        <span class="contador-label">Total a Refacturar:</span>
+        <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
+      </div>
+    </div>
   </section>
 
   <section class="grilla-section" style="position: relative;">
@@ -217,27 +240,27 @@
             <td class="text-right font-bold bg-celeste">{{ p.total | currency }}</td>
 
             <td class="bg-gris col-aceptado">
-              <select [(ngModel)]="p.debitoAceptado" class="input-grilla">
+              <select [(ngModel)]="p.debitoAceptado"(change)="calcularTotales()" class="input-grilla">
                 <option value=""></option>
                 <option value="SI">SI</option>
                 <option value="NO">NO</option>
               </select>
             </td>
             <td class="bg-gris">
-              <select [(ngModel)]="p.motivoDebito" class="input-grilla">
+              <select [(ngModel)]="p.motivoDebito" (ngModelChange)="alCambiarMotivoDebito(p)" class="input-grilla">
                 <option value=""></option>
                 <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
               </select>
             </td>
             <td class="text-center bg-gris">{{ p.diasFacturados }}</td>
-            <td class="bg-gris col-debito"><input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla"></td>
+            <td class="bg-gris col-debito"><input type="number" [(ngModel)]="p.importeDebitado" (ngModelChange)="calcularTotales()" class="input-grilla"></td>
             <td class="bg-gris">
               <select [(ngModel)]="p.motivoRefactura" class="input-grilla">
                 <option value=""></option>
                 <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
               </select>
             </td>
-            <td class="bg-gris"><input type="number" [(ngModel)]="p.importeRefactura" class="input-grilla"></td>
+            <td class="bg-gris"><input type="number" [(ngModel)]="p.importeRefactura" (ngModelChange)="calcularTotales()" class="input-grilla"></td>
 
             <td class="bg-naranja"><input type="text" [(ngModel)]="p.comentarios" class="input-grilla" placeholder="Comentarios..."></td>
 

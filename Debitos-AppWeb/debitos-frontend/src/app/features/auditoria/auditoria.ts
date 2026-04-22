@@ -153,6 +153,9 @@ export class AuditoriaComponent {
   paginaActual: number = 1;
   itemsPorPagina: number = 100;
   totalPaginas: number = 1;
+  cantAceptados: number = 0;
+  totalDebitadoAceptado: number = 0;
+  totalRefacturarRechazado: number = 0;
 
   // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
@@ -187,6 +190,7 @@ export class AuditoriaComponent {
     });
 
     this.motivoRefacturaMasivoSeleccionado = '';
+    this.calcularTotales();
     this.cdr.detectChanges(); // Vital para OnPush
   }
 
@@ -200,6 +204,7 @@ export class AuditoriaComponent {
     });
 
     this.debitoAceptadoMasivoSeleccionado = '';
+    this.calcularTotales();
     this.cdr.detectChanges(); // Vital para que la pantalla se actualice
   }
 
@@ -235,23 +240,42 @@ export class AuditoriaComponent {
   }
 
   aplicarMotivoMasivo() {
-    const seleccionados = this.registrosSeleccionados; // Usamos el getter que creamos antes
-
-    if (seleccionados.length === 0 || !this.motivoMasivoSeleccionado) {
+    if (this.registrosSeleccionados.length === 0 || !this.motivoMasivoSeleccionado) {
       return;
     }
 
-    // Si elige "Borrar", pasamos un string vacío para limpiar el campo
-    const valorParaAsignar = this.motivoMasivoSeleccionado === 'Borrar' ? '' : this.motivoMasivoSeleccionado;
+    const motivo = this.motivoMasivoSeleccionado;
 
-    // Angular se encarga de actualizar los inputs automáticamente al cambiar el modelo
-    seleccionados.forEach(p => {
-      p.motivoDebito = valorParaAsignar;
+    this.registrosSeleccionados.forEach(p => {
+      if (motivo === 'Borrar') {
+        p.motivoDebito = '';
+        p.importeDebitado = 0; // Vaciamos también el importe
+      } else {
+        p.motivoDebito = motivo;
+        // Si no es "No aplica", le clavamos automáticamente el total neto de esa prestación
+        if (motivo !== 'No aplica') {
+          p.importeDebitado = p.total;
+        }
+      }
     });
 
-    // Limpiamos el combo después de aplicar
     this.motivoMasivoSeleccionado = '';
+
+    // CRÍTICO: Recalcular los contadores (KPIs) y totales después de la modificación masiva
+    this.calcularTotales();
     this.cdr.detectChanges();
+  }
+
+  alCambiarMotivoDebito(p: Prestacion) {
+    if (p.motivoDebito === 'Borrar') {
+      p.motivoDebito = '';
+      p.importeDebitado = 0;
+    } else if (p.motivoDebito && p.motivoDebito !== 'No aplica') {
+      p.importeDebitado = p.total;
+    }
+
+    // Recalculamos totales al instante
+    this.calcularTotales();
   }
 
   limpiarFiltro(campo: string) {
@@ -405,13 +429,28 @@ export class AuditoriaComponent {
     this.totalCoseguroGlobal = 0;
     this.totalRefacturadoGlobal = 0;
 
+    // Reiniciamos los nuevos contadores
+    this.cantAceptados = 0;
+    this.totalDebitadoAceptado = 0;
+    this.totalRefacturarRechazado = 0;
+
     for (const p of this.prestacionesFiltradas) {
+      // Sumas generales
       this.totalFacturado += (p.total || 0);
       this.totalDebitado += (p.importeDebitado || 0);
       this.totalCantidad += (p.cantidad || 0);
       this.totalNetoGlobal += (p.totalNeto || 0);
       this.totalCoseguroGlobal += (p.coseguro || 0);
       this.totalRefacturadoGlobal += (p.importeRefactura || 0);
+
+      // Lógica de los nuevos KPIs
+      if (p.debitoAceptado === 'SI' || p.debitoAceptado === 'PARCIAL') {
+        this.cantAceptados++;
+        this.totalDebitadoAceptado += (p.importeDebitado || 0);
+      } else if (p.debitoAceptado === 'NO') {
+        this.totalRefacturarRechazado += (p.importeRefactura || 0);
+      }
     }
+    this.cdr.detectChanges();
   }
 }
