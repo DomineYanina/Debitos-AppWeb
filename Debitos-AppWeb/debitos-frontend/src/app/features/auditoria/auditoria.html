@@ -10,9 +10,9 @@
         <label for="tipo">Tipo</label>
         <select id="tipo" formControlName="tipo">
           <option value="">Seleccionar...</option>
-          <option value="Factura">Factura (FC)</option>
-          <option value="NotaCredito">Nota de Crédito (NC)</option>
-          <option value="NotaDebito">Nota de Débito (ND)</option>
+          <option value="FC">Factura (FC)</option>
+          <option value="NC">Nota de Crédito (NC)</option>
+          <option value="ND">Nota de Débito (ND)</option>
         </select>
       </div>
 
@@ -32,12 +32,14 @@
       </div>
 
       <div class="form-group btn-container">
-        <button type="submit" [disabled]="busquedaForm.invalid" class="btn-buscar">Buscar</button>
+        <button type="submit" [disabled]="busquedaForm.invalid || cargando" class="btn-buscar">
+          {{ cargando ? 'Buscando...' : 'Buscar' }}
+        </button>
       </div>
     </form>
   </section>
 
-  <section class="filtros-dinamicos-section" *ngIf="prestaciones.length > 0">
+  <section class="filtros-dinamicos-section" *ngIf="prestacionesFiltradas.length > 0">
     <div class="filtros-grid">
 
       <div class="filter-item">
@@ -118,10 +120,18 @@
   </section>
 
   <section class="grilla-section">
+    <div class="overlay-cargando" *ngIf="cargando">
+      <div class="spinner"></div> <p>Procesando documentos...</p> </div>
     <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
       <table>
         <thead>
         <tr>
+          <th class="col-checkbox">
+            <input type="checkbox"
+                   [checked]="todasSeleccionadas"
+                   (change)="toggleSelectAll($event)"
+                   title="Seleccionar todo">
+          </th>
           <th (click)="onSort('paciente')" class="cursor-pointer">
             Paciente {{ getIcono('paciente') }}
           </th>
@@ -147,6 +157,9 @@
         </thead>
         <tbody>
         <tr *ngFor="let p of prestacionesFiltradas">
+          <td class="col-checkbox">
+            <input type="checkbox" [(ngModel)]="p.seleccionada">
+          </td>
           <td>{{ p.paciente }}</td>
           <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
           <td>{{ p.codigo }}</td>
@@ -188,6 +201,7 @@
 
     <ng-template #sinDatos>
       <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+        {{ prestacionesFiltradas.length }}
         <p>No se encontraron prestaciones para este documento.</p>
       </div>
     </ng-template>

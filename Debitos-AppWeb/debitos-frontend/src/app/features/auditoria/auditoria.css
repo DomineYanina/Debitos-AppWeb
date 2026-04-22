@@ -1,6 +1,6 @@
 .auditoria-container {
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 90%;
   margin: 0 auto;
 
   .page-header {
@@ -297,3 +297,116 @@ border-top: 2px solid #cbd5e0;
    tfoot tr td {
      border-top: 2px solid #cbd5e0;
    }
+
+/* 1. Definimos el alto máximo y activamos el scroll */
+.tabla-container {
+  max-height: 60vh; /* El 60% del alto visible de la pantalla. Podés cambiarlo a px fijos ej: 500px */
+  overflow-y: auto; /* Muestra la barra vertical solo si es necesario */
+  overflow-x: auto; /* Por si la tabla es muy ancha en pantallas chicas */
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+/* 2. Fijamos el Encabezado (Títulos de columnas) */
+.tabla-container thead th {
+  position: sticky;
+  top: 0; /* Se pega al borde superior del contenedor */
+  background-color: #f8fafc; /* CRÍTICO: Debe tener color sólido, si es transparente se mezclan las letras */
+  z-index: 10; /* Lo mantiene por encima de las filas de datos */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Una sombra sutil para separar el título del contenido */
+}
+
+/* 3. Fijamos el Pie de página (Tus totales) */
+.tabla-container tfoot td {
+  position: sticky;
+  bottom: 0; /* Se pega al borde inferior del contenedor */
+  background-color: #f1f5f9; /* El color gris suave que ya tenías */
+  z-index: 10;
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.05); /* Sombra hacia arriba */
+}
+
+/* Un pequeño fix estético para la barra de scroll (opcional) */
+.tabla-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.tabla-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+.tabla-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.tabla-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+/* Pantalla de carga superpuesta */
+.overlay-cargando {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8); /* Fondo blanco con 80% de opacidad */
+  z-index: 50; /* Lo pone por encima de los encabezados fijos */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px; /* Que coincida con tu tabla */
+}
+
+.overlay-cargando p {
+  margin-top: 15px;
+  color: #3b82f6; /* Un azul que combine con tu botón */
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* Animación del Spinner */
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #e2e8f0; /* Borde gris claro */
+  border-top: 5px solid #3b82f6; /* Borde superior azul */
+  border-radius: 50%;
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Un estilo opcional para que el botón apagado se vea distinto */
+.btn-buscar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Ancho fijo y centrado para la columna de los checkboxes */
+.col-checkbox {
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  text-align: center;
+  padding: 0 !important; /* Para que el checkbox quede bien centrado */
+}
+
+/* Hacemos los checkboxes un poco más grandes para mejor clickeabilidad */
+.col-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Efecto visual cuando la fila está seleccionada */
+tr.row-selected {
+  background-color: #ebf8ff !important; /* Un celeste muy suave */
+}
+
+/* Aseguramos que el hover no pise el color de selección */
+.tabla-container table tbody tr.row-selected:hover {
+  background-color: #bee3f8 !important; /* Un celeste un poco más oscuro al pasar el mouse */
+}

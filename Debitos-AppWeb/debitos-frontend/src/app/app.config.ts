@@ -1,11 +1,12 @@
 import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
-import { provideHttpClient } from '@angular/common/http'; // <-- Importar esto
+import {provideHttpClient, withInterceptors} from '@angular/common/http';
+import {authInterceptor} from './core/interceptors/auth-interceptor'; // <-- Importar esto
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    provideHttpClient() // <-- Habilitar llamadas al backend
+    provideHttpClient(withInterceptors([authInterceptor])) // <-- Habilitar llamadas al backend
   ]
 };

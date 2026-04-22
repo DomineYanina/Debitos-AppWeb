@@ -1,9 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectorRef } from '@angular/core';
 import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
+import { AuditoriaService } from '../../core/services/auditoria';
 
 @Component({
   selector: 'app-auditoria',
@@ -13,13 +14,16 @@ import { CommonModule } from '@angular/common';
   styleUrl: './auditoria.css'
 })
 export class AuditoriaComponent {
+  cargando : boolean = false;
   private fb = inject(FormBuilder);
+  private cdr = inject(ChangeDetectorRef);
   private authService = inject(AuthService);
   private router = inject(Router);
   prestaciones: Prestacion[] = [];
   prestacionesFiltradas: Prestacion[] = [];
   columnaOrden: string = '';
   direccionOrden: 'asc' | 'desc' = 'asc';
+  private auditoriaService = inject(AuditoriaService);
 
   // Listas para llenar los combos
   pacientesList: string[] = [];
@@ -49,21 +53,24 @@ export class AuditoriaComponent {
 
   onBuscar() {
     if (this.busquedaForm.valid) {
-      // Simulación de datos (En el futuro esto vendrá del servicio)
-      this.prestaciones = [
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'CONSULTA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '1', cantidad: 1, total: 0, motivoDebito: 'Falta Firma', motivoRefactura: '' },
-        { paciente: 'SEEHOFER NICOLAS', plan: 'SWISS MEDICAL', grupomodulo: 'MODULO B', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 5, total: 12500, motivoDebito: '', motivoRefactura: 'Falta firma' },
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'RADIOGRAFIA', medico: 'DR. PEREZ', fecha: '2026-04-20', codigo: '3', cantidad: 1, total: 3000, motivoDebito: 'Falta Firma', motivoRefactura: '' },
-        { paciente: 'DOMINE YANINA', plan: 'OSDE 210', grupomodulo: 'MODULO A', modulo: 'LABORATORIO', medico: 'DRA. GARCIA', fecha: '2026-04-19', codigo: '2', cantidad: 1, total: 3000, motivoDebito: '', motivoRefactura: '' }
-      ];
+      this.cargando = true; // Bloqueamos la UI
 
-      this.prepararFiltros(this.prestaciones);
-      this.aplicarFiltros();
-    } else {
-      // Como me pediste siempre la verdad: en producción es mejor pintar los bordes de rojo,
-      // pero por ahora un alert nos sirve para saber que algo falta.
-      this.busquedaForm.markAllAsTouched();
-      alert('Por favor, completá los 4 campos correctamente.');
+      this.auditoriaService.buscarPrestaciones(this.busquedaForm.value).subscribe({
+        next: (data) => {
+          this.prestaciones = data;
+          this.prestacionesFiltradas = [...this.prestaciones];
+
+          this.prepararFiltros(this.prestaciones);
+          this.aplicarFiltros();
+          this.cdr.detectChanges();
+
+          this.cargando = false; // Liberamos la UI (Éxito)
+        },
+        error: (err) => {
+          alert('Error en el servidor');
+          this.cargando = false; // Liberamos la UI (Error)
+        }
+      });
     }
   }
 
@@ -88,9 +95,11 @@ export class AuditoriaComponent {
     this.prestacionesList = [...new Set(datos.map(p => p.modulo))].sort();
     this.gruposList = [...new Set(datos.map(p => p.grupomodulo))].sort();
     this.fechasList = [...new Set(datos.map(p => p.fecha))].sort();
+    //debugger;
   }
 
   aplicarFiltros() {
+    console.log(this.prestacionesFiltradas.length);
     this.prestacionesFiltradas = this.prestaciones.filter(p => {
       // Filtros de combos (los que ya tenías)
       const cumpleCombos =
@@ -107,7 +116,7 @@ export class AuditoriaComponent {
 
       return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas;
     });
-
+    console.log(this.prestacionesFiltradas.length);
     // Actualizamos los combos en cascada
     this.prepararFiltros(this.prestacionesFiltradas);
   }
@@ -177,5 +186,25 @@ export class AuditoriaComponent {
 
   get totalCantidad(): number {
     return this.prestacionesFiltradas.reduce((sum, p) => sum + (p.cantidad || 0), 0);
+  }
+
+  // Devuelve true solo si hay datos y TODOS están seleccionados
+  get todasSeleccionadas(): boolean {
+    return this.prestacionesFiltradas.length > 0 &&
+      this.prestacionesFiltradas.every(p => p.seleccionada);
+  }
+
+// Función para el checkbox principal de la cabecera
+  toggleSelectAll(event: Event) {
+    const checkbox = event.target as HTMLInputElement;
+    const marcado = checkbox.checked;
+
+    // Aplicamos el cambio SOLO a lo que el usuario está viendo actualmente
+    this.prestacionesFiltradas.forEach(p => p.seleccionada = marcado);
+  }
+
+// Un getter útil para cuando necesites saber qué eligió el usuario
+  get registrosSeleccionados(): Prestacion[] {
+    return this.prestaciones.filter(p => p.seleccionada);
   }
 }
