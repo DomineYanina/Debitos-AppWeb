@@ -152,69 +152,73 @@
         <thead>
         <tr>
           <th class="col-checkbox">
-            <input type="checkbox"
-                   [checked]="todasSeleccionadas"
-                   (change)="toggleSelectAll($event)"
-                   title="Seleccionar todo">
+            <input type="checkbox" [checked]="todasSeleccionadas" (change)="toggleSelectAll($event)" title="Seleccionar todo">
           </th>
-          <th (click)="onSort('paciente')" class="cursor-pointer">
-            Paciente {{ getIcono('paciente') }}
-          </th>
-          <th (click)="onSort('fecha')" class="cursor-pointer">
-            Fecha {{ getIcono('fecha') }}
-          </th>
-          <th (click)="onSort('codigo')" class="cursor-pointer">
-            Código {{ getIcono('codigo') }}
-          </th>
-          <th (click)="onSort('modulo')" class="cursor-pointer">
-            Módulo/Prestación {{ getIcono('modulo') }}
-          </th>
-          <th (click)="onSort('cantidad')" class="cursor-pointer text-center">
-            Cant. {{ getIcono('cantidad') }}
-          </th>
-          <th (click)="onSort('total')" class="cursor-pointer text-right">
-            Total Fact. {{ getIcono('total') }}
-          </th>
-          <th>Imp. Débito</th>
-          <th>Motivo</th>
-          <th>Acciones</th>
+          <th appResizable (click)="onSort('paciente')" class="cursor-pointer">Paciente {{ getIcono('paciente') }}</th>
+          <th appResizable (click)="onSort('plan')" class="cursor-pointer">Plan {{ getIcono('plan') }}</th>
+          <th appResizable (click)="onSort('efector')" class="cursor-pointer">Efector {{ getIcono('efector') }}</th>
+          <th appResizable (click)="onSort('medico')" class="cursor-pointer">Médico {{ getIcono('medico') }}</th>
+          <th appResizable (click)="onSort('fecha')" class="cursor-pointer">Fecha {{ getIcono('fecha') }}</th>
+          <th appResizable (click)="onSort('codigo')" class="cursor-pointer">Código {{ getIcono('codigo') }}</th>
+          <th appResizable (click)="onSort('descripcion')" class="cursor-pointer">Descripción {{ getIcono('descripcion') }}</th>
+          <th appResizable (click)="onSort('cantidad')" class="cursor-pointer text-center">Cant. {{ getIcono('cantidad') }}</th>
+          <th appResizable (click)="onSort('totalNeto')" class="cursor-pointer text-right">Total Neto {{ getIcono('totalNeto') }}</th>
+          <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right">Coseguro {{ getIcono('coseguro') }}</th>
+          <th appResizable (click)="onSort('total')" class="cursor-pointer text-right">Total {{ getIcono('total') }}</th>
+          <th appResizable>Débito Aceptado</th>
+          <th appResizable>Motivo de Débito</th>
+          <th appResizable class="text-center">Días Fact.</th>
+          <th appResizable class="text-right">Imp. Debitado</th>
+          <th appResizable>Motivo Refactura</th>
+          <th appResizable class="text-right">Imp. Refactura</th>
+          <th appResizable>Comentarios</th>
         </tr>
         </thead>
         <tbody>
         <tr *ngFor="let p of prestacionesPaginadas; trackBy: trackByPrestacion" [class.row-selected]="p.seleccionada">
           <td class="col-checkbox">
-            <input type="checkbox"
-                   [checked]="p.seleccionada"
-                   (change)="toggleRow(p, $event)">
+            <input type="checkbox" [checked]="p.seleccionada" (change)="toggleRow(p, $event)">
           </td>
           <td>{{ p.paciente }}</td>
+          <td>{{ p.plan }}</td>
+          <td>{{ p.efector }}</td>
+          <td>{{ p.medico }}</td>
           <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
           <td>{{ p.codigo }}</td>
-          <td>{{ p.modulo }}</td>
+          <td>{{ p.descripcion }}</td>
           <td class="text-center">{{ p.cantidad }}</td>
-          <td class="text-right">{{ p.total | currency }}</td>
+          <td class="text-right">{{ p.totalNeto | currency }}</td>
+          <td class="text-right">{{ p.coseguro | currency }}</td>
+          <td class="text-right font-bold">{{ p.total | currency }}</td>
+
           <td>
-            <input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla">
+            <select [(ngModel)]="p.debitoAceptado" class="input-grilla">
+              <option value=""></option>
+              <option value="SI">SI</option>
+              <option value="NO">NO</option>
+              <option value="PARCIAL">PARCIAL</option>
+            </select>
           </td>
-          <td>
-            <input type="text" [(ngModel)]="p.motivoDebito" class="input-grilla" placeholder="Motivo...">
-          </td>
-          <td>
-            <button class="btn-accion">Historial</button>
-          </td>
+          <td><input type="text" [(ngModel)]="p.motivoDebito" class="input-grilla" placeholder="Motivo..."></td>
+          <td class="text-center">{{ p.diasFacturados }}</td>
+          <td><input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla"></td>
+          <td><input type="text" [(ngModel)]="p.motivoRefactura" class="input-grilla" placeholder="Motivo Refact..."></td>
+          <td><input type="number" [(ngModel)]="p.importeRefactura" class="input-grilla"></td>
+          <td><input type="text" [(ngModel)]="p.comentarios" class="input-grilla" placeholder="Comentarios..."></td>
+
         </tr>
         </tbody>
-
         <tfoot>
         <tr class="fila-totales">
-          <td colspan="5">TOTALES VISIBLES</td>
+          <td colspan="8">TOTALES VISIBLES</td>
           <td class="text-center font-bold">{{ totalCantidad }}</td>
+          <td class="text-right font-bold">{{ totalNetoGlobal | currency }}</td>
+          <td class="text-right font-bold">{{ totalCoseguroGlobal | currency }}</td>
           <td class="text-right font-bold">{{ totalFacturado | currency }}</td>
-          <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
-          <td colspan="2"></td>
-        </tr>
+          <td colspan="3"></td> <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
+          <td></td> <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
+          <td colspan="2"></td> </tr>
         </tfoot>
-
       </table>
 
     </div>

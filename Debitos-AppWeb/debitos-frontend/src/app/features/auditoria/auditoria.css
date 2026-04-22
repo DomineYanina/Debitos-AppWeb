@@ -521,3 +521,42 @@ tr.row-selected {
   color: #475569;
   font-size: 0.9rem;
 }
+
+/* ==========================================================================
+   CONGELAR COLUMNA DE CHECKBOXES (FIJA A LA IZQUIERDA)
+   ========================================================================== */
+
+/* 1. Posicionamiento base para la columna entera (th y td) */
+.tabla-container th.col-checkbox,
+.tabla-container td.col-checkbox {
+  position: sticky;
+  left: 0; /* Se pega al borde izquierdo del scroll */
+  border-right: 1px solid #e2e8f0; /* Una línea sutil para separar la columna fija del resto */
+}
+
+/* 2. El Encabezado (TH) del checkbox */
+.tabla-container th.col-checkbox {
+  z-index: 20 !important; /* CRÍTICO: Debe ser mayor que el z-index: 10 de los otros th */
+  background-color: #f8fafc; /* Mantener el color del thead */
+}
+
+/* 3. Las Celdas (TD) normales del checkbox */
+.tabla-container td.col-checkbox {
+  z-index: 5; /* Mayor que el resto de los td (que tienen 0), pero menor que el thead */
+  background-color: white; /* FONDO SÓLIDO OBLIGATORIO para que no se trasluzca el texto al scrollear */
+}
+
+/* 4. Respetar el hover de una fila normal */
+.tabla-container table tbody tr:hover td.col-checkbox {
+  background-color: #f7fafc;
+}
+
+/* 5. Respetar el color cuando la fila ESTÁ SELECCIONADA */
+.tabla-container table tbody tr.row-selected td.col-checkbox {
+  background-color: #ebf8ff !important;
+}
+
+/* 6. Respetar el hover de una fila QUE ESTÁ SELECCIONADA */
+.tabla-container table tbody tr.row-selected:hover td.col-checkbox {
+  background-color: #bee3f8 !important;
+}

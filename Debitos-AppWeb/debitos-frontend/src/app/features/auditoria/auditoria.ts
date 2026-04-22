@@ -186,6 +186,7 @@ export class AuditoriaComponent {
 
     // Limpiamos el combo después de aplicar
     this.motivoMasivoSeleccionado = '';
+    this.cdr.detectChanges();
   }
 
   limpiarFiltro(campo: string) {
@@ -301,7 +302,9 @@ export class AuditoriaComponent {
   totalFacturado: number = 0;
   totalDebitado: number = 0;
   totalCantidad: number = 0;
-  todasSeleccionadas: boolean = false;
+  totalNetoGlobal: number = 0;
+  totalCoseguroGlobal: number = 0;
+  totalRefacturadoGlobal: number = 0;
 
 // Función para el checkbox principal de la cabecera
   toggleSelectAll(event: Event) {
@@ -311,9 +314,11 @@ export class AuditoriaComponent {
     // Actualizamos toda la lista filtrada (rápido en memoria)
     this.prestacionesFiltradas.forEach(p => p.seleccionada = marcado);
     this.actualizarEstadoSeleccion();
+    this.cdr.detectChanges();
     // El HTML solo actualizará las 100 filas de 'prestacionesPaginadas' gracias a OnPush
   }
 
+  todasSeleccionadas: boolean = false;
   registrosSeleccionados: Prestacion[] = [];
 
   trackByPrestacion(index: number, p: Prestacion): any {
@@ -324,17 +329,24 @@ export class AuditoriaComponent {
     const checkbox = event.target as HTMLInputElement;
     p.seleccionada = checkbox.checked;
     this.actualizarEstadoSeleccion();
+    this.cdr.detectChanges();
   }
 
   calcularTotales() {
     this.totalFacturado = 0;
     this.totalDebitado = 0;
     this.totalCantidad = 0;
+    this.totalNetoGlobal = 0;
+    this.totalCoseguroGlobal = 0;
+    this.totalRefacturadoGlobal = 0;
 
     for (const p of this.prestacionesFiltradas) {
       this.totalFacturado += (p.total || 0);
       this.totalDebitado += (p.importeDebitado || 0);
       this.totalCantidad += (p.cantidad || 0);
+      this.totalNetoGlobal += (p.totalNeto || 0);
+      this.totalCoseguroGlobal += (p.coseguro || 0);
+      this.totalRefacturadoGlobal += (p.importeRefactura || 0);
     }
   }
 }
