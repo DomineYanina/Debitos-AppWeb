@@ -15,6 +15,9 @@ import { AuditoriaService } from '../../core/services/auditoria';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AuditoriaComponent {
+  debitoAceptadoMasivoSeleccionado: string = '';
+  listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
+
   listaMotivos: string[] = [
     'Borrar',
     'No aplica',
@@ -80,7 +83,43 @@ export class AuditoriaComponent {
     'Supera tope anual'
   ];
 
+  listaMotivosRefactura: string[] = [
+    'Borrar', 'No aplica', 'Casos: Afiliados activos.', 'Casos: Discrepancia cobertura pensión.',
+    'Casos: Excepciones refacturadas.', 'Casos: Médico externo sin historia clínica.',
+    'Corrección de error de Open', 'Débitos Inválidos: Aplicados erróneamente.',
+    'Doc. y Aut.: Autorización recibida posterior al cierre.', 'Doc. y Aut.: Autorización vigente.',
+    'Doc. y Aut.: Doc. completa enviada.', 'Doc. y Aut.: Facturado en tiempo.',
+    'Doc. y Aut.: Info. filiatoria completa.', 'Doc. y Aut.: Justificado en historia clínica.',
+    'Doc. y Aut.: Orden con diagnóstico, se aclara con historia clínica',
+    'Doc. y Aut.: Se envía documentación omitida', 'Doc. y Aut.: Se envía troquel/sticker',
+    'Doc. y Aut.: Según normas vigentes.', 'Excepciones: Bonificación medicación.',
+    'Excepciones: Bonificación prestación.', 'Excepciones: Reclamos/comerciales.',
+    'Gestión: Aclaración procedimiento.', 'Gestión: Afiliado dado de baja.',
+    'Gestión: Ajustes en coseguro.', 'Gestión: Ajuste por presupuesto.',
+    'Gestión: Aplicación incorrecta de IVA.', 'Gestión: Consumos correctos.',
+    'Gestión: Corrección facturación módulos.', 'Gestión: Financidor demoró respuesta.',
+    'Gestión: Medicamentos mal facturados.', 'Gestión Méd.: Aclaración de diagnóstico',
+    'Gestión Méd.: Ajuste fechas derivación.', 'Gestión Méd.: Criterio en diagnósticos.',
+    'Gestión Méd.: Historia clínica firmada.', 'Gestión Méd.: Normas sanatoriales.',
+    'Gestión Méd.: Postoperatorios/antibióticos.', 'Gestión Méd.: Tratamientos infecciones.',
+    'Gestión Méd.: Tratamientos médicos.', 'Gestión Méd.: Urgencia sin consentimiento.',
+    'Normas: Adjunta norma del Nom. Nac.', 'Normas: Ajustes valores medicación/material.',
+    'Normas: Aplicación de normas acordadas.', 'Normas: Aranceles vigentes Colegio Bioquím.',
+    'Normas: Cambios deben ser acordados.', 'Normas: Exclusión no explícita.',
+    'Normas: Facturación según módulos vigentes.', 'Normas: Inclusión/Exclusión según acuerdo.',
+    'Normas: Incompatibilidad normativa.', 'Normas: Obligación de cobertura por ley',
+    'Normas: Prestación arancel convenido.', 'Normas: Prestación no respondida por financ.',
+    'Normas: Prestación según presupuesto.', 'Normas: Recargos urgencia según Nac. Nom.',
+    'Normas: Refacturación por IVA.', 'Normas: Valores de contrastes vigentes.',
+    'Normas: Valores medicación/material convenio.', 'Prestaciones: Aranceles según CEDIM.',
+    'Prestaciones: Consultas previas/post-proced.', 'Prestaciones: Homologada.',
+    'Prestaciones: Inclusión incorrecta.', 'Prestaciones: No incluidas según Nom. Nac.',
+    'Prestaciones: Material no incluido en base.', 'Prestaciones: Procedimientos ampliados.',
+    'Prestaciones: Relacionadas a prestación.'
+  ];
+
   motivoMasivoSeleccionado: string = '';
+  motivoRefacturaMasivoSeleccionado: string = '';
   cargando : boolean = false;
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
@@ -136,6 +175,32 @@ export class AuditoriaComponent {
 
     // Le pasamos al HTML solo la porción que debe renderizar
     this.prestacionesPaginadas = this.prestacionesFiltradas.slice(indiceInicio, indiceFin);
+  }
+
+  aplicarMotivoRefacturaMasivo() {
+    if (this.registrosSeleccionados.length === 0 || !this.motivoRefacturaMasivoSeleccionado) return;
+
+    const valor = this.motivoRefacturaMasivoSeleccionado === 'Borrar' ? '' : this.motivoRefacturaMasivoSeleccionado;
+
+    this.registrosSeleccionados.forEach(p => {
+      p.motivoRefactura = valor;
+    });
+
+    this.motivoRefacturaMasivoSeleccionado = '';
+    this.cdr.detectChanges(); // Vital para OnPush
+  }
+
+  aplicarDebitoAceptadoMasivo() {
+    if (this.registrosSeleccionados.length === 0 || !this.debitoAceptadoMasivoSeleccionado) return;
+
+    const valor = this.debitoAceptadoMasivoSeleccionado === 'Borrar' ? '' : this.debitoAceptadoMasivoSeleccionado;
+
+    this.registrosSeleccionados.forEach(p => {
+      p.debitoAceptado = valor;
+    });
+
+    this.debitoAceptadoMasivoSeleccionado = '';
+    this.cdr.detectChanges(); // Vital para que la pantalla se actualice
   }
 
   cambiarPagina(nuevaPagina: number) {

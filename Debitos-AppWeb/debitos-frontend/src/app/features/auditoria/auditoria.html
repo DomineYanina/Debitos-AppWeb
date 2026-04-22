@@ -127,117 +127,152 @@
       </div>
 
       <div class="accion-controles">
-        <label for="motivoMasivo">Aplicar a seleccionadas:</label>
-        <select id="motivoMasivo" [(ngModel)]="motivoMasivoSeleccionado">
-          <option value="">Seleccionar motivo...</option>
-          <option *ngFor="let motivo of listaMotivos" [value]="motivo">{{ motivo }}</option>
-        </select>
 
-        <button
-          class="btn-aplicar-masivo"
-          (click)="aplicarMotivoMasivo()"
-          [disabled]="!motivoMasivoSeleccionado">
-          Aplicar
-        </button>
+        <div class="grupo-input-accion">
+          <label>Aceptado:</label>
+          <select [(ngModel)]="debitoAceptadoMasivoSeleccionado">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let estado of listaDebitoAceptado" [value]="estado">{{ estado }}</option>
+          </select>
+          <button class="btn-aplicar-masivo" (click)="aplicarDebitoAceptadoMasivo()" [disabled]="!debitoAceptadoMasivoSeleccionado">Aplicar</button>
+        </div>
+
+        <div class="grupo-input-accion">
+          <label>Motivo Débito:</label>
+          <select [(ngModel)]="motivoMasivoSeleccionado">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
+          </select>
+          <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()" [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
+        </div>
+
+        <div class="grupo-input-accion">
+          <label>Motivo Refactura:</label>
+          <select [(ngModel)]="motivoRefacturaMasivoSeleccionado">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
+          </select>
+          <button class="btn-aplicar-masivo" (click)="aplicarMotivoRefacturaMasivo()" [disabled]="!motivoRefacturaMasivoSeleccionado">Aplicar</button>
+        </div>
+
       </div>
-    </div>
+    </div> <div class="overlay-cargando" *ngIf="cargando">
+    <div class="spinner"></div>
+    <p>Procesando documentos...</p>
+  </div>
 
-    <div class="overlay-cargando" *ngIf="cargando">
-      <div class="spinner"></div>
-      <p>Procesando documentos...</p>
-    </div>
+    <div class="resultados-wrapper" *ngIf="prestaciones.length > 0; else sinDatos">
 
-    <div class="tabla-container" *ngIf="prestaciones.length > 0; else sinDatos">
-      <table>
-        <thead>
-        <tr>
-          <th class="col-checkbox">
-            <input type="checkbox" [checked]="todasSeleccionadas" (change)="toggleSelectAll($event)" title="Seleccionar todo">
-          </th>
-          <th appResizable (click)="onSort('paciente')" class="cursor-pointer">Paciente {{ getIcono('paciente') }}</th>
-          <th appResizable (click)="onSort('plan')" class="cursor-pointer">Plan {{ getIcono('plan') }}</th>
-          <th appResizable (click)="onSort('efector')" class="cursor-pointer">Efector {{ getIcono('efector') }}</th>
-          <th appResizable (click)="onSort('medico')" class="cursor-pointer">Médico {{ getIcono('medico') }}</th>
-          <th appResizable (click)="onSort('fecha')" class="cursor-pointer">Fecha {{ getIcono('fecha') }}</th>
-          <th appResizable (click)="onSort('codigo')" class="cursor-pointer">Código {{ getIcono('codigo') }}</th>
-          <th appResizable (click)="onSort('descripcion')" class="cursor-pointer">Descripción {{ getIcono('descripcion') }}</th>
-          <th appResizable (click)="onSort('cantidad')" class="cursor-pointer text-center">Cant. {{ getIcono('cantidad') }}</th>
-          <th appResizable (click)="onSort('totalNeto')" class="cursor-pointer text-right">Total Neto {{ getIcono('totalNeto') }}</th>
-          <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right">Coseguro {{ getIcono('coseguro') }}</th>
-          <th appResizable (click)="onSort('total')" class="cursor-pointer text-right">Total {{ getIcono('total') }}</th>
-          <th appResizable>Débito Aceptado</th>
-          <th appResizable>Motivo de Débito</th>
-          <th appResizable class="text-center">Días Fact.</th>
-          <th appResizable class="text-right">Imp. Debitado</th>
-          <th appResizable>Motivo Refactura</th>
-          <th appResizable class="text-right">Imp. Refactura</th>
-          <th appResizable>Comentarios</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr *ngFor="let p of prestacionesPaginadas; trackBy: trackByPrestacion" [class.row-selected]="p.seleccionada">
-          <td class="col-checkbox">
-            <input type="checkbox" [checked]="p.seleccionada" (change)="toggleRow(p, $event)">
-          </td>
-          <td>{{ p.paciente }}</td>
-          <td>{{ p.plan }}</td>
-          <td>{{ p.efector }}</td>
-          <td>{{ p.medico }}</td>
-          <td>{{ p.fecha | date:'dd/MM/yyyy' }}</td>
-          <td>{{ p.codigo }}</td>
-          <td>{{ p.descripcion }}</td>
-          <td class="text-center">{{ p.cantidad }}</td>
-          <td class="text-right">{{ p.totalNeto | currency }}</td>
-          <td class="text-right">{{ p.coseguro | currency }}</td>
-          <td class="text-right font-bold">{{ p.total | currency }}</td>
+      <div class="tabla-container">
+        <table>
+          <thead>
+          <tr>
+            <th class="col-checkbox">
+              <input type="checkbox" [checked]="todasSeleccionadas" (change)="toggleSelectAll($event)" title="Seleccionar todo">
+            </th>
 
-          <td>
-            <select [(ngModel)]="p.debitoAceptado" class="input-grilla">
-              <option value=""></option>
-              <option value="SI">SI</option>
-              <option value="NO">NO</option>
-              <option value="PARCIAL">PARCIAL</option>
-            </select>
-          </td>
-          <td><input type="text" [(ngModel)]="p.motivoDebito" class="input-grilla" placeholder="Motivo..."></td>
-          <td class="text-center">{{ p.diasFacturados }}</td>
-          <td><input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla"></td>
-          <td><input type="text" [(ngModel)]="p.motivoRefactura" class="input-grilla" placeholder="Motivo Refact..."></td>
-          <td><input type="number" [(ngModel)]="p.importeRefactura" class="input-grilla"></td>
-          <td><input type="text" [(ngModel)]="p.comentarios" class="input-grilla" placeholder="Comentarios..."></td>
+            <th appResizable (click)="onSort('paciente')" class="cursor-pointer bg-celeste">Paciente {{ getIcono('paciente') }}</th>
+            <th appResizable (click)="onSort('plan')" class="cursor-pointer bg-celeste">Plan {{ getIcono('plan') }}</th>
+            <th appResizable (click)="onSort('efector')" class="cursor-pointer bg-celeste">Efector {{ getIcono('efector') }}</th>
+            <th appResizable (click)="onSort('medico')" class="cursor-pointer bg-celeste">Médico {{ getIcono('medico') }}</th>
+            <th appResizable (click)="onSort('fecha')" class="cursor-pointer bg-celeste">Fecha {{ getIcono('fecha') }}</th>
+            <th appResizable (click)="onSort('codigo')" class="cursor-pointer bg-celeste">Código {{ getIcono('codigo') }}</th>
+            <th appResizable (click)="onSort('descripcion')" class="cursor-pointer bg-celeste">Descripción {{ getIcono('descripcion') }}</th>
 
-        </tr>
-        </tbody>
-        <tfoot>
-        <tr class="fila-totales">
-          <td colspan="8">TOTALES VISIBLES</td>
-          <td class="text-center font-bold">{{ totalCantidad }}</td>
-          <td class="text-right font-bold">{{ totalNetoGlobal | currency }}</td>
-          <td class="text-right font-bold">{{ totalCoseguroGlobal | currency }}</td>
-          <td class="text-right font-bold">{{ totalFacturado | currency }}</td>
-          <td colspan="3"></td> <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
-          <td></td> <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
-          <td colspan="2"></td> </tr>
-        </tfoot>
-      </table>
+            <th appResizable (click)="onSort('cantidad')" class="cursor-pointer text-center bg-celeste col-cant">Cant. {{ getIcono('cantidad') }}</th>
 
-    </div>
+            <th appResizable (click)="onSort('totalNeto')" class="cursor-pointer text-right bg-celeste">Total Neto {{ getIcono('totalNeto') }}</th>
+            <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right bg-celeste">Coseguro {{ getIcono('coseguro') }}</th>
+            <th appResizable (click)="onSort('total')" class="cursor-pointer text-right bg-celeste">Total {{ getIcono('total') }}</th>
 
-    <div class="paginador-container" *ngIf="totalPaginas > 1">
-      <button class="btn-pagina" (click)="cambiarPagina(1)" [disabled]="paginaActual === 1">Inicio</button>
-      <button class="btn-pagina" (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">Anterior</button>
+            <th appResizable class="bg-gris titulo-multilinea col-aceptado">Débito<br>Aceptado</th>
+            <th appResizable class="bg-gris">Motivo de Débito</th>
+            <th appResizable class="bg-gris titulo-multilinea col-dias">Días<br>Fact.</th>
+            <th appResizable class="bg-gris titulo-multilinea col-debito">Imp.<br>Debitado</th>
+            <th appResizable class="bg-gris">Motivo Refactura</th>
+            <th appResizable class="bg-gris titulo-multilinea col-refactura">Imp.<br>Refactura</th>
 
-      <span class="info-pagina">Página <strong>{{ paginaActual }}</strong> de {{ totalPaginas }}</span>
+            <th appResizable class="bg-naranja">Comentarios</th>
 
-      <button class="btn-pagina" (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas">Siguiente</button>
-      <button class="btn-pagina" (click)="cambiarPagina(totalPaginas)" [disabled]="paginaActual === totalPaginas">Fin</button>
-    </div>
+          </tr>
+          </thead>
 
-    <ng-template #sinDatos>
-      <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
-        {{ prestacionesFiltradas.length }}
-        <p>No se encontraron prestaciones para este documento.</p>
+          <tbody>
+          <tr *ngFor="let p of prestacionesPaginadas; trackBy: trackByPrestacion" [class.row-selected]="p.seleccionada">
+
+            <td class="col-checkbox">
+              <input type="checkbox" [checked]="p.seleccionada" (change)="toggleRow(p, $event)">
+            </td>
+
+            <td class="bg-celeste">{{ p.paciente }}</td>
+            <td class="bg-celeste">{{ p.plan }}</td>
+            <td class="bg-celeste">{{ p.efector }}</td>
+            <td class="bg-celeste">{{ p.medico }}</td>
+            <td class="bg-celeste">{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+            <td class="bg-celeste">{{ p.codigo }}</td>
+            <td class="bg-celeste">{{ p.descripcion }}</td>
+            <td class="text-center bg-celeste">{{ p.cantidad }}</td>
+            <td class="text-right bg-celeste">{{ p.totalNeto | currency }}</td>
+            <td class="text-right bg-celeste">{{ p.coseguro | currency }}</td>
+            <td class="text-right font-bold bg-celeste">{{ p.total | currency }}</td>
+
+            <td class="bg-gris col-aceptado">
+              <select [(ngModel)]="p.debitoAceptado" class="input-grilla">
+                <option value=""></option>
+                <option value="SI">SI</option>
+                <option value="NO">NO</option>
+              </select>
+            </td>
+            <td class="bg-gris">
+              <select [(ngModel)]="p.motivoDebito" class="input-grilla">
+                <option value=""></option>
+                <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
+              </select>
+            </td>
+            <td class="text-center bg-gris">{{ p.diasFacturados }}</td>
+            <td class="bg-gris col-debito"><input type="number" [(ngModel)]="p.importeDebitado" class="input-grilla"></td>
+            <td class="bg-gris">
+              <select [(ngModel)]="p.motivoRefactura" class="input-grilla">
+                <option value=""></option>
+                <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
+              </select>
+            </td>
+            <td class="bg-gris"><input type="number" [(ngModel)]="p.importeRefactura" class="input-grilla"></td>
+
+            <td class="bg-naranja"><input type="text" [(ngModel)]="p.comentarios" class="input-grilla" placeholder="Comentarios..."></td>
+
+          </tr>
+          </tbody>
+          <tfoot>
+          <tr class="fila-totales">
+            <td colspan="8">TOTALES VISIBLES</td>
+            <td class="text-center font-bold">{{ totalCantidad }}</td>
+            <td class="text-right font-bold">{{ totalNetoGlobal | currency }}</td>
+            <td class="text-right font-bold">{{ totalCoseguroGlobal | currency }}</td>
+            <td class="text-right font-bold">{{ totalFacturado | currency }}</td>
+            <td colspan="3"></td> <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
+            <td></td> <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
+            <td colspan="2"></td> </tr>
+          </tfoot>
+        </table>
       </div>
-    </ng-template>
+
+      <div class="paginador-container" *ngIf="totalPaginas > 1">
+        <button class="btn-pagina" (click)="cambiarPagina(1)" [disabled]="paginaActual === 1">Inicio</button>
+        <button class="btn-pagina" (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">Anterior</button>
+
+        <span class="info-pagina">Página <strong>{{ paginaActual }}</strong> de {{ totalPaginas }}</span>
+
+        <button class="btn-pagina" (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas">Siguiente</button>
+        <button class="btn-pagina" (click)="cambiarPagina(totalPaginas)" [disabled]="paginaActual === totalPaginas">Fin</button>
+      </div>
+
+    </div> <ng-template #sinDatos>
+    <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+      {{ prestacionesFiltradas.length }}
+      <p>No se encontraron prestaciones para este documento.</p>
+    </div>
+  </ng-template>
+
   </section>
 </div>
