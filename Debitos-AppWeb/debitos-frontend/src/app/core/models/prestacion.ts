@@ -1,19 +1,27 @@
 export interface Prestacion {
-  seleccionada?: boolean; // Para marcar la prestación seleccionada en la tabla
+  seleccionada?: boolean;
   id?: number;
   paciente: string;
-  plan: string;
+  plan: string;           // NUEVO
+  efector: string;        // NUEVO
   medico: string;
   fecha: string;
   codigo: string;
+  descripcion: string;    // NUEVO
   modulo: string;
   grupomodulo?: string;
   cantidad: number;
+  totalNeto: number;      // NUEVO
+  coseguro: number;       // NUEVO
   total: number;
-  // Campos de auditoría (los que el usuario edita)
+  debitoAceptado?: string;// NUEVO
+  diasFacturados?: number;// NUEVO
   importeDebitado?: number;
   motivoDebito?: string;
   importeRefactura?: number;
   motivoRefactura?: string;
   comentarios?: string;
+  comentarioPrevio?: string;
+  carnet?: string;
+  cobertura?: string;
 }

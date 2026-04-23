@@ -44,8 +44,9 @@ public class AuditoriaService {
             switch (facturaTipo) {
                 case "NC":
                     sql = """
-                        SELECT al.id, al.paciente, al.plan, al.medico, al.fecha, al.codigo, al.modulo, al.cantidad, al.total, 
-                               nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado", 
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
+                               al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", 
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                                nc.comentarios 
                         FROM notadecredito nc
@@ -56,9 +57,10 @@ public class AuditoriaService {
                     break;
                 case "ND":
                     sql = """
-                        SELECT al.id, al.paciente, al.plan, al.medico, al.fecha, al.codigo, al.modulo, al.cantidad, al.total, 
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
+                               al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
                                nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", nd.comentarios,
-                               nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado"
+                               nc.diasfacturados AS "diasFacturados", nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado"
                         FROM notadedebito nd 
                         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
                         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 
@@ -66,10 +68,12 @@ public class AuditoriaService {
                         WHERE nd.letra = ? AND nd.ptovta = ? AND nd.numero = ?;
                         """;
                     break;
+                // Ejemplo para el caso FC (replicar la inclusión de carnet y cobertura en NC y ND)
                 case "FC":
                     sql = """
-                        SELECT al.id, al.paciente, al.plan, al.medico, al.fecha, al.codigo, al.modulo, al.cantidad, al.total, 
-                               nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado",
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
+                               al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                                nc.comentarios
                         FROM amb_liquidado al
@@ -80,10 +84,12 @@ public class AuditoriaService {
             }
         } else if ("Internados".equals(tipoRegistro)) {
             switch (facturaTipo) {
+                // Hacemos el mismo ajuste para Internados
                 case "NC":
                     sql = """
-                        SELECT al.id, al.modulo, al.grupomodulo, al.paciente, al.plan, al.medico, al.fecha, al.codigo, al.cantidad, al.total, 
-                               nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado", 
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
+                               al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", 
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                                nc.comentarios
                         FROM notadecredito nc
@@ -94,9 +100,10 @@ public class AuditoriaService {
                     break;
                 case "ND":
                     sql = """
-                        SELECT al.id, al.modulo, al.grupomodulo, al.paciente, al.plan, al.medico, al.fecha, al.codigo, al.cantidad, al.total, 
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
+                               al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
                                nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", nd.comentarios,
-                               nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado"
+                               nc.diasfacturados AS "diasFacturados", nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado"
                         FROM notadedebito nd 
                         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
                         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 
@@ -106,8 +113,9 @@ public class AuditoriaService {
                     break;
                 case "FC":
                     sql = """
-                        SELECT al.id, al.modulo, al.grupomodulo, al.paciente, al.plan, al.medico, al.fecha, al.codigo, al.cantidad, al.total, 
-                               nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado",
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
+                               al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                                nc.comentarios
                         FROM amb_liquidado al
@@ -117,8 +125,6 @@ public class AuditoriaService {
                     break;
             }
         }
-
-        // Ejecución con parámetros para evitar Inyección SQL
         return jdbcTemplate.queryForList(sql, letra, ptovta, numero);
     }
 }

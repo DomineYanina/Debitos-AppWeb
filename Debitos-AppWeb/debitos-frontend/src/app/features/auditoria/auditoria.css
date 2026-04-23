@@ -1,6 +1,6 @@
 .auditoria-container {
   padding: 2rem;
-  max-width: 90%;
+  max-width: 95%;
   margin: 0 auto;
 
   .page-header {
@@ -253,11 +253,14 @@ min-width: 160px;
 .checkbox-filters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 15px;
-  padding-top: 15px;
+  justify-content: space-between; /* CRÍTICO: Separa los 3 checkboxes uniformemente */
+  height: 100%; /* Ocupa el mismo alto total que las otras columnas */
+  margin: 0;
+  padding: 0;
+  /* Borramos el "gap: 12px" y el "justify-content: center" que tenías antes */
 }
 
+/* Mantenemos el check-item alineado internamente */
 .check-item {
   display: flex;
   align-items: center;
@@ -409,4 +412,609 @@ tr.row-selected {
 /* Aseguramos que el hover no pise el color de selección */
 .tabla-container table tbody tr.row-selected:hover {
   background-color: #bee3f8 !important; /* Un celeste un poco más oscuro al pasar el mouse */
+}
+/* Barra de acciones masivas */
+.acciones-masivas-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #ebf8ff; /* Fondo celeste para indicar un estado "activo" */
+  padding: 0.75rem 1rem;
+  border: 1px solid #bee3f8;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.info-seleccion {
+  font-weight: 600;
+  color: #2b6cb0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-seleccion .badge {
+  background-color: #3182ce;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.accion-controles {
+  display: flex;
+  gap: 1.5rem; /* Reducimos a 1.5rem para que entren mejor los tres */
+  align-items: center;
+  flex-wrap: wrap; /* CRÍTICO: Si no hay espacio, los manda abajo prolijamente */
+}
+
+.accion-controles label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #2d3748;
+}
+
+.accion-controles select {
+  padding: 0.4rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  max-width: 350px; /* Limita el ancho ya que algunos motivos son textos largos */
+  font-size: 0.85rem;
+}
+
+.btn-aplicar-masivo {
+  background-color: #3182ce;
+  color: white;
+  border: none;
+  padding: 0.4rem 1.2rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-aplicar-masivo:hover:not(:disabled) {
+  background-color: #2b6cb0;
+}
+
+.btn-aplicar-masivo:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.paginador-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.btn-pagina {
+  padding: 0.4rem 0.8rem;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #334155;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-pagina:hover:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+.btn-pagina:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.info-pagina {
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   CONGELAR COLUMNA DE CHECKBOXES (FIJA A LA IZQUIERDA)
+   ========================================================================== */
+
+/* 1. Posicionamiento base para la columna entera (th y td) */
+.tabla-container th.col-checkbox,
+.tabla-container td.col-checkbox {
+  position: sticky;
+  left: 0; /* Se pega al borde izquierdo del scroll */
+  border-right: 1px solid #e2e8f0; /* Una línea sutil para separar la columna fija del resto */
+}
+
+/* 2. El Encabezado (TH) del checkbox */
+.tabla-container th.col-checkbox {
+  z-index: 20 !important; /* CRÍTICO: Debe ser mayor que el z-index: 10 de los otros th */
+  background-color: #f8fafc; /* Mantener el color del thead */
+}
+
+/* 3. Las Celdas (TD) normales del checkbox */
+.tabla-container td.col-checkbox {
+  z-index: 5; /* Mayor que el resto de los td (que tienen 0), pero menor que el thead */
+  background-color: white; /* FONDO SÓLIDO OBLIGATORIO para que no se trasluzca el texto al scrollear */
+}
+
+/* 4. Respetar el hover de una fila normal */
+.tabla-container table tbody tr:hover td.col-checkbox {
+  background-color: #f7fafc;
+}
+
+/* 5. Respetar el color cuando la fila ESTÁ SELECCIONADA */
+.tabla-container table tbody tr.row-selected td.col-checkbox {
+  background-color: #ebf8ff !important;
+}
+
+/* 6. Respetar el hover de una fila QUE ESTÁ SELECCIONADA */
+.tabla-container table tbody tr.row-selected:hover td.col-checkbox {
+  background-color: #bee3f8 !important;
+}
+.accion-controles {
+  display: flex;
+  gap: 2rem; /* Espacio entre el grupo de Débito y el de Refactura */
+  align-items: center;
+}
+
+.grupo-input-accion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  label {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    color: #4a5568;
+  }
+
+  select {
+    max-width: 200px; /* Reducimos un poco el ancho para que entren ambos */
+  }
+}
+/* ==========================================================================
+   COLORES DE COLUMNAS (SECCIONES TEMÁTICAS)
+   ========================================================================== */
+
+/* 1. Definición de colores base para Encabezados (th) y Celdas (td) */
+.tabla-container thead th.bg-celeste,
+.tabla-container table tbody tr td.bg-celeste {
+  background-color: #B9F6FD; /* Celeste muy suave */
+}
+
+.tabla-container thead th.bg-gris,
+.tabla-container table tbody tr td.bg-gris {
+  background-color: #DBDCDC; /* Gris muy suave */
+}
+
+.tabla-container thead th.bg-naranja,
+.tabla-container table tbody tr td.bg-naranja {
+  background-color: #FDC48B; /* Naranja muy suave */
+}
+
+/* 2. Efecto Hover: Oscurecer un poco la celda cuando el mouse pasa por la fila */
+.tabla-container table tbody tr:hover:not(.row-selected) td.bg-celeste {
+  background-color: #8DF1FC;
+}
+.tabla-container table tbody tr:hover:not(.row-selected) td.bg-gris {
+  background-color: #C3C5C6;
+}
+.tabla-container table tbody tr:hover:not(.row-selected) td.bg-naranja {
+  background-color: #FDAD5E;
+}
+
+/* 3. CRÍTICO: Respetar la selección de fila */
+/* Si el checkbox está marcado, volvemos las celdas transparentes para que
+   se vea el fondo celeste de la fila completa (.row-selected) */
+.tabla-container table tbody tr.row-selected td.bg-celeste,
+.tabla-container table tbody tr.row-selected td.bg-gris,
+.tabla-container table tbody tr.row-selected td.bg-naranja {
+  background-color: transparent;
+}
+/* ==========================================================================
+   DELIMITADORES Y ANCHOS DE COLUMNAS
+   ========================================================================== */
+
+/* 1. Bordes verticales para delimitar las columnas */
+.tabla-container table th,
+.tabla-container table td {
+  border-right: 1px solid #cbd5e1; /* Un gris intermedio que combina con el diseño */
+}
+
+/* Le sacamos el borde a la última columna para que no quede doble contra la caja principal */
+.tabla-container table th:last-child,
+.tabla-container table td:last-child {
+  border-right: none;
+}
+
+/* Para resaltar aún más la separación de los bloques temáticos, le damos
+   un borde ligeramente más oscuro al final de cada sección de color */
+.tabla-container table th.bg-celeste:last-of-type,
+.tabla-container table td.bg-celeste:last-of-type,
+.tabla-container table th.bg-gris:last-of-type,
+.tabla-container table td.bg-gris:last-of-type {
+  border-right: 2px solid #94a3b8;
+}
+
+
+/* 2. Anchos Iniciales (Configuración por bloque) */
+
+/* Bloque Celeste: Ancho inferior */
+.tabla-container table th.bg-celeste {
+  width: 100px;
+  min-width: 100px;
+}
+
+/* Bloque Gris: Ancho intermedio/mayor (necesitan espacio para los Selects) */
+.tabla-container table th.bg-gris {
+  width: 220px;
+  min-width: 220px;
+}
+
+/* Bloque Naranja: Ancho mayor (para que se pueda leer bien el texto libre) */
+.tabla-container table th.bg-naranja {
+  width: 300px;
+  min-width: 300px;
+}
+/* ==========================================================================
+   ANCHOS REDUCIDOS Y TÍTULOS MULTILÍNEA
+   ========================================================================== */
+
+/* 1. Clase para romper el "nowrap" y centrar los títulos de dos renglones */
+.tabla-container table th.titulo-multilinea {
+  white-space: normal !important;
+  line-height: 1.2; /* Junta un poquito los dos renglones para que quede prolijo */
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* 2. Anchos milimétricos para las columnas específicas */
+.tabla-container table th.col-cant {
+  width: 65px !important;
+  min-width: 65px !important;
+}
+
+.tabla-container table th.col-aceptado {
+  width: 90px !important;
+  min-width: 90px !important;
+}
+
+.tabla-container table th.col-dias {
+  width: 60px !important;
+  min-width: 60px !important;
+}
+
+.tabla-container table th.col-debito,
+.tabla-container table th.col-refactura {
+  width: 100px !important;
+  min-width: 100px !important;
+}
+
+/* Reducimos un poco el padding interno de las celdas de estas columnas
+   para que los inputs numéricos entren bien en el nuevo espacio reducido */
+.tabla-container table td.col-debito,
+.tabla-container table td.col-refactura,
+.tabla-container table td.col-aceptado {
+  padding: 0.4rem !important;
+}
+/* ==========================================================================
+   SECCIÓN DE FILTROS DINÁMICOS (GRID 4 COLUMNAS)
+   ========================================================================== */
+
+.filtros-dinamicos-section {
+  display: flex;
+  background: #f8fafc;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  align-content: center;
+  justify-content: space-evenly;
+  align-items: stretch;
+
+}
+
+.filtros-grid {
+  display: grid;
+  /* CRÍTICO: Agregamos un segundo "auto" al final para la 5ta columna */
+  grid-template-columns: repeat(3, minmax(180px, 1fr)) auto auto;
+  gap: 2rem;
+  align-items: stretch;
+}
+
+/* El nuevo contenedor de las columnas 1, 2 y 3 */
+.filtro-columna {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* CRÍTICO: Pega el 1er elemento arriba y el 2do abajo */
+  height: 100%;
+  /* Borramos el "gap: 1.5rem" que tenías acá para que space-between haga el trabajo */
+}
+
+.filter-item {
+  /* Ya no necesita min-width porque el grid lo controla, pero ocupa todo su espacio */
+  width: 100%;
+}
+
+.filter-item select {
+  width: 100%; /* Obliga al select a llegar hasta el borde de su columna */
+  padding: 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #cbd5e0;
+  font-size: 0.85rem;
+}
+
+/* Modificamos el botón para que se empuje al fondo de la Columna 3 */
+.filtros-grid .filtro-columna .btn-clear {
+  margin-top: auto; /* Truco de flexbox: empuja el elemento hasta el final abajo */
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filtros-grid .filtro-columna .btn-clear:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* Limpieza de la Columna 4 (Checkboxes) para que alinee perfecto */
+.checkbox-filters {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Los centra verticalmente en el bloque */
+  gap: 12px;
+  /* IMPORTANTE: Le saqué el margin-top y padding-top rígido que tenían antes */
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.btn-clear {
+  margin-top: 0; /* Borramos cualquier margen automático anterior */
+  width: 100%; /* Hacemos que mida igual de ancho que el selector de Fecha */
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+}
+.resumen-contadores {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  border-left: 2px solid #e2e8f0; /* Línea separadora sutil desde los checkboxes */
+  padding-left: 1.5rem;
+}
+
+.contador-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Le da un poco de volumen */
+}
+
+.contador-label {
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.contador-valor {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.text-success {
+  color: #16a34a !important; /* Verde oscuro para refacturación (positivo para ustedes) */
+}
+/* Estilo para el input de comentarios cuando está deshabilitado */
+.input-grilla:disabled {
+  background-color: #f1f5f9; /* Un gris sutil */
+  color: #94a3b8;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  opacity: 0.7;
+}
+/* Stack de botones en la columna 3 */
+.botones-limpieza-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Espacio entre los dos botones */
+  margin-top: auto; /* Los empuja al fondo de la columna */
+}
+
+.btn-clear-rows {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #b91c1c; /* Rojo de advertencia */
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-rows:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.btn-clear-rows:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Ajuste al botón de limpiar filtros para que sea del mismo ancho */
+.btn-clear {
+  width: 100%;
+}
+/* Botón de Exportar a Excel */
+.btn-exportar {
+  width: 100%;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #166534; /* Verde Excel oscuro */
+  background: #f0fdf4; /* Verde Excel muy suave */
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-exportar:hover:not(:disabled) {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.btn-exportar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #94a3b8;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* ==========================================================================
+   MODAL DE CONFIRMACIÓN
+   ========================================================================== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.6); /* Fondo oscurecido */
+  backdrop-filter: blur(2px); /* Efecto de desenfoque en el fondo */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Asegura que esté por encima de la tabla congelada */
+  animation: fadeInModal 0.2s ease-out;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-box {
+  background-color: white;
+  width: 450px;
+  max-width: 90%;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUpModal 0.3s ease-out;
+}
+
+@keyframes slideUpModal {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+  background-color: #f8fafc;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.texto-modal {
+  margin: 0;
+  color: #334155;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap; /* Mantiene los saltos de línea \n del texto en TypeScript */
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.btn-modal-cancelar {
+  padding: 0.5rem 1rem;
+  background-color: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #475569;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-modal-cancelar:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-modal-aceptar {
+  padding: 0.5rem 1.5rem;
+  background-color: #3182ce; /* Azul primario */
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-modal-aceptar:hover {
+  background-color: #2b6cb0;
 }
