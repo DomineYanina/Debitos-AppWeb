@@ -21,4 +21,7 @@ export interface Prestacion {
   importeRefactura?: number;
   motivoRefactura?: string;
   comentarios?: string;
+  comentarioPrevio?: string;
+  carnet?: string;
+  cobertura?: string;
 }

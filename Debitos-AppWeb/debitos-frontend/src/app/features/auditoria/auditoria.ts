@@ -4,6 +4,9 @@ import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
+import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { AuditoriaService } from '../../core/services/auditoria';
 
 @Component({
@@ -122,7 +125,7 @@ export class AuditoriaComponent {
   motivoRefacturaMasivoSeleccionado: string = '';
   cargando : boolean = false;
   private fb = inject(FormBuilder);
-  private cdr = inject(ChangeDetectorRef);
+  cdr = inject(ChangeDetectorRef);
   private authService = inject(AuthService);
   private router = inject(Router);
   prestaciones: Prestacion[] = [];
@@ -144,6 +147,7 @@ export class AuditoriaComponent {
   filtroPrestacion: string = '';
   filtroGrupo: string = '';
   filtroFecha: string = '';
+  tipoBusquedaRealizada: string = '';
 
   soloSinMotivoDebito: boolean = false;
   soloSinMotivoRefactura: boolean = false;
@@ -178,6 +182,29 @@ export class AuditoriaComponent {
 
     // Le pasamos al HTML solo la porción que debe renderizar
     this.prestacionesPaginadas = this.prestacionesFiltradas.slice(indiceInicio, indiceFin);
+  }
+
+  limpiarFilasSeleccionadas() {
+    // Si no hay nada seleccionado, no hacemos nada
+    if (this.registrosSeleccionados.length === 0) return;
+
+    // Confirmación opcional para evitar borrados accidentales
+    if (!confirm(`¿Estás seguro de que querés borrar el contenido de las ${this.registrosSeleccionados.length} filas seleccionadas?`)) {
+      return;
+    }
+
+    this.registrosSeleccionados.forEach(p => {
+      p.debitoAceptado = '';
+      p.motivoDebito = '';
+      p.importeDebitado = 0;
+      p.motivoRefactura = '';
+      p.importeRefactura = 0;
+      p.comentarios = '';
+    });
+
+    // Actualizamos los contadores de arriba y la visual
+    this.calcularTotales();
+    this.cdr.detectChanges();
   }
 
   aplicarMotivoRefacturaMasivo() {
@@ -222,6 +249,7 @@ export class AuditoriaComponent {
 
       this.auditoriaService.buscarPrestaciones(this.busquedaForm.value).subscribe({
         next: (data) => {
+          this.tipoBusquedaRealizada=this.busquedaForm.value.tipo || '';
           this.prestaciones = data;
           this.prestacionesFiltradas = [...this.prestaciones];
 
@@ -296,7 +324,7 @@ export class AuditoriaComponent {
     // Extraemos valores únicos usando Set y ordenamos alfabéticamente
     this.pacientesList = [...new Set(datos.map(p => p.paciente))].sort();
     this.profesionalesList = [...new Set(datos.map(p => p.medico))].sort();
-    this.prestacionesList = [...new Set(datos.map(p => p.modulo))].sort();
+    this.prestacionesList = [...new Set(datos.map(p => p.codigo))].sort();
     this.gruposList = [...new Set(datos.map(p => p.grupomodulo))].sort();
     this.fechasList = [...new Set(datos.map(p => p.fecha))].sort();
     //debugger;
@@ -452,5 +480,136 @@ export class AuditoriaComponent {
       }
     }
     this.cdr.detectChanges();
+  }
+
+  async exportarAExcel() {
+    debugger;
+    if (this.prestacionesFiltradas.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Auditoría');
+
+    // Helper para fecha
+    const formatearFecha = (fechaISO: string) => {
+      if (!fechaISO) return '';
+      const soloFecha = fechaISO.split('T')[0];
+      const partes = soloFecha.split('-');
+      return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : soloFecha;
+    };
+
+    // 1. Definición de Columnas con el nuevo orden solicitado
+    let columnas: any[] = [];
+    if (this.tipoBusquedaRealizada === 'NC') {
+      columnas = [
+        { header: 'Carnet', key: 'carnet' },
+        { header: 'Paciente', key: 'paciente' },
+        { header: 'Cobertura', key: 'cobertura' },
+        { header: 'Plan', key: 'plan' },
+        { header: 'Grupo Módulo', key: 'grupomodulo' },
+        { header: 'Médico', key: 'medico' },
+        { header: 'Fecha', key: 'fecha' },
+        { header: 'Código', key: 'codigo' },
+        { header: 'Descripción', key: 'descripcion' },
+        { header: 'Cant.', key: 'cantidad' },
+        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
+        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
+        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
+        { header: 'Comentario Previo', key: 'comentarioPrevio' },
+        { header: 'Motivo Refactura', key: 'motivoRefactura' },
+        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
+        { header: 'Comentarios', key: 'comentarios' }
+      ];
+    } else {
+      columnas = [
+        { header: 'Carnet', key: 'carnet' },
+        { header: 'Paciente', key: 'paciente' },
+        { header: 'Cobertura', key: 'cobertura' },
+        { header: 'Plan', key: 'plan' },
+        { header: 'Efector', key: 'efector' },
+        { header: 'Médico', key: 'medico' },
+        { header: 'Fecha', key: 'fecha' },
+        { header: 'Código', key: 'codigo' },
+        { header: 'Descripción', key: 'descripcion' },
+        { header: 'Cant.', key: 'cantidad' },
+        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
+        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
+        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
+        { header: 'Débito Aceptado', key: 'debitoAceptado' },
+        { header: 'Motivo Débito', key: 'motivoDebito' },
+        { header: 'Días Fact.', key: 'diasFacturados' },
+        { header: 'Imp. Debitado', key: 'importeDebitado', style: { numFmt: '#,##0.00' } },
+        { header: 'Motivo Refactura', key: 'motivoRefactura' },
+        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
+        { header: 'Comentarios', key: 'comentarios' }
+      ];
+    }
+
+    worksheet.columns = columnas;
+
+    // 2. Mapeo de datos
+    this.prestacionesFiltradas.forEach(p => {
+      const registro = { ...p } as any;
+      registro.fecha = formatearFecha(p.fecha || '');
+      worksheet.addRow(registro);
+    });
+
+    // 3. Auto-size
+    worksheet.columns.forEach(column => {
+      let maxLength = 0;
+      column.eachCell!({ includeEmpty: true }, (cell) => {
+        const columnLength = cell.value ? cell.value.toString().length : 10;
+        if (columnLength > maxLength) maxLength = columnLength;
+      });
+      column.width = maxLength < 12 ? 12 : maxLength + 3;
+    });
+
+    // 4. Estilo de encabezados (Azul oscuro)
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 25;
+    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF002060' }
+      };
+      cell.border = {
+        top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'medium' }, right: { style: 'thin' }
+      };
+    });
+
+    // 5. Estilo intercalado y delimitadores de bloques (BORDES)
+    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          // Intercalado
+          if (rowNumber % 2 === 0) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F8FC' } };
+          }
+
+          // Bordes delgados base
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
+          };
+
+          // Borde grueso para separar bloques de colores originales (ahora en col 13)
+          if (colNumber === 13) {
+            cell.border.right = { style: 'medium' };
+          }
+        });
+      }
+    });
+
+    worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columnas.length } };
+
+    // 6. Nombre de archivo dinámico
+    const f = this.busquedaForm.value;
+    const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), nombreArchivo);
   }
 }
