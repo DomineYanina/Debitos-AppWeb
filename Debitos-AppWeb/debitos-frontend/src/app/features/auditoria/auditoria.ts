@@ -443,7 +443,6 @@ export class AuditoriaComponent {
     this.prestacionesList = [...new Set(datos.map(p => p.codigo))].sort();
     this.gruposList = [...new Set(datos.map(p => p.grupomodulo))].sort();
     this.fechasList = [...new Set(datos.map(p => p.fecha))].sort();
-    //debugger;
   }
 
   aplicarFiltros() {
@@ -588,7 +587,6 @@ export class AuditoriaComponent {
   }
 
   async exportarAExcel() {
-    debugger;
     if (this.prestacionesFiltradas.length === 0) return;
 
     const workbook = new ExcelJS.Workbook();
