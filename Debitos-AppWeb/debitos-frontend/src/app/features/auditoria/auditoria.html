@@ -155,6 +155,23 @@
         [disabled]="prestacionesFiltradas.length === 0">
         Exportar Excel
       </button>
+      <button class="btn-accion-doc btn-guardar" (click)="guardarParcialmente()">
+        Guardar parcialmente
+      </button>
+
+      <button
+        class="btn-accion-doc btn-nueva-nota"
+        *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'"
+        (click)="nuevaNotaCredito()">
+        Nueva Nota de Crédito
+      </button>
+
+      <button
+        class="btn-accion-doc btn-nueva-nota"
+        *ngIf="tipoBusquedaRealizada === 'NC'"
+        (click)="nuevaNotaDebito()">
+        Nueva Nota de Débito
+      </button>
     </div>
 
   </section>

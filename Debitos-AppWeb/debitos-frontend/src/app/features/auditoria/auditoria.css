@@ -1018,3 +1018,39 @@ tr.row-selected {
 .btn-modal-aceptar:hover {
   background-color: #2b6cb0;
 }
+
+.btn-accion-doc {
+  padding: 0.6rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: none;
+}
+
+/* Estilo para Guardar Parcialmente (Acción secundaria) */
+.btn-guardar {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-guardar:hover {
+  background-color: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* Estilo para Nueva NC / ND (Acción principal de creación) */
+.btn-nueva-nota {
+  background-color: #10b981; /* Verde esmeralda, clásico para indicar "Nuevo" */
+  color: white;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.btn-nueva-nota:hover {
+  background-color: #059669; /* Verde más oscuro al pasar el mouse */
+  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+  transform: translateY(-1px); /* Pequeño efecto 3D de elevación */
+}

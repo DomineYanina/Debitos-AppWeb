@@ -4,7 +4,6 @@ import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
-import * as XLSX from 'xlsx';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { AuditoriaService } from '../../core/services/auditoria';
@@ -134,14 +133,12 @@ export class AuditoriaComponent {
   direccionOrden: 'asc' | 'desc' = 'asc';
   private auditoriaService = inject(AuditoriaService);
 
-  // Listas para llenar los combos
   pacientesList: string[] = [];
   profesionalesList: string[] = [];
   prestacionesList: string[] = [];
   gruposList: (string | undefined)[] = [];
   fechasList: string[] = [];
 
-  // Valores seleccionados en los filtros
   filtroPaciente: string = '';
   filtroProfesional: string = '';
   filtroPrestacion: string = '';
@@ -161,9 +158,16 @@ export class AuditoriaComponent {
   totalDebitadoAceptado: number = 0;
   totalRefacturarRechazado: number = 0;
 
-  // ==========================================
-  // VARIABLES DEL MODAL DE CONFIRMACIÓN
-  // ==========================================
+  totalFacturado: number = 0;
+  totalDebitado: number = 0;
+  totalCantidad: number = 0;
+  totalNetoGlobal: number = 0;
+  totalCoseguroGlobal: number = 0;
+  totalRefacturadoGlobal: number = 0;
+
+  todasSeleccionadas: boolean = false;
+  registrosSeleccionados: Prestacion[] = [];
+
   modalVisible: boolean = false;
   modalMensaje: string = '';
   modalAceptarCb: () => void = () => {};
@@ -331,10 +335,6 @@ export class AuditoriaComponent {
       this.ejecutarIndividualRefactura(p, nuevo);
     }
   }
-
-  // =========================================================================
-  // LOGICA MASIVA (Botones de arriba)
-  // =========================================================================
 
   aplicarMotivoMasivo() {
     if (this.registrosSeleccionados.length === 0 || !this.motivoMasivoSeleccionado) return;
@@ -532,14 +532,6 @@ export class AuditoriaComponent {
     this.actualizarPaginacion();
   }
 
-  totalFacturado: number = 0;
-  totalDebitado: number = 0;
-  totalCantidad: number = 0;
-  totalNetoGlobal: number = 0;
-  totalCoseguroGlobal: number = 0;
-  totalRefacturadoGlobal: number = 0;
-
-// Función para el checkbox principal de la cabecera
   toggleSelectAll(event: Event) {
     const checkbox = event.target as HTMLInputElement;
     const marcado = checkbox.checked;
@@ -550,9 +542,6 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
     // El HTML solo actualizará las 100 filas de 'prestacionesPaginadas' gracias a OnPush
   }
-
-  todasSeleccionadas: boolean = false;
-  registrosSeleccionados: Prestacion[] = [];
 
   trackByPrestacion(index: number, p: Prestacion): any {
     return p.id || index;
@@ -727,5 +716,17 @@ export class AuditoriaComponent {
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), nombreArchivo);
+  }
+
+  guardarParcialmente() {
+    console.log('Funcionalidad: Guardar Parcialmente');
+  }
+
+  nuevaNotaCredito() {
+    console.log('Funcionalidad: Nueva Nota de Crédito');
+  }
+
+  nuevaNotaDebito() {
+    console.log('Funcionalidad: Nueva Nota de Débito');
   }
 }
