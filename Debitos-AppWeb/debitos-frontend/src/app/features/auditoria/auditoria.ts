@@ -161,6 +161,19 @@ export class AuditoriaComponent {
   totalDebitadoAceptado: number = 0;
   totalRefacturarRechazado: number = 0;
 
+  // ==========================================
+  // VARIABLES DEL MODAL DE CONFIRMACIÓN
+  // ==========================================
+  modalVisible: boolean = false;
+  modalMensaje: string = '';
+  modalAceptarCb: () => void = () => {};
+  modalCancelarCb: () => void = () => {};
+
+  cerrarModal() {
+    this.modalVisible = false;
+    this.cdr.detectChanges();
+  }
+
   // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
@@ -185,40 +198,62 @@ export class AuditoriaComponent {
   }
 
   limpiarFilasSeleccionadas() {
-    // Si no hay nada seleccionado, no hacemos nada
     if (this.registrosSeleccionados.length === 0) return;
 
-    // Confirmación opcional para evitar borrados accidentales
-    if (!confirm(`¿Estás seguro de que querés borrar el contenido de las ${this.registrosSeleccionados.length} filas seleccionadas?`)) {
-      return;
-    }
+    this.modalMensaje = `¿Estás seguro de que querés borrar el contenido de las ${this.registrosSeleccionados.length} filas seleccionadas?`;
 
-    this.registrosSeleccionados.forEach(p => {
-      p.debitoAceptado = '';
-      p.motivoDebito = '';
-      p.importeDebitado = 0;
-      p.motivoRefactura = '';
-      p.importeRefactura = 0;
-      p.comentarios = '';
-    });
+    this.modalAceptarCb = () => {
+      this.registrosSeleccionados.forEach(p => {
+        p.debitoAceptado = '';
+        p.motivoDebito = '';
+        p.importeDebitado = 0;
+        p.motivoRefactura = '';
+        p.importeRefactura = 0;
+        p.comentarios = '';
+      });
+      this.calcularTotales();
+      this.cerrarModal();
+    };
 
-    // Actualizamos los contadores de arriba y la visual
-    this.calcularTotales();
-    this.cdr.detectChanges();
+    // Si cancela, solo cerramos
+    this.modalCancelarCb = () => this.cerrarModal();
+    this.modalVisible = true;
   }
 
   aplicarMotivoRefacturaMasivo() {
     if (this.registrosSeleccionados.length === 0 || !this.motivoRefacturaMasivoSeleccionado) return;
 
-    const valor = this.motivoRefacturaMasivoSeleccionado === 'Borrar' ? '' : this.motivoRefacturaMasivoSeleccionado;
+    const motivo = this.motivoRefacturaMasivoSeleccionado;
+    const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoRefactura && p.motivoRefactura !== '');
 
+    if (registrosConPrevio.length > 0) {
+      this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de refactura.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
+
+      this.modalAceptarCb = () => {
+        this.ejecutarMasivoRefactura(motivo, true);
+        this.cerrarModal();
+      };
+
+      this.modalCancelarCb = () => {
+        this.ejecutarMasivoRefactura(motivo, false);
+        this.cerrarModal();
+      };
+
+      this.modalVisible = true;
+    } else {
+      this.ejecutarMasivoRefactura(motivo, true);
+    }
+  }
+
+  ejecutarMasivoRefactura(motivo: string, sobreescribirTodos: boolean) {
     this.registrosSeleccionados.forEach(p => {
-      p.motivoRefactura = valor;
+      if (!sobreescribirTodos && p.motivoRefactura && p.motivoRefactura !== '') return;
+      p.motivoRefactura = motivo === 'Borrar' ? '' : motivo;
     });
 
     this.motivoRefacturaMasivoSeleccionado = '';
     this.calcularTotales();
-    this.cdr.detectChanges(); // Vital para OnPush
+    this.cdr.detectChanges();
   }
 
   aplicarDebitoAceptadoMasivo() {
@@ -267,42 +302,123 @@ export class AuditoriaComponent {
     }
   }
 
-  aplicarMotivoMasivo() {
-    if (this.registrosSeleccionados.length === 0 || !this.motivoMasivoSeleccionado) {
-      return;
+  ejecutarIndividualRefactura(p: Prestacion, nuevoMotivo: string) {
+    p.motivoRefactura = nuevoMotivo;
+    if (nuevoMotivo === 'Borrar') p.motivoRefactura = '';
+    (p as any)._motivoRefacturaPrevio = p.motivoRefactura;
+    this.calcularTotales();
+  }
+
+  alCambiarMotivoRefactura(p: Prestacion) {
+    const previo = (p as any)._motivoRefacturaPrevio;
+    const nuevo = p.motivoRefactura || '';
+
+    if (previo && previo !== '' && previo !== nuevo) {
+      this.modalMensaje = `Este registro ya tenía un motivo de refactura ("${previo}").\n¿Desea reemplazarlo?`;
+
+      this.modalAceptarCb = () => {
+        this.ejecutarIndividualRefactura(p, nuevo);
+        this.cerrarModal();
+      };
+
+      this.modalCancelarCb = () => {
+        p.motivoRefactura = previo; // Revertimos
+        this.cerrarModal();
+      };
+
+      this.modalVisible = true;
+    } else {
+      this.ejecutarIndividualRefactura(p, nuevo);
     }
+  }
+
+  // =========================================================================
+  // LOGICA MASIVA (Botones de arriba)
+  // =========================================================================
+
+  aplicarMotivoMasivo() {
+    if (this.registrosSeleccionados.length === 0 || !this.motivoMasivoSeleccionado) return;
 
     const motivo = this.motivoMasivoSeleccionado;
+    const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoDebito && p.motivoDebito !== '');
 
+    if (registrosConPrevio.length > 0) {
+      this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de débito.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
+
+      this.modalAceptarCb = () => {
+        this.ejecutarMasivoDebito(motivo, true);
+        this.cerrarModal();
+      };
+
+      this.modalCancelarCb = () => {
+        this.ejecutarMasivoDebito(motivo, false);
+        this.cerrarModal();
+      };
+
+      this.modalVisible = true;
+    } else {
+      this.ejecutarMasivoDebito(motivo, true);
+    }
+  }
+
+  ejecutarMasivoDebito(motivo: string, sobreescribirTodos: boolean) {
     this.registrosSeleccionados.forEach(p => {
+      if (!sobreescribirTodos && p.motivoDebito && p.motivoDebito !== '') return;
+
       if (motivo === 'Borrar') {
         p.motivoDebito = '';
-        p.importeDebitado = 0; // Vaciamos también el importe
+        p.importeDebitado = 0;
       } else {
         p.motivoDebito = motivo;
-        // Si no es "No aplica", le clavamos automáticamente el total neto de esa prestación
-        if (motivo !== 'No aplica') {
-          p.importeDebitado = p.total;
-        }
+        if (motivo !== 'No aplica') p.importeDebitado = p.total;
       }
     });
 
     this.motivoMasivoSeleccionado = '';
-
-    // CRÍTICO: Recalcular los contadores (KPIs) y totales después de la modificación masiva
     this.calcularTotales();
     this.cdr.detectChanges();
   }
 
+  guardarMotivoPrevio(p: Prestacion, tipo: 'debito' | 'refactura') {
+    if (tipo === 'debito') {
+      (p as any)._motivoDebitoPrevio = p.motivoDebito;
+    } else {
+      (p as any)._motivoRefacturaPrevio = p.motivoRefactura;
+    }
+  }
+
   alCambiarMotivoDebito(p: Prestacion) {
-    if (p.motivoDebito === 'Borrar') {
+    const previo = (p as any)._motivoDebitoPrevio;
+    const nuevo = p.motivoDebito || '';
+
+    if (previo && previo !== '' && previo !== nuevo) {
+      this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
+
+      this.modalAceptarCb = () => {
+        this.ejecutarIndividualDebito(p, nuevo);
+        this.cerrarModal();
+      };
+
+      this.modalCancelarCb = () => {
+        p.motivoDebito = previo; // Revertimos el combo al valor anterior
+        this.cerrarModal();
+      };
+
+      this.modalVisible = true;
+    } else {
+      this.ejecutarIndividualDebito(p, nuevo);
+    }
+  }
+
+  ejecutarIndividualDebito(p: Prestacion, nuevoMotivo: string) {
+    p.motivoDebito = nuevoMotivo;
+    if (nuevoMotivo === 'Borrar') {
       p.motivoDebito = '';
       p.importeDebitado = 0;
-    } else if (p.motivoDebito && p.motivoDebito !== 'No aplica') {
+    } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
       p.importeDebitado = p.total;
     }
-
-    // Recalculamos totales al instante
+    (p as any)._motivoDebitoPrevio = p.motivoDebito;
     this.calcularTotales();
   }
 

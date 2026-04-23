@@ -111,12 +111,6 @@
             Limpiar Filas
           </button>
 
-          <button
-            class="btn-exportar"
-            (click)="exportarAExcel()"
-            [disabled]="prestacionesFiltradas.length === 0">
-            Exportar Excel
-          </button>
         </div>
 
       </div>
@@ -153,6 +147,16 @@
         <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
       </div>
     </div>
+
+    <div class="filtro-columna">
+      <button
+        class="btn-exportar"
+        (click)="exportarAExcel()"
+        [disabled]="prestacionesFiltradas.length === 0">
+        Exportar Excel
+      </button>
+    </div>
+
   </section>
 
   <section class="grilla-section" style="position: relative;">
@@ -164,23 +168,25 @@
 
       <div class="accion-controles">
 
-        <div class="grupo-input-accion">
-          <label>Aceptado:</label>
-          <select [(ngModel)]="debitoAceptadoMasivoSeleccionado">
-            <option value="">Seleccionar...</option>
-            <option *ngFor="let estado of listaDebitoAceptado" [value]="estado">{{ estado }}</option>
-          </select>
-          <button class="btn-aplicar-masivo" (click)="aplicarDebitoAceptadoMasivo()" [disabled]="!debitoAceptadoMasivoSeleccionado">Aplicar</button>
-        </div>
+        <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+          <div class="grupo-input-accion">
+            <label>Aceptado:</label>
+            <select [(ngModel)]="debitoAceptadoMasivoSeleccionado">
+              <option value="">Seleccionar...</option>
+              <option *ngFor="let estado of listaDebitoAceptado" [value]="estado">{{ estado }}</option>
+            </select>
+            <button class="btn-aplicar-masivo" (click)="aplicarDebitoAceptadoMasivo()" [disabled]="!debitoAceptadoMasivoSeleccionado">Aplicar</button>
+          </div>
 
-        <div class="grupo-input-accion">
-          <label>Motivo Débito:</label>
-          <select [(ngModel)]="motivoMasivoSeleccionado">
-            <option value="">Seleccionar...</option>
-            <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
-          </select>
-          <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()" [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
-        </div>
+          <div class="grupo-input-accion">
+            <label>Motivo Débito:</label>
+            <select [(ngModel)]="motivoMasivoSeleccionado">
+              <option value="">Seleccionar...</option>
+              <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
+            </select>
+            <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()" [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
+          </div>
+        </ng-container>
 
         <div class="grupo-input-accion">
           <label>Motivo Refactura:</label>
@@ -279,7 +285,11 @@
                 </select>
               </td>
               <td class="bg-gris">
-                <select [(ngModel)]="p.motivoDebito" (ngModelChange)="alCambiarMotivoDebito(p)" class="input-grilla">
+                <select
+                  [(ngModel)]="p.motivoDebito"
+                  (focus)="guardarMotivoPrevio(p, 'debito')"
+                  (ngModelChange)="alCambiarMotivoDebito(p)"
+                  class="input-grilla">
                   <option value=""></option>
                   <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
                 </select>
@@ -287,7 +297,11 @@
               <td class="text-center bg-gris">{{ p.diasFacturados }}</td>
               <td class="bg-gris col-debito"><input type="number" [(ngModel)]="p.importeDebitado" (ngModelChange)="calcularTotales()" class="input-grilla"></td>
               <td class="bg-gris">
-                <select [(ngModel)]="p.motivoRefactura" (ngModelChange)="cdr.detectChanges()" class="input-grilla">
+                <select
+                  [(ngModel)]="p.motivoRefactura"
+                  (focus)="guardarMotivoPrevio(p, 'refactura')"
+                  (ngModelChange)="alCambiarMotivoRefactura(p)"
+                  class="input-grilla">
                   <option value=""></option>
                   <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
                 </select>
@@ -315,7 +329,11 @@
               <td class="bg-gris">{{ p.comentarioPrevio }}</td>
 
               <td class="bg-gris">
-                <select [(ngModel)]="p.motivoRefactura" (ngModelChange)="cdr.detectChanges()" class="input-grilla">
+                <select
+                  [(ngModel)]="p.motivoRefactura"
+                  (focus)="guardarMotivoPrevio(p, 'refactura')"
+                  (ngModelChange)="alCambiarMotivoRefactura(p)"
+                  class="input-grilla">
                   <option value=""></option>
                   <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
                 </select>
@@ -375,4 +393,18 @@
   </ng-template>
 
   </section>
+  <div class="modal-overlay" *ngIf="modalVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Atención</h3>
+      </div>
+      <div class="modal-body">
+        <p class="texto-modal">{{ modalMensaje }}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="modalCancelarCb()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="modalAceptarCb()">Confirmar</button>
+      </div>
+    </div>
+  </div>
 </div>
