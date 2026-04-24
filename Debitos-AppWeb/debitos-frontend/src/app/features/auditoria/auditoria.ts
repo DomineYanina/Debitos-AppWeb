@@ -4,7 +4,6 @@ import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
-import * as XLSX from 'xlsx';
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { AuditoriaService } from '../../core/services/auditoria';
@@ -134,14 +133,12 @@ export class AuditoriaComponent {
   direccionOrden: 'asc' | 'desc' = 'asc';
   private auditoriaService = inject(AuditoriaService);
 
-  // Listas para llenar los combos
   pacientesList: string[] = [];
   profesionalesList: string[] = [];
   prestacionesList: string[] = [];
   gruposList: (string | undefined)[] = [];
   fechasList: string[] = [];
 
-  // Valores seleccionados en los filtros
   filtroPaciente: string = '';
   filtroProfesional: string = '';
   filtroPrestacion: string = '';
@@ -161,9 +158,16 @@ export class AuditoriaComponent {
   totalDebitadoAceptado: number = 0;
   totalRefacturarRechazado: number = 0;
 
-  // ==========================================
-  // VARIABLES DEL MODAL DE CONFIRMACIÓN
-  // ==========================================
+  totalFacturado: number = 0;
+  totalDebitado: number = 0;
+  totalCantidad: number = 0;
+  totalNetoGlobal: number = 0;
+  totalCoseguroGlobal: number = 0;
+  totalRefacturadoGlobal: number = 0;
+
+  todasSeleccionadas: boolean = false;
+  registrosSeleccionados: Prestacion[] = [];
+
   modalVisible: boolean = false;
   modalMensaje: string = '';
   modalAceptarCb: () => void = () => {};
@@ -284,8 +288,20 @@ export class AuditoriaComponent {
 
       this.auditoriaService.buscarPrestaciones(this.busquedaForm.value).subscribe({
         next: (data) => {
-          this.tipoBusquedaRealizada=this.busquedaForm.value.tipo || '';
-          this.prestaciones = data;
+          this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
+
+          this.prestaciones = data.map((p: any) => {
+            if (p.debitoAceptado === true) {
+              p.debitoAceptado = 'SI';
+            } else if (p.debitoAceptado === false) {
+              p.debitoAceptado = 'NO';
+            } else {
+              p.debitoAceptado = '';
+            }
+
+            return p as Prestacion;
+          });
+
           this.prestacionesFiltradas = [...this.prestaciones];
 
           this.prepararFiltros(this.prestaciones);
@@ -331,10 +347,6 @@ export class AuditoriaComponent {
       this.ejecutarIndividualRefactura(p, nuevo);
     }
   }
-
-  // =========================================================================
-  // LOGICA MASIVA (Botones de arriba)
-  // =========================================================================
 
   aplicarMotivoMasivo() {
     if (this.registrosSeleccionados.length === 0 || !this.motivoMasivoSeleccionado) return;
@@ -443,7 +455,6 @@ export class AuditoriaComponent {
     this.prestacionesList = [...new Set(datos.map(p => p.codigo))].sort();
     this.gruposList = [...new Set(datos.map(p => p.grupomodulo))].sort();
     this.fechasList = [...new Set(datos.map(p => p.fecha))].sort();
-    //debugger;
   }
 
   aplicarFiltros() {
@@ -532,14 +543,6 @@ export class AuditoriaComponent {
     this.actualizarPaginacion();
   }
 
-  totalFacturado: number = 0;
-  totalDebitado: number = 0;
-  totalCantidad: number = 0;
-  totalNetoGlobal: number = 0;
-  totalCoseguroGlobal: number = 0;
-  totalRefacturadoGlobal: number = 0;
-
-// Función para el checkbox principal de la cabecera
   toggleSelectAll(event: Event) {
     const checkbox = event.target as HTMLInputElement;
     const marcado = checkbox.checked;
@@ -550,9 +553,6 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
     // El HTML solo actualizará las 100 filas de 'prestacionesPaginadas' gracias a OnPush
   }
-
-  todasSeleccionadas: boolean = false;
-  registrosSeleccionados: Prestacion[] = [];
 
   trackByPrestacion(index: number, p: Prestacion): any {
     return p.id || index;
@@ -588,7 +588,8 @@ export class AuditoriaComponent {
       this.totalRefacturadoGlobal += (p.importeRefactura || 0);
 
       // Lógica de los nuevos KPIs
-      if (p.debitoAceptado === 'SI' || p.debitoAceptado === 'PARCIAL') {
+      // Lógica de los nuevos KPIs (Sin el PARCIAL)
+      if (p.debitoAceptado === 'SI') {
         this.cantAceptados++;
         this.totalDebitadoAceptado += (p.importeDebitado || 0);
       } else if (p.debitoAceptado === 'NO') {
@@ -599,7 +600,6 @@ export class AuditoriaComponent {
   }
 
   async exportarAExcel() {
-    debugger;
     if (this.prestacionesFiltradas.length === 0) return;
 
     const workbook = new ExcelJS.Workbook();
@@ -727,5 +727,125 @@ export class AuditoriaComponent {
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), nombreArchivo);
+  }
+
+  guardarParcialmente() {
+    // 1. Recolectar solo los registros que cumplan las condiciones
+    const registrosParaGuardar = this.prestaciones.filter(p => {
+      if (this.tipoBusquedaRealizada === 'NC') {
+        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      } else {
+        // Para FC o ND, exigimos que haya Motivo de Débito
+        return p.motivoDebito && p.motivoDebito.trim() !== '';
+      }
+    });
+
+    if (registrosParaGuardar.length === 0) {
+      alert('No hay registros con motivos asignados para guardar.');
+      return;
+    }
+
+    // 2. Preparar el paquete (Payload) para enviar a Java
+    // Asegurate de cambiar el string del usuario por el método real de tu AuthService
+    const payload = {
+      documentoOrigen: this.tipoBusquedaRealizada,
+      letra: this.busquedaForm.value.letra,
+      ptovta: this.busquedaForm.value.puntoVenta,
+      numero: this.busquedaForm.value.numero,
+      usuario: this.authService.obtenerUsuario(), // TODO: Reemplazar por this.authService.getUsuario()...
+      registros: registrosParaGuardar
+    };
+
+    // 3. Bloquear UI y disparar petición
+    this.cargando = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarParcialmente(payload).subscribe({
+      next: () => {
+        alert('¡Los registros se guardaron parcialmente con éxito!');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Ocurrió un error al intentar guardar en la base de datos.');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  nuevaNotaDebito() {
+    console.log('Funcionalidad: Nueva Nota de Débito');
+  }
+
+  // ==========================================
+  // VARIABLES DEL MODAL DE NUEVA NOTA
+  // ==========================================
+  modalNuevaNotaVisible: boolean = false;
+
+  // Formulario reactivo para la nueva nota
+  nuevaNotaForm = this.fb.group({
+    tipo: ['NC', Validators.required], // Valor por defecto NC
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: ['', Validators.required]
+  });
+
+  // Reemplazamos el método vacío por este
+  nuevaNotaCredito() {
+    // Verificamos que haya algo para asociar
+    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+
+    if (prestacionesConDebito.length === 0) {
+      alert('No hay registros con Motivo de Débito cargado para generar una Nota de Crédito. Recuerde Guardar Parcialmente primero.');
+      return;
+    }
+
+    this.nuevaNotaForm.reset({ tipo: 'NC' }); // Limpiamos el form al abrir
+    this.modalNuevaNotaVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalNuevaNota() {
+    this.modalNuevaNotaVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  guardarNuevaNotaCreditoBD() {
+    if (this.nuevaNotaForm.invalid) {
+      alert('Por favor, complete todos los campos correctamente.');
+      return;
+    }
+
+    // Recolectamos los IDs de las prestaciones originales que tienen débito
+    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+    const ids = prestacionesConDebito.map(p => p.id);
+
+    const payload = {
+      origen: this.tipoBusquedaRealizada, // FC o ND
+      idsPrestaciones: ids,
+      datosNota: this.nuevaNotaForm.value
+    };
+
+    this.cargando = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaCredito(payload).subscribe({
+      next: () => {
+        alert('¡Nota de Crédito generada y guardada con éxito!');
+        this.cerrarModalNuevaNota();
+        this.cargando = false;
+        // Opcional: Podrías llamar a onBuscar() acá para recargar la grilla
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Error al guardar la Nota de Crédito en la base de datos.');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 }

@@ -36,4 +36,27 @@ public class AuditoriaController {
 
         return ResponseEntity.ok(resultados);
     }
+
+    @PostMapping("/guardar-parcialmente")
+    public ResponseEntity<?> guardarParcialmente(@RequestBody Map<String, Object> payload) {
+        try {
+            // Llamamos al método que creamos antes en el servicio
+            auditoriaService.procesarGuardadoParcial(payload);
+            return ResponseEntity.ok().body("{\"mensaje\": \"Guardado exitoso\"}");
+        } catch (Exception e) {
+            e.printStackTrace(); // Para que veas el error exacto en la consola de Java si algo falla
+            return ResponseEntity.internalServerError().body("{\"error\": \"Error al guardar en la base de datos\"}");
+        }
+    }
+
+    @PostMapping("/nueva-nota-credito")
+    public ResponseEntity<?> guardarNuevaNotaCredito(@RequestBody Map<String, Object> payload) {
+        try {
+            auditoriaService.procesarNuevaNotaCredito(payload);
+            return ResponseEntity.ok().body("{\"mensaje\": \"Nota de Crédito generada exitosamente\"}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("{\"error\": \"Error al procesar la Nota de Crédito\"}");
+        }
+    }
 }

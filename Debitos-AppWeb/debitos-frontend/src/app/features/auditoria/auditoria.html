@@ -121,10 +121,12 @@
           <label for="checkVal">Ver solo prestaciones valorizadas</label>
         </div>
 
-        <div class="check-item">
-          <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
-          <label for="checkDebito">Ver solo prest. sin mot. de débito</label>
-        </div>
+        <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+          <div class="check-item">
+            <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
+            <label for="checkDebito">Ver solo prest. sin mot. de débito</label>
+          </div>
+        </ng-container>
 
         <div class="check-item">
           <input type="checkbox" id="checkRefac" [(ngModel)]="soloSinMotivoRefactura" (change)="aplicarFiltros()">
@@ -154,6 +156,23 @@
         (click)="exportarAExcel()"
         [disabled]="prestacionesFiltradas.length === 0">
         Exportar Excel
+      </button>
+      <button class="btn-accion-doc btn-guardar" (click)="guardarParcialmente()">
+        Guardar parcialmente
+      </button>
+
+      <button
+        class="btn-accion-doc btn-nueva-nota"
+        *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'"
+        (click)="nuevaNotaCredito()">
+        Nueva Nota de Crédito
+      </button>
+
+      <button
+        class="btn-accion-doc btn-nueva-nota"
+        *ngIf="tipoBusquedaRealizada === 'NC'"
+        (click)="nuevaNotaDebito()">
+        Nueva Nota de Débito
       </button>
     </div>
 
@@ -281,7 +300,6 @@
                   <option value=""></option>
                   <option value="SI">SI</option>
                   <option value="NO">NO</option>
-                  <option value="PARCIAL">PARCIAL</option>
                 </select>
               </td>
               <td class="bg-gris">
@@ -404,6 +422,54 @@
       <div class="modal-footer">
         <button class="btn-modal-cancelar" (click)="modalCancelarCb()">Cancelar</button>
         <button class="btn-modal-aceptar" (click)="modalAceptarCb()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" *ngIf="modalNuevaNotaVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Generar Nueva Nota de Crédito</h3>
+      </div>
+
+      <div class="modal-body">
+        <form [formGroup]="nuevaNotaForm" class="form-modal">
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Tipo</label>
+              <select formControlName="tipo" class="input-grilla">
+                <option value="NC">NC</option>
+                <option value="NCE">NCE</option>
+              </select>
+            </div>
+            <div class="form-grupo-input">
+              <label>Letra</label>
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1">
+            </div>
+          </div>
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Punto Venta</label>
+              <input type="number" formControlName="puntoVenta" class="input-grilla">
+            </div>
+            <div class="form-grupo-input">
+              <label>Número</label>
+              <input type="number" formControlName="numero" class="input-grilla">
+            </div>
+          </div>
+
+          <div class="form-grupo-input full-width">
+            <label>Fecha</label>
+            <input type="date" formControlName="fecha" class="input-grilla">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaCreditoBD()" [disabled]="nuevaNotaForm.invalid">Guardar Nota</button>
       </div>
     </div>
   </div>
