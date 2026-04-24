@@ -242,4 +242,52 @@ public class AuditoriaService {
         List<Integer> resultados = jdbcTemplate.queryForList(sql, Integer.class, params);
         return resultados.isEmpty() ? null : resultados.get(0);
     }
+
+    @Transactional
+    public void procesarNuevaNotaCredito(Map<String, Object> payload) {
+        String origen = (String) payload.get("origen"); // "FC" o "ND"
+        Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
+        List<Integer> idsPrestaciones = (List<Integer>) payload.get("idsPrestaciones");
+
+        if (idsPrestaciones == null || idsPrestaciones.isEmpty()) {
+            return;
+        }
+
+        // 1. Parseamos los números de forma segura
+        Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
+        Integer numero = Integer.valueOf(datosNota.get("numero").toString());
+
+        // 2. CONVERSIÓN DE FECHA: De String ("YYYY-MM-DD") a java.sql.Date
+        String fechaString = (String) datosNota.get("fecha");
+        java.sql.Date fechaSql = java.sql.Date.valueOf(fechaString);
+
+        for (Integer idPrestacion : idsPrestaciones) {
+
+            if ("FC".equals(origen)) {
+                // Si la búsqueda original fue FC, la ND asociada es NULL
+                String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, cargadocompletamente = true WHERE id_prestacion = ? AND id_notadedebito IS NULL AND cargadocompletamente = false";
+
+                // Fijate que ahora pasamos "fechaSql" en lugar de datosNota.get("fecha")
+                jdbcTemplate.update(sqlUpdate,
+                        datosNota.get("tipo"),
+                        datosNota.get("letra"),
+                        puntoVenta,
+                        numero,
+                        fechaSql,
+                        idPrestacion);
+
+            } else if ("ND".equals(origen)) {
+                // Si la búsqueda original fue ND, la NC madre TIENE una ND asociada
+                String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, cargadocompletamente = true WHERE id_prestacion = ? AND id_notadedebito IS NOT NULL AND cargadocompletamente = false";
+
+                jdbcTemplate.update(sqlUpdate,
+                        datosNota.get("tipo"),
+                        datosNota.get("letra"),
+                        puntoVenta,
+                        numero,
+                        fechaSql,
+                        idPrestacion);
+            }
+        }
+    }
 }

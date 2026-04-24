@@ -1054,3 +1054,43 @@ tr.row-selected {
   box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
   transform: translateY(-1px); /* Pequeño efecto 3D de elevación */
 }
+/* Estilos para el formulario del Modal */
+.form-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.form-grupo-fila {
+  display: flex;
+  gap: 15px;
+}
+
+.form-grupo-input {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.form-grupo-input.full-width {
+  flex: none;
+  width: 100%;
+}
+
+.form-grupo-input label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+/* Reutilizamos la clase .input-grilla para mantener la estética */
+.form-grupo-input .input-grilla {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-modal-aceptar:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}

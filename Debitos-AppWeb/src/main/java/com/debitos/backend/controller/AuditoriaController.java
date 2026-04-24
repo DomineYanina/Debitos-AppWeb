@@ -48,4 +48,15 @@ public class AuditoriaController {
             return ResponseEntity.internalServerError().body("{\"error\": \"Error al guardar en la base de datos\"}");
         }
     }
+
+    @PostMapping("/nueva-nota-credito")
+    public ResponseEntity<?> guardarNuevaNotaCredito(@RequestBody Map<String, Object> payload) {
+        try {
+            auditoriaService.procesarNuevaNotaCredito(payload);
+            return ResponseEntity.ok().body("{\"mensaje\": \"Nota de Crédito generada exitosamente\"}");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("{\"error\": \"Error al procesar la Nota de Crédito\"}");
+        }
+    }
 }

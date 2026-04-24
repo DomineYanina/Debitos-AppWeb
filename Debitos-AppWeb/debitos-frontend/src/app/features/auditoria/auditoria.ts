@@ -775,11 +775,77 @@ export class AuditoriaComponent {
     });
   }
 
-  nuevaNotaCredito() {
-    console.log('Funcionalidad: Nueva Nota de Crédito');
-  }
-
   nuevaNotaDebito() {
     console.log('Funcionalidad: Nueva Nota de Débito');
+  }
+
+  // ==========================================
+  // VARIABLES DEL MODAL DE NUEVA NOTA
+  // ==========================================
+  modalNuevaNotaVisible: boolean = false;
+
+  // Formulario reactivo para la nueva nota
+  nuevaNotaForm = this.fb.group({
+    tipo: ['NC', Validators.required], // Valor por defecto NC
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: ['', Validators.required]
+  });
+
+  // Reemplazamos el método vacío por este
+  nuevaNotaCredito() {
+    // Verificamos que haya algo para asociar
+    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+
+    if (prestacionesConDebito.length === 0) {
+      alert('No hay registros con Motivo de Débito cargado para generar una Nota de Crédito. Recuerde Guardar Parcialmente primero.');
+      return;
+    }
+
+    this.nuevaNotaForm.reset({ tipo: 'NC' }); // Limpiamos el form al abrir
+    this.modalNuevaNotaVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalNuevaNota() {
+    this.modalNuevaNotaVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  guardarNuevaNotaCreditoBD() {
+    if (this.nuevaNotaForm.invalid) {
+      alert('Por favor, complete todos los campos correctamente.');
+      return;
+    }
+
+    // Recolectamos los IDs de las prestaciones originales que tienen débito
+    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+    const ids = prestacionesConDebito.map(p => p.id);
+
+    const payload = {
+      origen: this.tipoBusquedaRealizada, // FC o ND
+      idsPrestaciones: ids,
+      datosNota: this.nuevaNotaForm.value
+    };
+
+    this.cargando = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaCredito(payload).subscribe({
+      next: () => {
+        alert('¡Nota de Crédito generada y guardada con éxito!');
+        this.cerrarModalNuevaNota();
+        this.cargando = false;
+        // Opcional: Podrías llamar a onBuscar() acá para recargar la grilla
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Error al guardar la Nota de Crédito en la base de datos.');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 }

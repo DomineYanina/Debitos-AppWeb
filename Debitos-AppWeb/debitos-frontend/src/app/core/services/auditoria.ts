@@ -22,4 +22,8 @@ export class AuditoriaService {
     // O si en tu archivo ya tenés una variable definida como "this.apiUrl", usala así:
     // return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload);
   }
+
+  guardarNuevaNotaCredito(payload: any) {
+    return this.http.post(`${this.apiUrl}/nueva-nota-credito`, payload);
+  }
 }
