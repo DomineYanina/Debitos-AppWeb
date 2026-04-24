@@ -25,7 +25,7 @@ export class AuditoriaComponent {
     'No aplica',
     'Afiliado capitado',
     'Afiliado dado de baja',
-    'Alta demorada criterio audotoria medica',
+    'Alta demorada criterio auditoria medica',
     'Conteo de medicacion erroneo hojas de enfermeria no identificadas con fecha',
     'Coseguro no cobrado',
     'Debito 20% urgencia modulos',
@@ -775,6 +775,10 @@ export class AuditoriaComponent {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  debeMostrarEnglobante(): boolean {
+    return this.prestacionesFiltradas.some(p => p.motivoDebito === 'Prestacion incluida en otra');
   }
 
   // ==========================================
