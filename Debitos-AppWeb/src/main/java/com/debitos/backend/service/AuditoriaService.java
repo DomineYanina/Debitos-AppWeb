@@ -48,8 +48,8 @@ public class AuditoriaService {
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
                                nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", 
-                               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
-                               nc.comentarios 
+                               nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", 
+                               nd.comentarios 
                         FROM notadecredito nc
                         LEFT JOIN notadedebito nd ON nc.id = nd.id_notadecredito
                         JOIN amb_liquidado al ON nc.id_prestacion = al.id
@@ -60,8 +60,8 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", nd.comentarios,
-                               nc.diasfacturados AS "diasFacturados", nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado"
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
+                               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura"
                         FROM notadedebito nd 
                         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
                         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 
@@ -91,7 +91,7 @@ public class AuditoriaService {
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
                                nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", 
-                               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
+                               nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", 
                                nc.comentarios
                         FROM notadecredito nc
                         LEFT JOIN notadedebito nd ON nc.id = nd.id_notadecredito
@@ -103,8 +103,8 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", nd.comentarios,
-                               nc.diasfacturados AS "diasFacturados", nc.motivodedebito AS "motivoDebito", nc.importedebitado AS "importeDebitado"
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
+                               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura"
                         FROM notadedebito nd 
                         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
                         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 
@@ -241,6 +241,41 @@ public class AuditoriaService {
     private Integer obtenerIdSiExiste(String sql, Object... params) {
         List<Integer> resultados = jdbcTemplate.queryForList(sql, Integer.class, params);
         return resultados.isEmpty() ? null : resultados.get(0);
+    }
+
+    @Transactional
+    public void procesarNuevaNotaDebito(Map<String, Object> payload) {
+        String origen = (String) payload.get("origen"); // Esto será siempre "NC"
+        Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
+        List<Integer> idsPrestaciones = (List<Integer>) payload.get("idsPrestaciones");
+
+        if (idsPrestaciones == null || idsPrestaciones.isEmpty()) {
+            return;
+        }
+
+        // 1. Parseamos los números
+        Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
+        Integer numero = Integer.valueOf(datosNota.get("numero").toString());
+
+        // 2. Parseamos la fecha a SQL Date
+        String fechaString = (String) datosNota.get("fecha");
+        java.sql.Date fechaSql = java.sql.Date.valueOf(fechaString);
+
+        for (Integer idPrestacion : idsPrestaciones) {
+
+            if ("NC".equals(origen)) {
+                // Hacemos el UPDATE en la tabla notadedebito
+                String sqlUpdate = "UPDATE notadedebito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, cargadocompletamente = true WHERE id_prestacion = ? AND cargadocompletamente = false";
+
+                jdbcTemplate.update(sqlUpdate,
+                        datosNota.get("tipo"),
+                        datosNota.get("letra"),
+                        puntoVenta,
+                        numero,
+                        fechaSql,
+                        idPrestacion);
+            }
+        }
     }
 
     @Transactional

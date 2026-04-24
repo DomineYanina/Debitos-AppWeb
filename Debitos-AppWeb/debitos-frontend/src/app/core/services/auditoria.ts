@@ -26,4 +26,8 @@ export class AuditoriaService {
   guardarNuevaNotaCredito(payload: any) {
     return this.http.post(`${this.apiUrl}/nueva-nota-credito`, payload);
   }
+
+  guardarNuevaNotaDebito(payload: any) {
+    return this.http.post(`${this.apiUrl}/nueva-nota-debito`, payload);
+  }
 }

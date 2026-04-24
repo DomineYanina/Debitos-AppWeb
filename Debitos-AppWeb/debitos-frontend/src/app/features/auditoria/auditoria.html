@@ -473,4 +473,52 @@
       </div>
     </div>
   </div>
+  <div class="modal-overlay" *ngIf="modalNuevaNotaDebitoVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Generar Nueva Nota de Débito</h3>
+      </div>
+
+      <div class="modal-body">
+        <form [formGroup]="nuevaNotaDebitoForm" class="form-modal">
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Tipo</label>
+              <select formControlName="tipo" class="input-grilla">
+                <option value="ND">ND</option>
+                <option value="NDE">NDE</option>
+              </select>
+            </div>
+            <div class="form-grupo-input">
+              <label>Letra</label>
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
+            </div>
+          </div>
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Punto Venta</label>
+              <input type="number" formControlName="puntoVenta" class="input-grilla">
+            </div>
+            <div class="form-grupo-input">
+              <label>Número</label>
+              <input type="number" formControlName="numero" class="input-grilla">
+            </div>
+          </div>
+
+          <div class="form-grupo-input full-width">
+            <label>Fecha</label>
+            <input type="date" formControlName="fecha" class="input-grilla">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNotaDebito()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaDebitoBD()" [disabled]="nuevaNotaDebitoForm.invalid">Guardar Nota</button>
+      </div>
+    </div>
+  </div>
 </div>
