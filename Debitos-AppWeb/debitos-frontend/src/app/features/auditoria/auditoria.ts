@@ -25,7 +25,7 @@ export class AuditoriaComponent {
     'No aplica',
     'Afiliado capitado',
     'Afiliado dado de baja',
-    'Alta demorada criterio audotoria medica',
+    'Alta demorada criterio auditoria medica',
     'Conteo de medicacion erroneo hojas de enfermeria no identificadas con fecha',
     'Coseguro no cobrado',
     'Debito 20% urgencia modulos',
@@ -286,7 +286,9 @@ export class AuditoriaComponent {
     if (this.busquedaForm.valid) {
       this.cargando = true; // Bloqueamos la UI
 
-      this.auditoriaService.buscarPrestaciones(this.busquedaForm.value).subscribe({
+      const filtros = { ...this.busquedaForm.value };
+      filtros.letra = filtros.letra ? filtros.letra.toUpperCase() : '';
+      this.auditoriaService.buscarPrestaciones(filtros).subscribe({
         next: (data) => {
           this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
 
@@ -749,7 +751,7 @@ export class AuditoriaComponent {
     // Asegurate de cambiar el string del usuario por el método real de tu AuthService
     const payload = {
       documentoOrigen: this.tipoBusquedaRealizada,
-      letra: this.busquedaForm.value.letra,
+      letra: this.busquedaForm.value.letra ? this.busquedaForm.value.letra.toUpperCase() : '',
       ptovta: this.busquedaForm.value.puntoVenta,
       numero: this.busquedaForm.value.numero,
       usuario: this.authService.obtenerUsuario(), // TODO: Reemplazar por this.authService.getUsuario()...
@@ -775,8 +777,79 @@ export class AuditoriaComponent {
     });
   }
 
+  debeMostrarEnglobante(): boolean {
+    return this.prestacionesFiltradas.some(p => p.motivoDebito === 'Prestacion incluida en otra');
+  }
+
+  // ==========================================
+  // VARIABLES DEL MODAL DE NUEVA NOTA DE DÉBITO
+  // ==========================================
+  modalNuevaNotaDebitoVisible: boolean = false;
+
+  nuevaNotaDebitoForm = this.fb.group({
+    tipo: ['ND', Validators.required], // Valor por defecto ND
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: ['', Validators.required]
+  });
+
+  // Reemplazamos tu método vacío nuevaNotaDebito() por este:
   nuevaNotaDebito() {
-    console.log('Funcionalidad: Nueva Nota de Débito');
+    // Para la ND, validamos que hayan cargado un Motivo de Refactura
+    const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
+
+    if (prestacionesConRefactura.length === 0) {
+      alert('No hay registros con Motivo de Refactura cargado para generar una Nota de Débito. Recuerde Guardar Parcialmente primero.');
+      return;
+    }
+
+    this.nuevaNotaDebitoForm.reset({ tipo: 'ND' });
+    this.modalNuevaNotaDebitoVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalNuevaNotaDebito() {
+    this.modalNuevaNotaDebitoVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  guardarNuevaNotaDebitoBD() {
+    if (this.nuevaNotaDebitoForm.invalid) {
+      alert('Por favor, complete todos los campos correctamente.');
+      return;
+    }
+
+    // Recolectamos los IDs de las prestaciones originales
+    const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
+    const ids = prestacionesConRefactura.map(p => p.id);
+
+    const datosNotaForm = { ...this.nuevaNotaDebitoForm.value };
+    datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
+
+    const payload = {
+      origen: this.tipoBusquedaRealizada,
+      idsPrestaciones: ids,
+      datosNota: datosNotaForm // Pasamos el objeto modificado
+    };
+
+    this.cargando = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaDebito(payload).subscribe({
+      next: () => {
+        alert('¡Nota de Débito generada y guardada con éxito!');
+        this.cerrarModalNuevaNotaDebito();
+        this.cargando = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Error al guardar la Nota de Débito en la base de datos.');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   // ==========================================
@@ -823,10 +896,13 @@ export class AuditoriaComponent {
     const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
     const ids = prestacionesConDebito.map(p => p.id);
 
+    const datosNotaForm = { ...this.nuevaNotaForm.value };
+    datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
+
     const payload = {
-      origen: this.tipoBusquedaRealizada, // FC o ND
+      origen: this.tipoBusquedaRealizada,
       idsPrestaciones: ids,
-      datosNota: this.nuevaNotaForm.value
+      datosNota: datosNotaForm // Pasamos el objeto modificado
     };
 
     this.cargando = true;

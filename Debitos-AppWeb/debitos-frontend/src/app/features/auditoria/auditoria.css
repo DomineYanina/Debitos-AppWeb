@@ -406,7 +406,7 @@ border-top: 2px solid #cbd5e0;
 
 /* Efecto visual cuando la fila está seleccionada */
 tr.row-selected {
-  background-color: #ebf8ff !important; /* Un celeste muy suave */
+  background-color: #1F96FF !important; /* Un celeste muy suave */
 }
 
 /* Aseguramos que el hover no pise el color de selección */
@@ -1093,4 +1093,17 @@ tr.row-selected {
 .btn-modal-aceptar:disabled {
   background-color: #94a3b8;
   cursor: not-allowed;
+}
+
+/* Clase específica para la columna de comentarios previos */
+.bg-azul-auditoria {
+  background-color: #005FB3 !important;
+  color: #ffffff !important; /* Texto blanco para asegurar legibilidad */
+  font-weight: 500;
+}
+
+/* Opcional: si quieres que los inputs dentro de esa columna
+   también se vean integrados, puedes ajustar su estilo */
+.bg-azul-auditoria input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
 }

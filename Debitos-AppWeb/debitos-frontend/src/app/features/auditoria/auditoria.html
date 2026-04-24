@@ -244,9 +244,13 @@
               <th appResizable (click)="onSort('totalNeto')" class="cursor-pointer text-right bg-celeste">Total Neto {{ getIcono('totalNeto') }}</th>
               <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right bg-celeste">Coseguro {{ getIcono('coseguro') }}</th>
               <th appResizable (click)="onSort('total')" class="cursor-pointer text-right bg-celeste">Total {{ getIcono('total') }}</th>
+
+              <th *ngIf="tipoBusquedaRealizada === 'ND'" appResizable class="bg-azul-auditoria">Comentario Previo</th>
+
               <th appResizable class="bg-gris titulo-multilinea col-aceptado">Débito<br>Aceptado</th>
               <th appResizable class="bg-gris">Motivo de Débito</th>
               <th appResizable class="bg-gris titulo-multilinea col-dias">Días<br>Fact.</th>
+              <th *ngIf="tipoBusquedaRealizada !== 'NC' && debeMostrarEnglobante()">Prestación Englobante</th>
               <th appResizable class="bg-gris titulo-multilinea col-debito">Imp.<br>Debitado</th>
               <th appResizable class="bg-gris">Motivo Refactura</th>
               <th appResizable class="bg-gris titulo-multilinea col-refactura">Imp.<br>Refactura</th>
@@ -266,7 +270,7 @@
               <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right bg-celeste">Coseguro {{ getIcono('coseguro') }}</th>
               <th appResizable (click)="onSort('total')" class="cursor-pointer text-right bg-celeste">Total {{ getIcono('total') }}</th>
 
-              <th appResizable class="bg-gris">Comentario Previo</th>
+              <th appResizable class="bg-azul-auditoria">Comentario Previo</th>
 
               <th appResizable class="bg-gris">Motivo Refactura</th>
               <th appResizable class="bg-gris titulo-multilinea col-refactura">Imp.<br>Refactura</th>
@@ -294,6 +298,9 @@
               <td class="text-right bg-celeste">{{ p.totalNeto | currency }}</td>
               <td class="text-right bg-celeste">{{ p.coseguro | currency }}</td>
               <td class="text-right font-bold bg-celeste">{{ p.total | currency }}</td>
+              <td *ngIf="tipoBusquedaRealizada == 'ND'" class="bg-azul-auditoria">
+                {{ p.comentarioPrevio }}
+              </td>
 
               <td class="bg-gris col-aceptado">
                 <select [(ngModel)]="p.debitoAceptado" (ngModelChange)="calcularTotales()" class="input-grilla">
@@ -312,7 +319,20 @@
                   <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
                 </select>
               </td>
-              <td class="text-center bg-gris">{{ p.diasFacturados }}</td>
+              <td *ngIf="tipoBusquedaRealizada !== 'NC'" class="bg-gris">
+                <input
+                  type="number"
+                  [(ngModel)]="p.diasFacturados"
+                  class="input-grilla"
+                  placeholder="0">
+              </td>
+              <td *ngIf="tipoBusquedaRealizada !== 'NC' && debeMostrarEnglobante()" class="bg-gris">
+                <input
+                  type="text"
+                  [(ngModel)]="p.prestacionEnglobante"
+                  class="input-grilla"
+                  placeholder="Código...">
+              </td>
               <td class="bg-gris col-debito"><input type="number" [(ngModel)]="p.importeDebitado" (ngModelChange)="calcularTotales()" class="input-grilla"></td>
               <td class="bg-gris">
                 <select
@@ -344,7 +364,9 @@
               <td class="text-right bg-celeste">{{ p.coseguro | currency }}</td>
               <td class="text-right font-bold bg-celeste">{{ p.total | currency }}</td>
 
-              <td class="bg-gris">{{ p.comentarioPrevio }}</td>
+              <td class="bg-azul-auditoria">
+                {{ p.comentarioPrevio }}
+              </td>
 
               <td class="bg-gris">
                 <select
@@ -371,22 +393,32 @@
           <tfoot>
           <tr class="fila-totales">
             <td colspan="8">TOTALES VISIBLES</td>
+
             <td class="text-center font-bold">{{ totalCantidad }}</td>
             <td class="text-right font-bold">{{ totalNetoGlobal | currency }}</td>
             <td class="text-right font-bold">{{ totalCoseguroGlobal | currency }}</td>
             <td class="text-right font-bold">{{ totalFacturado | currency }}</td>
 
             <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
-              <td colspan="3"></td>
+              <td *ngIf="tipoBusquedaRealizada === 'ND'"></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td *ngIf="debeMostrarEnglobante()"></td>
+
               <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
+
               <td></td>
               <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
-              <td colspan="1"></td>
+              <td></td>
             </ng-container>
 
             <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
-              <td></td> <td></td> <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
-              <td></td> </ng-container>
+              <td></td>
+              <td></td>
+              <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
+              <td></td>
+            </ng-container>
 
           </tr>
           </tfoot>
@@ -444,7 +476,7 @@
             </div>
             <div class="form-grupo-input">
               <label>Letra</label>
-              <input type="text" formControlName="letra" class="input-grilla" maxlength="1">
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
             </div>
           </div>
 
@@ -470,6 +502,54 @@
       <div class="modal-footer">
         <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
         <button class="btn-modal-aceptar" (click)="guardarNuevaNotaCreditoBD()" [disabled]="nuevaNotaForm.invalid">Guardar Nota</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" *ngIf="modalNuevaNotaDebitoVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Generar Nueva Nota de Débito</h3>
+      </div>
+
+      <div class="modal-body">
+        <form [formGroup]="nuevaNotaDebitoForm" class="form-modal">
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Tipo</label>
+              <select formControlName="tipo" class="input-grilla">
+                <option value="ND">ND</option>
+                <option value="NDE">NDE</option>
+              </select>
+            </div>
+            <div class="form-grupo-input">
+              <label>Letra</label>
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
+            </div>
+          </div>
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Punto Venta</label>
+              <input type="number" formControlName="puntoVenta" class="input-grilla">
+            </div>
+            <div class="form-grupo-input">
+              <label>Número</label>
+              <input type="number" formControlName="numero" class="input-grilla">
+            </div>
+          </div>
+
+          <div class="form-grupo-input full-width">
+            <label>Fecha</label>
+            <input type="date" formControlName="fecha" class="input-grilla">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNotaDebito()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaDebitoBD()" [disabled]="nuevaNotaDebitoForm.invalid">Guardar Nota</button>
       </div>
     </div>
   </div>
