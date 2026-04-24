@@ -288,8 +288,20 @@ export class AuditoriaComponent {
 
       this.auditoriaService.buscarPrestaciones(this.busquedaForm.value).subscribe({
         next: (data) => {
-          this.tipoBusquedaRealizada=this.busquedaForm.value.tipo || '';
-          this.prestaciones = data;
+          this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
+
+          this.prestaciones = data.map((p: any) => {
+            if (p.debitoAceptado === true) {
+              p.debitoAceptado = 'SI';
+            } else if (p.debitoAceptado === false) {
+              p.debitoAceptado = 'NO';
+            } else {
+              p.debitoAceptado = '';
+            }
+
+            return p as Prestacion;
+          });
+
           this.prestacionesFiltradas = [...this.prestaciones];
 
           this.prepararFiltros(this.prestaciones);
@@ -576,7 +588,8 @@ export class AuditoriaComponent {
       this.totalRefacturadoGlobal += (p.importeRefactura || 0);
 
       // Lógica de los nuevos KPIs
-      if (p.debitoAceptado === 'SI' || p.debitoAceptado === 'PARCIAL') {
+      // Lógica de los nuevos KPIs (Sin el PARCIAL)
+      if (p.debitoAceptado === 'SI') {
         this.cantAceptados++;
         this.totalDebitadoAceptado += (p.importeDebitado || 0);
       } else if (p.debitoAceptado === 'NO') {
@@ -717,7 +730,49 @@ export class AuditoriaComponent {
   }
 
   guardarParcialmente() {
-    console.log('Funcionalidad: Guardar Parcialmente');
+    // 1. Recolectar solo los registros que cumplan las condiciones
+    const registrosParaGuardar = this.prestaciones.filter(p => {
+      if (this.tipoBusquedaRealizada === 'NC') {
+        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      } else {
+        // Para FC o ND, exigimos que haya Motivo de Débito
+        return p.motivoDebito && p.motivoDebito.trim() !== '';
+      }
+    });
+
+    if (registrosParaGuardar.length === 0) {
+      alert('No hay registros con motivos asignados para guardar.');
+      return;
+    }
+
+    // 2. Preparar el paquete (Payload) para enviar a Java
+    // Asegurate de cambiar el string del usuario por el método real de tu AuthService
+    const payload = {
+      documentoOrigen: this.tipoBusquedaRealizada,
+      letra: this.busquedaForm.value.letra,
+      ptovta: this.busquedaForm.value.puntoVenta,
+      numero: this.busquedaForm.value.numero,
+      usuario: this.authService.obtenerUsuario(), // TODO: Reemplazar por this.authService.getUsuario()...
+      registros: registrosParaGuardar
+    };
+
+    // 3. Bloquear UI y disparar petición
+    this.cargando = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarParcialmente(payload).subscribe({
+      next: () => {
+        alert('¡Los registros se guardaron parcialmente con éxito!');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        alert('Ocurrió un error al intentar guardar en la base de datos.');
+        this.cargando = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   nuevaNotaCredito() {

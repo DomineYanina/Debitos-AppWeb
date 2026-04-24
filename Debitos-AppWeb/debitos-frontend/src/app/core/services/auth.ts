@@ -27,4 +27,9 @@ export class AuthService {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
   }
+
+  obtenerUsuario(): string {
+    // Si por algún motivo se borró del storage, mandamos 'Desconocido' para que la base no explote con un null
+    return localStorage.getItem('usuario') || 'Desconocido';
+  }
 }
