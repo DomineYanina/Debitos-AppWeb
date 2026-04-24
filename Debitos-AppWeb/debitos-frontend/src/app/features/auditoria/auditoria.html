@@ -1,0 +1,556 @@
+<div class="auditoria-container">
+  <header class="page-header">
+    <h2>Buscador de Documentos</h2>
+    <button class="btn-logout" (click)="onLogout()">Cerrar Sesión</button>
+  </header>
+
+  <section class="busqueda-section">
+    <form [formGroup]="busquedaForm" (ngSubmit)="onBuscar()" class="fila-filtros">
+      <div class="form-group">
+        <label for="tipo">Tipo</label>
+        <select id="tipo" formControlName="tipo">
+          <option value="">Seleccionar...</option>
+          <option value="FC">Factura (FC)</option>
+          <option value="NC">Nota de Crédito (NC)</option>
+          <option value="ND">Nota de Débito (ND)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="letra">Letra</label>
+        <input id="letra" type="text" formControlName="letra" placeholder="A, B, C..." maxlength="1" oninput="this.value = this.value.toUpperCase()">
+      </div>
+
+      <div class="form-group">
+        <label for="puntoVenta">Pto. Venta</label>
+        <input id="puntoVenta" type="number" formControlName="puntoVenta" placeholder="Ej: 10">
+      </div>
+
+      <div class="form-group">
+        <label for="numero">Número</label>
+        <input id="numero" type="number" formControlName="numero" placeholder="Ej: 12345678">
+      </div>
+
+      <div class="form-group btn-container">
+        <button type="submit" [disabled]="busquedaForm.invalid || cargando" class="btn-buscar">
+          {{ cargando ? 'Buscando...' : 'Buscar' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="filtros-dinamicos-section" *ngIf="prestacionesFiltradas.length > 0">
+    <div class="filtros-grid">
+
+      <div class="filtro-columna">
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Paciente</label>
+            <button *ngIf="filtroPaciente" class="btn-undo" (click)="limpiarFiltro('paciente')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroPaciente" (change)="aplicarFiltros()">
+            <option value="">Todos</option>
+            <option *ngFor="let item of pacientesList" [value]="item">{{ item }}</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Profesional</label>
+            <button *ngIf="filtroProfesional" class="btn-undo" (click)="limpiarFiltro('profesional')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
+            <option value="">Todos</option>
+            <option *ngFor="let item of profesionalesList" [value]="item">{{ item }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filtro-columna">
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Prestación</label>
+            <button *ngIf="filtroPrestacion" class="btn-undo" (click)="limpiarFiltro('prestacion')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroPrestacion" (change)="aplicarFiltros()">
+            <option value="">Todas</option>
+            <option *ngFor="let item of prestacionesList" [value]="item">{{ item }}</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Grupo</label>
+            <button *ngIf="filtroGrupo" class="btn-undo" (click)="limpiarFiltro('grupo')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroGrupo" (change)="aplicarFiltros()">
+            <option value="">Todos</option>
+            <option *ngFor="let item of gruposList" [value]="item">{{ item }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filtro-columna">
+        <div class="filter-item">
+          <div class="label-container">
+            <label>Fecha</label>
+            <button *ngIf="filtroFecha" class="btn-undo" (click)="limpiarFiltro('fecha')">✕</button>
+          </div>
+          <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
+            <option value="">Todas</option>
+            <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
+          </select>
+        </div>
+        <div class="botones-limpieza-stack">
+          <button class="btn-clear" (click)="resetFiltros()">Limpiar Filtros</button>
+
+          <button
+            class="btn-clear-rows"
+            (click)="limpiarFilasSeleccionadas()"
+            [disabled]="registrosSeleccionados.length === 0">
+            Limpiar Filas
+          </button>
+
+        </div>
+
+      </div>
+
+      <div class="checkbox-filters">
+        <div class="check-item">
+          <input type="checkbox" id="checkVal" [(ngModel)]="soloValorizadas" (change)="aplicarFiltros()">
+          <label for="checkVal">Ver solo prestaciones valorizadas</label>
+        </div>
+
+        <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+          <div class="check-item">
+            <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
+            <label for="checkDebito">Ver solo prest. sin mot. de débito</label>
+          </div>
+        </ng-container>
+
+        <div class="check-item">
+          <input type="checkbox" id="checkRefac" [(ngModel)]="soloSinMotivoRefactura" (change)="aplicarFiltros()">
+          <label for="checkRefac">Ver solo prest. sin mot. de refactura</label>
+        </div>
+      </div>
+
+    </div>
+    <div class="resumen-contadores">
+      <div class="contador-box">
+        <span class="contador-label">Aceptados:</span>
+        <span class="contador-valor">{{ cantAceptados }}</span>
+      </div>
+      <div class="contador-box">
+        <span class="contador-label">Total Debitado:</span>
+        <span class="contador-valor text-danger">{{ totalDebitadoAceptado | currency }}</span>
+      </div>
+      <div class="contador-box">
+        <span class="contador-label">Total a Refacturar:</span>
+        <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
+      </div>
+    </div>
+
+    <div class="filtro-columna">
+      <button
+        class="btn-exportar"
+        (click)="exportarAExcel()"
+        [disabled]="prestacionesFiltradas.length === 0">
+        Exportar Excel
+      </button>
+      <button class="btn-accion-doc btn-guardar" (click)="guardarParcialmente()">
+        Guardar parcialmente
+      </button>
+
+      <button
+        class="btn-accion-doc btn-nueva-nota"
+        *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'"
+        (click)="nuevaNotaCredito()">
+        Nueva Nota de Crédito
+      </button>
+
+      <button
+        class="btn-accion-doc btn-nueva-nota"
+        *ngIf="tipoBusquedaRealizada === 'NC'"
+        (click)="nuevaNotaDebito()">
+        Nueva Nota de Débito
+      </button>
+    </div>
+
+  </section>
+
+  <section class="grilla-section" style="position: relative;">
+
+    <div class="acciones-masivas-bar" *ngIf="registrosSeleccionados.length > 0 && !cargando">
+      <div class="info-seleccion">
+        <span class="badge">{{ registrosSeleccionados.length }}</span> filas seleccionadas
+      </div>
+
+      <div class="accion-controles">
+
+        <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+          <div class="grupo-input-accion">
+            <label>Aceptado:</label>
+            <select [(ngModel)]="debitoAceptadoMasivoSeleccionado">
+              <option value="">Seleccionar...</option>
+              <option *ngFor="let estado of listaDebitoAceptado" [value]="estado">{{ estado }}</option>
+            </select>
+            <button class="btn-aplicar-masivo" (click)="aplicarDebitoAceptadoMasivo()" [disabled]="!debitoAceptadoMasivoSeleccionado">Aplicar</button>
+          </div>
+
+          <div class="grupo-input-accion">
+            <label>Motivo Débito:</label>
+            <select [(ngModel)]="motivoMasivoSeleccionado">
+              <option value="">Seleccionar...</option>
+              <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
+            </select>
+            <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()" [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
+          </div>
+        </ng-container>
+
+        <div class="grupo-input-accion">
+          <label>Motivo Refactura:</label>
+          <select [(ngModel)]="motivoRefacturaMasivoSeleccionado">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
+          </select>
+          <button class="btn-aplicar-masivo" (click)="aplicarMotivoRefacturaMasivo()" [disabled]="!motivoRefacturaMasivoSeleccionado">Aplicar</button>
+        </div>
+
+      </div>
+    </div> <div class="overlay-cargando" *ngIf="cargando">
+    <div class="spinner"></div>
+    <p>Procesando documentos...</p>
+  </div>
+
+    <div class="resultados-wrapper" *ngIf="prestaciones.length > 0; else sinDatos">
+
+      <div class="tabla-container">
+        <table>
+          <thead>
+          <tr>
+            <th class="col-checkbox">
+              <input type="checkbox" [checked]="todasSeleccionadas" (change)="toggleSelectAll($event)" title="Seleccionar todo">
+            </th>
+
+            <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+              <th appResizable (click)="onSort('paciente')" class="cursor-pointer bg-celeste">Paciente {{ getIcono('paciente') }}</th>
+              <th appResizable (click)="onSort('plan')" class="cursor-pointer bg-celeste">Plan {{ getIcono('plan') }}</th>
+              <th appResizable (click)="onSort('efector')" class="cursor-pointer bg-celeste">Efector {{ getIcono('efector') }}</th>
+              <th appResizable (click)="onSort('medico')" class="cursor-pointer bg-celeste">Médico {{ getIcono('medico') }}</th>
+              <th appResizable (click)="onSort('fecha')" class="cursor-pointer bg-celeste">Fecha {{ getIcono('fecha') }}</th>
+              <th appResizable (click)="onSort('codigo')" class="cursor-pointer bg-celeste">Código {{ getIcono('codigo') }}</th>
+              <th appResizable (click)="onSort('descripcion')" class="cursor-pointer bg-celeste">Descripción {{ getIcono('descripcion') }}</th>
+              <th appResizable (click)="onSort('cantidad')" class="cursor-pointer text-center bg-celeste col-cant">Cant. {{ getIcono('cantidad') }}</th>
+              <th appResizable (click)="onSort('totalNeto')" class="cursor-pointer text-right bg-celeste">Total Neto {{ getIcono('totalNeto') }}</th>
+              <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right bg-celeste">Coseguro {{ getIcono('coseguro') }}</th>
+              <th appResizable (click)="onSort('total')" class="cursor-pointer text-right bg-celeste">Total {{ getIcono('total') }}</th>
+
+              <th *ngIf="tipoBusquedaRealizada === 'ND'" appResizable class="bg-azul-auditoria">Comentario Previo</th>
+
+              <th appResizable class="bg-gris titulo-multilinea col-aceptado">Débito<br>Aceptado</th>
+              <th appResizable class="bg-gris">Motivo de Débito</th>
+              <th appResizable class="bg-gris titulo-multilinea col-dias">Días<br>Fact.</th>
+              <th *ngIf="tipoBusquedaRealizada !== 'NC' && debeMostrarEnglobante()">Prestación Englobante</th>
+              <th appResizable class="bg-gris titulo-multilinea col-debito">Imp.<br>Debitado</th>
+              <th appResizable class="bg-gris">Motivo Refactura</th>
+              <th appResizable class="bg-gris titulo-multilinea col-refactura">Imp.<br>Refactura</th>
+              <th appResizable class="bg-naranja">Comentarios</th>
+            </ng-container>
+
+            <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
+              <th appResizable (click)="onSort('grupomodulo')" class="cursor-pointer bg-celeste">Grupo Módulo {{ getIcono('grupomodulo') }}</th>
+              <th appResizable (click)="onSort('paciente')" class="cursor-pointer bg-celeste">Paciente {{ getIcono('paciente') }}</th>
+              <th appResizable (click)="onSort('plan')" class="cursor-pointer bg-celeste">Plan {{ getIcono('plan') }}</th>
+              <th appResizable (click)="onSort('medico')" class="cursor-pointer bg-celeste">Médico {{ getIcono('medico') }}</th>
+              <th appResizable (click)="onSort('fecha')" class="cursor-pointer bg-celeste">Fecha {{ getIcono('fecha') }}</th>
+              <th appResizable (click)="onSort('codigo')" class="cursor-pointer bg-celeste">Código {{ getIcono('codigo') }}</th>
+              <th appResizable (click)="onSort('descripcion')" class="cursor-pointer bg-celeste">Descripción {{ getIcono('descripcion') }}</th>
+              <th appResizable (click)="onSort('cantidad')" class="cursor-pointer text-center bg-celeste col-cant">Cant. {{ getIcono('cantidad') }}</th>
+              <th appResizable (click)="onSort('totalNeto')" class="cursor-pointer text-right bg-celeste">Total Neto {{ getIcono('totalNeto') }}</th>
+              <th appResizable (click)="onSort('coseguro')" class="cursor-pointer text-right bg-celeste">Coseguro {{ getIcono('coseguro') }}</th>
+              <th appResizable (click)="onSort('total')" class="cursor-pointer text-right bg-celeste">Total {{ getIcono('total') }}</th>
+
+              <th appResizable class="bg-azul-auditoria">Comentario Previo</th>
+
+              <th appResizable class="bg-gris">Motivo Refactura</th>
+              <th appResizable class="bg-gris titulo-multilinea col-refactura">Imp.<br>Refactura</th>
+              <th appResizable class="bg-naranja">Comentarios</th>
+            </ng-container>
+
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr *ngFor="let p of prestacionesPaginadas; trackBy: trackByPrestacion" [class.row-selected]="p.seleccionada">
+            <td class="col-checkbox">
+              <input type="checkbox" [checked]="p.seleccionada" (change)="toggleRow(p, $event)">
+            </td>
+
+            <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+              <td class="bg-celeste">{{ p.paciente }}</td>
+              <td class="bg-celeste">{{ p.plan }}</td>
+              <td class="bg-celeste">{{ p.efector }}</td>
+              <td class="bg-celeste">{{ p.medico }}</td>
+              <td class="bg-celeste">{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+              <td class="bg-celeste">{{ p.codigo }}</td>
+              <td class="bg-celeste">{{ p.descripcion }}</td>
+              <td class="text-center bg-celeste">{{ p.cantidad }}</td>
+              <td class="text-right bg-celeste">{{ p.totalNeto | currency }}</td>
+              <td class="text-right bg-celeste">{{ p.coseguro | currency }}</td>
+              <td class="text-right font-bold bg-celeste">{{ p.total | currency }}</td>
+              <td *ngIf="tipoBusquedaRealizada == 'ND'" class="bg-azul-auditoria">
+                {{ p.comentarioPrevio }}
+              </td>
+
+              <td class="bg-gris col-aceptado">
+                <select [(ngModel)]="p.debitoAceptado" (ngModelChange)="calcularTotales()" class="input-grilla">
+                  <option value=""></option>
+                  <option value="SI">SI</option>
+                  <option value="NO">NO</option>
+                </select>
+              </td>
+              <td class="bg-gris">
+                <select
+                  [(ngModel)]="p.motivoDebito"
+                  (focus)="guardarMotivoPrevio(p, 'debito')"
+                  (ngModelChange)="alCambiarMotivoDebito(p)"
+                  class="input-grilla">
+                  <option value=""></option>
+                  <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
+                </select>
+              </td>
+              <td *ngIf="tipoBusquedaRealizada !== 'NC'" class="bg-gris">
+                <input
+                  type="number"
+                  [(ngModel)]="p.diasFacturados"
+                  class="input-grilla"
+                  placeholder="0">
+              </td>
+              <td *ngIf="tipoBusquedaRealizada !== 'NC' && debeMostrarEnglobante()" class="bg-gris">
+                <input
+                  type="text"
+                  [(ngModel)]="p.prestacionEnglobante"
+                  class="input-grilla"
+                  placeholder="Código...">
+              </td>
+              <td class="bg-gris col-debito"><input type="number" [(ngModel)]="p.importeDebitado" (ngModelChange)="calcularTotales()" class="input-grilla"></td>
+              <td class="bg-gris">
+                <select
+                  [(ngModel)]="p.motivoRefactura"
+                  (focus)="guardarMotivoPrevio(p, 'refactura')"
+                  (ngModelChange)="alCambiarMotivoRefactura(p)"
+                  class="input-grilla">
+                  <option value=""></option>
+                  <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
+                </select>
+              </td>
+              <td class="bg-gris"><input type="number" [(ngModel)]="p.importeRefactura" (ngModelChange)="calcularTotales()" class="input-grilla"></td>
+
+              <td class="bg-naranja">
+                <input type="text" [(ngModel)]="p.comentarios" class="input-grilla" [disabled]="!p.motivoRefactura" [placeholder]="p.motivoRefactura ? 'Comentarios...' : 'Bloqueado'">
+              </td>
+            </ng-container>
+
+            <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
+              <td class="bg-celeste">{{ p.grupomodulo }}</td>
+              <td class="bg-celeste">{{ p.paciente }}</td>
+              <td class="bg-celeste">{{ p.plan }}</td>
+              <td class="bg-celeste">{{ p.medico }}</td>
+              <td class="bg-celeste">{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+              <td class="bg-celeste">{{ p.codigo }}</td>
+              <td class="bg-celeste">{{ p.descripcion }}</td>
+              <td class="text-center bg-celeste">{{ p.cantidad }}</td>
+              <td class="text-right bg-celeste">{{ p.totalNeto | currency }}</td>
+              <td class="text-right bg-celeste">{{ p.coseguro | currency }}</td>
+              <td class="text-right font-bold bg-celeste">{{ p.total | currency }}</td>
+
+              <td class="bg-azul-auditoria">
+                {{ p.comentarioPrevio }}
+              </td>
+
+              <td class="bg-gris">
+                <select
+                  [(ngModel)]="p.motivoRefactura"
+                  (focus)="guardarMotivoPrevio(p, 'refactura')"
+                  (ngModelChange)="alCambiarMotivoRefactura(p)"
+                  class="input-grilla">
+                  <option value=""></option>
+                  <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
+                </select>
+              </td>
+              <td class="bg-gris col-refactura">
+                <input type="number" [(ngModel)]="p.importeRefactura" (ngModelChange)="calcularTotales()" class="input-grilla">
+              </td>
+
+              <td class="bg-naranja">
+                <input type="text" [(ngModel)]="p.comentarios" class="input-grilla" [disabled]="!p.motivoRefactura" [placeholder]="p.motivoRefactura ? 'Comentarios...' : 'Bloqueado'">
+              </td>
+            </ng-container>
+
+          </tr>
+          </tbody>
+
+          <tfoot>
+          <tr class="fila-totales">
+            <td colspan="8">TOTALES VISIBLES</td>
+
+            <td class="text-center font-bold">{{ totalCantidad }}</td>
+            <td class="text-right font-bold">{{ totalNetoGlobal | currency }}</td>
+            <td class="text-right font-bold">{{ totalCoseguroGlobal | currency }}</td>
+            <td class="text-right font-bold">{{ totalFacturado | currency }}</td>
+
+            <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+              <td *ngIf="tipoBusquedaRealizada === 'ND'"></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td *ngIf="debeMostrarEnglobante()"></td>
+
+              <td class="text-right font-bold text-danger">{{ totalDebitado | currency }}</td>
+
+              <td></td>
+              <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
+              <td></td>
+            </ng-container>
+
+            <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
+              <td></td>
+              <td></td>
+              <td class="text-right font-bold text-success">{{ totalRefacturadoGlobal | currency }}</td>
+              <td></td>
+            </ng-container>
+
+          </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="paginador-container" *ngIf="totalPaginas > 1">
+        <button class="btn-pagina" (click)="cambiarPagina(1)" [disabled]="paginaActual === 1">Inicio</button>
+        <button class="btn-pagina" (click)="cambiarPagina(paginaActual - 1)" [disabled]="paginaActual === 1">Anterior</button>
+
+        <span class="info-pagina">Página <strong>{{ paginaActual }}</strong> de {{ totalPaginas }}</span>
+
+        <button class="btn-pagina" (click)="cambiarPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas">Siguiente</button>
+        <button class="btn-pagina" (click)="cambiarPagina(totalPaginas)" [disabled]="paginaActual === totalPaginas">Fin</button>
+      </div>
+
+    </div> <ng-template #sinDatos>
+    <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+      {{ prestacionesFiltradas.length }}
+      <p>No se encontraron prestaciones para este documento.</p>
+    </div>
+  </ng-template>
+
+  </section>
+  <div class="modal-overlay" *ngIf="modalVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Atención</h3>
+      </div>
+      <div class="modal-body">
+        <p class="texto-modal">{{ modalMensaje }}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="modalCancelarCb()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="modalAceptarCb()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" *ngIf="modalNuevaNotaVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Generar Nueva Nota de Crédito</h3>
+      </div>
+
+      <div class="modal-body">
+        <form [formGroup]="nuevaNotaForm" class="form-modal">
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Tipo</label>
+              <select formControlName="tipo" class="input-grilla">
+                <option value="NC">NC</option>
+                <option value="NCE">NCE</option>
+              </select>
+            </div>
+            <div class="form-grupo-input">
+              <label>Letra</label>
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
+            </div>
+          </div>
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Punto Venta</label>
+              <input type="number" formControlName="puntoVenta" class="input-grilla">
+            </div>
+            <div class="form-grupo-input">
+              <label>Número</label>
+              <input type="number" formControlName="numero" class="input-grilla">
+            </div>
+          </div>
+
+          <div class="form-grupo-input full-width">
+            <label>Fecha</label>
+            <input type="date" formControlName="fecha" class="input-grilla">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaCreditoBD()" [disabled]="nuevaNotaForm.invalid">Guardar Nota</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" *ngIf="modalNuevaNotaDebitoVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Generar Nueva Nota de Débito</h3>
+      </div>
+
+      <div class="modal-body">
+        <form [formGroup]="nuevaNotaDebitoForm" class="form-modal">
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Tipo</label>
+              <select formControlName="tipo" class="input-grilla">
+                <option value="ND">ND</option>
+                <option value="NDE">NDE</option>
+              </select>
+            </div>
+            <div class="form-grupo-input">
+              <label>Letra</label>
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
+            </div>
+          </div>
+
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Punto Venta</label>
+              <input type="number" formControlName="puntoVenta" class="input-grilla">
+            </div>
+            <div class="form-grupo-input">
+              <label>Número</label>
+              <input type="number" formControlName="numero" class="input-grilla">
+            </div>
+          </div>
+
+          <div class="form-grupo-input full-width">
+            <label>Fecha</label>
+            <input type="date" formControlName="fecha" class="input-grilla">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNotaDebito()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaDebitoBD()" [disabled]="nuevaNotaDebitoForm.invalid">Guardar Nota</button>
+      </div>
+    </div>
+  </div>
+</div>
