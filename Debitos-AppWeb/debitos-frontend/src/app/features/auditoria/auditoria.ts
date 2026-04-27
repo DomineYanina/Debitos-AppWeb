@@ -536,18 +536,17 @@ export class AuditoriaComponent {
     });
 
     if (registrosParaGuardar.length === 0) {
-      alert('No hay registros con motivos asignados para guardar.');
+      this.mostrarAlerta('No hay registros con motivos asignados para guardar.'); // <-- Usamos el modal custom
       return;
     }
 
     // 2. Preparar el paquete (Payload) para enviar a Java
-    // Asegurate de cambiar el string del usuario por el método real de tu AuthService
     const payload = {
       documentoOrigen: this.tipoBusquedaRealizada,
       letra: this.busquedaForm.value.letra ? this.busquedaForm.value.letra.toUpperCase() : '',
       ptovta: this.busquedaForm.value.puntoVenta,
       numero: this.busquedaForm.value.numero,
-      usuario: this.authService.obtenerUsuario(), // TODO: Reemplazar por this.authService.getUsuario()...
+      usuario: this.authService.obtenerUsuario(),
       registros: registrosParaGuardar
     };
 
@@ -557,13 +556,14 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarParcialmente(payload).subscribe({
       next: () => {
-        this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
+        // Mensaje coherente con la acción realizada
+        this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!');
         this.cargando = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
-        alert('Ocurrió un error al intentar guardar en la base de datos.');
+        this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.'); // <-- Usamos el modal custom
         this.cargando = false;
         this.cdr.detectChanges();
       }
@@ -592,109 +592,60 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  validarLetraBusqueda(event: Event) {
+  validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota') {
     const input = event.target as HTMLInputElement;
     const valor = input.value;
+
+    // Identificamos dinámicamente cuál formulario estamos tocando
+    const formActual = tipoFormulario === 'busqueda' ? this.busquedaForm : this.nuevaNotaForm;
 
     // Si el valor contiene algún dígito del 0 al 9
     if (/[0-9]/.test(valor)) {
       this.mostrarAlerta('El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.', () => {
-        // Esta función se ejecutará cuando el usuario presione "Aceptar" en el modal
-        this.busquedaForm.patchValue({ letra: '' });
+        // Limpiamos el campo del formulario correspondiente
+        formActual.patchValue({ letra: '' });
       });
     } else {
-      // Si está todo bien, forzamos la mayúscula en el formulario para evitar desfasajes
-      this.busquedaForm.patchValue({ letra: valor.toUpperCase() }, { emitEvent: false });
+      // Forzamos la mayúscula en el formulario correspondiente
+      formActual.patchValue({ letra: valor.toUpperCase() }, { emitEvent: false });
     }
   }
 
-  modalNuevaNotaDebitoVisible: boolean = false;
-
-  nuevaNotaDebitoForm = this.fb.group({
-    tipo: ['ND', Validators.required], // Valor por defecto ND
-    letra: ['', [Validators.required, Validators.maxLength(1)]],
-    puntoVenta: ['', [Validators.required, Validators.min(1)]],
-    numero: ['', [Validators.required, Validators.min(1)]],
-    fecha: ['', Validators.required]
-  });
-
-  nuevaNotaDebito() {
-    // Para la ND, validamos que hayan cargado un Motivo de Refactura
-    const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
-
-    if (prestacionesConRefactura.length === 0) {
-      alert('No hay registros con Motivo de Refactura cargado para generar una Nota de Débito. Recuerde Guardar Parcialmente primero.');
-      return;
-    }
-
-    this.nuevaNotaDebitoForm.reset({ tipo: 'ND' });
-    this.modalNuevaNotaDebitoVisible = true;
-    this.cdr.detectChanges();
-  }
-
-  cerrarModalNuevaNotaDebito() {
-    this.modalNuevaNotaDebitoVisible = false;
-    this.cdr.detectChanges();
-  }
-
-  guardarNuevaNotaDebitoBD() {
-    if (this.nuevaNotaDebitoForm.invalid) {
-      alert('Por favor, complete todos los campos correctamente.');
-      return;
-    }
-
-    // Recolectamos los IDs de las prestaciones originales
-    const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
-    const ids = prestacionesConRefactura.map(p => p.id);
-
-    const datosNotaForm = { ...this.nuevaNotaDebitoForm.value };
-    datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
-
-    const payload = {
-      origen: this.tipoBusquedaRealizada,
-      idsPrestaciones: ids,
-      datosNota: datosNotaForm // Pasamos el objeto modificado
-    };
-
-    this.cargando = true;
-    this.cdr.detectChanges();
-
-    this.auditoriaService.guardarNuevaNotaDebito(payload).subscribe({
-      next: () => {
-        this.cerrarModalNuevaNotaDebito(); // Cerramos primero el form
-        this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
-        this.cargando = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error(err);
-        alert('Error al guardar la Nota de Débito en la base de datos.');
-        this.cargando = false;
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
+  // ==========================================
+  // MODAL UNIFICADO: NUEVA NOTA (NC o ND)
+  // ==========================================
   modalNuevaNotaVisible: boolean = false;
+  tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
 
+  // Un solo formulario para ambos casos
   nuevaNotaForm = this.fb.group({
-    tipo: ['NC', Validators.required], // Valor por defecto NC
+    tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]],
     fecha: ['', Validators.required]
   });
 
-  nuevaNotaCredito() {
-    // Verificamos que haya algo para asociar
-    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+  abrirModalNuevaNota(tipo: 'NC' | 'ND') {
+    this.tipoNuevaNota = tipo;
 
-    if (prestacionesConDebito.length === 0) {
-      alert('No hay registros con Motivo de Débito cargado para generar una Nota de Crédito. Recuerde Guardar Parcialmente primero.');
-      return;
+    // Validación según el tipo de nota
+    if (tipo === 'NC') {
+      const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+      if (prestacionesConDebito.length === 0) {
+        this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.');
+        return;
+      }
+      this.nuevaNotaForm.reset({ tipo: 'NC' });
+    } else {
+      const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
+      if (prestacionesConRefactura.length === 0) {
+        this.mostrarAlerta('No hay registros con Motivo de Refactura cargado para generar una ND. Recuerde Guardar Parcialmente primero.');
+        return;
+      }
+      this.nuevaNotaForm.reset({ tipo: 'ND' });
     }
 
-    this.nuevaNotaForm.reset({ tipo: 'NC' }); // Limpiamos el form al abrir
     this.modalNuevaNotaVisible = true;
     this.cdr.detectChanges();
   }
@@ -704,38 +655,56 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  guardarNuevaNotaCreditoBD() {
+  guardarNuevaNotaBD() {
     if (this.nuevaNotaForm.invalid) {
-      alert('Por favor, complete todos los campos correctamente.');
+      this.mostrarAlerta('Por favor, complete todos los campos correctamente.');
       return;
     }
 
-    // Recolectamos los IDs de las prestaciones originales que tienen débito
-    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
-    const ids = prestacionesConDebito.map(p => p.id);
+    // 1. Recolectamos los registros con datos de auditoría (igual que en guardado parcial)
+    const registrosParaGuardar = this.prestaciones.filter(p => {
+      if (this.tipoNuevaNota === 'NC') {
+        return p.motivoDebito && p.motivoDebito.trim() !== '';
+      } else {
+        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      }
+    });
 
+    // 2. Preparamos los datos del formulario (Letra en Mayúscula)
     const datosNotaForm = { ...this.nuevaNotaForm.value };
     datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
 
+    // 3. Armamos el Payload "Todo en Uno"
     const payload = {
+      // Datos del documento que está cargado en la grilla (Original)
       origen: this.tipoBusquedaRealizada,
-      idsPrestaciones: ids,
-      datosNota: datosNotaForm // Pasamos el objeto modificado
+      letraOriginal: this.busquedaForm.value.letra?.toUpperCase(),
+      ptovtaOriginal: this.busquedaForm.value.puntoVenta,
+      numeroOriginal: this.busquedaForm.value.numero,
+
+      // Datos de la nueva nota y registros
+      datosNota: datosNotaForm,
+      registros: registrosParaGuardar,
+      usuario: this.authService.obtenerUsuario()
     };
 
     this.cargando = true;
     this.cdr.detectChanges();
 
-    this.auditoriaService.guardarNuevaNotaCredito(payload).subscribe({
+    const request$ = this.tipoNuevaNota === 'NC'
+      ? this.auditoriaService.guardarNuevaNotaCredito(payload)
+      : this.auditoriaService.guardarNuevaNotaDebito(payload);
+
+    request$.subscribe({
       next: () => {
-        this.cerrarModalNuevaNota(); // Cerramos primero el form
-        this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
+        this.cerrarModalNuevaNota();
+        this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`);
         this.cargando = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
-        alert('Error al guardar la Nota de Crédito en la base de datos.');
+        this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`);
         this.cargando = false;
         this.cdr.detectChanges();
       }

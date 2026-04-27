@@ -20,7 +20,7 @@
         <label for="letra">Letra</label>
         <input id="letra" type="text" formControlName="letra" placeholder="A, B, C..." maxlength="1"
                style="text-transform: uppercase;"
-               (input)="validarLetraBusqueda($event)">
+               (input)="validarLetraInput($event, 'busqueda')">
       </div>
 
       <div class="form-group">
@@ -166,14 +166,14 @@
       <button
         class="btn-accion-doc btn-nueva-nota"
         *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'"
-        (click)="nuevaNotaCredito()">
+        (click)="abrirModalNuevaNota('NC')">
         Nueva Nota de Crédito
       </button>
 
       <button
         class="btn-accion-doc btn-nueva-nota"
         *ngIf="tipoBusquedaRealizada === 'NC'"
-        (click)="nuevaNotaDebito()">
+        (click)="abrirModalNuevaNota('ND')">
         Nueva Nota de Débito
       </button>
     </div>
@@ -462,7 +462,7 @@
   <div class="modal-overlay" *ngIf="modalNuevaNotaVisible">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>Generar Nueva Nota de Crédito</h3>
+        <h3>Generar Nueva Nota de {{ tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito' }}</h3>
       </div>
 
       <div class="modal-body">
@@ -472,13 +472,21 @@
             <div class="form-grupo-input">
               <label>Tipo</label>
               <select formControlName="tipo" class="input-grilla">
-                <option value="NC">NC</option>
-                <option value="NCE">NCE</option>
+                <ng-container *ngIf="tipoNuevaNota === 'NC'">
+                  <option value="NC">NC</option>
+                  <option value="NCE">NCE</option>
+                </ng-container>
+                <ng-container *ngIf="tipoNuevaNota === 'ND'">
+                  <option value="ND">ND</option>
+                  <option value="NDE">NDE</option>
+                </ng-container>
               </select>
             </div>
             <div class="form-grupo-input">
               <label>Letra</label>
-              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
+                     style="text-transform: uppercase;"
+                     (input)="validarLetraInput($event, 'nuevaNota')">
             </div>
           </div>
 
@@ -503,68 +511,21 @@
 
       <div class="modal-footer">
         <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaCreditoBD()" [disabled]="nuevaNotaForm.invalid">Guardar Nota</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()" [disabled]="nuevaNotaForm.invalid">Guardar Nota</button>
       </div>
     </div>
   </div>
-  <div class="modal-overlay" *ngIf="modalNuevaNotaDebitoVisible">
+  <div class="modal-overlay" *ngIf="modalAlertaVisible">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>Generar Nueva Nota de Débito</h3>
+        <h3>Aviso del Sistema</h3>
       </div>
-
       <div class="modal-body">
-        <form [formGroup]="nuevaNotaDebitoForm" class="form-modal">
-
-          <div class="form-grupo-fila">
-            <div class="form-grupo-input">
-              <label>Tipo</label>
-              <select formControlName="tipo" class="input-grilla">
-                <option value="ND">ND</option>
-                <option value="NDE">NDE</option>
-              </select>
-            </div>
-            <div class="form-grupo-input">
-              <label>Letra</label>
-              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;">
-            </div>
-          </div>
-
-          <div class="form-grupo-fila">
-            <div class="form-grupo-input">
-              <label>Punto Venta</label>
-              <input type="number" formControlName="puntoVenta" class="input-grilla">
-            </div>
-            <div class="form-grupo-input">
-              <label>Número</label>
-              <input type="number" formControlName="numero" class="input-grilla">
-            </div>
-          </div>
-
-          <div class="form-grupo-input full-width">
-            <label>Fecha</label>
-            <input type="date" formControlName="fecha" class="input-grilla">
-          </div>
-
-        </form>
+        <p class="texto-modal">{{ modalAlertaMensaje }}</p>
       </div>
-      <div class="modal-footer">
-        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNotaDebito()">Cancelar</button>
-        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaDebitoBD()" [disabled]="nuevaNotaDebitoForm.invalid">Guardar Nota</button>
+      <div class="modal-footer" style="justify-content: center;">
+        <button class="btn-modal-aceptar" (click)="cerrarModalAlerta()">Aceptar</button>
       </div>
-    </div>
-  </div> <div class="modal-overlay" *ngIf="modalAlertaVisible">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3>Aviso del Sistema</h3>
-    </div>
-    <div class="modal-body">
-      <p class="texto-modal">{{ modalAlertaMensaje }}</p>
-    </div>
-    <div class="modal-footer" style="justify-content: center;">
-      <button class="btn-modal-aceptar" (click)="cerrarModalAlerta()">Aceptar</button>
     </div>
   </div>
-</div>
-
 </div>
