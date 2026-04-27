@@ -139,6 +139,10 @@ export class AuditoriaComponent {
   gruposList: (string | undefined)[] = [];
   fechasList: string[] = [];
 
+  modalAlertaVisible: boolean = false;
+  modalAlertaMensaje: string = '';
+  modalAlertaCallback: any = null;
+
   filtroPaciente: string = '';
   filtroProfesional: string = '';
   filtroPrestacion: string = '';
@@ -178,7 +182,6 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
@@ -313,8 +316,13 @@ export class AuditoriaComponent {
           this.cargando = false; // Liberamos la UI (Éxito)
         },
         error: (err) => {
-          alert('Error en el servidor');
-          this.cargando = false; // Liberamos la UI (Error)
+          if (err.status === 404) {
+            this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.');
+          } else {
+            this.mostrarAlerta('Ocurrió un error al intentar comunicarse con el servidor.');
+          }
+          this.cargando = false;
+          this.cdr.detectChanges();
         }
       });
     }
@@ -764,7 +772,8 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarParcialmente(payload).subscribe({
       next: () => {
-        alert('¡Los registros se guardaron parcialmente con éxito!');
+        this.cerrarModalNuevaNotaDebito(); // Cerramos primero el form
+        this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
         this.cargando = false;
         this.cdr.detectChanges();
       },
@@ -781,9 +790,40 @@ export class AuditoriaComponent {
     return this.prestacionesFiltradas.some(p => p.motivoDebito === 'Prestacion incluida en otra');
   }
 
-  // ==========================================
-  // VARIABLES DEL MODAL DE NUEVA NOTA DE DÉBITO
-  // ==========================================
+  mostrarAlerta(mensaje: string, callback?: () => void) {
+    this.modalAlertaMensaje = mensaje;
+    this.modalAlertaCallback = callback || null;
+    this.modalAlertaVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalAlerta() {
+    this.modalAlertaVisible = false;
+
+    // Si había una orden pendiente (como borrar un campo), la ejecutamos al cerrar
+    if (this.modalAlertaCallback) {
+      this.modalAlertaCallback();
+      this.modalAlertaCallback = null; // Limpiamos
+    }
+    this.cdr.detectChanges();
+  }
+
+  validarLetraBusqueda(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const valor = input.value;
+
+    // Si el valor contiene algún dígito del 0 al 9
+    if (/[0-9]/.test(valor)) {
+      this.mostrarAlerta('El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.', () => {
+        // Esta función se ejecutará cuando el usuario presione "Aceptar" en el modal
+        this.busquedaForm.patchValue({ letra: '' });
+      });
+    } else {
+      // Si está todo bien, forzamos la mayúscula en el formulario para evitar desfasajes
+      this.busquedaForm.patchValue({ letra: valor.toUpperCase() }, { emitEvent: false });
+    }
+  }
+
   modalNuevaNotaDebitoVisible: boolean = false;
 
   nuevaNotaDebitoForm = this.fb.group({
@@ -794,7 +834,6 @@ export class AuditoriaComponent {
     fecha: ['', Validators.required]
   });
 
-  // Reemplazamos tu método vacío nuevaNotaDebito() por este:
   nuevaNotaDebito() {
     // Para la ND, validamos que hayan cargado un Motivo de Refactura
     const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
@@ -838,8 +877,8 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarNuevaNotaDebito(payload).subscribe({
       next: () => {
-        alert('¡Nota de Débito generada y guardada con éxito!');
-        this.cerrarModalNuevaNotaDebito();
+        this.cerrarModalNuevaNotaDebito(); // Cerramos primero el form
+        this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
         this.cargando = false;
         this.cdr.detectChanges();
       },
@@ -852,12 +891,8 @@ export class AuditoriaComponent {
     });
   }
 
-  // ==========================================
-  // VARIABLES DEL MODAL DE NUEVA NOTA
-  // ==========================================
   modalNuevaNotaVisible: boolean = false;
 
-  // Formulario reactivo para la nueva nota
   nuevaNotaForm = this.fb.group({
     tipo: ['NC', Validators.required], // Valor por defecto NC
     letra: ['', [Validators.required, Validators.maxLength(1)]],
@@ -866,7 +901,6 @@ export class AuditoriaComponent {
     fecha: ['', Validators.required]
   });
 
-  // Reemplazamos el método vacío por este
   nuevaNotaCredito() {
     // Verificamos que haya algo para asociar
     const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
@@ -910,10 +944,9 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarNuevaNotaCredito(payload).subscribe({
       next: () => {
-        alert('¡Nota de Crédito generada y guardada con éxito!');
-        this.cerrarModalNuevaNota();
+        this.cerrarModalNuevaNotaDebito(); // Cerramos primero el form
+        this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
         this.cargando = false;
-        // Opcional: Podrías llamar a onBuscar() acá para recargar la grilla
         this.cdr.detectChanges();
       },
       error: (err) => {
