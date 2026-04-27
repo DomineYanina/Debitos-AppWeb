@@ -5,7 +5,7 @@
 
   .page-header {
     display: flex;
-    justify-content: space-between; // Separa el título del botón
+    justify-content: space-between;
   align-items: center;
     margin-bottom: 1.5rem;
 
@@ -17,7 +17,7 @@
     .btn-logout {
       padding: 0.5rem 1rem;
       background-color: transparent;
-      color: #e53e3e; // Rojo de advertencia
+      color: #e53e3e;
     border: 1px solid #e53e3e;
       border-radius: 4px;
       font-weight: 600;
@@ -100,7 +100,7 @@
 .tabla-container {
   background: white;
   border-radius: 8px;
-  overflow-x: auto; // Scroll horizontal si hay muchas columnas
+  overflow-x: auto;
 box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 
   table {
@@ -232,7 +232,7 @@ transition: background-color 0.2s;
   .btn-undo {
     background: none;
     border: none;
-    color: #ef4444; // Rojo suave
+    color: #ef4444;
   font-size: 0.7rem;
     cursor: pointer;
     padding: 0 4px;
@@ -246,7 +246,7 @@ transition: background-color 0.2s;
 }
 
 .filter-item {
-// Aseguramos que el select mantenga su ancho
+
 min-width: 160px;
 }
 
@@ -281,7 +281,7 @@ min-width: 160px;
 }
 
 .fila-totales {
-  background-color: #f1f5f9; // Gris muy suave
+  background-color: #f1f5f9;
 border-top: 2px solid #cbd5e0;
 
   td {
@@ -294,7 +294,7 @@ border-top: 2px solid #cbd5e0;
 .font-bold { font-weight: 700; }
 
 .text-danger {
-  color: #e53e3e; // Rojo para resaltar el débito
+  color: #e53e3e;
 }
 
    tfoot tr td {
