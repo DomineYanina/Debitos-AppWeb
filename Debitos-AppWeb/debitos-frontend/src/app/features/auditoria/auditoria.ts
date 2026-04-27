@@ -1,12 +1,12 @@
 import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
-import * as ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import { AuditoriaService } from '../../core/services/auditoria';
+import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
+import {ExcelExportService} from '../../core/services/excel-export';
 
 @Component({
   selector: 'app-auditoria',
@@ -19,106 +19,10 @@ import { AuditoriaService } from '../../core/services/auditoria';
 export class AuditoriaComponent {
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
+  private excelService = inject(ExcelExportService);
 
-  listaMotivos: string[] = [
-    'Borrar',
-    'No aplica',
-    'Afiliado capitado',
-    'Afiliado dado de baja',
-    'Alta demorada criterio auditoria medica',
-    'Conteo de medicacion erroneo hojas de enfermeria no identificadas con fecha',
-    'Coseguro no cobrado',
-    'Debito 20% urgencia modulos',
-    'Debito 20% urgencia prestaciones',
-    'Debito por diferencia en la inclusiones modulares',
-    'Debito por falta de historia clinica',
-    'Debito por historias clinicas de distintos pacientes en la misma internacion',
-    'Debito por normas contractuales (ejemplo veda+vcc)',
-    'Debito por normas operativas',
-    'Debito segun normas del nomenclador',
-    'Débitos varios, recibido fuera de término por Tesorería, emisión de nc condicional al cobro de la factura',
-    'Demora en Inter Consulta',
-    'Demora en resolución quirúrgica',
-    'Diagnostico ilegible',
-    'Diagnostico no reconocido',
-    'Diferencia de aranceles',
-    'Diferencia de coseguro',
-    'Diferencia de criterio medico/prestaciones no justificadas',
-    'Diferencia de valor en medicamentos/descartables',
-    'Documentacion adulterada',
-    'Ecografia de partes blandas incluida en ecografia abdominal',
-    'Ecografia renal incluida en abdominal',
-    'El valor de los impuestos a abonar en el proceso de la refactura superan el importe a refacturar',
-    'Error de carga (codigos-inclusiones)',
-    'Error de Open',
-    'Error en el cálculo de porcentaje de códigos múltiples',
-    'Exceso de facturacion en medicamentos y descartables',
-    'Facturacion duplicada',
-    'Facturado a financiador incorrecto',
-    'Facturado con nota de departamento comercial',
-    'Falta de autorizacion',
-    'Falta de documentacion avalatoria',
-    'Falta de historia/informe.',
-    'Falta de troqueles-stickers de medicacion o materiales',
-    'Falta firma paciente',
-    'Falta firma profesional',
-    'Falta informe',
-    'Historia clinica incompleta',
-    'Honorarios profesionales pagados en forma directa',
-    'Incluido en APB',
-    'Iva mal facturado',
-    'Material/ Medicamentos provistos por O.S.',
-    'Material no utilizado',
-    'Medicación no suministrada',
-    'No indicado',
-    'No reconoce prestación',
-    'Orden sin diagnóstico',
-    'Prestacion fuera de termino',
-    'Prestacion incluida en otra',
-    'Prestacion incluida en otra liquidacion',
-    'Prestacion no homologada',
-    'Prestacion no justificada',
-    'Prestacion sin convenio',
-    'Presupuesto facturado con nota no reconocido',
-    'Presupuesto rechazado y facturados con indicacion comercial',
-    'Rechazo de refactura por mantener motivos de debitos originales',
-    'Supera tope anual'
-  ];
-
-  listaMotivosRefactura: string[] = [
-    'Borrar', 'No aplica', 'Casos: Afiliados activos.', 'Casos: Discrepancia cobertura pensión.',
-    'Casos: Excepciones refacturadas.', 'Casos: Médico externo sin historia clínica.',
-    'Corrección de error de Open', 'Débitos Inválidos: Aplicados erróneamente.',
-    'Doc. y Aut.: Autorización recibida posterior al cierre.', 'Doc. y Aut.: Autorización vigente.',
-    'Doc. y Aut.: Doc. completa enviada.', 'Doc. y Aut.: Facturado en tiempo.',
-    'Doc. y Aut.: Info. filiatoria completa.', 'Doc. y Aut.: Justificado en historia clínica.',
-    'Doc. y Aut.: Orden con diagnóstico, se aclara con historia clínica',
-    'Doc. y Aut.: Se envía documentación omitida', 'Doc. y Aut.: Se envía troquel/sticker',
-    'Doc. y Aut.: Según normas vigentes.', 'Excepciones: Bonificación medicación.',
-    'Excepciones: Bonificación prestación.', 'Excepciones: Reclamos/comerciales.',
-    'Gestión: Aclaración procedimiento.', 'Gestión: Afiliado dado de baja.',
-    'Gestión: Ajustes en coseguro.', 'Gestión: Ajuste por presupuesto.',
-    'Gestión: Aplicación incorrecta de IVA.', 'Gestión: Consumos correctos.',
-    'Gestión: Corrección facturación módulos.', 'Gestión: Financidor demoró respuesta.',
-    'Gestión: Medicamentos mal facturados.', 'Gestión Méd.: Aclaración de diagnóstico',
-    'Gestión Méd.: Ajuste fechas derivación.', 'Gestión Méd.: Criterio en diagnósticos.',
-    'Gestión Méd.: Historia clínica firmada.', 'Gestión Méd.: Normas sanatoriales.',
-    'Gestión Méd.: Postoperatorios/antibióticos.', 'Gestión Méd.: Tratamientos infecciones.',
-    'Gestión Méd.: Tratamientos médicos.', 'Gestión Méd.: Urgencia sin consentimiento.',
-    'Normas: Adjunta norma del Nom. Nac.', 'Normas: Ajustes valores medicación/material.',
-    'Normas: Aplicación de normas acordadas.', 'Normas: Aranceles vigentes Colegio Bioquím.',
-    'Normas: Cambios deben ser acordados.', 'Normas: Exclusión no explícita.',
-    'Normas: Facturación según módulos vigentes.', 'Normas: Inclusión/Exclusión según acuerdo.',
-    'Normas: Incompatibilidad normativa.', 'Normas: Obligación de cobertura por ley',
-    'Normas: Prestación arancel convenido.', 'Normas: Prestación no respondida por financ.',
-    'Normas: Prestación según presupuesto.', 'Normas: Recargos urgencia según Nac. Nom.',
-    'Normas: Refacturación por IVA.', 'Normas: Valores de contrastes vigentes.',
-    'Normas: Valores medicación/material convenio.', 'Prestaciones: Aranceles según CEDIM.',
-    'Prestaciones: Consultas previas/post-proced.', 'Prestaciones: Homologada.',
-    'Prestaciones: Inclusión incorrecta.', 'Prestaciones: No incluidas según Nom. Nac.',
-    'Prestaciones: Material no incluido en base.', 'Prestaciones: Procedimientos ampliados.',
-    'Prestaciones: Relacionadas a prestación.'
-  ];
+  listaMotivos: string[] = LISTA_MOTIVOS_DEBITO;
+  listaMotivosRefactura: string[] = LISTA_MOTIVOS_REFACTURA;
 
   motivoMasivoSeleccionado: string = '';
   motivoRefacturaMasivoSeleccionado: string = '';
@@ -609,134 +513,15 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  async exportarAExcel() {
-    if (this.prestacionesFiltradas.length === 0) return;
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Auditoría');
-
-    // Helper para fecha
-    const formatearFecha = (fechaISO: string) => {
-      if (!fechaISO) return '';
-      const soloFecha = fechaISO.split('T')[0];
-      const partes = soloFecha.split('-');
-      return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : soloFecha;
-    };
-
-    // 1. Definición de Columnas con el nuevo orden solicitado
-    let columnas: any[] = [];
-    if (this.tipoBusquedaRealizada === 'NC') {
-      columnas = [
-        { header: 'Carnet', key: 'carnet' },
-        { header: 'Paciente', key: 'paciente' },
-        { header: 'Cobertura', key: 'cobertura' },
-        { header: 'Plan', key: 'plan' },
-        { header: 'Grupo Módulo', key: 'grupomodulo' },
-        { header: 'Médico', key: 'medico' },
-        { header: 'Fecha', key: 'fecha' },
-        { header: 'Código', key: 'codigo' },
-        { header: 'Descripción', key: 'descripcion' },
-        { header: 'Cant.', key: 'cantidad' },
-        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
-        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
-        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentario Previo', key: 'comentarioPrevio' },
-        { header: 'Motivo Refactura', key: 'motivoRefactura' },
-        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentarios', key: 'comentarios' }
-      ];
-    } else {
-      columnas = [
-        { header: 'Carnet', key: 'carnet' },
-        { header: 'Paciente', key: 'paciente' },
-        { header: 'Cobertura', key: 'cobertura' },
-        { header: 'Plan', key: 'plan' },
-        { header: 'Efector', key: 'efector' },
-        { header: 'Médico', key: 'medico' },
-        { header: 'Fecha', key: 'fecha' },
-        { header: 'Código', key: 'codigo' },
-        { header: 'Descripción', key: 'descripcion' },
-        { header: 'Cant.', key: 'cantidad' },
-        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
-        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
-        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
-        { header: 'Débito Aceptado', key: 'debitoAceptado' },
-        { header: 'Motivo Débito', key: 'motivoDebito' },
-        { header: 'Días Fact.', key: 'diasFacturados' },
-        { header: 'Imp. Debitado', key: 'importeDebitado', style: { numFmt: '#,##0.00' } },
-        { header: 'Motivo Refactura', key: 'motivoRefactura' },
-        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentarios', key: 'comentarios' }
-      ];
-    }
-
-    worksheet.columns = columnas;
-
-    // 2. Mapeo de datos
-    this.prestacionesFiltradas.forEach(p => {
-      const registro = { ...p } as any;
-      registro.fecha = formatearFecha(p.fecha || '');
-      worksheet.addRow(registro);
-    });
-
-    // 3. Auto-size
-    worksheet.columns.forEach(column => {
-      let maxLength = 0;
-      column.eachCell!({ includeEmpty: true }, (cell) => {
-        const columnLength = cell.value ? cell.value.toString().length : 10;
-        if (columnLength > maxLength) maxLength = columnLength;
-      });
-      column.width = maxLength < 12 ? 12 : maxLength + 3;
-    });
-
-    // 4. Estilo de encabezados (Azul oscuro)
-    const headerRow = worksheet.getRow(1);
-    headerRow.height = 25;
-    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF002060' }
-      };
-      cell.border = {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'medium' }, right: { style: 'thin' }
-      };
-    });
-
-    // 5. Estilo intercalado y delimitadores de bloques (BORDES)
-    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
-      if (rowNumber > 1) {
-        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          // Intercalado
-          if (rowNumber % 2 === 0) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F8FC' } };
-          }
-
-          // Bordes delgados base
-          cell.border = {
-            top: { style: 'thin' }, left: { style: 'thin' },
-            bottom: { style: 'thin' }, right: { style: 'thin' }
-          };
-
-          // Borde grueso para separar bloques de colores originales (ahora en col 13)
-          if (colNumber === 13) {
-            cell.border.right = { style: 'medium' };
-          }
-        });
-      }
-    });
-
-    worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columnas.length } };
-
-    // 6. Nombre de archivo dinámico
+  exportarAExcel() {
     const f = this.busquedaForm.value;
     const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), nombreArchivo);
+    this.excelService.exportarPrestaciones(
+      this.prestacionesFiltradas,
+      this.tipoBusquedaRealizada,
+      nombreArchivo
+    );
   }
 
   guardarParcialmente() {
@@ -772,7 +557,6 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarParcialmente(payload).subscribe({
       next: () => {
-        this.cerrarModalNuevaNotaDebito(); // Cerramos primero el form
         this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
         this.cargando = false;
         this.cdr.detectChanges();
@@ -944,7 +728,7 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarNuevaNotaCredito(payload).subscribe({
       next: () => {
-        this.cerrarModalNuevaNotaDebito(); // Cerramos primero el form
+        this.cerrarModalNuevaNota(); // Cerramos primero el form
         this.mostrarAlerta('¡Nota de Débito generada y guardada con éxito!'); // Mostramos el aviso prolijo
         this.cargando = false;
         this.cdr.detectChanges();
@@ -957,4 +741,5 @@ export class AuditoriaComponent {
       }
     });
   }
+
 }
