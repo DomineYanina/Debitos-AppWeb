@@ -376,7 +376,7 @@ export class AuditoriaComponent {
       const cumpleCombos =
         (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
         (this.filtroProfesional === '' || p.medico === this.filtroProfesional) &&
-        (this.filtroPrestacion === '' || p.modulo === this.filtroPrestacion) &&
+        (this.filtroPrestacion === '' || p.codigo === this.filtroPrestacion) &&
         (this.filtroGrupo === '' || p.grupomodulo === this.filtroGrupo) &&
         (this.filtroFecha === '' || p.fecha === this.filtroFecha);
 
@@ -611,9 +611,6 @@ export class AuditoriaComponent {
     }
   }
 
-  // ==========================================
-  // MODAL UNIFICADO: NUEVA NOTA (NC o ND)
-  // ==========================================
   modalNuevaNotaVisible: boolean = false;
   tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
 

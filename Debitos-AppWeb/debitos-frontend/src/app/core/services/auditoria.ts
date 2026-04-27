@@ -17,10 +17,10 @@ export class AuditoriaService {
 
   guardarParcialmente(payload: any) {
     // Si tu backend corre en el 8080, tenés que poner la ruta completa:
-    return this.http.post('http://localhost:8080/api/auditoria/guardar-parcialmente', payload);
+    //return this.http.post('http://localhost:8080/api/auditoria/guardar-parcialmente', payload);
 
     // O si en tu archivo ya tenés una variable definida como "this.apiUrl", usala así:
-    // return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload);
+    return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload);
   }
 
   guardarNuevaNotaCredito(payload: any) {
