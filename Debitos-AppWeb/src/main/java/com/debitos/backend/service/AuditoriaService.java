@@ -243,9 +243,6 @@ public class AuditoriaService {
         }
     }
 
-    // =========================================================================
-    // MÉTODO AUXILIAR: Evita usar Try-Catch para registros que no existen
-    // =========================================================================
     private Integer obtenerIdSiExiste(String sql, Object... params) {
         List<Integer> resultados = jdbcTemplate.queryForList(sql, Integer.class, params);
         return resultados.isEmpty() ? null : resultados.get(0);
@@ -253,82 +250,141 @@ public class AuditoriaService {
 
     @Transactional
     public void procesarNuevaNotaDebito(Map<String, Object> payload) {
-        String origen = (String) payload.get("origen"); // Esto será siempre "NC"
+        String usuario = (String) payload.get("usuario");
         Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
-        List<Integer> idsPrestaciones = (List<Integer>) payload.get("idsPrestaciones");
+        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
-        if (idsPrestaciones == null || idsPrestaciones.isEmpty()) {
-            return;
-        }
+        // NUEVO: Obtenemos el tipo de registro original (que en este caso viene de una NC)
+        String tipoRegistro = obtenerTipoRegistro(
+                (String) payload.get("origen"),
+                (String) payload.get("letraOriginal"),
+                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
+                Integer.valueOf(payload.get("numeroOriginal").toString())
+        );
 
-        // 1. Parseamos los números
+        if (registros == null || registros.isEmpty()) return;
+
         Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
         Integer numero = Integer.valueOf(datosNota.get("numero").toString());
+        java.sql.Date fechaSql = java.sql.Date.valueOf(datosNota.get("fecha").toString());
+        String tipoDoc = (String) datosNota.get("tipo");
+        String letraDoc = (String) datosNota.get("letra");
 
-        // 2. Parseamos la fecha a SQL Date
-        String fechaString = (String) datosNota.get("fecha");
-        java.sql.Date fechaSql = java.sql.Date.valueOf(fechaString);
+        for (Map<String, Object> p : registros) {
+            Integer idPrestacion = ((Number) p.get("id")).intValue();
+            Object importeRefactura = "".equals(p.get("importeRefactura")) ? null : p.get("importeRefactura");
+            Object diasFacturados = "".equals(p.get("diasFacturados")) ? null : p.get("diasFacturados");
 
-        for (Integer idPrestacion : idsPrestaciones) {
+            String sqlBuscarNc = "SELECT id FROM notadecredito WHERE letra = ? AND ptovta = ? AND numero = ? AND id_prestacion = ? LIMIT 1";
+            Integer idNotaCredito = obtenerIdSiExiste(sqlBuscarNc, payload.get("letraOriginal"), payload.get("ptovtaOriginal"), payload.get("numeroOriginal"), idPrestacion);
 
-            if ("NC".equals(origen)) {
-                // Hacemos el UPDATE en la tabla notadedebito
-                String sqlUpdate = "UPDATE notadedebito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, cargadocompletamente = true WHERE id_prestacion = ? AND cargadocompletamente = false";
+            if (idNotaCredito != null) {
+                String sqlCheck = "SELECT id FROM notadedebito WHERE id_notadecredito = ? LIMIT 1";
+                Integer idExistente = obtenerIdSiExiste(sqlCheck, idNotaCredito);
 
-                jdbcTemplate.update(sqlUpdate,
-                        datosNota.get("tipo"),
-                        datosNota.get("letra"),
-                        puntoVenta,
-                        numero,
-                        fechaSql,
-                        idPrestacion);
+                if (idExistente != null) {
+                    String sqlUpdate = "UPDATE notadedebito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, " +
+                            "motivorefactura = ?, importerefactura = ?, comentarios = ?, diasfacturados = ?, " +
+                            "usuario = ?, tiporegistro = ?, cargadocompletamente = true WHERE id = ?";
+                    jdbcTemplate.update(sqlUpdate, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
+                            p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, usuario, tipoRegistro, idExistente);
+                } else {
+                    String sqlInsert = "INSERT INTO notadedebito (id_prestacion, tipo, letra, ptovta, numero, fecha, " +
+                            "motivorefactura, importerefactura, prestacionenglobante, usuario, id_notadecredito, " +
+                            "codigo, comentarios, cargadocompletamente, cargarcompletamente, diasfacturados, tiporegistro) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, true, true, ?, ?)";
+                    jdbcTemplate.update(sqlInsert, idPrestacion, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
+                            p.get("motivoRefactura"), importeRefactura, usuario, idNotaCredito, p.get("codigo"),
+                            p.get("comentarios"), diasFacturados, tipoRegistro);
+                }
             }
         }
     }
 
     @Transactional
     public void procesarNuevaNotaCredito(Map<String, Object> payload) {
-        String origen = (String) payload.get("origen"); // "FC" o "ND"
+        String origen = (String) payload.get("origen");
+        String usuario = (String) payload.get("usuario");
         Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
-        List<Integer> idsPrestaciones = (List<Integer>) payload.get("idsPrestaciones");
+        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
-        if (idsPrestaciones == null || idsPrestaciones.isEmpty()) {
-            return;
-        }
+        // NUEVO: Obtenemos el tipo de registro original
+        String tipoRegistro = obtenerTipoRegistro(
+                origen,
+                (String) payload.get("letraOriginal"),
+                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
+                Integer.valueOf(payload.get("numeroOriginal").toString())
+        );
 
-        // 1. Parseamos los números de forma segura
+        if (registros == null || registros.isEmpty()) return;
+
         Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
         Integer numero = Integer.valueOf(datosNota.get("numero").toString());
+        java.sql.Date fechaSql = java.sql.Date.valueOf(datosNota.get("fecha").toString());
+        String tipoDoc = (String) datosNota.get("tipo");
+        String letraDoc = (String) datosNota.get("letra");
 
-        // 2. CONVERSIÓN DE FECHA: De String ("YYYY-MM-DD") a java.sql.Date
-        String fechaString = (String) datosNota.get("fecha");
-        java.sql.Date fechaSql = java.sql.Date.valueOf(fechaString);
+        for (Map<String, Object> p : registros) {
+            Integer idPrestacion = ((Number) p.get("id")).intValue();
 
-        for (Integer idPrestacion : idsPrestaciones) {
+            Object importeDebitado = "".equals(p.get("importeDebitado")) ? null : p.get("importeDebitado");
+            Object importeRefactura = "".equals(p.get("importeRefactura")) ? null : p.get("importeRefactura");
+            Object diasFacturados = "".equals(p.get("diasFacturados")) ? null : p.get("diasFacturados");
+            Object prestacionEnglobante = p.get("prestacionEnglobante") != null ? p.get("prestacionEnglobante") : "";
+
+            Boolean debitoAceptadoBool = null;
+            if ("SI".equals(p.get("debitoAceptado"))) debitoAceptadoBool = true;
+            else if ("NO".equals(p.get("debitoAceptado"))) debitoAceptadoBool = false;
 
             if ("FC".equals(origen)) {
-                // Si la búsqueda original fue FC, la ND asociada es NULL
-                String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, cargadocompletamente = true WHERE id_prestacion = ? AND id_notadedebito IS NULL AND cargadocompletamente = false";
+                String sqlCheck = "SELECT id FROM notadecredito WHERE id_prestacion = ? AND id_notadedebito IS NULL LIMIT 1";
+                Integer idExistente = obtenerIdSiExiste(sqlCheck, idPrestacion);
 
-                jdbcTemplate.update(sqlUpdate,
-                        datosNota.get("tipo"),
-                        datosNota.get("letra"),
-                        puntoVenta,
-                        numero,
-                        fechaSql,
-                        idPrestacion);
-
+                if (idExistente != null) {
+                    // Agregamos tiporegistro = ?
+                    String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, " +
+                            "motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, " +
+                            "importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, " +
+                            "usuario = ?, tiporegistro = ?, cargadocompletamente = true WHERE id = ?";
+                    jdbcTemplate.update(sqlUpdate, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
+                            p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
+                            importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, tipoRegistro, idExistente);
+                } else {
+                    // Agregamos tiporegistro al insert
+                    String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, " +
+                            "motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, " +
+                            "prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, diasfacturados, tiporegistro) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, true, ?, ?, ?)";
+                    jdbcTemplate.update(sqlInsert, idPrestacion, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
+                            p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
+                            importeRefactura, prestacionEnglobante, usuario, p.get("comentarios"), diasFacturados, tipoRegistro);
+                }
             } else if ("ND".equals(origen)) {
-                // Si la búsqueda original fue ND, la NC madre TIENE una ND asociada
-                String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, cargadocompletamente = true WHERE id_prestacion = ? AND id_notadedebito IS NOT NULL AND cargadocompletamente = false";
+                String sqlBuscarNd = "SELECT id FROM notadedebito WHERE letra = ? AND ptovta = ? AND numero = ? AND id_prestacion = ? LIMIT 1";
+                Integer idNotaDebito = obtenerIdSiExiste(sqlBuscarNd, payload.get("letraOriginal"), payload.get("ptovtaOriginal"), payload.get("numeroOriginal"), idPrestacion);
 
-                jdbcTemplate.update(sqlUpdate,
-                        datosNota.get("tipo"),
-                        datosNota.get("letra"),
-                        puntoVenta,
-                        numero,
-                        fechaSql,
-                        idPrestacion);
+                if (idNotaDebito != null) {
+                    String sqlCheck = "SELECT id FROM notadecredito WHERE id_notadedebito = ? LIMIT 1";
+                    Integer idExistente = obtenerIdSiExiste(sqlCheck, idNotaDebito);
+
+                    if (idExistente != null) {
+                        String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, " +
+                                "motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, " +
+                                "importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, " +
+                                "usuario = ?, tiporegistro = ?, cargadocompletamente = true WHERE id = ?";
+                        jdbcTemplate.update(sqlUpdate, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
+                                p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
+                                importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, tipoRegistro, idExistente);
+                    } else {
+                        String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, " +
+                                "motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, " +
+                                "prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, diasfacturados, tiporegistro) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?)";
+                        jdbcTemplate.update(sqlInsert, idPrestacion, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
+                                p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
+                                importeRefactura, prestacionEnglobante, usuario, idNotaDebito, p.get("comentarios"), diasFacturados, tipoRegistro);
+                    }
+                }
             }
         }
     }

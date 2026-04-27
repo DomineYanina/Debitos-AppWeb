@@ -1,12 +1,12 @@
 import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
-import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
-import * as ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import { AuditoriaService } from '../../core/services/auditoria';
+import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
+import {ExcelExportService} from '../../core/services/excel-export';
 
 @Component({
   selector: 'app-auditoria',
@@ -19,106 +19,10 @@ import { AuditoriaService } from '../../core/services/auditoria';
 export class AuditoriaComponent {
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
+  private excelService = inject(ExcelExportService);
 
-  listaMotivos: string[] = [
-    'Borrar',
-    'No aplica',
-    'Afiliado capitado',
-    'Afiliado dado de baja',
-    'Alta demorada criterio auditoria medica',
-    'Conteo de medicacion erroneo hojas de enfermeria no identificadas con fecha',
-    'Coseguro no cobrado',
-    'Debito 20% urgencia modulos',
-    'Debito 20% urgencia prestaciones',
-    'Debito por diferencia en la inclusiones modulares',
-    'Debito por falta de historia clinica',
-    'Debito por historias clinicas de distintos pacientes en la misma internacion',
-    'Debito por normas contractuales (ejemplo veda+vcc)',
-    'Debito por normas operativas',
-    'Debito segun normas del nomenclador',
-    'Débitos varios, recibido fuera de término por Tesorería, emisión de nc condicional al cobro de la factura',
-    'Demora en Inter Consulta',
-    'Demora en resolución quirúrgica',
-    'Diagnostico ilegible',
-    'Diagnostico no reconocido',
-    'Diferencia de aranceles',
-    'Diferencia de coseguro',
-    'Diferencia de criterio medico/prestaciones no justificadas',
-    'Diferencia de valor en medicamentos/descartables',
-    'Documentacion adulterada',
-    'Ecografia de partes blandas incluida en ecografia abdominal',
-    'Ecografia renal incluida en abdominal',
-    'El valor de los impuestos a abonar en el proceso de la refactura superan el importe a refacturar',
-    'Error de carga (codigos-inclusiones)',
-    'Error de Open',
-    'Error en el cálculo de porcentaje de códigos múltiples',
-    'Exceso de facturacion en medicamentos y descartables',
-    'Facturacion duplicada',
-    'Facturado a financiador incorrecto',
-    'Facturado con nota de departamento comercial',
-    'Falta de autorizacion',
-    'Falta de documentacion avalatoria',
-    'Falta de historia/informe.',
-    'Falta de troqueles-stickers de medicacion o materiales',
-    'Falta firma paciente',
-    'Falta firma profesional',
-    'Falta informe',
-    'Historia clinica incompleta',
-    'Honorarios profesionales pagados en forma directa',
-    'Incluido en APB',
-    'Iva mal facturado',
-    'Material/ Medicamentos provistos por O.S.',
-    'Material no utilizado',
-    'Medicación no suministrada',
-    'No indicado',
-    'No reconoce prestación',
-    'Orden sin diagnóstico',
-    'Prestacion fuera de termino',
-    'Prestacion incluida en otra',
-    'Prestacion incluida en otra liquidacion',
-    'Prestacion no homologada',
-    'Prestacion no justificada',
-    'Prestacion sin convenio',
-    'Presupuesto facturado con nota no reconocido',
-    'Presupuesto rechazado y facturados con indicacion comercial',
-    'Rechazo de refactura por mantener motivos de debitos originales',
-    'Supera tope anual'
-  ];
-
-  listaMotivosRefactura: string[] = [
-    'Borrar', 'No aplica', 'Casos: Afiliados activos.', 'Casos: Discrepancia cobertura pensión.',
-    'Casos: Excepciones refacturadas.', 'Casos: Médico externo sin historia clínica.',
-    'Corrección de error de Open', 'Débitos Inválidos: Aplicados erróneamente.',
-    'Doc. y Aut.: Autorización recibida posterior al cierre.', 'Doc. y Aut.: Autorización vigente.',
-    'Doc. y Aut.: Doc. completa enviada.', 'Doc. y Aut.: Facturado en tiempo.',
-    'Doc. y Aut.: Info. filiatoria completa.', 'Doc. y Aut.: Justificado en historia clínica.',
-    'Doc. y Aut.: Orden con diagnóstico, se aclara con historia clínica',
-    'Doc. y Aut.: Se envía documentación omitida', 'Doc. y Aut.: Se envía troquel/sticker',
-    'Doc. y Aut.: Según normas vigentes.', 'Excepciones: Bonificación medicación.',
-    'Excepciones: Bonificación prestación.', 'Excepciones: Reclamos/comerciales.',
-    'Gestión: Aclaración procedimiento.', 'Gestión: Afiliado dado de baja.',
-    'Gestión: Ajustes en coseguro.', 'Gestión: Ajuste por presupuesto.',
-    'Gestión: Aplicación incorrecta de IVA.', 'Gestión: Consumos correctos.',
-    'Gestión: Corrección facturación módulos.', 'Gestión: Financidor demoró respuesta.',
-    'Gestión: Medicamentos mal facturados.', 'Gestión Méd.: Aclaración de diagnóstico',
-    'Gestión Méd.: Ajuste fechas derivación.', 'Gestión Méd.: Criterio en diagnósticos.',
-    'Gestión Méd.: Historia clínica firmada.', 'Gestión Méd.: Normas sanatoriales.',
-    'Gestión Méd.: Postoperatorios/antibióticos.', 'Gestión Méd.: Tratamientos infecciones.',
-    'Gestión Méd.: Tratamientos médicos.', 'Gestión Méd.: Urgencia sin consentimiento.',
-    'Normas: Adjunta norma del Nom. Nac.', 'Normas: Ajustes valores medicación/material.',
-    'Normas: Aplicación de normas acordadas.', 'Normas: Aranceles vigentes Colegio Bioquím.',
-    'Normas: Cambios deben ser acordados.', 'Normas: Exclusión no explícita.',
-    'Normas: Facturación según módulos vigentes.', 'Normas: Inclusión/Exclusión según acuerdo.',
-    'Normas: Incompatibilidad normativa.', 'Normas: Obligación de cobertura por ley',
-    'Normas: Prestación arancel convenido.', 'Normas: Prestación no respondida por financ.',
-    'Normas: Prestación según presupuesto.', 'Normas: Recargos urgencia según Nac. Nom.',
-    'Normas: Refacturación por IVA.', 'Normas: Valores de contrastes vigentes.',
-    'Normas: Valores medicación/material convenio.', 'Prestaciones: Aranceles según CEDIM.',
-    'Prestaciones: Consultas previas/post-proced.', 'Prestaciones: Homologada.',
-    'Prestaciones: Inclusión incorrecta.', 'Prestaciones: No incluidas según Nom. Nac.',
-    'Prestaciones: Material no incluido en base.', 'Prestaciones: Procedimientos ampliados.',
-    'Prestaciones: Relacionadas a prestación.'
-  ];
+  listaMotivos: string[] = LISTA_MOTIVOS_DEBITO;
+  listaMotivosRefactura: string[] = LISTA_MOTIVOS_REFACTURA;
 
   motivoMasivoSeleccionado: string = '';
   motivoRefacturaMasivoSeleccionado: string = '';
@@ -138,6 +42,10 @@ export class AuditoriaComponent {
   prestacionesList: string[] = [];
   gruposList: (string | undefined)[] = [];
   fechasList: string[] = [];
+
+  modalAlertaVisible: boolean = false;
+  modalAlertaMensaje: string = '';
+  modalAlertaCallback: any = null;
 
   filtroPaciente: string = '';
   filtroProfesional: string = '';
@@ -178,7 +86,6 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  // Mapeamos los 4 campos con sus validaciones
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
@@ -313,8 +220,13 @@ export class AuditoriaComponent {
           this.cargando = false; // Liberamos la UI (Éxito)
         },
         error: (err) => {
-          alert('Error en el servidor');
-          this.cargando = false; // Liberamos la UI (Error)
+          if (err.status === 404) {
+            this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.');
+          } else {
+            this.mostrarAlerta('Ocurrió un error al intentar comunicarse con el servidor.');
+          }
+          this.cargando = false;
+          this.cdr.detectChanges();
         }
       });
     }
@@ -601,134 +513,15 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  async exportarAExcel() {
-    if (this.prestacionesFiltradas.length === 0) return;
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Auditoría');
-
-    // Helper para fecha
-    const formatearFecha = (fechaISO: string) => {
-      if (!fechaISO) return '';
-      const soloFecha = fechaISO.split('T')[0];
-      const partes = soloFecha.split('-');
-      return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : soloFecha;
-    };
-
-    // 1. Definición de Columnas con el nuevo orden solicitado
-    let columnas: any[] = [];
-    if (this.tipoBusquedaRealizada === 'NC') {
-      columnas = [
-        { header: 'Carnet', key: 'carnet' },
-        { header: 'Paciente', key: 'paciente' },
-        { header: 'Cobertura', key: 'cobertura' },
-        { header: 'Plan', key: 'plan' },
-        { header: 'Grupo Módulo', key: 'grupomodulo' },
-        { header: 'Médico', key: 'medico' },
-        { header: 'Fecha', key: 'fecha' },
-        { header: 'Código', key: 'codigo' },
-        { header: 'Descripción', key: 'descripcion' },
-        { header: 'Cant.', key: 'cantidad' },
-        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
-        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
-        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentario Previo', key: 'comentarioPrevio' },
-        { header: 'Motivo Refactura', key: 'motivoRefactura' },
-        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentarios', key: 'comentarios' }
-      ];
-    } else {
-      columnas = [
-        { header: 'Carnet', key: 'carnet' },
-        { header: 'Paciente', key: 'paciente' },
-        { header: 'Cobertura', key: 'cobertura' },
-        { header: 'Plan', key: 'plan' },
-        { header: 'Efector', key: 'efector' },
-        { header: 'Médico', key: 'medico' },
-        { header: 'Fecha', key: 'fecha' },
-        { header: 'Código', key: 'codigo' },
-        { header: 'Descripción', key: 'descripcion' },
-        { header: 'Cant.', key: 'cantidad' },
-        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
-        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
-        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
-        { header: 'Débito Aceptado', key: 'debitoAceptado' },
-        { header: 'Motivo Débito', key: 'motivoDebito' },
-        { header: 'Días Fact.', key: 'diasFacturados' },
-        { header: 'Imp. Debitado', key: 'importeDebitado', style: { numFmt: '#,##0.00' } },
-        { header: 'Motivo Refactura', key: 'motivoRefactura' },
-        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentarios', key: 'comentarios' }
-      ];
-    }
-
-    worksheet.columns = columnas;
-
-    // 2. Mapeo de datos
-    this.prestacionesFiltradas.forEach(p => {
-      const registro = { ...p } as any;
-      registro.fecha = formatearFecha(p.fecha || '');
-      worksheet.addRow(registro);
-    });
-
-    // 3. Auto-size
-    worksheet.columns.forEach(column => {
-      let maxLength = 0;
-      column.eachCell!({ includeEmpty: true }, (cell) => {
-        const columnLength = cell.value ? cell.value.toString().length : 10;
-        if (columnLength > maxLength) maxLength = columnLength;
-      });
-      column.width = maxLength < 12 ? 12 : maxLength + 3;
-    });
-
-    // 4. Estilo de encabezados (Azul oscuro)
-    const headerRow = worksheet.getRow(1);
-    headerRow.height = 25;
-    headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF002060' }
-      };
-      cell.border = {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'medium' }, right: { style: 'thin' }
-      };
-    });
-
-    // 5. Estilo intercalado y delimitadores de bloques (BORDES)
-    worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
-      if (rowNumber > 1) {
-        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          // Intercalado
-          if (rowNumber % 2 === 0) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F8FC' } };
-          }
-
-          // Bordes delgados base
-          cell.border = {
-            top: { style: 'thin' }, left: { style: 'thin' },
-            bottom: { style: 'thin' }, right: { style: 'thin' }
-          };
-
-          // Borde grueso para separar bloques de colores originales (ahora en col 13)
-          if (colNumber === 13) {
-            cell.border.right = { style: 'medium' };
-          }
-        });
-      }
-    });
-
-    worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columnas.length } };
-
-    // 6. Nombre de archivo dinámico
+  exportarAExcel() {
     const f = this.busquedaForm.value;
     const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), nombreArchivo);
+    this.excelService.exportarPrestaciones(
+      this.prestacionesFiltradas,
+      this.tipoBusquedaRealizada,
+      nombreArchivo
+    );
   }
 
   guardarParcialmente() {
@@ -743,18 +536,17 @@ export class AuditoriaComponent {
     });
 
     if (registrosParaGuardar.length === 0) {
-      alert('No hay registros con motivos asignados para guardar.');
+      this.mostrarAlerta('No hay registros con motivos asignados para guardar.'); // <-- Usamos el modal custom
       return;
     }
 
     // 2. Preparar el paquete (Payload) para enviar a Java
-    // Asegurate de cambiar el string del usuario por el método real de tu AuthService
     const payload = {
       documentoOrigen: this.tipoBusquedaRealizada,
       letra: this.busquedaForm.value.letra ? this.busquedaForm.value.letra.toUpperCase() : '',
       ptovta: this.busquedaForm.value.puntoVenta,
       numero: this.busquedaForm.value.numero,
-      usuario: this.authService.obtenerUsuario(), // TODO: Reemplazar por this.authService.getUsuario()...
+      usuario: this.authService.obtenerUsuario(),
       registros: registrosParaGuardar
     };
 
@@ -764,13 +556,14 @@ export class AuditoriaComponent {
 
     this.auditoriaService.guardarParcialmente(payload).subscribe({
       next: () => {
-        alert('¡Los registros se guardaron parcialmente con éxito!');
+        // Mensaje coherente con la acción realizada
+        this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!');
         this.cargando = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
-        alert('Ocurrió un error al intentar guardar en la base de datos.');
+        this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.'); // <-- Usamos el modal custom
         this.cargando = false;
         this.cdr.detectChanges();
       }
@@ -781,102 +574,78 @@ export class AuditoriaComponent {
     return this.prestacionesFiltradas.some(p => p.motivoDebito === 'Prestacion incluida en otra');
   }
 
-  // ==========================================
-  // VARIABLES DEL MODAL DE NUEVA NOTA DE DÉBITO
-  // ==========================================
-  modalNuevaNotaDebitoVisible: boolean = false;
+  mostrarAlerta(mensaje: string, callback?: () => void) {
+    this.modalAlertaMensaje = mensaje;
+    this.modalAlertaCallback = callback || null;
+    this.modalAlertaVisible = true;
+    this.cdr.detectChanges();
+  }
 
-  nuevaNotaDebitoForm = this.fb.group({
-    tipo: ['ND', Validators.required], // Valor por defecto ND
-    letra: ['', [Validators.required, Validators.maxLength(1)]],
-    puntoVenta: ['', [Validators.required, Validators.min(1)]],
-    numero: ['', [Validators.required, Validators.min(1)]],
-    fecha: ['', Validators.required]
-  });
+  cerrarModalAlerta() {
+    this.modalAlertaVisible = false;
 
-  // Reemplazamos tu método vacío nuevaNotaDebito() por este:
-  nuevaNotaDebito() {
-    // Para la ND, validamos que hayan cargado un Motivo de Refactura
-    const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
-
-    if (prestacionesConRefactura.length === 0) {
-      alert('No hay registros con Motivo de Refactura cargado para generar una Nota de Débito. Recuerde Guardar Parcialmente primero.');
-      return;
+    // Si había una orden pendiente (como borrar un campo), la ejecutamos al cerrar
+    if (this.modalAlertaCallback) {
+      this.modalAlertaCallback();
+      this.modalAlertaCallback = null; // Limpiamos
     }
-
-    this.nuevaNotaDebitoForm.reset({ tipo: 'ND' });
-    this.modalNuevaNotaDebitoVisible = true;
     this.cdr.detectChanges();
   }
 
-  cerrarModalNuevaNotaDebito() {
-    this.modalNuevaNotaDebitoVisible = false;
-    this.cdr.detectChanges();
-  }
+  validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota') {
+    const input = event.target as HTMLInputElement;
+    const valor = input.value;
 
-  guardarNuevaNotaDebitoBD() {
-    if (this.nuevaNotaDebitoForm.invalid) {
-      alert('Por favor, complete todos los campos correctamente.');
-      return;
+    // Identificamos dinámicamente cuál formulario estamos tocando
+    const formActual = tipoFormulario === 'busqueda' ? this.busquedaForm : this.nuevaNotaForm;
+
+    // Si el valor contiene algún dígito del 0 al 9
+    if (/[0-9]/.test(valor)) {
+      this.mostrarAlerta('El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.', () => {
+        // Limpiamos el campo del formulario correspondiente
+        formActual.patchValue({ letra: '' });
+      });
+    } else {
+      // Forzamos la mayúscula en el formulario correspondiente
+      formActual.patchValue({ letra: valor.toUpperCase() }, { emitEvent: false });
     }
-
-    // Recolectamos los IDs de las prestaciones originales
-    const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
-    const ids = prestacionesConRefactura.map(p => p.id);
-
-    const datosNotaForm = { ...this.nuevaNotaDebitoForm.value };
-    datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
-
-    const payload = {
-      origen: this.tipoBusquedaRealizada,
-      idsPrestaciones: ids,
-      datosNota: datosNotaForm // Pasamos el objeto modificado
-    };
-
-    this.cargando = true;
-    this.cdr.detectChanges();
-
-    this.auditoriaService.guardarNuevaNotaDebito(payload).subscribe({
-      next: () => {
-        alert('¡Nota de Débito generada y guardada con éxito!');
-        this.cerrarModalNuevaNotaDebito();
-        this.cargando = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error(err);
-        alert('Error al guardar la Nota de Débito en la base de datos.');
-        this.cargando = false;
-        this.cdr.detectChanges();
-      }
-    });
   }
 
   // ==========================================
-  // VARIABLES DEL MODAL DE NUEVA NOTA
+  // MODAL UNIFICADO: NUEVA NOTA (NC o ND)
   // ==========================================
   modalNuevaNotaVisible: boolean = false;
+  tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
 
-  // Formulario reactivo para la nueva nota
+  // Un solo formulario para ambos casos
   nuevaNotaForm = this.fb.group({
-    tipo: ['NC', Validators.required], // Valor por defecto NC
+    tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]],
     fecha: ['', Validators.required]
   });
 
-  // Reemplazamos el método vacío por este
-  nuevaNotaCredito() {
-    // Verificamos que haya algo para asociar
-    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+  abrirModalNuevaNota(tipo: 'NC' | 'ND') {
+    this.tipoNuevaNota = tipo;
 
-    if (prestacionesConDebito.length === 0) {
-      alert('No hay registros con Motivo de Débito cargado para generar una Nota de Crédito. Recuerde Guardar Parcialmente primero.');
-      return;
+    // Validación según el tipo de nota
+    if (tipo === 'NC') {
+      const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
+      if (prestacionesConDebito.length === 0) {
+        this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.');
+        return;
+      }
+      this.nuevaNotaForm.reset({ tipo: 'NC' });
+    } else {
+      const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
+      if (prestacionesConRefactura.length === 0) {
+        this.mostrarAlerta('No hay registros con Motivo de Refactura cargado para generar una ND. Recuerde Guardar Parcialmente primero.');
+        return;
+      }
+      this.nuevaNotaForm.reset({ tipo: 'ND' });
     }
 
-    this.nuevaNotaForm.reset({ tipo: 'NC' }); // Limpiamos el form al abrir
     this.modalNuevaNotaVisible = true;
     this.cdr.detectChanges();
   }
@@ -886,42 +655,60 @@ export class AuditoriaComponent {
     this.cdr.detectChanges();
   }
 
-  guardarNuevaNotaCreditoBD() {
+  guardarNuevaNotaBD() {
     if (this.nuevaNotaForm.invalid) {
-      alert('Por favor, complete todos los campos correctamente.');
+      this.mostrarAlerta('Por favor, complete todos los campos correctamente.');
       return;
     }
 
-    // Recolectamos los IDs de las prestaciones originales que tienen débito
-    const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
-    const ids = prestacionesConDebito.map(p => p.id);
+    // 1. Recolectamos los registros con datos de auditoría (igual que en guardado parcial)
+    const registrosParaGuardar = this.prestaciones.filter(p => {
+      if (this.tipoNuevaNota === 'NC') {
+        return p.motivoDebito && p.motivoDebito.trim() !== '';
+      } else {
+        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      }
+    });
 
+    // 2. Preparamos los datos del formulario (Letra en Mayúscula)
     const datosNotaForm = { ...this.nuevaNotaForm.value };
     datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
 
+    // 3. Armamos el Payload "Todo en Uno"
     const payload = {
+      // Datos del documento que está cargado en la grilla (Original)
       origen: this.tipoBusquedaRealizada,
-      idsPrestaciones: ids,
-      datosNota: datosNotaForm // Pasamos el objeto modificado
+      letraOriginal: this.busquedaForm.value.letra?.toUpperCase(),
+      ptovtaOriginal: this.busquedaForm.value.puntoVenta,
+      numeroOriginal: this.busquedaForm.value.numero,
+
+      // Datos de la nueva nota y registros
+      datosNota: datosNotaForm,
+      registros: registrosParaGuardar,
+      usuario: this.authService.obtenerUsuario()
     };
 
     this.cargando = true;
     this.cdr.detectChanges();
 
-    this.auditoriaService.guardarNuevaNotaCredito(payload).subscribe({
+    const request$ = this.tipoNuevaNota === 'NC'
+      ? this.auditoriaService.guardarNuevaNotaCredito(payload)
+      : this.auditoriaService.guardarNuevaNotaDebito(payload);
+
+    request$.subscribe({
       next: () => {
-        alert('¡Nota de Crédito generada y guardada con éxito!');
         this.cerrarModalNuevaNota();
+        this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`);
         this.cargando = false;
-        // Opcional: Podrías llamar a onBuscar() acá para recargar la grilla
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
-        alert('Error al guardar la Nota de Crédito en la base de datos.');
+        this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`);
         this.cargando = false;
         this.cdr.detectChanges();
       }
     });
   }
+
 }
