@@ -95,13 +95,12 @@ export class AuditoriaComponent {
     const tipo = this.tipoBusquedaRealizada;
     const englobante = this.debeMostrarEnglobante();
 
-    // 1. Columna de selección
     let columnas: ColDef[] = [
       { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' }
     ];
 
     if (tipo === 'NC') {
-      columnas.push({ headerName: 'Grupo Módulo', field: 'grupomodulo', cellClass: 'bg-celeste', headerClass: 'bg-celeste' });
+      columnas.push({ headerName: 'Grupo\nMódulo', field: 'grupomodulo', cellClass: 'bg-celeste', headerClass: 'bg-celeste' });
     }
 
     columnas.push(
@@ -119,33 +118,49 @@ export class AuditoriaComponent {
       { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Total Neto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => `$${params.value?.toLocaleString()}` },
-      { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => `$${params.value?.toLocaleString()}` },
-      { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => `$${params.value?.toLocaleString()}` }
+      { headerName: 'Total\nNeto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
+      { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
+      { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
     );
 
     if (tipo === 'ND' || tipo === 'NC') {
-      columnas.push({ headerName: 'Comentario Previo', field: 'comentarioPrevio', cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+      columnas.push({ headerName: 'Comentario\nPrevio', field: 'comentarioPrevio', cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
     }
 
     if (tipo !== 'NC') {
       columnas.push(
-        { headerName: 'Débito Aceptado', field: 'debitoAceptado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] } },
-        { headerName: 'Motivo Débito', field: 'motivoDebito', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', ...this.listaMotivos] } },
-        { headerName: 'Días Fact.', field: 'diasFacturados', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 105, suppressAutoSize: true }
+        { headerName: 'Débito\nAceptado', field: 'debitoAceptado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] }, width: 95, minWidth:95, suppressAutoSize:true },
+        { headerName: 'Motivo\nDébito', field: 'motivoDebito', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', ...this.listaMotivos] } },
+        { headerName: 'Días\nFact.', field: 'diasFacturados', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 63 }
       );
 
       if (englobante) {
-        columnas.push({ headerName: 'Prestación Englobante', field: 'prestacionEnglobante', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris' });
+        columnas.push({ headerName: 'Prestación\nEnglobante', field: 'prestacionEnglobante', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris' });
       }
 
-      columnas.push({ headerName: 'Imp. Debitado', field: 'importeDebitado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 135, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' });
+      // Le quitamos el width y el suppressAutoSize para que se ajuste a "Debitado"
+      columnas.push({
+        headerName: 'Imp.\nDebitado', field: 'importeDebitado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 93,
+        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+      });
     }
 
     columnas.push(
-      { headerName: 'Motivo Refactura', field: 'motivoRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', ...this.listaMotivosRefactura] } },
-      { headerName: 'Imp. Refactura', field: 'importeRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 140, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
-      { headerName: 'Comentarios', field: 'comentarios', editable: params => params.data.debitoAceptado === 'NO', cellClass: 'bg-naranja', headerClass: 'bg-naranja', cellClassRules: {'bg-gris': params => params.data.debitoAceptado === 'NO', 'bg-naranja': params => params.data.debitoAceptado !== 'NO'} }
+      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', ...this.listaMotivosRefactura] } },
+
+      // Le quitamos el width y el suppressAutoSize para que se ajuste a "Refactura"
+      {
+        headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
+        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+      },
+      {
+        headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
+        editable: params => params.data.debitoAceptado === 'NO',
+        cellClassRules: {
+          'bg-gris': params => params.data.debitoAceptado === 'NO',
+          'bg-naranja': params => params.data.debitoAceptado !== 'NO'
+        }
+      }
     );
 
     this.columnDefs = columnas;
@@ -156,7 +171,9 @@ export class AuditoriaComponent {
     sortable: true,
     filter: false,
     resizable: true,
-    suppressMovable: false // Permite al usuario mover las columnas de lugar
+    suppressMovable: false, // Permite al usuario mover las columnas de lugar
+    wrapHeaderText: true,
+    autoHeaderHeight: true
   };
 
   modalVisible: boolean = false;
