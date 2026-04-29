@@ -7,15 +7,20 @@ import { CommonModule } from '@angular/common';
 import { AuditoriaService } from '../../core/services/auditoria';
 import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
 import {ExcelExportService} from '../../core/services/excel-export';
+import { AgGridModule } from 'ag-grid-angular';
+import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 @Component({
   selector: 'app-auditoria',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, FormsModule],
+  imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule],
   templateUrl: './auditoria.html',
   styleUrl: './auditoria.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
+
 export class AuditoriaComponent {
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
@@ -76,15 +81,91 @@ export class AuditoriaComponent {
   todasSeleccionadas: boolean = false;
   registrosSeleccionados: Prestacion[] = [];
 
+  public rowSelection: 'single' | 'multiple' = 'multiple';
+  public theme = themeQuartz; // <-- Inyectamos el tema moderno acá
+
+  // Estrategia para que las columnas se adapten al contenido o al título automáticamente
+  public autoSizeStrategy: any = {
+    type: 'fitCellContents'
+  };
+
+  public columnDefs: ColDef[] = []; // Ahora arranca vacío
+
+  configurarColumnas() {
+    const tipo = this.tipoBusquedaRealizada;
+    const englobante = this.debeMostrarEnglobante();
+
+    // 1. Columna de selección
+    let columnas: ColDef[] = [
+      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' }
+    ];
+
+    if (tipo === 'NC') {
+      columnas.push({ headerName: 'Grupo Módulo', field: 'grupomodulo', cellClass: 'bg-celeste', headerClass: 'bg-celeste' });
+    }
+
+    columnas.push(
+      { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' }
+    );
+
+    if (tipo !== 'NC') {
+      columnas.push({ headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' });
+    }
+
+    columnas.push(
+      { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : '' },
+      { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Total Neto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => `$${params.value?.toLocaleString()}` },
+      { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => `$${params.value?.toLocaleString()}` },
+      { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', valueFormatter: params => `$${params.value?.toLocaleString()}` }
+    );
+
+    if (tipo === 'ND' || tipo === 'NC') {
+      columnas.push({ headerName: 'Comentario Previo', field: 'comentarioPrevio', cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+    }
+
+    if (tipo !== 'NC') {
+      columnas.push(
+        { headerName: 'Débito Aceptado', field: 'debitoAceptado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] } },
+        { headerName: 'Motivo Débito', field: 'motivoDebito', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', ...this.listaMotivos] } },
+        { headerName: 'Días Fact.', field: 'diasFacturados', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 105, suppressAutoSize: true }
+      );
+
+      if (englobante) {
+        columnas.push({ headerName: 'Prestación Englobante', field: 'prestacionEnglobante', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris' });
+      }
+
+      columnas.push({ headerName: 'Imp. Debitado', field: 'importeDebitado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 135, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' });
+    }
+
+    columnas.push(
+      { headerName: 'Motivo Refactura', field: 'motivoRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', ...this.listaMotivosRefactura] } },
+      { headerName: 'Imp. Refactura', field: 'importeRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 140, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
+      { headerName: 'Comentarios', field: 'comentarios', editable: params => params.data.debitoAceptado === 'NO', cellClass: 'bg-naranja', headerClass: 'bg-naranja', cellClassRules: {'bg-gris': params => params.data.debitoAceptado === 'NO', 'bg-naranja': params => params.data.debitoAceptado !== 'NO'} }
+    );
+
+    this.columnDefs = columnas;
+  }
+
+// Configuración por defecto para no repetir código en cada columna
+  public defaultColDef: ColDef = {
+    sortable: true,
+    filter: false,
+    resizable: true,
+    suppressMovable: false // Permite al usuario mover las columnas de lugar
+  };
+
   modalVisible: boolean = false;
   modalMensaje: string = '';
   modalAceptarCb: () => void = () => {};
   modalCancelarCb: () => void = () => {};
 
-  cerrarModal() {
-    this.modalVisible = false;
-    this.cdr.detectChanges();
-  }
+  modalNuevaNotaVisible: boolean = false;
+  tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
 
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
@@ -92,6 +173,19 @@ export class AuditoriaComponent {
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]]
   });
+
+  nuevaNotaForm = this.fb.group({
+    tipo: ['', Validators.required],
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: ['', Validators.required]
+  });
+
+  cerrarModal() {
+    this.modalVisible = false;
+    this.cdr.detectChanges();
+  }
 
   actualizarPaginacion() {
     this.totalPaginas = Math.ceil(this.prestacionesFiltradas.length / this.itemsPorPagina);
@@ -117,16 +211,16 @@ export class AuditoriaComponent {
       this.registrosSeleccionados.forEach(p => {
         p.debitoAceptado = '';
         p.motivoDebito = '';
-        p.importeDebitado = 0;
+        p.importeDebitado = undefined;  // Queda vacío en la grilla
         p.motivoRefactura = '';
-        p.importeRefactura = 0;
+        p.importeRefactura = undefined; // Queda vacío en la grilla
         p.comentarios = '';
       });
       this.calcularTotales();
       this.cerrarModal();
+      this.gridApi?.refreshCells();
     };
 
-    // Si cancela, solo cerramos
     this.modalCancelarCb = () => this.cerrarModal();
     this.modalVisible = true;
   }
@@ -164,6 +258,7 @@ export class AuditoriaComponent {
 
     this.motivoRefacturaMasivoSeleccionado = '';
     this.calcularTotales();
+    this.gridApi?.refreshCells();
     this.cdr.detectChanges();
   }
 
@@ -178,6 +273,7 @@ export class AuditoriaComponent {
 
     this.debitoAceptadoMasivoSeleccionado = '';
     this.calcularTotales();
+    this.gridApi?.refreshCells();
     this.cdr.detectChanges(); // Vital para que la pantalla se actualice
   }
 
@@ -215,6 +311,7 @@ export class AuditoriaComponent {
 
           this.prepararFiltros(this.prestaciones);
           this.aplicarFiltros();
+          this.configurarColumnas();
           this.cdr.detectChanges();
 
           this.cargando = false; // Liberamos la UI (Éxito)
@@ -293,7 +390,7 @@ export class AuditoriaComponent {
 
       if (motivo === 'Borrar') {
         p.motivoDebito = '';
-        p.importeDebitado = 0;
+        p.importeDebitado = undefined; // Cambiado de 0 a undefined
       } else {
         p.motivoDebito = motivo;
         if (motivo !== 'No aplica') p.importeDebitado = p.total;
@@ -302,6 +399,7 @@ export class AuditoriaComponent {
 
     this.motivoMasivoSeleccionado = '';
     this.calcularTotales();
+    this.gridApi?.refreshCells();
     this.cdr.detectChanges();
   }
 
@@ -340,7 +438,7 @@ export class AuditoriaComponent {
     p.motivoDebito = nuevoMotivo;
     if (nuevoMotivo === 'Borrar') {
       p.motivoDebito = '';
-      p.importeDebitado = 0;
+      p.importeDebitado = undefined; // Cambiado de 0 a undefined
     } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
       p.importeDebitado = p.total;
     }
@@ -611,18 +709,6 @@ export class AuditoriaComponent {
     }
   }
 
-  modalNuevaNotaVisible: boolean = false;
-  tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
-
-  // Un solo formulario para ambos casos
-  nuevaNotaForm = this.fb.group({
-    tipo: ['', Validators.required],
-    letra: ['', [Validators.required, Validators.maxLength(1)]],
-    puntoVenta: ['', [Validators.required, Validators.min(1)]],
-    numero: ['', [Validators.required, Validators.min(1)]],
-    fecha: ['', Validators.required]
-  });
-
   abrirModalNuevaNota(tipo: 'NC' | 'ND') {
     this.tipoNuevaNota = tipo;
 
@@ -706,6 +792,113 @@ export class AuditoriaComponent {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  // 1. Guardamos la API de la grilla para poder darle órdenes directas
+  private gridApi!: GridApi;
+
+  onGridReady(params: GridReadyEvent) {
+    this.gridApi = params.api;
+  }
+
+  // 2. Evento: Cuando el usuario arrastra el mouse por los checkboxes
+  onSelectionChanged(event: SelectionChangedEvent) {
+    this.registrosSeleccionados = event.api.getSelectedRows();
+    this.cdr.detectChanges(); // Habilita los botones de acciones masivas
+  }
+
+  // 3. Evento: Cuando el usuario edita una celda (selects o inputs numéricos)
+  onCellValueChanged(event: CellValueChangedEvent) {
+    const p = event.data as Prestacion;
+    const colId = event.colDef.field;
+    const nuevo = event.newValue;
+    const previo = event.oldValue;
+
+    if (nuevo === previo) return;
+
+    // --- NUEVA LÓGICA PARA EL "NO" ---
+    // --- LÓGICA PARA EL CAMBIO DE "DÉBITO ACEPTADO" ---
+    if (colId === 'debitoAceptado') {
+      if (nuevo === 'NO') {
+        p.importeDebitado = undefined; // Limpia el importe si NO acepta el débito
+      } else {
+        // Si cambió a "SI" o "Borrar", limpiamos los comentarios para no enviar basura al backend
+        p.comentarios = '';
+      }
+
+      this.calcularTotales();
+      // Refrescamos la fila completa para que la celda de Comentarios se bloquee/desbloquee instantáneamente
+      event.api.refreshCells({ rowNodes: [event.node], force: true });
+      return;
+    }
+    // --------------------------------------------------
+    // ---------------------------------
+
+    if (colId === 'motivoDebito') {
+      if (previo && previo !== '' && previo !== nuevo) {
+        this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarIndividualDebito(p, nuevo);
+          event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila (para mostrar el importe nuevo)
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          p.motivoDebito = previo; // Revertimos en el objeto
+          event.node.setDataValue('motivoDebito', previo); // Revertimos visualmente en la grilla
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+      } else {
+        this.ejecutarIndividualDebito(p, nuevo);
+        event.api.refreshCells({ rowNodes: [event.node] });
+      }
+    }
+    else if (colId === 'motivoRefactura') {
+      if (previo && previo !== '' && previo !== nuevo) {
+        this.modalMensaje = `Este registro ya tenía un motivo de refactura ("${previo}").\n¿Desea reemplazarlo?`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarIndividualRefactura(p, nuevo);
+          event.api.refreshCells({ rowNodes: [event.node] });
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          p.motivoRefactura = previo;
+          event.node.setDataValue('motivoRefactura', previo);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+      } else {
+        this.ejecutarIndividualRefactura(p, nuevo);
+        event.api.refreshCells({ rowNodes: [event.node] });
+      }
+    }
+    else {
+      // Si tocó importes manuales, aceptado, días facturados o englobante:
+      if (colId === 'importeDebitado' || colId === 'importeRefactura') {
+
+        let valorIngresado = nuevo;
+
+        // Si el usuario metió una coma, la cambiamos por un punto silenciosamente
+        if (typeof valorIngresado === 'string') {
+          valorIngresado = valorIngresado.replace(',', '.');
+        }
+
+        // Convertimos el texto ya limpio a número decimal
+        const numeroParseado = parseFloat(valorIngresado);
+
+        // Si es un número válido lo guardamos, si lo dejó en blanco o escribió letras lo dejamos vacío
+        p[colId] = isNaN(numeroParseado) ? undefined : numeroParseado;
+      }
+      this.calcularTotales();
+    }
   }
 
 }

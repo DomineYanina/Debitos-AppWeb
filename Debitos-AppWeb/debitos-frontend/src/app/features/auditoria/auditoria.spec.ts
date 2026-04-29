@@ -99,6 +99,7 @@ describe('AuditoriaComponent', () => {
       expect(component.cargando).toBe(false);
     });
   });
+
   describe('Lógica de Filtros y Cálculos', () => {
     beforeEach(() => {
       // PREPARACIÓN: Le damos al componente una lista falsa de prestaciones para jugar
@@ -156,6 +157,7 @@ describe('AuditoriaComponent', () => {
       expect(component.filtroProfesional).toBe('Dr. House');
     });
   });
+
   describe('Lógica de Acciones Masivas', () => {
     beforeEach(() => {
       // PREPARACIÓN: Tres filas, dos seleccionadas y una no.
@@ -203,6 +205,7 @@ describe('AuditoriaComponent', () => {
       expect(component.prestacionesFiltradas[1].debitoAceptado).toBe('');
     });
   });
+
   describe('Lógica de Guardado Parcial', () => {
     beforeEach(() => {
       // PREPARACIÓN: Simulamos que el usuario buscó una Factura
@@ -266,6 +269,7 @@ describe('AuditoriaComponent', () => {
       expect(servicioLlamado).toBe(false);
     });
   });
+
   describe('Lógica de Nueva Nota (NC/ND)', () => {
     beforeEach(() => {
       // PREPARACIÓN: Simulamos que estamos viendo una Factura
@@ -333,4 +337,5 @@ describe('AuditoriaComponent', () => {
       expect(component.modalNuevaNotaVisible).toBe(false);
     });
   });
+
 });

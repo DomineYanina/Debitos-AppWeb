@@ -133,4 +133,5 @@ export class ExcelExportService {
     const partes = soloFecha.split('-');
     return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : soloFecha;
   }
+
 }
