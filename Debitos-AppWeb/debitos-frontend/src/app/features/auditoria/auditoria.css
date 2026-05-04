@@ -5,7 +5,7 @@
 
   .page-header {
     display: flex;
-    justify-content: space-between; // Separa el título del botón
+    justify-content: space-between;
   align-items: center;
     margin-bottom: 1.5rem;
 
@@ -17,7 +17,7 @@
     .btn-logout {
       padding: 0.5rem 1rem;
       background-color: transparent;
-      color: #e53e3e; // Rojo de advertencia
+      color: #e53e3e;
     border: 1px solid #e53e3e;
       border-radius: 4px;
       font-weight: 600;
@@ -100,7 +100,7 @@
 .tabla-container {
   background: white;
   border-radius: 8px;
-  overflow-x: auto; // Scroll horizontal si hay muchas columnas
+  overflow-x: auto;
 box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 
   table {
@@ -166,11 +166,12 @@ transition: background-color 0.2s;
   }
 }
 
-   .sort-icon {
-     font-size: 0.7rem;
-     margin-left: 5px;
-     color: #a0aec0;
-   }
+.sort-icon {
+ font-size: 0.7rem;
+ margin-left: 5px;
+ color: #a0aec0;
+}
+
 .filtros-dinamicos-section {
   background: #f8fafc;
   padding: 1rem;
@@ -232,7 +233,7 @@ transition: background-color 0.2s;
   .btn-undo {
     background: none;
     border: none;
-    color: #ef4444; // Rojo suave
+    color: #ef4444;
   font-size: 0.7rem;
     cursor: pointer;
     padding: 0 4px;
@@ -246,7 +247,6 @@ transition: background-color 0.2s;
 }
 
 .filter-item {
-// Aseguramos que el select mantenga su ancho
 min-width: 160px;
 }
 
@@ -281,7 +281,7 @@ min-width: 160px;
 }
 
 .fila-totales {
-  background-color: #f1f5f9; // Gris muy suave
+  background-color: #f1f5f9;
 border-top: 2px solid #cbd5e0;
 
   td {
@@ -294,12 +294,12 @@ border-top: 2px solid #cbd5e0;
 .font-bold { font-weight: 700; }
 
 .text-danger {
-  color: #e53e3e; // Rojo para resaltar el débito
+  color: #e53e3e;
 }
 
-   tfoot tr td {
-     border-top: 2px solid #cbd5e0;
-   }
+tfoot tr td {
+ border-top: 2px solid #cbd5e0;
+}
 
 /* 1. Definimos el alto máximo y activamos el scroll */
 .tabla-container {
@@ -413,6 +413,7 @@ tr.row-selected {
 .tabla-container table tbody tr.row-selected:hover {
   background-color: #bee3f8 !important; /* Un celeste un poco más oscuro al pasar el mouse */
 }
+
 /* Barra de acciones masivas */
 .acciones-masivas-bar {
   display: flex;
@@ -526,10 +527,6 @@ tr.row-selected {
   font-size: 0.9rem;
 }
 
-/* ==========================================================================
-   CONGELAR COLUMNA DE CHECKBOXES (FIJA A LA IZQUIERDA)
-   ========================================================================== */
-
 /* 1. Posicionamiento base para la columna entera (th y td) */
 .tabla-container th.col-checkbox,
 .tabla-container td.col-checkbox {
@@ -564,6 +561,7 @@ tr.row-selected {
 .tabla-container table tbody tr.row-selected:hover td.col-checkbox {
   background-color: #bee3f8 !important;
 }
+
 .accion-controles {
   display: flex;
   gap: 2rem; /* Espacio entre el grupo de Débito y el de Refactura */
@@ -597,7 +595,7 @@ tr.row-selected {
 
 .tabla-container thead th.bg-gris,
 .tabla-container table tbody tr td.bg-gris {
-  background-color: #DBDCDC; /* Gris muy suave */
+  background-color: #f2f3f3; /* Gris muy suave */
 }
 
 .tabla-container thead th.bg-naranja,
@@ -710,6 +708,7 @@ tr.row-selected {
 .tabla-container table td.col-aceptado {
   padding: 0.4rem !important;
 }
+
 /* ==========================================================================
    SECCIÓN DE FILTROS DINÁMICOS (GRID 4 COLUMNAS)
    ========================================================================== */
@@ -805,6 +804,7 @@ tr.row-selected {
     border-color: #94a3b8;
   }
 }
+
 .resumen-contadores {
   display: flex;
   flex-direction: column;
@@ -842,6 +842,7 @@ tr.row-selected {
 .text-success {
   color: #16a34a !important; /* Verde oscuro para refacturación (positivo para ustedes) */
 }
+
 /* Estilo para el input de comentarios cuando está deshabilitado */
 .input-grilla:disabled {
   background-color: #f1f5f9; /* Un gris sutil */
@@ -850,6 +851,7 @@ tr.row-selected {
   border-color: #e2e8f0;
   opacity: 0.7;
 }
+
 /* Stack de botones en la columna 3 */
 .botones-limpieza-stack {
   display: flex;
@@ -887,6 +889,7 @@ tr.row-selected {
 .btn-clear {
   width: 100%;
 }
+
 /* Botón de Exportar a Excel */
 .btn-exportar {
   width: 100%;
@@ -1054,6 +1057,7 @@ tr.row-selected {
   box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
   transform: translateY(-1px); /* Pequeño efecto 3D de elevación */
 }
+
 /* Estilos para el formulario del Modal */
 .form-modal {
   display: flex;
@@ -1107,3 +1111,36 @@ tr.row-selected {
 .bg-azul-auditoria input::placeholder {
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* =========================================================
+   AG-GRID: COLORES, BORDES Y SELECCIÓN TIPO EXCEL
+   ========================================================= */
+
+/* 1. Colores de fondo para Encabezados (th) y Celdas (td) */
+::ng-deep .bg-celeste { background-color: #B9F6FD !important; color: #1e293b !important; }
+::ng-deep .bg-gris {
+  background-color: #f1f5f9 !important; /* Un gris mucho más luminoso y suave */
+  color: #1e293b !important;
+}
+::ng-deep .bg-naranja { background-color: #FDC48B !important; color: #1e293b !important; }
+::ng-deep .bg-azul-auditoria { background-color: #005FB3 !important; color: #ffffff !important; }
+
+/* 2. Si la fila está seleccionada, quitamos el fondo forzado para ver el highlight de ag-Grid */
+::ng-deep .ag-row-selected .bg-celeste,
+::ng-deep .ag-row-selected .bg-gris,
+::ng-deep .ag-row-selected .bg-naranja {
+  background-color: transparent !important;
+}
+
+/* 3. Bordes verticales finos para TODAS las celdas y encabezados */
+::ng-deep .ag-cell,
+::ng-deep .ag-header-cell {
+  border-right: 1px solid #cbd5e1 !important;
+}
+
+/* Borde izquierdo solo para la columna de checkboxes (para cerrar la cuadrícula) */
+::ng-deep .ag-cell:first-child,
+::ng-deep .ag-header-cell:first-child {
+  border-left: 1px solid #cbd5e1 !important;
+}
+
