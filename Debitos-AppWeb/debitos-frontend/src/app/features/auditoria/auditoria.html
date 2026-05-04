@@ -168,18 +168,43 @@
             <label>Motivo Débito:</label>
             <select [(ngModel)]="motivoMasivoSeleccionado">
               <option value="">Seleccionar...</option>
-              <option *ngFor="let m of listaMotivos" [value]="m">{{ m }}</option>
+              <optgroup *ngFor="let grupo of listaMotivosAgrupados" [label]="grupo.categoria">
+                <option *ngFor="let m of grupo.motivos" [value]="m">{{ m }}</option>
+              </optgroup>
             </select>
             <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()" [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
           </div>
+          <!-- NUEVO: IMPORTE DEBITADO MASIVO -->
+          <div class="grupo-input-accion">
+            <label>Imp. Debitado:</label>
+            <input type="number" [(ngModel)]="importeDebitadoMasivo" class="input-grilla" style="width: 80px;" placeholder="$">
+            <button class="btn-aplicar-masivo" (click)="aplicarImporteDebitadoMasivo()" [disabled]="importeDebitadoMasivo == null">Aplicar</button>
+          </div>
         </ng-container>
+
         <div class="grupo-input-accion">
           <label>Motivo Refactura:</label>
           <select [(ngModel)]="motivoRefacturaMasivoSeleccionado">
             <option value="">Seleccionar...</option>
-            <option *ngFor="let r of listaMotivosRefactura" [value]="r">{{ r }}</option>
+            <optgroup *ngFor="let grupo of listaMotivosRefacturaAgrupados" [label]="grupo.categoria">
+              <option *ngFor="let r of grupo.motivos" [value]="r">{{ r }}</option>
+            </optgroup>
           </select>
           <button class="btn-aplicar-masivo" (click)="aplicarMotivoRefacturaMasivo()" [disabled]="!motivoRefacturaMasivoSeleccionado">Aplicar</button>
+        </div>
+
+        <!-- NUEVO: IMPORTE REFACTURA MASIVO -->
+        <div class="grupo-input-accion">
+          <label>Imp. Refactura:</label>
+          <input type="number" [(ngModel)]="importeRefacturaMasivo" class="input-grilla" style="width: 80px;" placeholder="$">
+          <button class="btn-aplicar-masivo" (click)="aplicarImporteRefacturaMasivo()" [disabled]="importeRefacturaMasivo == null">Aplicar</button>
+        </div>
+
+        <!-- NUEVO: COMENTARIOS MASIVOS -->
+        <div class="grupo-input-accion">
+          <label>Comentarios:</label>
+          <input type="text" [(ngModel)]="comentariosMasivo" class="input-grilla" style="width: 150px;" placeholder="Escribir...">
+          <button class="btn-aplicar-masivo" (click)="aplicarComentariosMasivo()" [disabled]="!comentariosMasivo">Aplicar</button>
         </div>
       </div>
     </div>
