@@ -143,14 +143,17 @@
 
     <div class="filtro-columna">
       <button class="btn-exportar" (click)="exportarAExcel()" [disabled]="prestacionesFiltradas.length === 0">Exportar Excel</button>
-      <button class="btn-accion-doc btn-guardar" (click)="guardarParcialmente()">Guardar parcialmente</button>
+
+      <!-- Se oculta SOLO si es NC -->
+      <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC'" (click)="guardarParcialmente()">Guardar parcialmente</button>
+
       <button class="btn-accion-doc btn-nueva-nota" *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'" (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
       <button class="btn-accion-doc btn-nueva-nota" *ngIf="tipoBusquedaRealizada === 'NC'" (click)="abrirModalNuevaNota('ND')">Nueva Nota de Débito</button>
     </div>
   </section>
 
   <section class="grilla-section" style="position: relative;">
-    <div class="acciones-masivas-bar" *ngIf="registrosSeleccionados.length > 0 && !cargando">
+    <div class="acciones-masivas-bar" *ngIf="registrosSeleccionados.length > 0 && !cargando && tipoBusquedaRealizada !== 'NC'">
       <div class="info-seleccion">
         <span class="badge">{{ registrosSeleccionados.length }}</span> filas seleccionadas
       </div>
@@ -179,6 +182,12 @@
             <label>Imp. Debitado:</label>
             <input type="number" [(ngModel)]="importeDebitadoMasivo" class="input-grilla" style="width: 80px;" placeholder="$">
             <button class="btn-aplicar-masivo" (click)="aplicarImporteDebitadoMasivo()" [disabled]="importeDebitadoMasivo == null">Aplicar</button>
+          </div>
+          <!-- NUEVO: COMENTARIOS DÉBITO MASIVOS -->
+          <div class="grupo-input-accion">
+            <label>Coment. Débito:</label>
+            <input type="text" [(ngModel)]="comentariosDebitoMasivo" class="input-grilla" style="width: 150px;" placeholder="Escribir...">
+            <button class="btn-aplicar-masivo" (click)="aplicarComentariosDebitoMasivo()" [disabled]="!comentariosDebitoMasivo">Aplicar</button>
           </div>
         </ng-container>
 
@@ -296,7 +305,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()" [disabled]="nuevaNotaForm.invalid">Guardar Nota</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()" [disabled]="nuevaNotaForm.invalid || cargando">Guardar Nota</button>
       </div>
     </div>
   </div>

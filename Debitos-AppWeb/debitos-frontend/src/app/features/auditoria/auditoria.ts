@@ -184,6 +184,7 @@ export class AuditoriaComponent {
   importeDebitadoMasivo?: number;
   importeRefacturaMasivo?: number;
   comentariosMasivo: string = '';
+  comentariosDebitoMasivo: string = '';
 
   cargando : boolean = false;
   private fb = inject(FormBuilder);
@@ -249,75 +250,64 @@ export class AuditoriaComponent {
     const tipo = this.tipoBusquedaRealizada;
     const englobante = this.debeMostrarEnglobante();
 
+    // La NC queda como solo lectura, FC y ND se pueden editar
+    const esSoloLectura = tipo === 'NC';
+
     let columnas: ColDef[] = [
-      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' }
-    ];
-
-    if (tipo === 'NC') {
-      columnas.push({ headerName: 'Grupo\nMódulo', field: 'grupomodulo', cellClass: 'bg-celeste', headerClass: 'bg-celeste' });
-    }
-
-    columnas.push(
+      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' },
       { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' }
-    );
-
-    if (tipo !== 'NC') {
-      columnas.push({ headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' });
-    }
-
-    columnas.push(
-      // A Médico y Descripción las dejamos sin candado para que el auto-ajuste haga su magia si hay textos largos
+      { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-
-      // A las demás les clavamos el ancho exacto, el mínimo y apagamos su auto-ajuste
       { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : '' },
       { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 84, minWidth: 84, suppressAutoSize: true },
-
       { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-
       { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 67, minWidth: 67, suppressAutoSize: true },
       { headerName: 'Total\nNeto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
       { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
       { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
+    ];
+
+    // ACÁ AGREGAMOS EL COMENTARIO PREVIO: Solo se muestra si es ND o NC
+    if (tipo === 'ND' || tipo === 'NC') {
+      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+    }
+
+    // Y acá empujamos todas las columnas de auditoría siempre (editables o bloqueadas según esSoloLectura)
+    columnas.push(
+      { headerName: 'Débito\nAceptado', field: 'debitoAceptado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] }, width: 95, minWidth: 95, suppressAutoSize: true },
+      { headerName: 'Motivo\nDébito', field: 'motivoDebito', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosAgrupados } },
+      { headerName: 'Días\nFact.', field: 'diasFacturados', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 63 }
     );
 
-    if (tipo === 'ND' || tipo === 'NC') {
-      columnas.push({ headerName: 'Comentario\nPrevio', field: 'comentarioPrevio', cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+    if (englobante) {
+      columnas.push({ headerName: 'Prestación\nEnglobante', field: 'prestacionEnglobante', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris' });
     }
 
-    if (tipo !== 'NC') {
-      columnas.push(
-        { headerName: 'Débito\nAceptado', field: 'debitoAceptado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] }, width: 95, minWidth:95, suppressAutoSize:true },
-        { headerName: 'Motivo\nDébito', field: 'motivoDebito', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosAgrupados } },
-        { headerName: 'Días\nFact.', field: 'diasFacturados', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 63 }
-      );
+    columnas.push({
+      headerName: 'Imp.\nDebitado', field: 'importeDebitado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 93,
+      valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+    });
 
-      if (englobante) {
-        columnas.push({ headerName: 'Prestación\nEnglobante', field: 'prestacionEnglobante', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris' });
+    columnas.push({
+      headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
+      editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+      cellClassRules: {
+        'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+        'bg-naranja': params => esSoloLectura || (!params.data.motivoDebito || params.data.motivoDebito === '')
       }
-
-      // Le quitamos el width y el suppressAutoSize para que se ajuste a "Debitado"
-      columnas.push({
-        headerName: 'Imp.\nDebitado', field: 'importeDebitado', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 93,
-        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
-      });
-    }
+    });
 
     columnas.push(
-      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosRefacturaAgrupados } },
-
-      // Le quitamos el width y el suppressAutoSize para que se ajuste a "Refactura"
-      {
-        headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: true, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
+      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosRefacturaAgrupados } },
+      { headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
         valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
       },
-      {
-        headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
-        editable: params => params.data.debitoAceptado === 'NO',
+      { headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
+        editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
         cellClassRules: {
-          'bg-gris': params => params.data.debitoAceptado === 'NO',
-          'bg-naranja': params => params.data.debitoAceptado !== 'NO'
+          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
+          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado !== 'NO'
         }
       }
     );
@@ -388,6 +378,7 @@ export class AuditoriaComponent {
         p.debitoAceptado = '';
         p.motivoDebito = '';
         p.importeDebitado = undefined;  // Queda vacío en la grilla
+        p.comentariosDebito = '';
         p.motivoRefactura = '';
         p.importeRefactura = undefined; // Queda vacío en la grilla
         p.comentarios = '';
@@ -498,6 +489,29 @@ export class AuditoriaComponent {
     }
 
     this.comentariosMasivo = ''; // Limpiamos el input
+    this.gridApi?.refreshCells();
+    this.cdr.detectChanges();
+  }
+
+  aplicarComentariosDebitoMasivo() {
+    if (this.registrosSeleccionados.length === 0 || !this.comentariosDebitoMasivo) return;
+
+    let aplicados = 0;
+    this.registrosSeleccionados.forEach(p => {
+      // NUEVA REGLA: Solo inyectamos si hay un motivo de débito cargado
+      if (p.motivoDebito && p.motivoDebito !== '') {
+        p.comentariosDebito = this.comentariosDebitoMasivo;
+        aplicados++;
+      }
+    });
+
+    if (aplicados === 0) {
+      this.mostrarAlerta("No se aplicó el comentario porque ninguna fila seleccionada tiene un Motivo de Débito cargado.");
+    } else if (aplicados < this.registrosSeleccionados.length) {
+      this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s). Las demás fueron ignoradas por no tener Motivo de Débito.`);
+    }
+
+    this.comentariosDebitoMasivo = ''; // Limpiamos el input
     this.gridApi?.refreshCells();
     this.cdr.detectChanges();
   }
@@ -615,7 +629,8 @@ export class AuditoriaComponent {
 
       if (motivo === 'Borrar') {
         p.motivoDebito = '';
-        p.importeDebitado = undefined; // Cambiado de 0 a undefined
+        p.importeDebitado = undefined;
+        p.comentariosDebito = ''; // <--- Agregamos la limpieza acá también
       } else {
         p.motivoDebito = motivo;
         if (motivo !== 'No aplica') p.importeDebitado = p.total;
@@ -663,7 +678,8 @@ export class AuditoriaComponent {
     p.motivoDebito = nuevoMotivo;
     if (nuevoMotivo === 'Borrar') {
       p.motivoDebito = '';
-      p.importeDebitado = undefined; // Cambiado de 0 a undefined
+      p.importeDebitado = undefined;
+      p.comentariosDebito = ''; // <--- Agregamos la limpieza acá
     } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
       p.importeDebitado = p.total;
     }
@@ -946,9 +962,11 @@ export class AuditoriaComponent {
       }
       this.nuevaNotaForm.reset({ tipo: 'NC' });
     } else {
-      const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
+      // Candado 1: Verificamos que haya registros con Débito Aceptado en "NO"
+      const prestacionesConRefactura = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
+
       if (prestacionesConRefactura.length === 0) {
-        this.mostrarAlerta('No hay registros con Motivo de Refactura cargado para generar una ND. Recuerde Guardar Parcialmente primero.');
+        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND. Solo se refacturan los débitos rechazados.');
         return;
       }
       this.nuevaNotaForm.reset({ tipo: 'ND' });
@@ -969,12 +987,12 @@ export class AuditoriaComponent {
       return;
     }
 
-    // 1. Recolectamos los registros con datos de auditoría (igual que en guardado parcial)
     const registrosParaGuardar = this.prestaciones.filter(p => {
       if (this.tipoNuevaNota === 'NC') {
         return p.motivoDebito && p.motivoDebito.trim() !== '';
       } else {
-        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+        // Candado 2: Solo enviamos al backend los que dicen estrictamente "NO"
+        return p.debitoAceptado === 'NO';
       }
     });
 
@@ -1056,8 +1074,6 @@ export class AuditoriaComponent {
       event.api.refreshCells({ rowNodes: [event.node], force: true });
       return;
     }
-    // --------------------------------------------------
-    // ---------------------------------
 
     if (colId === 'motivoDebito') {
       if (previo && previo !== '' && previo !== nuevo) {
