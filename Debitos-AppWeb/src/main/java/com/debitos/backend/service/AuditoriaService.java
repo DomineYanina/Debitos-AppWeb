@@ -47,10 +47,12 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", 
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito", 
                                nc.prestacionenglobante AS "prestacionEnglobante",
-                               nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", 
-                               nc.comentarios AS "comentarioPrevio", nd.comentarios AS "comentarios"
+                               
+                               -- CORRECCIÓN: La NC lee su propia tabla (nc) para mostrar lo que se refacturó
+                               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
+                               NULL AS "comentarioPrevio", nc.comentarios AS "comentarios"
                         FROM notadecredito nc
                         LEFT JOIN notadedebito nd ON nc.id = nd.id_notadecredito
                         JOIN amb_liquidado al ON nc.id_prestacion = al.id
@@ -61,9 +63,11 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito",
                                nc.prestacionenglobante AS "prestacionEnglobante",
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura",
+                               
+                               -- CORRECCIÓN ACÁ: Cruzamos bien los comentarios
                                nd.comentarios AS "comentarioPrevio", nc.comentarios AS "comentarios"
                         FROM notadedebito nd 
                         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
@@ -76,7 +80,7 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito",
                                nc.prestacionenglobante AS "prestacionEnglobante",
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                                nc.comentarios AS "comentarios"
@@ -92,10 +96,12 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", 
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito", 
                                nc.prestacionenglobante AS "prestacionEnglobante",
-                               nd.motivorefactura AS "motivoRefactura", nd.importerefactura AS "importeRefactura", 
-                               nc.comentarios AS "comentarioPrevio", nd.comentarios AS "comentarios"
+                               
+                               -- CORRECCIÓN: La NC lee su propia tabla (nc) para mostrar lo que se refacturó
+                               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
+                               NULL AS "comentarioPrevio", nc.comentarios AS "comentarios"
                         FROM notadecredito nc
                         LEFT JOIN notadedebito nd ON nc.id = nd.id_notadecredito
                         JOIN amb_liquidado al ON nc.id_prestacion = al.id
@@ -104,11 +110,13 @@ public class AuditoriaService {
                     break;
                 case "ND":
                     sql = """
-                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
+                        SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.modulo, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito",
                                nc.prestacionenglobante AS "prestacionEnglobante",
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura",
+                               
+                               -- CORRECCIÓN ACÁ: Cruzamos bien los comentarios
                                nd.comentarios AS "comentarioPrevio", nc.comentarios AS "comentarios"
                         FROM notadedebito nd 
                         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
@@ -121,7 +129,7 @@ public class AuditoriaService {
                     sql = """
                         SELECT al.id, al.carnet, al.codigo_cobertura AS "cobertura", al.modulo, al.grupomodulo, al.paciente, al.plan, al.efector, al.medico, al.fecha, al.codigo, al.descripcion, al.cantidad, 
                                al.total_neto AS "totalNeto", al.coseguro, al.total, nc.debitoaceptado AS "debitoAceptado",
-                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado",
+                               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito",
                                nc.prestacionenglobante AS "prestacionEnglobante",
                                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                                nc.comentarios AS "comentarios"
@@ -147,7 +155,6 @@ public class AuditoriaService {
 
         // Obtenemos si es Ambulatorios o Internados para el insert
         String tipoRegistro = obtenerTipoRegistro(documentoOrigen, letra, ptovta, numero);
-
 
         List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
@@ -184,12 +191,12 @@ public class AuditoriaService {
 
                 if (idExistente != null) {
                     // UPDATE: Pasamos prestacionenglobante y debitoAceptadoBool
-                    String sqlUpdate = "UPDATE notadecredito SET motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, usuario = ? WHERE id = ?";
-                    jdbcTemplate.update(sqlUpdate, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, idExistente);
+                    String sqlUpdate = "UPDATE notadecredito SET motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, usuario = ?, comentarios_debito = ? WHERE id = ?";
+                    jdbcTemplate.update(sqlUpdate, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, p.get("comentariosDebito"), idExistente);
                 } else {
                     // INSERT: Pasamos prestacionenglobante
-                    String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, tiporegistro, diasfacturados) VALUES (?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, false, ?, ?, ?)";
-                    jdbcTemplate.update(sqlInsert, idPrestacion, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, prestacionEnglobante, usuario, p.get("comentarios"), tipoRegistro, diasFacturados);
+                    String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, tiporegistro, diasfacturados, comentarios_debito) VALUES (?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, false, ?, ?, ?, ?)";
+                    jdbcTemplate.update(sqlInsert, idPrestacion, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, prestacionEnglobante, usuario, p.get("comentarios"), tipoRegistro, diasFacturados, p.get("comentariosDebito"));
                 }
             }
 
@@ -231,12 +238,12 @@ public class AuditoriaService {
 
                     if (idExistente != null) {
                         // UPDATE: Pasamos prestacionenglobante y debitoAceptadoBool
-                        String sqlUpdate = "UPDATE notadecredito SET motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, usuario = ? WHERE id = ?";
-                        jdbcTemplate.update(sqlUpdate, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, idExistente);
+                        String sqlUpdate = "UPDATE notadecredito SET motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, usuario = ?, comentarios_debito = ? WHERE id = ?";
+                        jdbcTemplate.update(sqlUpdate, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, p.get("comentariosDebito"), idExistente);
                     } else {
                         // INSERT: Pasamos prestacionenglobante
-                        String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, tiporegistro, diasfacturados) VALUES (?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?, ?)";
-                        jdbcTemplate.update(sqlInsert, idPrestacion, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, prestacionEnglobante, usuario, idNotaDebito, p.get("comentarios"), tipoRegistro, diasFacturados);
+                        String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, tiporegistro, diasfacturados, comentarios_debito) VALUES (?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, false, ?, ?, ?, ?)";
+                        jdbcTemplate.update(sqlInsert, idPrestacion, p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"), importeRefactura, prestacionEnglobante, usuario, idNotaDebito, p.get("comentarios"), tipoRegistro, diasFacturados, p.get("comentariosDebito"));
                     }
                 }
             }
@@ -275,9 +282,10 @@ public class AuditoriaService {
             Object importeRefactura = "".equals(p.get("importeRefactura")) ? null : p.get("importeRefactura");
             Object diasFacturados = "".equals(p.get("diasFacturados")) ? null : p.get("diasFacturados");
 
-            String sqlBuscarNc = "SELECT id FROM notadecredito WHERE letra = ? AND ptovta = ? AND numero = ? AND id_prestacion = ? LIMIT 1";
-            Integer idNotaCredito = obtenerIdSiExiste(sqlBuscarNc, payload.get("letraOriginal"), payload.get("ptovtaOriginal"), payload.get("numeroOriginal"), idPrestacion);
+            // Candado Definitivo: Exigimos "AND debitoaceptado = false" en la base de datos
+            String sqlBuscarNc = "SELECT id FROM notadecredito WHERE letra = ? AND ptovta = ? AND numero = ? AND id_prestacion = ? AND debitoaceptado = false LIMIT 1";
 
+            Integer idNotaCredito = obtenerIdSiExiste(sqlBuscarNc, payload.get("letraOriginal"), payload.get("ptovtaOriginal"), payload.get("numeroOriginal"), idPrestacion);
             if (idNotaCredito != null) {
                 String sqlCheck = "SELECT id FROM notadedebito WHERE id_notadecredito = ? LIMIT 1";
                 Integer idExistente = obtenerIdSiExiste(sqlCheck, idNotaCredito);
@@ -285,17 +293,17 @@ public class AuditoriaService {
                 if (idExistente != null) {
                     String sqlUpdate = "UPDATE notadedebito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, " +
                             "motivorefactura = ?, importerefactura = ?, comentarios = ?, diasfacturados = ?, " +
-                            "usuario = ?, tiporegistro = ?, cargadocompletamente = true WHERE id = ?";
+                            "usuario = ?, tiporegistro = ?, cargadocompletamente = true, comentarios_debito = ? WHERE id = ?";
                     jdbcTemplate.update(sqlUpdate, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
-                            p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, usuario, tipoRegistro, idExistente);
+                            p.get("motivoRefactura"), importeRefactura, p.get("comentarios"), diasFacturados, usuario, tipoRegistro, p.get("comentariosDebito"), idExistente);
                 } else {
                     String sqlInsert = "INSERT INTO notadedebito (id_prestacion, tipo, letra, ptovta, numero, fecha, " +
                             "motivorefactura, importerefactura, prestacionenglobante, usuario, id_notadecredito, " +
-                            "codigo, comentarios, cargadocompletamente, cargarcompletamente, diasfacturados, tiporegistro) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, true, true, ?, ?)";
+                            "codigo, comentarios, cargadocompletamente, cargarcompletamente, diasfacturados, tiporegistro, comentarios_debito) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, true, true, ?, ?, ?)";
                     jdbcTemplate.update(sqlInsert, idPrestacion, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
                             p.get("motivoRefactura"), importeRefactura, usuario, idNotaCredito, p.get("codigo"),
-                            p.get("comentarios"), diasFacturados, tipoRegistro);
+                            p.get("comentarios"), diasFacturados, tipoRegistro, p.get("comentariosDebito"));
                 }
             }
         }
@@ -341,23 +349,26 @@ public class AuditoriaService {
                 Integer idExistente = obtenerIdSiExiste(sqlCheck, idPrestacion);
 
                 if (idExistente != null) {
-                    // Agregamos tiporegistro = ?
+                    // CORRECCIÓN: Si EXISTE, hacemos UPDATE (Acá estaba el bug del INSERT duplicado)
                     String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, " +
                             "motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, " +
                             "importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, " +
-                            "usuario = ?, tiporegistro = ?, cargadocompletamente = true WHERE id = ?";
+                            "usuario = ?, tiporegistro = ?, comentarios_debito = ?, cargadocompletamente = true WHERE id = ?";
+
                     jdbcTemplate.update(sqlUpdate, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
                             p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
-                            importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, tipoRegistro, idExistente);
+                            importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante,
+                            usuario, tipoRegistro, p.get("comentariosDebito"), idExistente);
                 } else {
-                    // Agregamos tiporegistro al insert
+                    // Si NO EXISTE, hacemos INSERT (con los 19 campos y 19 signos de interrogación)
                     String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, " +
                             "motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, " +
-                            "prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, diasfacturados, tiporegistro) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, true, ?, ?, ?)";
+                            "prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, diasfacturados, tiporegistro, comentarios_debito) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, true, ?, ?, ?, ?)";
+
                     jdbcTemplate.update(sqlInsert, idPrestacion, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
                             p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
-                            importeRefactura, prestacionEnglobante, usuario, p.get("comentarios"), diasFacturados, tipoRegistro);
+                            importeRefactura, prestacionEnglobante, usuario, p.get("comentarios"), diasFacturados, tipoRegistro, p.get("comentariosDebito"));
                 }
             } else if ("ND".equals(origen)) {
                 String sqlBuscarNd = "SELECT id FROM notadedebito WHERE letra = ? AND ptovta = ? AND numero = ? AND id_prestacion = ? LIMIT 1";
@@ -371,18 +382,18 @@ public class AuditoriaService {
                         String sqlUpdate = "UPDATE notadecredito SET tipo = ?, letra = ?, ptovta = ?, numero = ?, fecha = ?, " +
                                 "motivodedebito = ?, importedebitado = ?, debitoaceptado = ?, motivoderefactura = ?, " +
                                 "importederefactura = ?, comentarios = ?, diasfacturados = ?, prestacionenglobante = ?, " +
-                                "usuario = ?, tiporegistro = ?, cargadocompletamente = true WHERE id = ?";
+                                "usuario = ?, tiporegistro = ?, comentarios_debito = ?, cargadocompletamente = true WHERE id = ?";
                         jdbcTemplate.update(sqlUpdate, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
                                 p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
-                                importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, tipoRegistro, idExistente);
+                                importeRefactura, p.get("comentarios"), diasFacturados, prestacionEnglobante, usuario, tipoRegistro, p.get("comentariosDebito"), idExistente);
                     } else {
                         String sqlInsert = "INSERT INTO notadecredito (id_prestacion, tipo, letra, ptovta, numero, fecha, " +
                                 "motivodedebito, importedebitado, debitoaceptado, motivoderefactura, importederefactura, " +
-                                "prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, diasfacturados, tiporegistro) " +
-                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?)";
+                                "prestacionenglobante, usuario, id_notadedebito, cargadocompletamente, comentarios, diasfacturados, tiporegistro, comentarios_debito) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?)";
                         jdbcTemplate.update(sqlInsert, idPrestacion, tipoDoc, letraDoc, puntoVenta, numero, fechaSql,
                                 p.get("motivoDebito"), importeDebitado, debitoAceptadoBool, p.get("motivoRefactura"),
-                                importeRefactura, prestacionEnglobante, usuario, idNotaDebito, p.get("comentarios"), diasFacturados, tipoRegistro);
+                                importeRefactura, prestacionEnglobante, usuario, idNotaDebito, p.get("comentarios"), diasFacturados, tipoRegistro, p.get("comentariosDebito"));
                     }
                 }
             }

@@ -25,4 +25,5 @@ export interface Prestacion {
   carnet?: string;
   cobertura?: string;
   prestacionEnglobante?: string;
+  comentariosDebito?: string;
 }

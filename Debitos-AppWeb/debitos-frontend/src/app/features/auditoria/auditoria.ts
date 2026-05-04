@@ -7,25 +7,185 @@ import { CommonModule } from '@angular/common';
 import { AuditoriaService } from '../../core/services/auditoria';
 import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
 import {ExcelExportService} from '../../core/services/excel-export';
+import { AgGridModule } from 'ag-grid-angular';
+import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
+
+ModuleRegistry.registerModules([AllCommunityModule]);
+
+import { ICellEditorAngularComp } from 'ag-grid-angular';
+
+// 1. La nueva estructura de datos agrupada
+export const MOTIVOS_DEBITO_AGRUPADOS = [
+  {
+    categoria: '1. ADMINISTRATIVOS',
+    motivos: [
+      'Afiliado dado de baja', 'Afiliado capitado', 'Coseguro no cobrado', 'Diferencia de coseguro',
+      'Error de carga (códigos-inclusiones)', 'Error en el cálculo de porcentaje de códigos múltiples',
+      'Facturación duplicada', 'Facturado a financiador incorrecto', 'Falta de autorización',
+      'Honorarios profesionales pagados en forma directa', 'Iva mal facturado', 'Prestación fuera de término',
+      'Prestación incluida en otra liquidación', 'Supera tope'
+    ]
+  },
+  {
+    categoria: '2. MÉDICOS / AUDITORÍA',
+    motivos: [
+      'Alta demorada', 'Demora en Inter Consulta', 'Demora en resolución quirúrgica', 'Diagnóstico ilegible',
+      'Diagnóstico no reconocido', 'Diferencia de criterio médico', 'Prestación no prescrita',
+      'Prestación no reconocida', 'Prestación no justificada', 'Refactura con HC firmada',
+      'Tratamiento Medico justificado en Auditoria'
+    ]
+  },
+  {
+    categoria: '3. CONTRACTUALES / NOMENCLADOR',
+    motivos: [
+      'Débito por normas operativas', 'Débito 20% urgencia módulos', 'Débito 20% urgencia prestaciones',
+      'Débito por diferencia en la inclusiones modulares', 'Débito por normas contractuales (ejemplo veda+vcc)',
+      'Débito según normas del nomenclador', 'Diferencia de aranceles', 'Prestaciones incluidas en otra',
+      'Incluido en APB', 'Diferencia de valor en medicamentos/descartables', 'Prestación no homologada',
+      'Prestación sin convenio', 'Prestación brindada previa a la Internación',
+      'Prestación facturada según módulos vigentes', 'Prestación facturada según presupuesto acordado',
+      'Prestación homologada', 'Prestación no incluida según norma del Nomenclador Nacional',
+      'Recargo por urgencia según norma del Nomenclador Nacional', 'Se adjunta norma del Nomenclador Nacional'
+    ]
+  },
+  {
+    categoria: '4. OPERATIVOS Y DOCUMENTALES (administrativo)',
+    motivos: [
+      'Conteo de medicación erróneo hojas de enfermería no identificadas con fecha', 'Débito por falta de historia clínica',
+      'Débito por historias clínicas de distintos pacientes en la misma internación', 'Documentación adulterada',
+      'Exceso de facturación en medicamentos y descartables', 'Falta de documentación avalatoria',
+      'Falta de troqueles-stickers de medicación o materiales', 'Falta firma paciente', 'Falta firma profesional',
+      'Falta informe', 'Historia clínica incompleta', 'Material/ Medicamentos provistos por O.S.',
+      'Material no utilizado', 'Medicación no suministrada', 'Orden sin diagnóstico'
+    ]
+  },
+  {
+    categoria: '5. AJUSTES Y GESTIÓN COMERCIAL',
+    motivos: [
+      'Débitos varios, informados fuera de término por Tesorería, emisión de NC a efectos del cobro de la factura',
+      'El costo de los impuestos en el proceso de la refactura superan el importe posible de cobro de la misma',
+      'Prestación/Presupuesto facturado con nota rechazados', 'Rechazo de refactura por mantener motivos de débitos originales'
+    ]
+  },
+  {
+    categoria: '6. OTROS / SIN CLASIFICAR',
+    motivos: ['Borrar', 'No aplica']
+  }
+];
+
+export const MOTIVOS_REFACTURA_AGRUPADOS = [
+  {
+    categoria: '1. ADMINISTRATIVOS',
+    motivos: [
+      'Afiliado activo', 'Ajuste de coseguro mal debitado', 'Facturado en tiempo y forma',
+      'Información filiatoria completa y vigente', 'Refacturación con Iva correspondiente a la afiliación'
+    ]
+  },
+  {
+    categoria: '2. MÉDICOS / AUDITORÍA',
+    motivos: [
+      'Ajuste por demora en alta medica por pedido de derivación', 'Aclaración de diagnóstico ilegible (adjunto HC)',
+      'Descripción aclaratoria de procedimiento realizado', 'Medico externo sin HC en Sanatorio',
+      'Normas Medico Sanatoriales', 'Norma para tratamiento de infecciones', 'Normas post operatorias/antibioticoterapia',
+      'Prestación de urgencia sin consentimiento', 'Procedimiento quirúrgico ampliado', 'Refactura con HC firmada',
+      'Tratamiento Medico justificado en Auditoria'
+    ]
+  },
+  {
+    categoria: '3. CONTRACTUALES / NOMENCLADOR',
+    motivos: [
+      'APB aranceles vigentes -Colegio Bioquímico-', 'Ajuste de valores por acuerdo de presupuesto  post facturación',
+      'Aplicación de normas acordadas según convenio vigentes', 'Aranceles facturados según convenio vigente',
+      'Contraste facturado a valores vigentes.', 'Discrepancia en alcance de la cobertura de pensiones',
+      'Exclusiones no detalladas explícitamente', 'Materiales Radioactivos facturados según valores CEDIM',
+      'Medicación, descartable, materiales facturados según convenio vigente', 'No corresponde ajuste de valores medicación /materiales',
+      'No corresponde aplicación de Normas unilateralmente', 'Obligación de cobertura avalada por Ley',
+      'Prestación brindada previa a la Internación', 'Prestación facturada según módulos vigentes',
+      'Prestación facturada según presupuesto acordado', 'Prestación homologada',
+      'Prestación no incluida según norma del Nomenclador Nacional', 'Recargo por urgencia según norma del Nomenclador Nacional',
+      'Se adjunta norma del Nomenclador Nacional'
+    ]
+  },
+  {
+    categoria: '4. OPERATIVOS Y DOCUMENTALES (administrativo)',
+    motivos: [
+      'Autorización no respondida por el financiador', 'Autorización recibida post cierre de facturación',
+      'Autorización vigente al momento de la facturación', 'Corrección de error en S. Operativo',
+      'Documentación completa enviada al Financiador', 'Incompatibilidad de normas aplicadas para la aplicación del débito',
+      'Orden con diagnóstico, se adjunta HC como ampliación diag.', 'Prestación justificada en HC',
+      'Se adjunta troquel/stiker', 'Refacturación de medicación según consumo correcto',
+      'Refacturación en ámbito de realización correcto', 'Refacturación por corrección de los módulos liquidados',
+      'Se adjunta documentación omitida en facturación original'
+    ]
+  },
+  {
+    categoria: '5. AJUSTES Y GESTIÓN COMERCIAL',
+    motivos: [
+      'Acuerdo de bonificación de medicación administrada', 'Acuerdo de bonificación en prestación brindada',
+      'Excepciones refacturas acordadas'
+    ]
+  },
+  {
+    categoria: '6. OTROS / SIN CLASIFICAR',
+    motivos: [
+      'Borrar', 'Débito erróneamente aplicado', 'No aplica'
+    ]
+  }
+];
+
+// 2. Nuestro Custom Cell Editor para ag-Grid
+@Component({
+  selector: 'app-grouped-select-editor',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <select [(ngModel)]="value" class="input-grilla" style="width: 100%; height: 100%; border: none; outline: none;">
+      <option value="">Seleccionar...</option>
+      <optgroup *ngFor="let grupo of grupos" [label]="grupo.categoria">
+        <option *ngFor="let motivo of grupo.motivos" [value]="motivo">{{ motivo }}</option>
+      </optgroup>
+    </select>
+  `
+})
+export class GroupedSelectEditor implements ICellEditorAngularComp {
+  value: string = '';
+  grupos: any[] = [];
+
+  agInit(params: any): void {
+    this.value = params.value || '';
+    this.grupos = params.grupos || [];
+  }
+
+  getValue(): string {
+    return this.value;
+  }
+}
 
 @Component({
   selector: 'app-auditoria',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, FormsModule],
+  imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule],
   templateUrl: './auditoria.html',
   styleUrl: './auditoria.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
+
 export class AuditoriaComponent {
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
   private excelService = inject(ExcelExportService);
 
-  listaMotivos: string[] = LISTA_MOTIVOS_DEBITO;
-  listaMotivosRefactura: string[] = LISTA_MOTIVOS_REFACTURA;
+  listaMotivosAgrupados = MOTIVOS_DEBITO_AGRUPADOS;
+  listaMotivosRefacturaAgrupados = MOTIVOS_REFACTURA_AGRUPADOS;
 
   motivoMasivoSeleccionado: string = '';
   motivoRefacturaMasivoSeleccionado: string = '';
+
+  importeDebitadoMasivo?: number;
+  importeRefacturaMasivo?: number;
+  comentariosMasivo: string = '';
+  comentariosDebitoMasivo: string = '';
+
   cargando : boolean = false;
   private fb = inject(FormBuilder);
   cdr = inject(ChangeDetectorRef);
@@ -76,15 +236,102 @@ export class AuditoriaComponent {
   todasSeleccionadas: boolean = false;
   registrosSeleccionados: Prestacion[] = [];
 
+  public rowSelection: 'single' | 'multiple' = 'multiple';
+  public theme = themeQuartz; // <-- Inyectamos el tema moderno acá
+
+  // Estrategia para que las columnas se adapten al contenido o al título automáticamente
+  public autoSizeStrategy: any = {
+    type: 'fitCellContents'
+  };
+
+  public columnDefs: ColDef[] = []; // Ahora arranca vacío
+
+  configurarColumnas() {
+    const tipo = this.tipoBusquedaRealizada;
+    const englobante = this.debeMostrarEnglobante();
+
+    // La NC queda como solo lectura, FC y ND se pueden editar
+    const esSoloLectura = tipo === 'NC';
+
+    let columnas: ColDef[] = [
+      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' },
+      { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : '' },
+      { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 84, minWidth: 84, suppressAutoSize: true },
+      { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 67, minWidth: 67, suppressAutoSize: true },
+      { headerName: 'Total\nNeto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
+      { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
+      { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
+    ];
+
+    // ACÁ AGREGAMOS EL COMENTARIO PREVIO: Solo se muestra si es ND o NC
+    if (tipo === 'ND' || tipo === 'NC') {
+      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+    }
+
+    // Y acá empujamos todas las columnas de auditoría siempre (editables o bloqueadas según esSoloLectura)
+    columnas.push(
+      { headerName: 'Débito\nAceptado', field: 'debitoAceptado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] }, width: 95, minWidth: 95, suppressAutoSize: true },
+      { headerName: 'Motivo\nDébito', field: 'motivoDebito', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosAgrupados } },
+      { headerName: 'Días\nFact.', field: 'diasFacturados', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 63 }
+    );
+
+    if (englobante) {
+      columnas.push({ headerName: 'Prestación\nEnglobante', field: 'prestacionEnglobante', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris' });
+    }
+
+    columnas.push({
+      headerName: 'Imp.\nDebitado', field: 'importeDebitado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 93,
+      valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+    });
+
+    columnas.push({
+      headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
+      editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+      cellClassRules: {
+        'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+        'bg-naranja': params => esSoloLectura || (!params.data.motivoDebito || params.data.motivoDebito === '')
+      }
+    });
+
+    columnas.push(
+      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosRefacturaAgrupados } },
+      { headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
+        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+      },
+      { headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
+        editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
+        cellClassRules: {
+          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
+          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado !== 'NO'
+        }
+      }
+    );
+
+    this.columnDefs = columnas;
+  }
+
+// Configuración por defecto para no repetir código en cada columna
+  public defaultColDef: ColDef = {
+    sortable: true,
+    filter: false,
+    resizable: true,
+    suppressMovable: false, // Permite al usuario mover las columnas de lugar
+    wrapHeaderText: true,
+    autoHeaderHeight: true
+  };
+
   modalVisible: boolean = false;
   modalMensaje: string = '';
   modalAceptarCb: () => void = () => {};
   modalCancelarCb: () => void = () => {};
 
-  cerrarModal() {
-    this.modalVisible = false;
-    this.cdr.detectChanges();
-  }
+  modalNuevaNotaVisible: boolean = false;
+  tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
 
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
@@ -92,6 +339,19 @@ export class AuditoriaComponent {
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]]
   });
+
+  nuevaNotaForm = this.fb.group({
+    tipo: ['', Validators.required],
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: ['', Validators.required]
+  });
+
+  cerrarModal() {
+    this.modalVisible = false;
+    this.cdr.detectChanges();
+  }
 
   actualizarPaginacion() {
     this.totalPaginas = Math.ceil(this.prestacionesFiltradas.length / this.itemsPorPagina);
@@ -117,16 +377,17 @@ export class AuditoriaComponent {
       this.registrosSeleccionados.forEach(p => {
         p.debitoAceptado = '';
         p.motivoDebito = '';
-        p.importeDebitado = 0;
+        p.importeDebitado = undefined;  // Queda vacío en la grilla
+        p.comentariosDebito = '';
         p.motivoRefactura = '';
-        p.importeRefactura = 0;
+        p.importeRefactura = undefined; // Queda vacío en la grilla
         p.comentarios = '';
       });
       this.calcularTotales();
       this.cerrarModal();
+      this.gridApi?.refreshCells();
     };
 
-    // Si cancela, solo cerramos
     this.modalCancelarCb = () => this.cerrarModal();
     this.modalVisible = true;
   }
@@ -164,6 +425,7 @@ export class AuditoriaComponent {
 
     this.motivoRefacturaMasivoSeleccionado = '';
     this.calcularTotales();
+    this.gridApi?.refreshCells();
     this.cdr.detectChanges();
   }
 
@@ -178,7 +440,80 @@ export class AuditoriaComponent {
 
     this.debitoAceptadoMasivoSeleccionado = '';
     this.calcularTotales();
+    this.gridApi?.refreshCells();
     this.cdr.detectChanges(); // Vital para que la pantalla se actualice
+  }
+
+  aplicarImporteDebitadoMasivo() {
+    if (this.registrosSeleccionados.length === 0 || this.importeDebitadoMasivo == null) return;
+
+    this.registrosSeleccionados.forEach(p => {
+      p.importeDebitado = this.importeDebitadoMasivo;
+    });
+
+    this.importeDebitadoMasivo = undefined; // Limpiamos el input
+    this.calcularTotales();
+    this.gridApi?.refreshCells();
+    this.cdr.detectChanges();
+  }
+
+  aplicarImporteRefacturaMasivo() {
+    if (this.registrosSeleccionados.length === 0 || this.importeRefacturaMasivo == null) return;
+
+    this.registrosSeleccionados.forEach(p => {
+      p.importeRefactura = this.importeRefacturaMasivo;
+    });
+
+    this.importeRefacturaMasivo = undefined; // Limpiamos el input
+    this.calcularTotales();
+    this.gridApi?.refreshCells();
+    this.cdr.detectChanges();
+  }
+
+  aplicarComentariosMasivo() {
+    if (this.registrosSeleccionados.length === 0 || !this.comentariosMasivo) return;
+
+    let aplicados = 0;
+    this.registrosSeleccionados.forEach(p => {
+      // REGLA DE ORO: Solo inyectamos el comentario si el débito NO fue aceptado
+      if (p.debitoAceptado === 'NO') {
+        p.comentarios = this.comentariosMasivo;
+        aplicados++;
+      }
+    });
+
+    if (aplicados === 0) {
+      this.mostrarAlerta("No se aplicó el comentario porque ninguna de las filas seleccionadas tiene el Débito Aceptado marcado como 'NO'.");
+    } else if (aplicados < this.registrosSeleccionados.length) {
+      this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s) que tenían el Débito Aceptado en 'NO'. Las demás fueron ignoradas para no generar datos inconsistentes.`);
+    }
+
+    this.comentariosMasivo = ''; // Limpiamos el input
+    this.gridApi?.refreshCells();
+    this.cdr.detectChanges();
+  }
+
+  aplicarComentariosDebitoMasivo() {
+    if (this.registrosSeleccionados.length === 0 || !this.comentariosDebitoMasivo) return;
+
+    let aplicados = 0;
+    this.registrosSeleccionados.forEach(p => {
+      // NUEVA REGLA: Solo inyectamos si hay un motivo de débito cargado
+      if (p.motivoDebito && p.motivoDebito !== '') {
+        p.comentariosDebito = this.comentariosDebitoMasivo;
+        aplicados++;
+      }
+    });
+
+    if (aplicados === 0) {
+      this.mostrarAlerta("No se aplicó el comentario porque ninguna fila seleccionada tiene un Motivo de Débito cargado.");
+    } else if (aplicados < this.registrosSeleccionados.length) {
+      this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s). Las demás fueron ignoradas por no tener Motivo de Débito.`);
+    }
+
+    this.comentariosDebitoMasivo = ''; // Limpiamos el input
+    this.gridApi?.refreshCells();
+    this.cdr.detectChanges();
   }
 
   cambiarPagina(nuevaPagina: number) {
@@ -215,6 +550,7 @@ export class AuditoriaComponent {
 
           this.prepararFiltros(this.prestaciones);
           this.aplicarFiltros();
+          this.configurarColumnas();
           this.cdr.detectChanges();
 
           this.cargando = false; // Liberamos la UI (Éxito)
@@ -293,7 +629,8 @@ export class AuditoriaComponent {
 
       if (motivo === 'Borrar') {
         p.motivoDebito = '';
-        p.importeDebitado = 0;
+        p.importeDebitado = undefined;
+        p.comentariosDebito = ''; // <--- Agregamos la limpieza acá también
       } else {
         p.motivoDebito = motivo;
         if (motivo !== 'No aplica') p.importeDebitado = p.total;
@@ -302,6 +639,7 @@ export class AuditoriaComponent {
 
     this.motivoMasivoSeleccionado = '';
     this.calcularTotales();
+    this.gridApi?.refreshCells();
     this.cdr.detectChanges();
   }
 
@@ -340,7 +678,8 @@ export class AuditoriaComponent {
     p.motivoDebito = nuevoMotivo;
     if (nuevoMotivo === 'Borrar') {
       p.motivoDebito = '';
-      p.importeDebitado = 0;
+      p.importeDebitado = undefined;
+      p.comentariosDebito = ''; // <--- Agregamos la limpieza acá
     } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
       p.importeDebitado = p.total;
     }
@@ -376,7 +715,7 @@ export class AuditoriaComponent {
       const cumpleCombos =
         (this.filtroPaciente === '' || p.paciente === this.filtroPaciente) &&
         (this.filtroProfesional === '' || p.medico === this.filtroProfesional) &&
-        (this.filtroPrestacion === '' || p.modulo === this.filtroPrestacion) &&
+        (this.filtroPrestacion === '' || p.codigo === this.filtroPrestacion) &&
         (this.filtroGrupo === '' || p.grupomodulo === this.filtroGrupo) &&
         (this.filtroFecha === '' || p.fecha === this.filtroFecha);
 
@@ -611,21 +950,6 @@ export class AuditoriaComponent {
     }
   }
 
-  // ==========================================
-  // MODAL UNIFICADO: NUEVA NOTA (NC o ND)
-  // ==========================================
-  modalNuevaNotaVisible: boolean = false;
-  tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
-
-  // Un solo formulario para ambos casos
-  nuevaNotaForm = this.fb.group({
-    tipo: ['', Validators.required],
-    letra: ['', [Validators.required, Validators.maxLength(1)]],
-    puntoVenta: ['', [Validators.required, Validators.min(1)]],
-    numero: ['', [Validators.required, Validators.min(1)]],
-    fecha: ['', Validators.required]
-  });
-
   abrirModalNuevaNota(tipo: 'NC' | 'ND') {
     this.tipoNuevaNota = tipo;
 
@@ -638,9 +962,11 @@ export class AuditoriaComponent {
       }
       this.nuevaNotaForm.reset({ tipo: 'NC' });
     } else {
-      const prestacionesConRefactura = this.prestaciones.filter(p => p.motivoRefactura && p.motivoRefactura.trim() !== '');
+      // Candado 1: Verificamos que haya registros con Débito Aceptado en "NO"
+      const prestacionesConRefactura = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
+
       if (prestacionesConRefactura.length === 0) {
-        this.mostrarAlerta('No hay registros con Motivo de Refactura cargado para generar una ND. Recuerde Guardar Parcialmente primero.');
+        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND. Solo se refacturan los débitos rechazados.');
         return;
       }
       this.nuevaNotaForm.reset({ tipo: 'ND' });
@@ -661,12 +987,12 @@ export class AuditoriaComponent {
       return;
     }
 
-    // 1. Recolectamos los registros con datos de auditoría (igual que en guardado parcial)
     const registrosParaGuardar = this.prestaciones.filter(p => {
       if (this.tipoNuevaNota === 'NC') {
         return p.motivoDebito && p.motivoDebito.trim() !== '';
       } else {
-        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+        // Candado 2: Solo enviamos al backend los que dicen estrictamente "NO"
+        return p.debitoAceptado === 'NO';
       }
     });
 
@@ -709,6 +1035,111 @@ export class AuditoriaComponent {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  // 1. Guardamos la API de la grilla para poder darle órdenes directas
+  private gridApi!: GridApi;
+
+  onGridReady(params: GridReadyEvent) {
+    this.gridApi = params.api;
+  }
+
+  // 2. Evento: Cuando el usuario arrastra el mouse por los checkboxes
+  onSelectionChanged(event: SelectionChangedEvent) {
+    this.registrosSeleccionados = event.api.getSelectedRows();
+    this.cdr.detectChanges(); // Habilita los botones de acciones masivas
+  }
+
+  // 3. Evento: Cuando el usuario edita una celda (selects o inputs numéricos)
+  onCellValueChanged(event: CellValueChangedEvent) {
+    const p = event.data as Prestacion;
+    const colId = event.colDef.field;
+    const nuevo = event.newValue;
+    const previo = event.oldValue;
+
+    if (nuevo === previo) return;
+
+    // --- NUEVA LÓGICA PARA EL "NO" ---
+    // --- LÓGICA PARA EL CAMBIO DE "DÉBITO ACEPTADO" ---
+    if (colId === 'debitoAceptado') {
+      if (nuevo === 'NO') {
+        p.importeDebitado = undefined; // Limpia el importe si NO acepta el débito
+      } else {
+        // Si cambió a "SI" o "Borrar", limpiamos los comentarios para no enviar basura al backend
+        p.comentarios = '';
+      }
+
+      this.calcularTotales();
+      // Refrescamos la fila completa para que la celda de Comentarios se bloquee/desbloquee instantáneamente
+      event.api.refreshCells({ rowNodes: [event.node], force: true });
+      return;
+    }
+
+    if (colId === 'motivoDebito') {
+      if (previo && previo !== '' && previo !== nuevo) {
+        this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarIndividualDebito(p, nuevo);
+          event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila (para mostrar el importe nuevo)
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          p.motivoDebito = previo; // Revertimos en el objeto
+          event.node.setDataValue('motivoDebito', previo); // Revertimos visualmente en la grilla
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+      } else {
+        this.ejecutarIndividualDebito(p, nuevo);
+        event.api.refreshCells({ rowNodes: [event.node] });
+      }
+    }
+    else if (colId === 'motivoRefactura') {
+      if (previo && previo !== '' && previo !== nuevo) {
+        this.modalMensaje = `Este registro ya tenía un motivo de refactura ("${previo}").\n¿Desea reemplazarlo?`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarIndividualRefactura(p, nuevo);
+          event.api.refreshCells({ rowNodes: [event.node] });
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          p.motivoRefactura = previo;
+          event.node.setDataValue('motivoRefactura', previo);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+      } else {
+        this.ejecutarIndividualRefactura(p, nuevo);
+        event.api.refreshCells({ rowNodes: [event.node] });
+      }
+    }
+    else {
+      // Si tocó importes manuales, aceptado, días facturados o englobante:
+      if (colId === 'importeDebitado' || colId === 'importeRefactura') {
+
+        let valorIngresado = nuevo;
+
+        // Si el usuario metió una coma, la cambiamos por un punto silenciosamente
+        if (typeof valorIngresado === 'string') {
+          valorIngresado = valorIngresado.replace(',', '.');
+        }
+
+        // Convertimos el texto ya limpio a número decimal
+        const numeroParseado = parseFloat(valorIngresado);
+
+        // Si es un número válido lo guardamos, si lo dejó en blanco o escribió letras lo dejamos vacío
+        p[colId] = isNaN(numeroParseado) ? undefined : numeroParseado;
+      }
+      this.calcularTotales();
+    }
   }
 
 }
