@@ -1,5 +1,6 @@
 package com.debitos.backend.controller;
 
+import com.debitos.backend.dto.PrestacionAuditoriaDTO; // <-- IMPORTANTE: Agregamos el DTO
 import com.debitos.backend.service.AuditoriaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,28 +24,28 @@ public class AuditoriaController {
             @RequestParam(name = "puntoVenta") int ptovta,
             @RequestParam int numero) {
 
-        // 1. Obtener tipo de registro (Ambulatorio/Internado)
+        // 1. Obtener tipo de registro
         String tipoRegistro = auditoriaService.obtenerTipoRegistro(tipo, letra, ptovta, numero);
 
         if (tipoRegistro == null) {
             return ResponseEntity.notFound().build();
         }
 
-        // 2. Obtener las prestaciones
-        List<Map<String, Object>> resultados = auditoriaService.obtenerPrestaciones(tipo, tipoRegistro, letra, ptovta, numero);
-        System.out.println(resultados.size());
+        // 2. Obtener las prestaciones: AHORA RECIBE EL DTO
+        List<PrestacionAuditoriaDTO> resultados = auditoriaService.obtenerPrestaciones(tipo, tipoRegistro, letra, ptovta, numero);
+        System.out.println("Resultados encontrados: " + resultados.size());
 
+        // Spring Boot (gracias a Jackson) convierte automáticamente esta lista de DTOs en el JSON exacto que espera Angular
         return ResponseEntity.ok(resultados);
     }
 
     @PostMapping("/guardar-parcialmente")
     public ResponseEntity<?> guardarParcialmente(@RequestBody Map<String, Object> payload) {
         try {
-            // Llamamos al método que creamos antes en el servicio
             auditoriaService.procesarGuardadoParcial(payload);
             return ResponseEntity.ok().body("{\"mensaje\": \"Guardado exitoso\"}");
         } catch (Exception e) {
-            e.printStackTrace(); // Para que veas el error exacto en la consola de Java si algo falla
+            e.printStackTrace();
             return ResponseEntity.internalServerError().body("{\"error\": \"Error al guardar en la base de datos\"}");
         }
     }
