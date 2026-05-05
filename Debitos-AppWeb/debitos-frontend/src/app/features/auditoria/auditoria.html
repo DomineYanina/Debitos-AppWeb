@@ -144,7 +144,6 @@
     <div class="filtro-columna">
       <div class="indicador-guardado" *ngIf="modificadosSinGuardar.size > 0" style="color: #d9534f; font-weight: bold; background: #fdf2f2; padding: 8px 12px; border-radius: 5px; border: 1px solid #d9534f;">
         ⚠️ {{ modificadosSinGuardar.size }} registro(s) sin guardar
-        <span *ngIf="guardandoSilencioso" style="color: #f0ad4e; font-size: 0.9em; margin-left: 5px;">(Autoguardando...)</span>
       </div>
       <button class="btn-exportar" (click)="exportarAExcel()" [disabled]="prestacionesFiltradas.length === 0">Exportar Excel</button>
 
