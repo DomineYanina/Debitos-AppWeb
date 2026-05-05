@@ -1,5 +1,7 @@
-import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
@@ -13,6 +15,8 @@ import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 import { ICellEditorAngularComp } from 'ag-grid-angular';
+import {AuditoriaMathService} from '../../core/services/auditoria-math';
+import {AuditoriaGridConfigService} from '../../core/services/auditoria-grid-config';
 
 // 1. La nueva estructura de datos agrupada
 export const MOTIVOS_DEBITO_AGRUPADOS = [
@@ -170,7 +174,34 @@ export class GroupedSelectEditor implements ICellEditorAngularComp {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class AuditoriaComponent {
+export class AuditoriaComponent implements OnInit, OnDestroy {
+  modificadosSinGuardar = new Set<number>(); // Guarda los IDs de las filas tocadas
+  guardandoSilencioso = false;
+  private autoguardado$ = new Subject<void>();
+  private autoguardadoSub?: Subscription;
+
+  // === CANDADO 1: Bloquea si el usuario intenta cerrar la pestaña del navegador ===
+  @HostListener('window:beforeunload', ['$event'])
+  alIntentarCerrar($event: BeforeUnloadEvent) {
+    if (this.modificadosSinGuardar.size > 0) {
+      $event.preventDefault();
+      $event.returnValue = 'Tenés cambios sin guardar. ¿Seguro que querés salir?';
+    }
+  }
+
+  // === INICIAMOS EL TEMPORIZADOR INTELIGENTE ===
+  ngOnInit() {
+    // Si pasan 10 segundos (10000 ms) sin que el usuario teclee nada, guarda en silencio
+    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
+      if (this.modificadosSinGuardar.size > 0) {
+        this.guardarParcialmente(true); // true = modo silencioso (no tira alertas)
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.autoguardadoSub) this.autoguardadoSub.unsubscribe();
+  }
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
   private excelService = inject(ExcelExportService);
@@ -180,6 +211,9 @@ export class AuditoriaComponent {
 
   motivoMasivoSeleccionado: string = '';
   motivoRefacturaMasivoSeleccionado: string = '';
+
+  private mathService = inject(AuditoriaMathService);
+  private gridConfigService = inject(AuditoriaGridConfigService);
 
   importeDebitadoMasivo?: number;
   importeRefacturaMasivo?: number;
@@ -247,81 +281,18 @@ export class AuditoriaComponent {
   public columnDefs: ColDef[] = []; // Ahora arranca vacío
 
   configurarColumnas() {
-    const tipo = this.tipoBusquedaRealizada;
     const englobante = this.debeMostrarEnglobante();
-
-    // La NC queda como solo lectura, FC y ND se pueden editar
-    const esSoloLectura = tipo === 'NC';
-
-    let columnas: ColDef[] = [
-      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' },
-      { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : '' },
-      { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 84, minWidth: 84, suppressAutoSize: true },
-      { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 67, minWidth: 67, suppressAutoSize: true },
-      { headerName: 'Total\nNeto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
-      { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
-      { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
-    ];
-
-    // Evaluamos si al menos un registro de la búsqueda tiene un comentario previo cargado
     const tieneComentariosPrevios = this.prestacionesFiltradas.some(p => p.comentarioPrevio && p.comentarioPrevio.trim() !== '');
 
-    // Se muestra SIEMPRE en la ND. En la NC, SOLO se muestra si detectamos comentarios previos (es decir, si viene de una ND).
-    if (tipo === 'ND' || (tipo === 'NC' && tieneComentariosPrevios)) {
-      columnas.push({
-        headerName: 'Comentarios\nPrevios',
-        field: 'comentarioPrevio',
-        editable: false,
-        cellClass: 'bg-azul-auditoria',
-        headerClass: 'bg-azul-auditoria'
-      });
-    }
-
-    // Y acá empujamos todas las columnas de auditoría siempre (editables o bloqueadas según esSoloLectura)
-    columnas.push(
-      { headerName: 'Débito\nAceptado', field: 'debitoAceptado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] }, width: 95, minWidth: 95, suppressAutoSize: true },
-      { headerName: 'Motivo\nDébito', field: 'motivoDebito', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosAgrupados } },
-      { headerName: 'Días\nFact.', field: 'diasFacturados', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 63 }
+    // Delegamos la configuración de AG-Grid al servicio
+    this.columnDefs = this.gridConfigService.getConfiguracionColumnas(
+      this.tipoBusquedaRealizada,
+      englobante,
+      tieneComentariosPrevios,
+      this.listaMotivosAgrupados,
+      this.listaMotivosRefacturaAgrupados,
+      GroupedSelectEditor // Pasamos el componente editor para que el servicio pueda inyectarlo
     );
-
-    if (englobante) {
-      columnas.push({ headerName: 'Prestación\nEnglobante', field: 'prestacionEnglobante', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris' });
-    }
-
-    columnas.push({
-      headerName: 'Imp.\nDebitado', field: 'importeDebitado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 93,
-      valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
-    });
-
-    columnas.push({
-      headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
-      editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
-      cellClassRules: {
-        'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
-        'bg-naranja': params => esSoloLectura || (!params.data.motivoDebito || params.data.motivoDebito === '')
-      }
-    });
-
-    columnas.push(
-      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: GroupedSelectEditor, cellEditorParams: { grupos: this.listaMotivosRefacturaAgrupados } },
-      { headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
-        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
-      },
-      { headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
-        editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
-        cellClassRules: {
-          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
-          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado !== 'NO'
-        }
-      }
-    );
-
-    this.columnDefs = columnas;
   }
 
 // Configuración por defecto para no repetir código en cada columna
@@ -377,6 +348,15 @@ export class AuditoriaComponent {
     this.prestacionesPaginadas = this.prestacionesFiltradas.slice(indiceInicio, indiceFin);
   }
 
+  registrarCambio(idPrestacion?: number) {
+    if (idPrestacion) {
+      this.modificadosSinGuardar.add(idPrestacion);
+    }
+    // Le avisa a RxJS que hubo actividad, reiniciando los 10 segundos
+    this.autoguardado$.next();
+    this.cdr.detectChanges();
+  }
+
   limpiarFilasSeleccionadas() {
     if (this.registrosSeleccionados.length === 0) return;
 
@@ -391,6 +371,7 @@ export class AuditoriaComponent {
         p.motivoRefactura = '';
         p.importeRefactura = undefined; // Queda vacío en la grilla
         p.comentarios = '';
+        this.registrarCambio(p.id);
       });
       this.calcularTotales();
       this.cerrarModal();
@@ -430,6 +411,7 @@ export class AuditoriaComponent {
     this.registrosSeleccionados.forEach(p => {
       if (!sobreescribirTodos && p.motivoRefactura && p.motivoRefactura !== '') return;
       p.motivoRefactura = motivo === 'Borrar' ? '' : motivo;
+      this.registrarCambio(p.id);
     });
 
     this.motivoRefacturaMasivoSeleccionado = '';
@@ -445,6 +427,7 @@ export class AuditoriaComponent {
 
     this.registrosSeleccionados.forEach(p => {
       p.debitoAceptado = valor;
+      this.registrarCambio(p.id);
     });
 
     this.debitoAceptadoMasivoSeleccionado = '';
@@ -489,6 +472,7 @@ export class AuditoriaComponent {
         p.comentarios = this.comentariosMasivo;
         aplicados++;
       }
+      this.registrarCambio(p.id);
     });
 
     if (aplicados === 0) {
@@ -534,6 +518,10 @@ export class AuditoriaComponent {
   }
 
   onBuscar() {
+    if (this.modificadosSinGuardar.size > 0) {
+      this.mostrarAlerta("Tenés registros sin guardar del documento actual. Por favor, guardá los cambios antes de buscar uno nuevo.");
+      return;
+    }
     if (this.busquedaForm.valid) {
       this.cargando = true; // Bloqueamos la UI
 
@@ -638,6 +626,7 @@ export class AuditoriaComponent {
         p.motivoDebito = motivo;
         if (motivo !== 'No aplica') p.importeDebitado = p.total;
       }
+      this.registrarCambio(p.id);
     });
 
     this.motivoMasivoSeleccionado = '';
@@ -764,6 +753,10 @@ export class AuditoriaComponent {
   }
 
   onLogout() {
+    if (this.modificadosSinGuardar.size > 0) {
+      this.mostrarAlerta("Tenés registros sin guardar. Por favor, guardá los cambios antes de cerrar sesión.");
+      return;
+    }
     this.authService.logout();
     this.router.navigate(['/login']);
   }
@@ -822,36 +815,20 @@ export class AuditoriaComponent {
   }
 
   calcularTotales() {
-    this.totalFacturado = 0;
-    this.totalDebitado = 0;
-    this.totalCantidad = 0;
-    this.totalNetoGlobal = 0;
-    this.totalCoseguroGlobal = 0;
-    this.totalRefacturadoGlobal = 0;
+    // 1. Delegamos el cálculo al servicio
+    const totales = this.mathService.calcularTotales(this.prestacionesFiltradas);
 
-    // Reiniciamos los nuevos contadores
-    this.cantAceptados = 0;
-    this.totalDebitadoAceptado = 0;
-    this.totalRefacturarRechazado = 0;
+    // 2. Asignamos los resultados devueltos a las variables del componente
+    this.totalFacturado = totales.totalFacturado;
+    this.totalDebitado = totales.totalDebitado;
+    this.totalCantidad = totales.totalCantidad;
+    this.totalNetoGlobal = totales.totalNetoGlobal;
+    this.totalCoseguroGlobal = totales.totalCoseguroGlobal;
+    this.totalRefacturadoGlobal = totales.totalRefacturadoGlobal;
+    this.cantAceptados = totales.cantAceptados;
+    this.totalDebitadoAceptado = totales.totalDebitadoAceptado;
+    this.totalRefacturarRechazado = totales.totalRefacturarRechazado;
 
-    for (const p of this.prestacionesFiltradas) {
-      // Sumas generales
-      this.totalFacturado += (p.total || 0);
-      this.totalDebitado += (p.importeDebitado || 0);
-      this.totalCantidad += (p.cantidad || 0);
-      this.totalNetoGlobal += (p.totalNeto || 0);
-      this.totalCoseguroGlobal += (p.coseguro || 0);
-      this.totalRefacturadoGlobal += (p.importeRefactura || 0);
-
-      // Lógica de los nuevos KPIs
-      // Lógica de los nuevos KPIs (Sin el PARCIAL)
-      if (p.debitoAceptado === 'SI') {
-        this.cantAceptados++;
-        this.totalDebitadoAceptado += (p.importeDebitado || 0);
-      } else if (p.debitoAceptado === 'NO') {
-        this.totalRefacturarRechazado += (p.importeRefactura || 0);
-      }
-    }
     this.cdr.detectChanges();
   }
 
@@ -866,23 +843,17 @@ export class AuditoriaComponent {
     );
   }
 
-  guardarParcialmente() {
-    // 1. Recolectar solo los registros que cumplan las condiciones
+  guardarParcialmente(silencioso: boolean = false) {
     const registrosParaGuardar = this.prestaciones.filter(p => {
-      if (this.tipoBusquedaRealizada === 'NC') {
-        return p.motivoRefactura && p.motivoRefactura.trim() !== '';
-      } else {
-        // Para FC o ND, exigimos que haya Motivo de Débito
-        return p.motivoDebito && p.motivoDebito.trim() !== '';
-      }
+      if (this.tipoBusquedaRealizada === 'NC') return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      return p.motivoDebito && p.motivoDebito.trim() !== '';
     });
 
     if (registrosParaGuardar.length === 0) {
-      this.mostrarAlerta('No hay registros con motivos asignados para guardar.'); // <-- Usamos el modal custom
+      if (!silencioso) this.mostrarAlerta('No hay registros con motivos asignados para guardar.');
       return;
     }
 
-    // 2. Preparar el paquete (Payload) para enviar a Java
     const payload = {
       documentoOrigen: this.tipoBusquedaRealizada,
       letra: this.busquedaForm.value.letra ? this.busquedaForm.value.letra.toUpperCase() : '',
@@ -892,21 +863,32 @@ export class AuditoriaComponent {
       registros: registrosParaGuardar
     };
 
-    // 3. Bloquear UI y disparar petición
-    this.cargando = true;
+    if (silencioso) this.guardandoSilencioso = true;
+    else this.cargando = true;
+
     this.cdr.detectChanges();
 
     this.auditoriaService.guardarParcialmente(payload).subscribe({
       next: () => {
-        // Mensaje coherente con la acción realizada
-        this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!');
-        this.cargando = false;
+        this.modificadosSinGuardar.clear(); // <-- ÉXITO: Limpiamos el contador
+
+        if (silencioso) {
+          this.guardandoSilencioso = false;
+        } else {
+          this.cargando = false;
+          this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!');
+        }
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
-        this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.'); // <-- Usamos el modal custom
-        this.cargando = false;
+        if (silencioso) {
+          this.guardandoSilencioso = false;
+          // Falla en silencio para no bloquear la pantalla, pero se reintentará en 10 seg
+        } else {
+          this.cargando = false;
+          this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.');
+        }
         this.cdr.detectChanges();
       }
     });
@@ -1030,6 +1012,7 @@ export class AuditoriaComponent {
         this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`);
         this.cargando = false;
         this.cdr.detectChanges();
+        this.modificadosSinGuardar.clear();
       },
       error: (err) => {
         console.error(err);
@@ -1073,6 +1056,7 @@ export class AuditoriaComponent {
       }
 
       this.calcularTotales();
+      this.registrarCambio(p.id);
       // Refrescamos la fila completa para que la celda de Comentarios se bloquee/desbloquee instantáneamente
       event.api.refreshCells({ rowNodes: [event.node], force: true });
       return;
@@ -1143,6 +1127,7 @@ export class AuditoriaComponent {
       }
       this.calcularTotales();
     }
+    this.registrarCambio(p.id);
   }
 
 }
