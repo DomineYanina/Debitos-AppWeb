@@ -30,13 +30,13 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         SELECT al.id AS id, al.carnet AS carnet, al.codigo_cobertura AS cobertura, al.paciente AS paciente, 
                al.plan AS plan, al.efector AS efector, al.medico AS medico, al.fecha AS fecha, al.codigo AS codigo, 
                al.descripcion AS descripcion, al.modulo AS modulo, al.grupomodulo AS grupomodulo, al.cantidad AS cantidad, 
-               al.total_neto AS totalNeto, al.coseguro AS coseguro, al.total AS total, 
-               CASE WHEN nc.debitoaceptado = true THEN 'SI' WHEN nc.debitoaceptado = false THEN 'NO' ELSE NULL END AS debitoAceptado,
-               nc.motivodedebito AS motivoDebito, nc.diasfacturados AS diasFacturados, 
-               nc.importedebitado AS importeDebitado, nc.comentarios_debito AS comentariosDebito,
-               nc.prestacionenglobante AS prestacionEnglobante,
-               nd.motivorefactura AS motivoRefactura, nd.importerefactura AS importeRefactura,
-               nd.comentarios AS comentarioPrevio, nc.comentarios AS comentarios
+               al.total_neto AS "totalNeto", al.coseguro AS coseguro, al.total AS total, 
+               CASE WHEN nc.debitoaceptado = true THEN 'SI' WHEN nc.debitoaceptado = false THEN 'NO' ELSE NULL END AS "debitoAceptado",
+               nc.motivodedebito AS "motivoDebito", nc.diasfacturados AS "diasFacturados", 
+               nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito",
+               nc.prestacionenglobante AS "prestacionEnglobante",
+               nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura",
+               nc1.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios
         FROM notadedebito nd 
         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 

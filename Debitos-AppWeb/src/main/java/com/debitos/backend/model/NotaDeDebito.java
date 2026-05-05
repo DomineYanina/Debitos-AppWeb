@@ -33,9 +33,7 @@ public class NotaDeDebito {
 
     // Datos de refacturación
     private String motivorefactura;
-    private String motivodedebito;
     private BigDecimal importerefactura;
-    private BigDecimal importedebitado;
     private String prestacionenglobante;
     private String codigo;
     private Integer diasfacturados;
@@ -202,19 +200,4 @@ public class NotaDeDebito {
         this.cargarcompletamente = cargarcompletamente;
     }
 
-    public String getMotivodeDebito() {
-        return motivodedebito;
-    }
-
-    public void setMotivodeDebito(String motivodedebito) {
-        this.motivodedebito = motivodedebito;
-    }
-
-    public BigDecimal getImporteDebitado() {
-        return importedebitado;
-    }
-
-    public void setImporteDebitado(BigDecimal importedebitado) {
-        this.importedebitado = importedebitado;
-    }
 }
