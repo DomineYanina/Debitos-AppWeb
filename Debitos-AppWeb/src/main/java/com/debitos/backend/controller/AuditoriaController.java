@@ -1,5 +1,6 @@
 package com.debitos.backend.controller;
 
+import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.service.AuditoriaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,51 +24,34 @@ public class AuditoriaController {
             @RequestParam(name = "puntoVenta") int ptovta,
             @RequestParam int numero) {
 
-        // 1. Obtener tipo de registro (Ambulatorio/Internado)
         String tipoRegistro = auditoriaService.obtenerTipoRegistro(tipo, letra, ptovta, numero);
 
         if (tipoRegistro == null) {
+            // Esto también se podría manejar tirando una excepción, pero devolver un 404 limpio está perfecto
             return ResponseEntity.notFound().build();
         }
 
-        // 2. Obtener las prestaciones
-        List<Map<String, Object>> resultados = auditoriaService.obtenerPrestaciones(tipo, tipoRegistro, letra, ptovta, numero);
-        System.out.println(resultados.size());
-
+        List<PrestacionAuditoriaDTO> resultados = auditoriaService.obtenerPrestaciones(tipo, tipoRegistro, letra, ptovta, numero);
         return ResponseEntity.ok(resultados);
     }
 
+    // FIJATE QUÉ LIMPIOS QUEDAN LOS POST AHORA: SIN TRY-CATCH
+
     @PostMapping("/guardar-parcialmente")
-    public ResponseEntity<?> guardarParcialmente(@RequestBody Map<String, Object> payload) {
-        try {
-            // Llamamos al método que creamos antes en el servicio
-            auditoriaService.procesarGuardadoParcial(payload);
-            return ResponseEntity.ok().body("{\"mensaje\": \"Guardado exitoso\"}");
-        } catch (Exception e) {
-            e.printStackTrace(); // Para que veas el error exacto en la consola de Java si algo falla
-            return ResponseEntity.internalServerError().body("{\"error\": \"Error al guardar en la base de datos\"}");
-        }
+    public ResponseEntity<Map<String, String>> guardarParcialmente(@RequestBody Map<String, Object> payload) {
+        auditoriaService.procesarGuardadoParcial(payload);
+        return ResponseEntity.ok(Map.of("mensaje", "Guardado exitoso"));
     }
 
     @PostMapping("/nueva-nota-credito")
-    public ResponseEntity<?> guardarNuevaNotaCredito(@RequestBody Map<String, Object> payload) {
-        try {
-            auditoriaService.procesarNuevaNotaCredito(payload);
-            return ResponseEntity.ok().body("{\"mensaje\": \"Nota de Crédito generada exitosamente\"}");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("{\"error\": \"Error al procesar la Nota de Crédito\"}");
-        }
+    public ResponseEntity<Map<String, String>> guardarNuevaNotaCredito(@RequestBody Map<String, Object> payload) {
+        auditoriaService.procesarNuevaNotaCredito(payload);
+        return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito generada exitosamente"));
     }
 
     @PostMapping("/nueva-nota-debito")
-    public ResponseEntity<?> guardarNuevaNotaDebito(@RequestBody Map<String, Object> payload) {
-        try {
-            auditoriaService.procesarNuevaNotaDebito(payload);
-            return ResponseEntity.ok().body("{\"mensaje\": \"Nota de Débito generada exitosamente\"}");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("{\"error\": \"Error al procesar la Nota de Débito\"}");
-        }
+    public ResponseEntity<Map<String, String>> guardarNuevaNotaDebito(@RequestBody Map<String, Object> payload) {
+        auditoriaService.procesarNuevaNotaDebito(payload);
+        return ResponseEntity.ok(Map.of("mensaje", "Nota de Débito generada exitosamente"));
     }
 }
