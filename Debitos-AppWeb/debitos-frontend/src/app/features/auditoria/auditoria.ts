@@ -268,9 +268,18 @@ export class AuditoriaComponent {
       { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
     ];
 
-    // ACÁ AGREGAMOS EL COMENTARIO PREVIO: Solo se muestra si es ND o NC
-    if (tipo === 'ND' || tipo === 'NC') {
-      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+    // Evaluamos si al menos un registro de la búsqueda tiene un comentario previo cargado
+    const tieneComentariosPrevios = this.prestacionesFiltradas.some(p => p.comentarioPrevio && p.comentarioPrevio.trim() !== '');
+
+    // Se muestra SIEMPRE en la ND. En la NC, SOLO se muestra si detectamos comentarios previos (es decir, si viene de una ND).
+    if (tipo === 'ND' || (tipo === 'NC' && tieneComentariosPrevios)) {
+      columnas.push({
+        headerName: 'Comentarios\nPrevios',
+        field: 'comentarioPrevio',
+        editable: false,
+        cellClass: 'bg-azul-auditoria',
+        headerClass: 'bg-azul-auditoria'
+      });
     }
 
     // Y acá empujamos todas las columnas de auditoría siempre (editables o bloqueadas según esSoloLectura)
@@ -535,14 +544,8 @@ export class AuditoriaComponent {
           this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
 
           this.prestaciones = data.map((p: any) => {
-            if (p.debitoAceptado === true) {
-              p.debitoAceptado = 'SI';
-            } else if (p.debitoAceptado === false) {
-              p.debitoAceptado = 'NO';
-            } else {
-              p.debitoAceptado = '';
-            }
-
+            // El backend ya envía 'SI', 'NO' o null. Solo convertimos los nulls a texto vacío.
+            p.debitoAceptado = p.debitoAceptado || '';
             return p as Prestacion;
           });
 
@@ -553,7 +556,7 @@ export class AuditoriaComponent {
           this.configurarColumnas();
           this.cdr.detectChanges();
 
-          this.cargando = false; // Liberamos la UI (Éxito)
+          this.cargando = false;
         },
         error: (err) => {
           if (err.status === 404) {
