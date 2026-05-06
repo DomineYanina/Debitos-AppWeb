@@ -1,99 +1,117 @@
-export const LISTA_MOTIVOS_DEBITO: string[] = [
-  'Borrar',
-  'No aplica',
-  'Afiliado capitado',
-  'Afiliado dado de baja',
-  'Alta demorada criterio auditoria medica',
-  'Conteo de medicacion erroneo hojas de enfermeria no identificadas con fecha',
-  'Coseguro no cobrado',
-  'Debito 20% urgencia modulos',
-  'Debito 20% urgencia prestaciones',
-  'Debito por diferencia en la inclusiones modulares',
-  'Debito por falta de historia clinica',
-  'Debito por historias clinicas de distintos pacientes en la misma internacion',
-  'Debito por normas contractuales (ejemplo veda+vcc)',
-  'Debito por normas operativas',
-  'Debito segun normas del nomenclador',
-  'Débitos varios, recibido fuera de término por Tesorería, emisión de nc condicional al cobro de la factura',
-  'Demora en Inter Consulta',
-  'Demora en resolución quirúrgica',
-  'Diagnostico ilegible',
-  'Diagnostico no reconocido',
-  'Diferencia de aranceles',
-  'Diferencia de coseguro',
-  'Diferencia de criterio medico/prestaciones no justificadas',
-  'Diferencia de valor en medicamentos/descartables',
-  'Documentacion adulterada',
-  'Ecografia de partes blandas incluida en ecografia abdominal',
-  'Ecografia renal incluida en abdominal',
-  'El valor de los impuestos a abonar en el proceso de la refactura superan el importe a refacturar',
-  'Error de carga (codigos-inclusiones)',
-  'Error de Open',
-  'Error en el cálculo de porcentaje de códigos múltiples',
-  'Exceso de facturacion en medicamentos y descartables',
-  'Facturacion duplicada',
-  'Facturado a financiador incorrecto',
-  'Facturado con nota de departamento comercial',
-  'Falta de autorizacion',
-  'Falta de documentacion avalatoria',
-  'Falta de historia/informe.',
-  'Falta de troqueles-stickers de medicacion o materiales',
-  'Falta firma paciente',
-  'Falta firma profesional',
-  'Falta informe',
-  'Historia clinica incompleta',
-  'Honorarios profesionales pagados en forma directa',
-  'Incluido en APB',
-  'Iva mal facturado',
-  'Material/ Medicamentos provistos por O.S.',
-  'Material no utilizado',
-  'Medicación no suministrada',
-  'No indicado',
-  'No reconoce prestación',
-  'Orden sin diagnóstico',
-  'Prestacion fuera de termino',
-  'Prestacion incluida en otra',
-  'Prestacion incluida en otra liquidacion',
-  'Prestacion no homologada',
-  'Prestacion no justificada',
-  'Prestacion sin convenio',
-  'Presupuesto facturado con nota no reconocido',
-  'Presupuesto rechazado y facturados con indicacion comercial',
-  'Rechazo de refactura por mantener motivos de debitos originales',
-  'Supera tope anual'
+export const LISTA_MOTIVOS_DEBITO = [
+  {
+    categoria: '1. ADMINISTRATIVOS',
+    motivos: [
+      'Afiliado dado de baja', 'Afiliado capitado', 'Coseguro no cobrado', 'Diferencia de coseguro',
+      'Error de carga (códigos-inclusiones)', 'Error en el cálculo de porcentaje de códigos múltiples',
+      'Facturación duplicada', 'Facturado a financiador incorrecto', 'Falta de autorización',
+      'Honorarios profesionales pagados en forma directa', 'Iva mal facturado', 'Prestación fuera de término',
+      'Prestación incluida en otra liquidación', 'Supera tope'
+    ]
+  },
+  {
+    categoria: '2. MÉDICOS / AUDITORÍA',
+    motivos: [
+      'Alta demorada', 'Demora en Inter Consulta', 'Demora en resolución quirúrgica', 'Diagnóstico ilegible',
+      'Diagnóstico no reconocido', 'Diferencia de criterio médico', 'Prestación no prescrita',
+      'Prestación no reconocida', 'Prestación no justificada', 'Refactura con HC firmada',
+      'Tratamiento Medico justificado en Auditoria'
+    ]
+  },
+  {
+    categoria: '3. CONTRACTUALES / NOMENCLADOR',
+    motivos: [
+      'Débito por normas operativas', 'Débito 20% urgencia módulos', 'Débito 20% urgencia prestaciones',
+      'Débito por diferencia en la inclusiones modulares', 'Débito por normas contractuales (ejemplo veda+vcc)',
+      'Débito según normas del nomenclador', 'Diferencia de aranceles', 'Prestaciones incluidas en otra',
+      'Incluido en APB', 'Diferencia de valor en medicamentos/descartables', 'Prestación no homologada',
+      'Prestación sin convenio', 'Prestación brindada previa a la Internación',
+      'Prestación facturada según módulos vigentes', 'Prestación facturada según presupuesto acordado',
+      'Prestación homologada', 'Prestación no incluida según norma del Nomenclador Nacional',
+      'Recargo por urgencia según norma del Nomenclador Nacional', 'Se adjunta norma del Nomenclador Nacional'
+    ]
+  },
+  {
+    categoria: '4. OPERATIVOS Y DOCUMENTALES (administrativo)',
+    motivos: [
+      'Conteo de medicación erróneo hojas de enfermería no identificadas con fecha', 'Débito por falta de historia clínica',
+      'Débito por historias clínicas de distintos pacientes en la misma internación', 'Documentación adulterada',
+      'Exceso de facturación en medicamentos y descartables', 'Falta de documentación avalatoria',
+      'Falta de troqueles-stickers de medicación o materiales', 'Falta firma paciente', 'Falta firma profesional',
+      'Falta informe', 'Historia clínica incompleta', 'Material/ Medicamentos provistos por O.S.',
+      'Material no utilizado', 'Medicación no suministrada', 'Orden sin diagnóstico'
+    ]
+  },
+  {
+    categoria: '5. AJUSTES Y GESTIÓN COMERCIAL',
+    motivos: [
+      'Débitos varios, informados fuera de término por Tesorería, emisión de NC a efectos del cobro de la factura',
+      'El costo de los impuestos en el proceso de la refactura superan el importe posible de cobro de la misma',
+      'Prestación/Presupuesto facturado con nota rechazados', 'Rechazo de refactura por mantener motivos de débitos originales'
+    ]
+  },
+  {
+    categoria: '6. OTROS / SIN CLASIFICAR',
+    motivos: ['Borrar', 'No aplica']
+  }
 ];
 
-export const LISTA_MOTIVOS_REFACTURA: string[] = [
-  'Borrar', 'No aplica', 'Casos: Afiliados activos.', 'Casos: Discrepancia cobertura pensión.',
-  'Casos: Excepciones refacturadas.', 'Casos: Médico externo sin historia clínica.',
-  'Corrección de error de Open', 'Débitos Inválidos: Aplicados erróneamente.',
-  'Doc. y Aut.: Autorización recibida posterior al cierre.', 'Doc. y Aut.: Autorización vigente.',
-  'Doc. y Aut.: Doc. completa enviada.', 'Doc. y Aut.: Facturado en tiempo.',
-  'Doc. y Aut.: Info. filiatoria completa.', 'Doc. y Aut.: Justificado en historia clínica.',
-  'Doc. y Aut.: Orden con diagnóstico, se aclara con historia clínica',
-  'Doc. y Aut.: Se envía documentación omitida', 'Doc. y Aut.: Se envía troquel/sticker',
-  'Doc. y Aut.: Según normas vigentes.', 'Excepciones: Bonificación medicación.',
-  'Excepciones: Bonificación prestación.', 'Excepciones: Reclamos/comerciales.',
-  'Gestión: Aclaración procedimiento.', 'Gestión: Afiliado dado de baja.',
-  'Gestión: Ajustes en coseguro.', 'Gestión: Ajuste por presupuesto.',
-  'Gestión: Aplicación incorrecta de IVA.', 'Gestión: Consumos correctos.',
-  'Gestión: Corrección facturación módulos.', 'Gestión: Financidor demoró respuesta.',
-  'Gestión: Medicamentos mal facturados.', 'Gestión Méd.: Aclaración de diagnóstico',
-  'Gestión Méd.: Ajuste fechas derivación.', 'Gestión Méd.: Criterio en diagnósticos.',
-  'Gestión Méd.: Historia clínica firmada.', 'Gestión Méd.: Normas sanatoriales.',
-  'Gestión Méd.: Postoperatorios/antibióticos.', 'Gestión Méd.: Tratamientos infecciones.',
-  'Gestión Méd.: Tratamientos médicos.', 'Gestión Méd.: Urgencia sin consentimiento.',
-  'Normas: Adjunta norma del Nom. Nac.', 'Normas: Ajustes valores medicación/material.',
-  'Normas: Aplicación de normas acordadas.', 'Normas: Aranceles vigentes Colegio Bioquím.',
-  'Normas: Cambios deben ser acordados.', 'Normas: Exclusión no explícita.',
-  'Normas: Facturación según módulos vigentes.', 'Normas: Inclusión/Exclusión según acuerdo.',
-  'Normas: Incompatibilidad normativa.', 'Normas: Obligación de cobertura por ley',
-  'Normas: Prestación arancel convenido.', 'Normas: Prestación no respondida por financ.',
-  'Normas: Prestación según presupuesto.', 'Normas: Recargos urgencia según Nac. Nom.',
-  'Normas: Refacturación por IVA.', 'Normas: Valores de contrastes vigentes.',
-  'Normas: Valores medicación/material convenio.', 'Prestaciones: Aranceles según CEDIM.',
-  'Prestaciones: Consultas previas/post-proced.', 'Prestaciones: Homologada.',
-  'Prestaciones: Inclusión incorrecta.', 'Prestaciones: No incluidas según Nom. Nac.',
-  'Prestaciones: Material no incluido en base.', 'Prestaciones: Procedimientos ampliados.',
-  'Prestaciones: Relacionadas a prestación.'
+export const LISTA_MOTIVOS_REFACTURA = [
+  {
+    categoria: '1. ADMINISTRATIVOS',
+    motivos: [
+      'Afiliado activo', 'Ajuste de coseguro mal debitado', 'Facturado en tiempo y forma',
+      'Información filiatoria completa y vigente', 'Refacturación con Iva correspondiente a la afiliación'
+    ]
+  },
+  {
+    categoria: '2. MÉDICOS / AUDITORÍA',
+    motivos: [
+      'Ajuste por demora en alta medica por pedido de derivación', 'Aclaración de diagnóstico ilegible (adjunto HC)',
+      'Descripción aclaratoria de procedimiento realizado', 'Medico externo sin HC en Sanatorio',
+      'Normas Medico Sanatoriales', 'Norma para tratamiento de infecciones', 'Normas post operatorias/antibioticoterapia',
+      'Prestación de urgencia sin consentimiento', 'Procedimiento quirúrgico ampliado', 'Refactura con HC firmada',
+      'Tratamiento Medico justificado en Auditoria'
+    ]
+  },
+  {
+    categoria: '3. CONTRACTUALES / NOMENCLADOR',
+    motivos: [
+      'APB aranceles vigentes -Colegio Bioquímico-', 'Ajuste de valores por acuerdo de presupuesto  post facturación',
+      'Aplicación de normas acordadas según convenio vigentes', 'Aranceles facturados según convenio vigente',
+      'Contraste facturado a valores vigentes.', 'Discrepancia en alcance de la cobertura de pensiones',
+      'Exclusiones no detalladas explícitamente', 'Materiales Radioactivos facturados según valores CEDIM',
+      'Medicación, descartable, materiales facturados según convenio vigente', 'No corresponde ajuste de valores medicación /materiales',
+      'No corresponde aplicación de Normas unilateralmente', 'Obligación de cobertura avalada por Ley',
+      'Prestación brindada previa a la Internación', 'Prestación facturada según módulos vigentes',
+      'Prestación facturada según presupuesto acordado', 'Prestación homologada',
+      'Prestación no incluida según norma del Nomenclador Nacional', 'Recargo por urgencia según norma del Nomenclador Nacional',
+      'Se adjunta norma del Nomenclador Nacional'
+    ]
+  },
+  {
+    categoria: '4. OPERATIVOS Y DOCUMENTALES (administrativo)',
+    motivos: [
+      'Autorización no respondida por el financiador', 'Autorización recibida post cierre de facturación',
+      'Autorización vigente al momento de la facturación', 'Corrección de error en S. Operativo',
+      'Documentación completa enviada al Financiador', 'Incompatibilidad de normas aplicadas para la aplicación del débito',
+      'Orden con diagnóstico, se adjunta HC como ampliación diag.', 'Prestación justificada en HC',
+      'Se adjunta troquel/stiker', 'Refacturación de medicación según consumo correcto',
+      'Refacturación en ámbito de realización correcto', 'Refacturación por corrección de los módulos liquidados',
+      'Se adjunta documentación omitida en facturación original'
+    ]
+  },
+  {
+    categoria: '5. AJUSTES Y GESTIÓN COMERCIAL',
+    motivos: [
+      'Acuerdo de bonificación de medicación administrada', 'Acuerdo de bonificación en prestación brindada',
+      'Excepciones refacturas acordadas'
+    ]
+  },
+  {
+    categoria: '6. OTROS / SIN CLASIFICAR',
+    motivos: [
+      'Borrar', 'Débito erróneamente aplicado', 'No aplica'
+    ]
+  }
 ];

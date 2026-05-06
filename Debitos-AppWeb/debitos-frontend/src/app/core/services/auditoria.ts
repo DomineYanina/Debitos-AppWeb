@@ -25,4 +25,12 @@ export class AuditoriaService {
   guardarNuevaNotaDebito(payload: any) {
     return this.http.post(`${this.apiUrl}/nueva-nota-debito`, payload);
   }
+
+  registrarMetricaUsabilidad(payload: any) {
+    return this.http.post(`${this.apiUrl}/telemetria/usabilidad`, payload);
+  }
+
+  registrarMetricasLote(payloads: any[]) {
+    return this.http.post(`${this.apiUrl}/telemetria/usabilidad/lote`, payloads);
+  }
 }
