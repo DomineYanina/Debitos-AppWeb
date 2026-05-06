@@ -92,6 +92,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   modalAlertaVisible: boolean = false;
   modalAlertaMensaje: string = '';
   modalAlertaCallback: any = null;
+  modalAlertaTipo: 'exito' | 'error' | 'peligro' | 'normal' = 'normal';
 
   filtroPaciente: string = '';
   filtroProfesional: string = '';
@@ -244,6 +245,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de refactura.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
 
       this.modalAceptarCb = () => {
+        // Disparamos métrica: Sobreescritura masiva confirmada (Refactura)
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_REFACTURA',
+          cantidadRegistrosPendientes: registrosConPrevio.length
+        }).subscribe({ error: () => {} });
+
         this.ejecutarMasivoRefactura(motivo, true);
         this.cerrarModal();
       };
@@ -328,7 +337,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     });
 
     if (aplicados === 0) {
-      this.mostrarAlerta("No se aplicó el comentario porque ninguna de las filas seleccionadas tiene el Débito Aceptado marcado como 'NO'.");
+      // Disparar métrica
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}...`,
+        evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
+        cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
+      }).subscribe({ error: () => {} });
+
+      this.mostrarAlerta("No se aplicó el comentario porque ninguna de las filas seleccionadas tiene el Débito Aceptado marcado como 'NO'.", undefined, 'error');
     } else if (aplicados < this.registrosSeleccionados.length) {
       this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s) que tenían el Débito Aceptado en 'NO'. Las demás fueron ignoradas para no generar datos inconsistentes.`);
     }
@@ -351,8 +368,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     });
 
     if (aplicados === 0) {
-      this.mostrarAlerta("No se aplicó el comentario porque ninguna fila seleccionada tiene un Motivo de Débito cargado.");
-    } else if (aplicados < this.registrosSeleccionados.length) {
+      // Disparar métrica
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}...`,
+        evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
+        cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
+      }).subscribe({ error: () => {} });
+
+      this.mostrarAlerta("No se aplicó el comentario porque ninguna fila seleccionada tiene un Motivo de Débito cargado.", undefined, 'error');
+    }else if (aplicados < this.registrosSeleccionados.length) {
       this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s). Las demás fueron ignoradas por no tener Motivo de Débito.`);
     }
 
@@ -371,7 +396,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   onBuscar() {
     if (this.modificadosSinGuardar.size > 0) {
-      this.mostrarAlerta("Tenés registros sin guardar del documento actual. Por favor, guardá los cambios antes de buscar uno nuevo.");
+
+      // CORRECCIÓN: Usamos camelCase (documentoReferencia y cantidadRegistrosPendientes)
+      const payloadTelemetria = {
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: this.tipoBusquedaRealizada ?
+          `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}` : 'SIN_DOCUMENTO_CARGADO',
+        evento: 'INTENTO_BUSCAR_SIN_GUARDAR',
+        cantidadRegistrosPendientes: this.modificadosSinGuardar.size
+      };
+
+      // Disparamos la petición silenciosamente
+      this.auditoriaService.registrarMetricaUsabilidad(payloadTelemetria).subscribe({
+        error: (e) => console.warn('Fallo silencioso al registrar métrica', e)
+      });
+
+      // Mostramos el cartel ROJO de peligro al instante
+      this.mostrarAlerta("Tenés registros sin guardar del documento actual. Por favor, guardá los cambios antes de buscar uno nuevo.", undefined, 'peligro');
       return;
     }
     if (this.busquedaForm.valid) {
@@ -399,15 +440,26 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           this.cargando = false;
         },
         error: (err) => {
-          if (err.status === 404) {
-            this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.');
-          } else {
-            this.mostrarAlerta('Ocurrió un error al intentar comunicarse con el servidor.');
-          }
+          console.error(err);
+
+          // Métrica específica para errores de búsqueda
+          this.auditoriaService.registrarMetricaUsabilidad({
+            usuario: this.authService.obtenerUsuario(),
+            documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            evento: `ERROR_HTTP_${err.status}_AL_BUSCAR`,
+            cantidadRegistrosPendientes: this.modificadosSinGuardar.size // Usamos la variable correcta acá
+          }).subscribe({ error: () => {} });
+
           this.cargando = false;
+
+          if (err.status === 404) {
+            this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.', undefined, 'error');
+          } else {
+            this.mostrarAlerta('Ocurrió un error al intentar comunicarse con el servidor.', undefined, 'error');
+          }
           this.cdr.detectChanges();
         }
-      });
+      }); // <-- Asegurate de que cierre así
     }
   }
 
@@ -451,6 +503,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de débito.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
 
       this.modalAceptarCb = () => {
+        // Disparamos métrica: Sobreescritura masiva confirmada (Débito)
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_DEBITO',
+          cantidadRegistrosPendientes: registrosConPrevio.length // Cantidad de celdas pisadas
+        }).subscribe({ error: () => {} });
+
         this.ejecutarMasivoDebito(motivo, true);
         this.cerrarModal();
       };
@@ -606,7 +666,20 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   onLogout() {
     if (this.modificadosSinGuardar.size > 0) {
-      this.mostrarAlerta("Tenés registros sin guardar. Por favor, guardá los cambios antes de cerrar sesión.");
+
+      const payloadTelemetria = {
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: this.tipoBusquedaRealizada ?
+          `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}` : 'SIN_DOCUMENTO_CARGADO',
+        evento: 'INTENTO_LOGOUT_SIN_GUARDAR',
+        cantidadRegistrosPendientes: this.modificadosSinGuardar.size
+      };
+
+      this.auditoriaService.registrarMetricaUsabilidad(payloadTelemetria).subscribe({
+        error: (e) => console.warn('Fallo silencioso al registrar métrica', e)
+      });
+
+      this.mostrarAlerta("Tenés registros sin guardar. Por favor, guardá los cambios antes de cerrar sesión.", undefined, 'peligro');
       return;
     }
     this.authService.logout();
@@ -696,13 +769,24 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   guardarParcialmente(silencioso: boolean = false) {
+
     const registrosParaGuardar = this.prestaciones.filter(p => {
       if (this.tipoBusquedaRealizada === 'NC') return p.motivoRefactura && p.motivoRefactura.trim() !== '';
       return p.motivoDebito && p.motivoDebito.trim() !== '';
     });
 
     if (registrosParaGuardar.length === 0) {
-      if (!silencioso) this.mostrarAlerta('No hay registros con motivos asignados para guardar.');
+      if (!silencioso) {
+        // Disparar métrica
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'INTENTO_GUARDAR_VACIO',
+          cantidadRegistrosPendientes: 0
+        }).subscribe({ error: () => {} });
+
+        this.mostrarAlerta('No hay registros con motivos asignados para guardar.', undefined, 'error');
+      }
       return;
     }
 
@@ -728,18 +812,26 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           this.guardandoSilencioso = false;
         } else {
           this.cargando = false;
-          this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!');
+          this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!', undefined, 'exito');
         }
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
+
+        // Métrica específica para fallos al guardar
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: `ERROR_HTTP_${err.status}_AL_GUARDAR`,
+          cantidadRegistrosPendientes: registrosParaGuardar.length // Acá SI existe esta variable
+        }).subscribe({ error: () => {} });
+
         if (silencioso) {
           this.guardandoSilencioso = false;
-          // Falla en silencio para no bloquear la pantalla, pero se reintentará en 10 seg
         } else {
           this.cargando = false;
-          this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.');
+          this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.', undefined, 'error');
         }
         this.cdr.detectChanges();
       }
@@ -750,9 +842,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     return this.prestacionesFiltradas.some(p => p.motivoDebito === 'Prestacion incluida en otra');
   }
 
-  mostrarAlerta(mensaje: string, callback?: () => void) {
+  mostrarAlerta(mensaje: string, callback?: () => void, tipo: 'exito' | 'error' | 'peligro' | 'normal' = 'normal') {
     this.modalAlertaMensaje = mensaje;
     this.modalAlertaCallback = callback || null;
+    this.modalAlertaTipo = tipo;
     this.modalAlertaVisible = true;
     this.cdr.detectChanges();
   }
@@ -777,10 +870,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
     // Si el valor contiene algún dígito del 0 al 9
     if (/[0-9]/.test(valor)) {
-      this.mostrarAlerta('El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.', () => {
-        // Limpiamos el campo del formulario correspondiente
-        formActual.patchValue({ letra: '' });
-      });
+      // Disparar métrica
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        // Usamos un ternario para saber exactamente dónde se equivocó el usuario
+        documentoReferencia: tipoFormulario === 'busqueda' ? 'FORMULARIO_BUSQUEDA' : 'FORMULARIO_NUEVA_NOTA',
+        evento: 'ERROR_TIPEO_LETRA_NUMERO',
+        cantidadRegistrosPendientes: this.modificadosSinGuardar.size // Dato real
+      }).subscribe({ error: () => {} });
+
+      this.mostrarAlerta(
+        'El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.',
+        () => {
+          // Limpiamos el campo del formulario correspondiente
+          formActual.patchValue({ letra: '' });
+        },
+        'error'
+      );
     } else {
       // Forzamos la mayúscula en el formulario correspondiente
       formActual.patchValue({ letra: valor.toUpperCase() }, { emitEvent: false });
@@ -794,7 +900,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     if (tipo === 'NC') {
       const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
       if (prestacionesConDebito.length === 0) {
-        this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.');
+        this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.', undefined, 'error');
         return;
       }
       this.nuevaNotaForm.reset({ tipo: 'NC' });
@@ -803,7 +909,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       const prestacionesConRefactura = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
 
       if (prestacionesConRefactura.length === 0) {
-        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND. Solo se refacturan los débitos rechazados.');
+        // Disparar métrica
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'INTENTO_CREAR_ND_SIN_RECHAZOS',
+          cantidadRegistrosPendientes: 0
+        }).subscribe({ error: () => {} });
+
+        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND', undefined, 'error');
         return;
       }
       this.nuevaNotaForm.reset({ tipo: 'ND' });
@@ -820,7 +934,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   guardarNuevaNotaBD() {
     if (this.nuevaNotaForm.invalid) {
-      this.mostrarAlerta('Por favor, complete todos los campos correctamente.');
+      this.mostrarAlerta('Por favor, complete todos los campos correctamente.', undefined, 'error');
       return;
     }
 
@@ -861,15 +975,24 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     request$.subscribe({
       next: () => {
         this.cerrarModalNuevaNota();
-        this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`);
+        this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`, undefined, 'exito');
         this.cargando = false;
         this.cdr.detectChanges();
         this.modificadosSinGuardar.clear();
       },
       error: (err) => {
         console.error(err);
-        this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`);
+
+        // Métrica específica para fallos al generar notas
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: `ERROR_HTTP_${err.status}_AL_CREAR_NOTA_${this.tipoNuevaNota}`,
+          cantidadRegistrosPendientes: registrosParaGuardar.length
+        }).subscribe({ error: () => {} });
+
         this.cargando = false;
+        this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`, undefined, 'error');
         this.cdr.detectChanges();
       }
     });
@@ -919,8 +1042,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
 
         this.modalAceptarCb = () => {
+          // Disparamos métrica: Sobreescritura individual confirmada (Débito)
+          this.auditoriaService.registrarMetricaUsabilidad({
+            usuario: this.authService.obtenerUsuario(),
+            documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_DEBITO',
+            cantidadRegistrosPendientes: 1
+          }).subscribe({ error: () => {} });
+
           this.ejecutarIndividualDebito(p, nuevo);
-          event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila (para mostrar el importe nuevo)
+          event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila
           this.cerrarModal();
         };
 
@@ -942,6 +1073,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.modalMensaje = `Este registro ya tenía un motivo de refactura ("${previo}").\n¿Desea reemplazarlo?`;
 
         this.modalAceptarCb = () => {
+          // Disparamos métrica: Sobreescritura individual confirmada (Refactura)
+          this.auditoriaService.registrarMetricaUsabilidad({
+            usuario: this.authService.obtenerUsuario(),
+            documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_REFACTURA',
+            cantidadRegistrosPendientes: 1
+          }).subscribe({ error: () => {} });
+
           this.ejecutarIndividualRefactura(p, nuevo);
           event.api.refreshCells({ rowNodes: [event.node] });
           this.cerrarModal();

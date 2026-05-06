@@ -313,8 +313,8 @@
     </div>
   </div>
 
-  <div class="modal-overlay" *ngIf="modalAlertaVisible">
-    <div class="modal-box">
+  <div class="modal-overlay" *ngIf="modalAlertaVisible" [style.background-color]="modalAlertaTipo === 'peligro' ? 'rgb(185 0 0 / 60%)' : ''">
+    <div class="modal-box" [style.border]="modalAlertaTipo === 'exito' ? '3px solid #28a745' : (modalAlertaTipo === 'error' ? '3px solid #dc3545' : '')">
       <div class="modal-header"><h3>Aviso del Sistema</h3></div>
       <div class="modal-body"><p class="texto-modal">{{ modalAlertaMensaje }}</p></div>
       <div class="modal-footer" style="justify-content: center;">
