@@ -1,6 +1,8 @@
 package com.debitos.backend.controller;
 
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
+import com.debitos.backend.model.RegistroUsabilidad;
+import com.debitos.backend.repository.RegistroUsabilidadRepository;
 import com.debitos.backend.service.AuditoriaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,9 @@ public class AuditoriaController {
 
     @Autowired
     private AuditoriaService auditoriaService;
+
+    @Autowired
+    private RegistroUsabilidadRepository registroUsabilidadRepository;
 
     @GetMapping("/buscar")
     public ResponseEntity<?> buscar(
@@ -53,5 +58,18 @@ public class AuditoriaController {
     public ResponseEntity<Map<String, String>> guardarNuevaNotaDebito(@RequestBody Map<String, Object> payload) {
         auditoriaService.procesarNuevaNotaDebito(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Débito generada exitosamente"));
+    }
+
+    @PostMapping("/telemetria/usabilidad")
+    public ResponseEntity<?> registrarUsabilidad(@RequestBody RegistroUsabilidad metrica) {
+        registroUsabilidadRepository.save(metrica);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/telemetria/usabilidad/lote")
+    public ResponseEntity<?> registrarUsabilidadLote(@RequestBody List<RegistroUsabilidad> metricas) {
+        // saveAll es muchísimo más rápido y eficiente para guardar muchos registros a la vez
+        registroUsabilidadRepository.saveAll(metricas);
+        return ResponseEntity.ok().build();
     }
 }

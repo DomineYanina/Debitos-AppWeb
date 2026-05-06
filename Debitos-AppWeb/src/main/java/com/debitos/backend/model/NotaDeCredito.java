@@ -3,6 +3,7 @@ package com.debitos.backend.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 
 @Entity
 @Table(name = "notadecredito")
@@ -51,6 +52,9 @@ public class NotaDeCredito {
     private String usuario;
     private String tiporegistro;
     private Boolean cargadocompletamente;
+
+    @Column(name = "fecha_registro")
+    private ZonedDateTime fechaRegistro;
 
     // ==========================================
     // GETTERS Y SETTERS
@@ -214,5 +218,20 @@ public class NotaDeCredito {
 
     public void setCargadocompletamente(Boolean cargadocompletamente) {
         this.cargadocompletamente = cargadocompletamente;
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void actualizarFechaRegistro() {
+        this.fechaRegistro = ZonedDateTime.now();
+    }
+
+    // ... tus getters y setters habituales ...
+    public ZonedDateTime getFechaRegistro() {
+        return fechaRegistro;
+    }
+
+    public void setFechaRegistro(ZonedDateTime fechaRegistro) {
+        this.fechaRegistro = fechaRegistro;
     }
 }

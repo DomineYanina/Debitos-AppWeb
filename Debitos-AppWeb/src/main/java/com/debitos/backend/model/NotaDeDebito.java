@@ -3,6 +3,7 @@ package com.debitos.backend.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 
 @Entity
 @Table(name = "notadedebito")
@@ -47,6 +48,9 @@ public class NotaDeDebito {
     private String tiporegistro;
     private Boolean cargadocompletamente;
     private Boolean cargarcompletamente;
+
+    @Column(name = "fecha_registro")
+    private ZonedDateTime fechaRegistro;
 
     public Integer getId() {
         return id;
@@ -200,4 +204,17 @@ public class NotaDeDebito {
         this.cargarcompletamente = cargarcompletamente;
     }
 
+    @PrePersist
+    @PreUpdate
+    public void actualizarFechaRegistro() {
+        this.fechaRegistro = ZonedDateTime.now();
+    }
+
+    public ZonedDateTime getFechaRegistro() {
+        return fechaRegistro;
+    }
+
+    public void setFechaRegistro(ZonedDateTime fechaRegistro) {
+        this.fechaRegistro = fechaRegistro;
+    }
 }

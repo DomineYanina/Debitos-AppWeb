@@ -12,8 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class AuditoriaService {
@@ -56,10 +58,27 @@ public class AuditoriaService {
         String tipoRegistro = obtenerTipoRegistro(documentoOrigen, letra, ptovta, numero);
         List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
+        if (registros == null || registros.isEmpty()) return;
+
+        // 1. LECTURA EN LOTE: Extraemos todos los IDs y hacemos un solo SELECT
+        List<Integer> idsPrestaciones = registros.stream()
+                .map(p -> ((Number) p.get("id")).intValue())
+                .toList();
+
+        Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
+                .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
+
+        // 2. LISTAS DE ACUMULACIÓN: Para evitar escribir de a uno
+        List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
+        List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
+
         for (Map<String, Object> p : registros) {
             Integer idPrestacion = ((Number) p.get("id")).intValue();
-            AmbLiquidado prestacion = ambLiquidadoRepository.findById(idPrestacion)
-                    .orElseThrow(() -> new RuntimeException("Prestación no encontrada: " + idPrestacion));
+            AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
+
+            if (prestacion == null) {
+                throw new RuntimeException("Prestación no encontrada: " + idPrestacion);
+            }
 
             BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
             BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
@@ -67,9 +86,6 @@ public class AuditoriaService {
             Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
             String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante") : "";
 
-            // =========================================================
-            // CASO 1: Viene de FC -> Crea/Actualiza Nota de Crédito
-            // =========================================================
             if ("FC".equals(documentoOrigen)) {
                 NotaDeCredito nc = notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(idPrestacion)
                         .orElse(new NotaDeCredito());
@@ -89,11 +105,8 @@ public class AuditoriaService {
 
                 if (nc.getId() == null) nc.setCargadocompletamente(false);
 
-                notaDeCreditoRepository.save(nc);
+                notasCreditoAGuardar.add(nc); // ACUMULAMOS
             }
-            // =========================================================
-            // CASO 2: Viene de NC -> Crea/Actualiza Nota de Débito
-            // =========================================================
             else if ("NC".equals(documentoOrigen)) {
                 notaDeCreditoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ncPadre -> {
@@ -115,12 +128,9 @@ public class AuditoriaService {
                                 nd.setCargarcompletamente(false);
                             }
 
-                            notaDeDebitoRepository.save(nd);
+                            notasDebitoAGuardar.add(nd); // ACUMULAMOS
                         });
             }
-            // =========================================================
-            // CASO 3: Viene de ND -> Crea/Actualiza Nota de Crédito
-            // =========================================================
             else if ("ND".equals(documentoOrigen)) {
                 notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ndPadre -> {
@@ -143,9 +153,17 @@ public class AuditoriaService {
 
                             if (nc.getId() == null) nc.setCargadocompletamente(false);
 
-                            notaDeCreditoRepository.save(nc);
+                            notasCreditoAGuardar.add(nc); // ACUMULAMOS
                         });
             }
+        }
+
+        // 3. ESCRITURA EN LOTE: Guardamos todo junto
+        if (!notasCreditoAGuardar.isEmpty()) {
+            notaDeCreditoRepository.saveAll(notasCreditoAGuardar);
+        }
+        if (!notasDebitoAGuardar.isEmpty()) {
+            notaDeDebitoRepository.saveAll(notasDebitoAGuardar);
         }
     }
 
@@ -160,22 +178,26 @@ public class AuditoriaService {
 
         if (registros == null || registros.isEmpty()) return;
 
+        List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
+        Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
+                .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
+
+        List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
+
         Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
         Integer numero = Integer.valueOf(datosNota.get("numero").toString());
-        // Convertimos el java.sql.Date a LocalDate para la entidad JPA
         java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.get("fecha").toString()).toLocalDate();
         String tipoDoc = (String) datosNota.get("tipo");
         String letraDoc = (String) datosNota.get("letra");
 
         for (Map<String, Object> p : registros) {
             Integer idPrestacion = ((Number) p.get("id")).intValue();
-            AmbLiquidado prestacion = ambLiquidadoRepository.findById(idPrestacion).orElse(null);
+            AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
             if (prestacion == null) continue;
 
             BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
             Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
 
-            // Candado Definitivo implementado con Spring Data JPA
             notaDeCreditoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionIdAndDebitoaceptadoFalse(
                     (String) payload.get("letraOriginal"),
                     Integer.valueOf(payload.get("ptovtaOriginal").toString()),
@@ -200,12 +222,16 @@ public class AuditoriaService {
                 nd.setUsuario(usuario);
                 nd.setTiporegistro(tipoRegistro);
                 nd.setCodigo((String) p.get("codigo"));
-                nd.setCargadocompletamente(true); // Al ser final, marcamos como true
+                nd.setCargadocompletamente(true);
 
                 if (nd.getId() == null) nd.setCargarcompletamente(true);
 
-                notaDeDebitoRepository.save(nd);
+                notasDebitoAGuardar.add(nd); // ACUMULAMOS
             });
+        }
+
+        if (!notasDebitoAGuardar.isEmpty()) {
+            notaDeDebitoRepository.saveAll(notasDebitoAGuardar); // GUARDAMOS EN LOTE
         }
     }
 
@@ -221,6 +247,12 @@ public class AuditoriaService {
 
         if (registros == null || registros.isEmpty()) return;
 
+        List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
+        Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
+                .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
+
+        List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
+
         Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
         Integer numero = Integer.valueOf(datosNota.get("numero").toString());
         java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.get("fecha").toString()).toLocalDate();
@@ -229,7 +261,7 @@ public class AuditoriaService {
 
         for (Map<String, Object> p : registros) {
             Integer idPrestacion = ((Number) p.get("id")).intValue();
-            AmbLiquidado prestacion = ambLiquidadoRepository.findById(idPrestacion).orElse(null);
+            AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
             if (prestacion == null) continue;
 
             BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
@@ -261,7 +293,7 @@ public class AuditoriaService {
                 nc.setTiporegistro(tipoRegistro);
                 nc.setCargadocompletamente(true);
 
-                notaDeCreditoRepository.save(nc);
+                notasCreditoAGuardar.add(nc); // ACUMULAMOS
 
             } else if ("ND".equals(origen)) {
                 notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(
@@ -293,9 +325,13 @@ public class AuditoriaService {
                     nc.setTiporegistro(tipoRegistro);
                     nc.setCargadocompletamente(true);
 
-                    notaDeCreditoRepository.save(nc);
+                    notasCreditoAGuardar.add(nc); // ACUMULAMOS
                 });
             }
+        }
+
+        if (!notasCreditoAGuardar.isEmpty()) {
+            notaDeCreditoRepository.saveAll(notasCreditoAGuardar); // GUARDAMOS EN LOTE
         }
     }
 
