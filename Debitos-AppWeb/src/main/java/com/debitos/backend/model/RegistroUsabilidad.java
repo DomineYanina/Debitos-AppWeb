@@ -13,7 +13,7 @@ public class RegistroUsabilidad {
 
     private String usuario;
 
-    @Column(name = "fecha_hora", insertable = false, updatable = false)
+    @Column(name = "fecha_hora")
     private ZonedDateTime fechaHora;
 
     @Column(name = "documento_referencia")

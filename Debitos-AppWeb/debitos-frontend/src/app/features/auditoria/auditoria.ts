@@ -37,19 +37,56 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   @HostListener('window:beforeunload', ['$event'])
   alIntentarCerrar($event: BeforeUnloadEvent) {
     if (this.modificadosSinGuardar.size > 0) {
+
+      // 1. Armamos el registro de telemetría (AHORA CON FECHA)
+      const payloadTelemetria = {
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: this.tipoBusquedaRealizada ?
+          `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}` : 'SIN_DOCUMENTO_CARGADO',
+        evento: 'INTENTO_CERRAR_PESTANA_SIN_GUARDAR',
+        cantidadRegistrosPendientes: this.modificadosSinGuardar.size,
+        fechaHora: new Date().toISOString() // <-- ESTA ES LA MAGIA QUE FALTABA
+      };
+
+      // 2. Disparamos la métrica silenciosamente (Fire and Forget)
+      this.auditoriaService.registrarMetricaUsabilidad(payloadTelemetria).subscribe({
+        error: (err) => {
+          console.warn('[Telemetría] Fallo al registrar cierre de pestaña', err);
+
+          // Si el servidor local está apagado, guardamos en la caja negra (Store and Forward)
+          if (err.status === 0) {
+            this.guardarMetricaEnLocal(payloadTelemetria);
+          }
+        }
+      });
+
+      // 3. Frenamos el cierre y mostramos el cartel nativo del navegador
       $event.preventDefault();
       $event.returnValue = 'Tenés cambios sin guardar. ¿Seguro que querés salir?';
     }
   }
 
-  // === INICIAMOS EL TEMPORIZADOR INTELIGENTE ===
   ngOnInit() {
-    // Si pasan 10 segundos (10000 ms) sin que el usuario teclee nada, guarda en silencio
     this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
       if (this.modificadosSinGuardar.size > 0) {
-        this.guardarParcialmente(true); // true = modo silencioso (no tira alertas)
+        this.guardarParcialmente(true);
       }
     });
+
+    // --- NUEVO: STORE AND FORWARD ---
+    const pendientesStr = localStorage.getItem('telemetria_pendientes');
+    if (pendientesStr) {
+      const pendientes = JSON.parse(pendientesStr);
+      if (pendientes.length > 0) {
+        this.auditoriaService.registrarMetricasLote(pendientes).subscribe({
+          next: () => {
+            console.log(`[Telemetría] ${pendientes.length} métricas atrasadas sincronizadas con éxito.`);
+            localStorage.removeItem('telemetria_pendientes'); // Vaciamos la caja negra
+          },
+          error: (err) => console.warn('[Telemetría] El servidor sigue caído, las métricas se retendrán.', err)
+        });
+      }
+    }
   }
 
   ngOnDestroy() {
@@ -216,6 +253,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.modalMensaje = `¿Estás seguro de que querés borrar el contenido de las ${this.registrosSeleccionados.length} filas seleccionadas?`;
 
     this.modalAceptarCb = () => {
+      // Métrica: El usuario borró sus propios datos conscientemente
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+        evento: 'LIMPIEZA_FILAS_CONFIRMADA',
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: this.registrosSeleccionados.length // Cantidad de filas blanqueadas
+      }).subscribe({ error: () => {} });
+
       this.registrosSeleccionados.forEach(p => {
         p.debitoAceptado = '';
         p.motivoDebito = '';
@@ -250,6 +296,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           usuario: this.authService.obtenerUsuario(),
           documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_REFACTURA',
+          fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosConPrevio.length
         }).subscribe({ error: () => {} });
 
@@ -342,6 +389,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         usuario: this.authService.obtenerUsuario(),
         documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}...`,
         evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
+        fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
       }).subscribe({ error: () => {} });
 
@@ -373,6 +421,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         usuario: this.authService.obtenerUsuario(),
         documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}...`,
         evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
+        fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
       }).subscribe({ error: () => {} });
 
@@ -395,72 +444,96 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   onBuscar() {
+    // 1. PRIMER CANDADO: Verificar si hay cambios sin guardar
     if (this.modificadosSinGuardar.size > 0) {
 
-      // CORRECCIÓN: Usamos camelCase (documentoReferencia y cantidadRegistrosPendientes)
       const payloadTelemetria = {
         usuario: this.authService.obtenerUsuario(),
         documentoReferencia: this.tipoBusquedaRealizada ?
           `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}` : 'SIN_DOCUMENTO_CARGADO',
         evento: 'INTENTO_BUSCAR_SIN_GUARDAR',
+        fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.modificadosSinGuardar.size
       };
 
-      // Disparamos la petición silenciosamente
       this.auditoriaService.registrarMetricaUsabilidad(payloadTelemetria).subscribe({
         error: (e) => console.warn('Fallo silencioso al registrar métrica', e)
       });
 
-      // Mostramos el cartel ROJO de peligro al instante
       this.mostrarAlerta("Tenés registros sin guardar del documento actual. Por favor, guardá los cambios antes de buscar uno nuevo.", undefined, 'peligro');
-      return;
+      return; // Cortamos la ejecución
     }
-    if (this.busquedaForm.valid) {
-      this.cargando = true; // Bloqueamos la UI
 
-      const filtros = { ...this.busquedaForm.value };
-      filtros.letra = filtros.letra ? filtros.letra.toUpperCase() : '';
-      this.auditoriaService.buscarPrestaciones(filtros).subscribe({
-        next: (data) => {
-          this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
+    // 2. SEGUNDO CANDADO: Verificar si el formulario de búsqueda es inválido
+    if (this.busquedaForm.invalid) {
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: 'FORMULARIO_BUSQUEDA',
+        evento: 'INTENTO_BUSQUEDA_FORMULARIO_INVALIDO',
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: 0
+      }).subscribe({ error: () => {} });
 
-          this.prestaciones = data.map((p: any) => {
-            // El backend ya envía 'SI', 'NO' o null. Solo convertimos los nulls a texto vacío.
-            p.debitoAceptado = p.debitoAceptado || '';
-            return p as Prestacion;
-          });
+      this.mostrarAlerta('Revise los datos de búsqueda, faltan campos obligatorios.', undefined, 'error');
+      return; // Cortamos la ejecución
+    }
 
-          this.prestacionesFiltradas = [...this.prestaciones];
+    // 3. SI PASÓ LOS DOS CANDADOS, SE EJECUTA LA BÚSQUEDA
+    this.cargando = true; // Bloqueamos la UI
 
-          this.prepararFiltros(this.prestaciones);
-          this.aplicarFiltros();
-          this.configurarColumnas();
-          this.cdr.detectChanges();
+    const filtros = { ...this.busquedaForm.value };
+    filtros.letra = filtros.letra ? filtros.letra.toUpperCase() : '';
 
-          this.cargando = false;
-        },
-        error: (err) => {
-          console.error(err);
+    this.auditoriaService.buscarPrestaciones(filtros).subscribe({
+      next: (data) => {
+        this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
 
-          // Métrica específica para errores de búsqueda
-          this.auditoriaService.registrarMetricaUsabilidad({
+        this.prestaciones = data.map((p: any) => {
+          p.debitoAceptado = p.debitoAceptado || '';
+          return p as Prestacion;
+        });
+
+        this.prestacionesFiltradas = [...this.prestaciones];
+
+        this.prepararFiltros(this.prestaciones);
+        this.aplicarFiltros();
+        this.configurarColumnas();
+        this.cdr.detectChanges();
+
+        this.cargando = false;
+      },
+      error: (err) => {
+        console.error(err);
+        this.cargando = false;
+
+        if (err.status === 0) {
+          this.guardarMetricaEnLocal({
             usuario: this.authService.obtenerUsuario(),
             documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
-            evento: `ERROR_HTTP_${err.status}_AL_BUSCAR`,
-            cantidadRegistrosPendientes: this.modificadosSinGuardar.size // Usamos la variable correcta acá
-          }).subscribe({ error: () => {} });
+            evento: 'ERROR_CONEXION_0_AL_BUSCAR',
+            cantidadRegistrosPendientes: this.modificadosSinGuardar.size
+          });
 
-          this.cargando = false;
-
-          if (err.status === 404) {
-            this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.', undefined, 'error');
-          } else {
-            this.mostrarAlerta('Ocurrió un error al intentar comunicarse con el servidor.', undefined, 'error');
-          }
+          this.mostrarAlerta('No hay conexión con el servidor. Verifique que la computadora central esté encendida y conectada a la red.', undefined, 'error');
           this.cdr.detectChanges();
+          return;
         }
-      }); // <-- Asegurate de que cierre así
-    }
+
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: `ERROR_HTTP_${err.status}_AL_BUSCAR`,
+          cantidadRegistrosPendientes: this.modificadosSinGuardar.size
+        }).subscribe({ error: () => {} });
+
+        if (err.status === 404) {
+          this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.', undefined, 'error');
+        } else {
+          this.mostrarAlerta(`Ocurrió un error (Código ${err.status}) al intentar comunicarse con el servidor.`, undefined, 'error');
+        }
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   ejecutarIndividualRefactura(p: Prestacion, nuevoMotivo: string) {
@@ -494,8 +567,36 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   aplicarMotivoMasivo() {
-    if (this.registrosSeleccionados.length === 0 || !this.motivoMasivoSeleccionado) return;
+    // 1. Validación: Intento de aplicar sin seleccionar filas
+    if (this.registrosSeleccionados.length === 0) {
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: this.tipoBusquedaRealizada ?
+          `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}` : 'SIN_DOCUMENTO_CARGADO',
+        evento: 'INTENTO_ACCION_MASIVA_SIN_FILAS',
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: 0
+      }).subscribe({ error: () => {} });
 
+      this.mostrarAlerta('Primero tenés que seleccionar al menos una fila en la grilla usando las casillas de verificación.', undefined, 'error');
+      return;
+    }
+
+    // 2. Validación: Intento de aplicar sin elegir un motivo del combo
+    if (!this.motivoMasivoSeleccionado) {
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+        evento: 'INTENTO_ACCION_MASIVA_SIN_MOTIVO',
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: this.registrosSeleccionados.length
+      }).subscribe({ error: () => {} });
+
+      this.mostrarAlerta('Seleccioná un motivo de débito del menú desplegable antes de aplicar.', undefined, 'error');
+      return;
+    }
+
+    // 3. Ejecución normal si pasa las validaciones
     const motivo = this.motivoMasivoSeleccionado;
     const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoDebito && p.motivoDebito !== '');
 
@@ -508,6 +609,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           usuario: this.authService.obtenerUsuario(),
           documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_DEBITO',
+          fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosConPrevio.length // Cantidad de celdas pisadas
         }).subscribe({ error: () => {} });
 
@@ -633,9 +735,21 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.prepararFiltros(this.prestacionesFiltradas);
 
     // ¡CLAVE! Calculamos totales solo una vez después de filtrar
+    // Al final del método aplicarFiltros()
     this.calcularTotales();
     this.actualizarEstadoSeleccion();
     this.actualizarPaginacion();
+
+    // Métrica: Los filtros ocultaron toda la información
+    if (this.prestaciones.length > 0 && this.prestacionesFiltradas.length === 0) {
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+        evento: 'GRILLA_VACIA_POR_FILTROS_ACTIVOS',
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: 0
+      }).subscribe({ error: () => {} });
+    }
   }
 
   actualizarEstadoSeleccion() {
@@ -672,6 +786,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         documentoReferencia: this.tipoBusquedaRealizada ?
           `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}` : 'SIN_DOCUMENTO_CARGADO',
         evento: 'INTENTO_LOGOUT_SIN_GUARDAR',
+        fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.modificadosSinGuardar.size
       };
 
@@ -715,17 +830,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       return 0;
     });
     this.actualizarPaginacion();
+    this.auditoriaService.registrarMetricaUsabilidad({
+      usuario: this.authService.obtenerUsuario(),
+      documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+      evento: `GRILLA_ORDENADA_POR_${String(columna).toUpperCase()}_${this.direccionOrden.toUpperCase()}`,
+      fechaHora: new Date().toISOString(),
+      cantidadRegistrosPendientes: 0
+    }).subscribe({ error: () => {} });
   }
 
   toggleSelectAll(event: Event) {
     const checkbox = event.target as HTMLInputElement;
     const marcado = checkbox.checked;
 
-    // Actualizamos toda la lista filtrada (rápido en memoria)
     this.prestacionesFiltradas.forEach(p => p.seleccionada = marcado);
     this.actualizarEstadoSeleccion();
     this.cdr.detectChanges();
-    // El HTML solo actualizará las 100 filas de 'prestacionesPaginadas' gracias a OnPush
+
   }
 
   trackByPrestacion(index: number, p: Prestacion): any {
@@ -758,6 +879,28 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   exportarAExcel() {
+    if (this.prestacionesFiltradas.length === 0) {
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+        evento: 'INTENTO_EXPORTAR_EXCEL_VACIO',
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: 0
+      }).subscribe({ error: () => {} });
+
+      this.mostrarAlerta('No hay datos visibles en la grilla para exportar. Revisá los filtros aplicados.', undefined, 'error');
+      return;
+    }
+
+    // Métrica opcional: Exportación exitosa (te sirve para saber qué tanto usan esta función)
+    this.auditoriaService.registrarMetricaUsabilidad({
+      usuario: this.authService.obtenerUsuario(),
+      documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+      evento: 'EXPORTACION_EXCEL_EXITOSA',
+      fechaHora: new Date().toISOString(),
+      cantidadRegistrosPendientes: this.prestacionesFiltradas.length
+    }).subscribe({ error: () => {} });
+
     const f = this.busquedaForm.value;
     const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
 
@@ -782,6 +925,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           usuario: this.authService.obtenerUsuario(),
           documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: 'INTENTO_GUARDAR_VACIO',
+          fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: 0
         }).subscribe({ error: () => {} });
 
@@ -819,12 +963,33 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.error(err);
 
+        if (err.status === 0) {
+          // Guardamos en la caja negra
+          this.guardarMetricaEnLocal({
+            usuario: this.authService.obtenerUsuario(),
+            documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            evento: 'ERROR_CONEXION_0_AL_GUARDAR_PARCIAL',
+            fechaHora: new Date().toISOString(),
+            cantidadRegistrosPendientes: registrosParaGuardar.length
+          });
+
+          if (!silencioso) {
+            this.cargando = false;
+            this.mostrarAlerta('No hay conexión con el servidor. Verifique que la computadora central esté encendida y conectada a la red.', undefined, 'error');
+            this.cdr.detectChanges();
+          } else {
+            this.guardandoSilencioso = false;
+          }
+          return;
+        }
+
         // Métrica específica para fallos al guardar
         this.auditoriaService.registrarMetricaUsabilidad({
           usuario: this.authService.obtenerUsuario(),
           documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: `ERROR_HTTP_${err.status}_AL_GUARDAR`,
-          cantidadRegistrosPendientes: registrosParaGuardar.length // Acá SI existe esta variable
+          fechaHora: new Date().toISOString(),
+          cantidadRegistrosPendientes: registrosParaGuardar.length
         }).subscribe({ error: () => {} });
 
         if (silencioso) {
@@ -876,6 +1041,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         // Usamos un ternario para saber exactamente dónde se equivocó el usuario
         documentoReferencia: tipoFormulario === 'busqueda' ? 'FORMULARIO_BUSQUEDA' : 'FORMULARIO_NUEVA_NOTA',
         evento: 'ERROR_TIPEO_LETRA_NUMERO',
+        fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.modificadosSinGuardar.size // Dato real
       }).subscribe({ error: () => {} });
 
@@ -914,6 +1080,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           usuario: this.authService.obtenerUsuario(),
           documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: 'INTENTO_CREAR_ND_SIN_RECHAZOS',
+          fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: 0
         }).subscribe({ error: () => {} });
 
@@ -934,6 +1101,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   guardarNuevaNotaBD() {
     if (this.nuevaNotaForm.invalid) {
+      // Métrica: Se trabó porque no llenó bien los campos
+      this.auditoriaService.registrarMetricaUsabilidad({
+        usuario: this.authService.obtenerUsuario(),
+        documentoReferencia: 'MODAL_NUEVA_NOTA',
+        evento: `INTENTO_CREAR_NOTA_FORMULARIO_INVALIDO`,
+        fechaHora: new Date().toISOString(),
+        cantidadRegistrosPendientes: 0
+      }).subscribe({ error: () => {} });
+
       this.mostrarAlerta('Por favor, complete todos los campos correctamente.', undefined, 'error');
       return;
     }
@@ -982,16 +1158,32 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error(err);
+        this.cargando = false;
+
+        if (err.status === 0) {
+          // Guardamos en la caja negra
+          this.guardarMetricaEnLocal({
+            usuario: this.authService.obtenerUsuario(),
+            documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            evento: `ERROR_CONEXION_0_AL_CREAR_NOTA_${this.tipoNuevaNota}`,
+            fechaHora: new Date().toISOString(),
+            cantidadRegistrosPendientes: registrosParaGuardar.length
+          });
+
+          this.mostrarAlerta('No hay conexión con el servidor. Verifique que la computadora central esté encendida y conectada a la red.', undefined, 'error');
+          this.cdr.detectChanges();
+          return;
+        }
 
         // Métrica específica para fallos al generar notas
         this.auditoriaService.registrarMetricaUsabilidad({
           usuario: this.authService.obtenerUsuario(),
           documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: `ERROR_HTTP_${err.status}_AL_CREAR_NOTA_${this.tipoNuevaNota}`,
-          cantidadRegistrosPendientes: registrosParaGuardar.length
+          cantidadRegistrosPendientes: registrosParaGuardar.length,
+          fechaHora: new Date().toISOString(),
         }).subscribe({ error: () => {} });
 
-        this.cargando = false;
         this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`, undefined, 'error');
         this.cdr.detectChanges();
       }
@@ -1009,6 +1201,19 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   onSelectionChanged(event: SelectionChangedEvent) {
     this.registrosSeleccionados = event.api.getSelectedRows();
     this.cdr.detectChanges(); // Habilita los botones de acciones masivas
+  }
+
+  private guardarMetricaEnLocal(payload: any) {
+    // 1. Le estampamos la fecha y hora EXACTA del momento del error (en formato ISO 8601)
+    payload.fechaHora = new Date().toISOString();
+
+    // 2. Leemos la "caja negra" del navegador
+    const pendientesStr = localStorage.getItem('telemetria_pendientes');
+    const pendientes: any[] = pendientesStr ? JSON.parse(pendientesStr) : [];
+
+    // 3. Agregamos el nuevo error y volvemos a cerrar la caja
+    pendientes.push(payload);
+    localStorage.setItem('telemetria_pendientes', JSON.stringify(pendientes));
   }
 
   // 3. Evento: Cuando el usuario edita una celda (selects o inputs numéricos)
@@ -1047,6 +1252,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
             usuario: this.authService.obtenerUsuario(),
             documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
             evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_DEBITO',
+            fechaHora: new Date().toISOString(),
             cantidadRegistrosPendientes: 1
           }).subscribe({ error: () => {} });
 
@@ -1078,6 +1284,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
             usuario: this.authService.obtenerUsuario(),
             documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
             evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_REFACTURA',
+            fechaHora: new Date().toISOString(),
             cantidadRegistrosPendientes: 1
           }).subscribe({ error: () => {} });
 

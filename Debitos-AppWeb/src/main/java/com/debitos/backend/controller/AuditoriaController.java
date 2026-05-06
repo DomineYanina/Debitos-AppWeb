@@ -65,4 +65,11 @@ public class AuditoriaController {
         registroUsabilidadRepository.save(metrica);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/telemetria/usabilidad/lote")
+    public ResponseEntity<?> registrarUsabilidadLote(@RequestBody List<RegistroUsabilidad> metricas) {
+        // saveAll es muchísimo más rápido y eficiente para guardar muchos registros a la vez
+        registroUsabilidadRepository.saveAll(metricas);
+        return ResponseEntity.ok().build();
+    }
 }
