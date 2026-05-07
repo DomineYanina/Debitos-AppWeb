@@ -238,10 +238,20 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.prestacionesPaginadas = this.prestacionesFiltradas.slice(indiceInicio, indiceFin);
   }
 
-  registrarCambio(idPrestacion?: number) {
-    if (idPrestacion) {
-      this.modificadosSinGuardar.add(idPrestacion);
+  registrarCambio(p?: Prestacion) {
+    // Le agregamos la validación p.id != null para calmar a TypeScript
+    if (p && p.id != null) {
+      // Evaluamos si la fila realmente tiene algo digno de ser guardado
+      const tieneDebito = p.motivoDebito && p.motivoDebito.trim() !== '';
+      const tieneRefactura = p.motivoRefactura && p.motivoRefactura.trim() !== '';
+
+      if (tieneDebito || tieneRefactura) {
+        this.modificadosSinGuardar.add(p.id); // Lo marcamos como pendiente
+      } else {
+        this.modificadosSinGuardar.delete(p.id); // Lo sacamos de la lista si quedó vacío
+      }
     }
+
     // Le avisa a RxJS que hubo actividad, reiniciando los 10 segundos
     this.autoguardado$.next();
     this.cdr.detectChanges();
@@ -268,9 +278,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         p.importeDebitado = undefined;  // Queda vacío en la grilla
         p.comentariosDebito = '';
         p.motivoRefactura = '';
-        p.importeRefactura = undefined; // Queda vacío en la grilla
+        p.importeRefactura = undefined;
         p.comentarios = '';
-        this.registrarCambio(p.id);
+        this.registrarCambio(p); // <-- CAMBIAR ACÁ
       });
       this.calcularTotales();
       this.cerrarModal();
@@ -319,7 +329,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.registrosSeleccionados.forEach(p => {
       if (!sobreescribirTodos && p.motivoRefactura && p.motivoRefactura !== '') return;
       p.motivoRefactura = motivo === 'Borrar' ? '' : motivo;
-      this.registrarCambio(p.id);
+      this.registrarCambio(p);
     });
 
     this.motivoRefacturaMasivoSeleccionado = '';
@@ -335,7 +345,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
     this.registrosSeleccionados.forEach(p => {
       p.debitoAceptado = valor;
-      this.registrarCambio(p.id);
+      this.registrarCambio(p);
     });
 
     this.debitoAceptadoMasivoSeleccionado = '';
@@ -380,7 +390,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         p.comentarios = this.comentariosMasivo;
         aplicados++;
       }
-      this.registrarCambio(p.id);
+      this.registrarCambio(p);
     });
 
     if (aplicados === 0) {
@@ -640,7 +650,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         p.motivoDebito = motivo;
         if (motivo !== 'No aplica') p.importeDebitado = p.total;
       }
-      this.registrarCambio(p.id);
+      this.registrarCambio(p);
     });
 
     this.motivoMasivoSeleccionado = '';
@@ -1236,7 +1246,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       }
 
       this.calcularTotales();
-      this.registrarCambio(p.id);
+      this.registrarCambio(p);
       // Refrescamos la fila completa para que la celda de Comentarios se bloquee/desbloquee instantáneamente
       event.api.refreshCells({ rowNodes: [event.node], force: true });
       return;
@@ -1325,7 +1335,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       }
       this.calcularTotales();
     }
-    this.registrarCambio(p.id);
+    this.registrarCambio(p);
   }
 
 }
