@@ -17,6 +17,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 import {AuditoriaMathService} from '../../core/services/auditoria-math';
 import {AuditoriaGridConfigService} from '../../core/services/auditoria-grid-config';
+import {InactividadService} from '../../core/services/InactividadService';
 
 @Component({
   selector: 'app-auditoria',
@@ -67,7 +68,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
+    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(60000)).subscribe(() => {
       if (this.modificadosSinGuardar.size > 0) {
         this.guardarParcialmente(true);
       }
@@ -87,10 +88,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         });
       }
     }
+    this.inactividadService.iniciarSeguimiento();
   }
 
   ngOnDestroy() {
     if (this.autoguardadoSub) this.autoguardadoSub.unsubscribe();
+    this.inactividadService.pararSeguimiento();
   }
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
@@ -103,6 +106,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   private mathService = inject(AuditoriaMathService);
   private gridConfigService = inject(AuditoriaGridConfigService);
+  private inactividadService = inject(InactividadService);
 
   importeDebitadoMasivo?: number;
   importeRefacturaMasivo?: number;
