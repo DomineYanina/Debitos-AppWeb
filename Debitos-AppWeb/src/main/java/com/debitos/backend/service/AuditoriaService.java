@@ -38,7 +38,8 @@ public class AuditoriaService {
         };
     }
 
-    public List<PrestacionAuditoriaDTO> obtenerPrestaciones(String facturaTipo, String tipoRegistro, String letra, int ptovta, int numero) {
+    public List<PrestacionAuditoriaDTO> obtenerPrestaciones(String facturaTipo, String tipoRegistro, String letra,
+            int ptovta, int numero) {
         return switch (facturaTipo) {
             case "FC" -> ambLiquidadoRepository.findPrestacionesPorFactura(letra, ptovta, numero);
             case "NC" -> notaDeCreditoRepository.findPrestacionesPorNotaCredito(letra, ptovta, numero);
@@ -58,7 +59,8 @@ public class AuditoriaService {
         String tipoRegistro = obtenerTipoRegistro(documentoOrigen, letra, ptovta, numero);
         List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
-        if (registros == null || registros.isEmpty()) return;
+        if (registros == null || registros.isEmpty())
+            return;
 
         // 1. LECTURA EN LOTE: Extraemos todos los IDs y hacemos un solo SELECT
         List<Integer> idsPrestaciones = registros.stream()
@@ -84,7 +86,8 @@ public class AuditoriaService {
             BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
             Boolean debitoAceptadoBool = parsearBooleano(p.get("debitoAceptado"));
             Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
-            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante") : "";
+            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante")
+                    : "";
 
             if ("FC".equals(documentoOrigen)) {
                 NotaDeCredito nc = notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(idPrestacion)
@@ -103,12 +106,13 @@ public class AuditoriaService {
                 nc.setComentariosDebito((String) p.get("comentariosDebito"));
                 nc.setTiporegistro(tipoRegistro);
 
-                if (nc.getId() == null) nc.setCargadocompletamente(false);
+                if (nc.getId() == null)
+                    nc.setCargadocompletamente(false);
 
                 notasCreditoAGuardar.add(nc); // ACUMULAMOS
-            }
-            else if ("NC".equals(documentoOrigen)) {
-                notaDeCreditoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
+            } else if ("NC".equals(documentoOrigen)) {
+                notaDeCreditoRepository
+                        .findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ncPadre -> {
                             NotaDeDebito nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
                                     .orElse(new NotaDeDebito());
@@ -130,8 +134,7 @@ public class AuditoriaService {
 
                             notasDebitoAGuardar.add(nd); // ACUMULAMOS
                         });
-            }
-            else if ("ND".equals(documentoOrigen)) {
+            } else if ("ND".equals(documentoOrigen)) {
                 notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ndPadre -> {
                             NotaDeCredito nc = notaDeCreditoRepository.findByNotaDeDebitoPadreId(ndPadre.getId())
@@ -151,7 +154,8 @@ public class AuditoriaService {
                             nc.setComentariosDebito((String) p.get("comentariosDebito"));
                             nc.setTiporegistro(tipoRegistro);
 
-                            if (nc.getId() == null) nc.setCargadocompletamente(false);
+                            if (nc.getId() == null)
+                                nc.setCargadocompletamente(false);
 
                             notasCreditoAGuardar.add(nc); // ACUMULAMOS
                         });
@@ -174,9 +178,11 @@ public class AuditoriaService {
         List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
         String tipoRegistro = obtenerTipoRegistro((String) payload.get("origen"), (String) payload.get("letraOriginal"),
-                Integer.valueOf(payload.get("ptovtaOriginal").toString()), Integer.valueOf(payload.get("numeroOriginal").toString()));
+                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
+                Integer.valueOf(payload.get("numeroOriginal").toString()));
 
-        if (registros == null || registros.isEmpty()) return;
+        if (registros == null || registros.isEmpty())
+            return;
 
         List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
@@ -193,7 +199,8 @@ public class AuditoriaService {
         for (Map<String, Object> p : registros) {
             Integer idPrestacion = ((Number) p.get("id")).intValue();
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
-            if (prestacion == null) continue;
+            if (prestacion == null)
+                continue;
 
             BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
             Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
@@ -202,32 +209,32 @@ public class AuditoriaService {
                     (String) payload.get("letraOriginal"),
                     Integer.valueOf(payload.get("ptovtaOriginal").toString()),
                     Integer.valueOf(payload.get("numeroOriginal").toString()),
-                    idPrestacion
-            ).ifPresent(ncPadre -> {
-                NotaDeDebito nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
-                        .orElse(new NotaDeDebito());
+                    idPrestacion).ifPresent(ncPadre -> {
+                        NotaDeDebito nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
+                                .orElse(new NotaDeDebito());
 
-                nd.setPrestacion(prestacion);
-                nd.setNotaDeCreditoPadre(ncPadre);
-                nd.setTipo(tipoDoc);
-                nd.setLetra(letraDoc);
-                nd.setPtovta(puntoVenta);
-                nd.setNumero(numero);
-                nd.setFecha(fechaDoc);
-                nd.setMotivorefactura((String) p.get("motivoRefactura"));
-                nd.setImporterefactura(importeRefactura);
-                nd.setComentarios((String) p.get("comentarios"));
-                nd.setComentariosDebito((String) p.get("comentariosDebito"));
-                nd.setDiasfacturados(diasFacturados);
-                nd.setUsuario(usuario);
-                nd.setTiporegistro(tipoRegistro);
-                nd.setCodigo((String) p.get("codigo"));
-                nd.setCargadocompletamente(true);
+                        nd.setPrestacion(prestacion);
+                        nd.setNotaDeCreditoPadre(ncPadre);
+                        nd.setTipo(tipoDoc);
+                        nd.setLetra(letraDoc);
+                        nd.setPtovta(puntoVenta);
+                        nd.setNumero(numero);
+                        nd.setFecha(fechaDoc);
+                        nd.setMotivorefactura((String) p.get("motivoRefactura"));
+                        nd.setImporterefactura(importeRefactura);
+                        nd.setComentarios((String) p.get("comentarios"));
+                        nd.setComentariosDebito((String) p.get("comentariosDebito"));
+                        nd.setDiasfacturados(diasFacturados);
+                        nd.setUsuario(usuario);
+                        nd.setTiporegistro(tipoRegistro);
+                        nd.setCodigo((String) p.get("codigo"));
+                        nd.setCargadocompletamente(true);
 
-                if (nd.getId() == null) nd.setCargarcompletamente(true);
+                        if (nd.getId() == null)
+                            nd.setCargarcompletamente(true);
 
-                notasDebitoAGuardar.add(nd); // ACUMULAMOS
-            });
+                        notasDebitoAGuardar.add(nd); // ACUMULAMOS
+                    });
         }
 
         if (!notasDebitoAGuardar.isEmpty()) {
@@ -243,9 +250,11 @@ public class AuditoriaService {
         List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
 
         String tipoRegistro = obtenerTipoRegistro(origen, (String) payload.get("letraOriginal"),
-                Integer.valueOf(payload.get("ptovtaOriginal").toString()), Integer.valueOf(payload.get("numeroOriginal").toString()));
+                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
+                Integer.valueOf(payload.get("numeroOriginal").toString()));
 
-        if (registros == null || registros.isEmpty()) return;
+        if (registros == null || registros.isEmpty())
+            return;
 
         List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
@@ -262,13 +271,15 @@ public class AuditoriaService {
         for (Map<String, Object> p : registros) {
             Integer idPrestacion = ((Number) p.get("id")).intValue();
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
-            if (prestacion == null) continue;
+            if (prestacion == null)
+                continue;
 
             BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
             BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
             Boolean debitoAceptadoBool = parsearBooleano(p.get("debitoAceptado"));
             Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
-            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante") : "";
+            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante")
+                    : "";
 
             if ("FC".equals(origen)) {
                 NotaDeCredito nc = notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(idPrestacion)
@@ -300,33 +311,32 @@ public class AuditoriaService {
                         (String) payload.get("letraOriginal"),
                         Integer.valueOf(payload.get("ptovtaOriginal").toString()),
                         Integer.valueOf(payload.get("numeroOriginal").toString()),
-                        idPrestacion
-                ).ifPresent(ndPadre -> {
-                    NotaDeCredito nc = notaDeCreditoRepository.findByNotaDeDebitoPadreId(ndPadre.getId())
-                            .orElse(new NotaDeCredito());
+                        idPrestacion).ifPresent(ndPadre -> {
+                            NotaDeCredito nc = notaDeCreditoRepository.findByNotaDeDebitoPadreId(ndPadre.getId())
+                                    .orElse(new NotaDeCredito());
 
-                    nc.setPrestacion(prestacion);
-                    nc.setNotaDeDebitoPadre(ndPadre);
-                    nc.setTipo(tipoDoc);
-                    nc.setLetra(letraDoc);
-                    nc.setPtovta(puntoVenta);
-                    nc.setNumero(numero);
-                    nc.setFecha(fechaDoc);
-                    nc.setMotivoDebito((String) p.get("motivoDebito"));
-                    nc.setImporteDebitado(importeDebitado);
-                    nc.setDebitoaceptado(debitoAceptadoBool);
-                    nc.setMotivoderefactura((String) p.get("motivoRefactura"));
-                    nc.setImportederefactura(importeRefactura);
-                    nc.setPrestacionenglobante(prestacionEnglobante);
-                    nc.setComentarios((String) p.get("comentarios"));
-                    nc.setComentariosDebito((String) p.get("comentariosDebito"));
-                    nc.setDiasfacturados(diasFacturados);
-                    nc.setUsuario(usuario);
-                    nc.setTiporegistro(tipoRegistro);
-                    nc.setCargadocompletamente(true);
+                            nc.setPrestacion(prestacion);
+                            nc.setNotaDeDebitoPadre(ndPadre);
+                            nc.setTipo(tipoDoc);
+                            nc.setLetra(letraDoc);
+                            nc.setPtovta(puntoVenta);
+                            nc.setNumero(numero);
+                            nc.setFecha(fechaDoc);
+                            nc.setMotivoDebito((String) p.get("motivoDebito"));
+                            nc.setImporteDebitado(importeDebitado);
+                            nc.setDebitoaceptado(debitoAceptadoBool);
+                            nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                            nc.setImportederefactura(importeRefactura);
+                            nc.setPrestacionenglobante(prestacionEnglobante);
+                            nc.setComentarios((String) p.get("comentarios"));
+                            nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                            nc.setDiasfacturados(diasFacturados);
+                            nc.setUsuario(usuario);
+                            nc.setTiporegistro(tipoRegistro);
+                            nc.setCargadocompletamente(true);
 
-                    notasCreditoAGuardar.add(nc); // ACUMULAMOS
-                });
+                            notasCreditoAGuardar.add(nc); // ACUMULAMOS
+                        });
             }
         }
 
@@ -343,8 +353,10 @@ public class AuditoriaService {
     }
 
     private Boolean parsearBooleano(Object valor) {
-        if ("SI".equals(valor)) return true;
-        if ("NO".equals(valor)) return false;
+        if ("SI".equals(valor))
+            return true;
+        if ("NO".equals(valor))
+            return false;
         return null;
     }
 

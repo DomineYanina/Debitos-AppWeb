@@ -1,0 +1,45 @@
+name: Despliegue a Produccion
+
+on:
+  push:
+    branches:
+      - main # Cambiá esto si tu rama principal tiene otro nombre (ej. master)
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compilar el proyecto con Maven
+        run: mvn clean package -DskipTests
+
+      - name: Subir el .jar al servidor por SFTP
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          password: ${{ secrets.PROD_PASSWORD }}
+          port: 22
+          source: "target/*.jar"
+          target: "/home/desarrollador/acceso-debitos/sistema-debitos"
+          strip_components: 1
+
+      - name: Reiniciar la aplicacion por SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          password: ${{ secrets.PROD_PASSWORD }}
+          port: 22
+          script: |
+            sudo systemctl restart debitos-app

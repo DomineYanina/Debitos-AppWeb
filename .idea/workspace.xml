@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c71fd7ec-e7ae-4a2d-91f6-84893f2e246f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/angular.json" beforeDir="false" afterPath="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/angular.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/src/app/core/services/auditoria.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/src/app/core/services/auditoria.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/src/app/core/services/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/src/app/core/services/auth.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Debitos-AppWeb/src/main/java/com/debitos/backend/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/Debitos-AppWeb/src/main/java/com/debitos/backend/config/SecurityConfig.java" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Interface" />
+        <option value="TypeScript File" />
+        <option value="Class" />
+        <option value="Enum" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;DomineYanina&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/DomineYanina/Debitos-AppWeb.git&quot;,
+    &quot;accountId&quot;: &quot;959b11ed-7406-4672-adc0-12be41272f2d&quot;
+  }
+}</component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHomeTypeForPersistence" value="WRAPPER" />
+      </MavenGeneralSettings>
+    </option>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="3CcfmAhgkfIyUE5G6Rek4zv8tPH" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;JavaScript Debug.Unnamed.executor&quot;: &quot;Debug&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;Spring Boot.BackendApplication.executor&quot;: &quot;Run&quot;,
+    &quot;Vitest.Tests in debitos-frontend\\.executor&quot;: &quot;Run&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Despliegue&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;D:\\yanina.domine\\Escritorio\\Debitos-AppWeb\\Debitos-AppWeb\\debitos-frontend\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager" selected="Spring Boot.BackendApplication">
+    <configuration name="Tests in debitos-frontend\" type="JavaScriptTestRunnerVitest" temporary="true" nameIsGenerated="true">
+      <node-interpreter value="project" />
+      <vitest-package value="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend/node_modules/vitest" />
+      <working-dir value="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend" />
+      <vitest-options value="--run" />
+      <envs />
+      <scope-kind value="DIRECTORY" />
+      <test-directory value="$PROJECT_DIR$/Debitos-AppWeb/debitos-frontend" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Unnamed" type="JavascriptDebugType" nameIsGenerated="true" uri="http://localhost:4200">
+      <method v="2" />
+    </configuration>
+    <configuration name="BackendApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="backend" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.debitos.backend.BackendApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="JavaScript Debug.Unnamed" />
+      <item itemvalue="Spring Boot.BackendApplication" />
+      <item itemvalue="Vitest.Tests in debitos-frontend\" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Vitest.Tests in debitos-frontend\" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.23892.409" />
+        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-IU-252.23892.409" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c71fd7ec-e7ae-4a2d-91f6-84893f2e246f" name="Changes" comment="" />
+      <created>1776689939067</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1776689939067</updated>
+      <workItem from="1776689940369" duration="16673000" />
+      <workItem from="1776714851242" duration="20567000" />
+      <workItem from="1776860515227" duration="18683000" />
+      <workItem from="1776945732914" duration="41503000" />
+      <workItem from="1777287118698" duration="23833000" />
+      <workItem from="1777377830343" duration="32803000" />
+      <workItem from="1777557003476" duration="5773000" />
+      <workItem from="1777891628166" duration="46637000" />
+      <workItem from="1778065137886" duration="10259000" />
+      <workItem from="1778095916526" duration="874000" />
+      <workItem from="1778154404004" duration="13029000" />
+      <workItem from="1778505661598" duration="6020000" />
+      <workItem from="1778597807602" duration="9196000" />
+      <workItem from="1778850602427" duration="247000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-method">
+          <url>file://$PROJECT_DIR$/Debitos-AppWeb/src/main/java/com/debitos/backend/repository/AmbLiquidadoRepository.java</url>
+          <line>36</line>
+          <properties class="com.debitos.backend.repository.AmbLiquidadoRepository" method="findPrestacionesPorFactura">
+            <option name="EMULATED" value="true" />
+            <option name="WATCH_EXIT" value="false" />
+          </properties>
+          <option name="timeStamp" value="10" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>
