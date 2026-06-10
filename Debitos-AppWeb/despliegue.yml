@@ -2,8 +2,6 @@ name: Despliegue a Produccion
 
 on:
   push:
-    branches:
-      - main # Cambiá esto si tu rama principal tiene otro nombre (ej. master)
 
 jobs:
   build-and-deploy:
@@ -24,6 +22,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Subir el .jar al servidor por SFTP
+        if: github.ref == 'refs/heads/main'
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -35,6 +34,7 @@ jobs:
           strip_components: 1
 
       - name: Reiniciar la aplicacion por SSH
+        if: github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.PROD_HOST }}
