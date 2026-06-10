@@ -17,9 +17,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
+          cache-dependency-path: Debitos-AppWeb/pom.xml
 
       - name: Compilar el proyecto con Maven
         run: mvn clean package -DskipTests
+        working-directory: Debitos-AppWeb
 
       - name: Subir el .jar al servidor por SFTP
         if: github.ref == 'refs/heads/main'
@@ -29,9 +31,9 @@ jobs:
           username: ${{ secrets.PROD_USERNAME }}
           password: ${{ secrets.PROD_PASSWORD }}
           port: 22
-          source: "target/*.jar"
+          source: "Debitos-AppWeb/target/*.jar"
           target: "/home/desarrollador/acceso-debitos/sistema-debitos"
-          strip_components: 1
+          strip_components: 2
 
       - name: Reiniciar la aplicacion por SSH
         if: github.ref == 'refs/heads/main'
