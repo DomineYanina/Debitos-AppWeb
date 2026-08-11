@@ -12,6 +12,11 @@
       <input id="password" type="password" formControlName="password" placeholder="Ingresá tu contraseña">
     </div>
 
-    <button type="submit" [disabled]="loginForm.invalid">Ingresar</button>
+    <button type="submit" [disabled]="loginForm.invalid || cargando" class="btn-ingresar">
+      <span *ngIf="!cargando">Ingresar</span>
+      <span *ngIf="cargando" class="spinner-container">
+        <span class="spinner-btn"></span> Ingresando...
+      </span>
+    </button>
   </form>
 </div>

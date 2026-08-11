@@ -193,7 +193,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     );
   }
 
-// Configuración por defecto para no repetir código en cada columna
+  public overlayNoRowsTemplate: string = '<span class="ag-overlay-no-rows-center">Sin resultados</span>';
+  public localeText: { [key: string]: string } = {
+    noRowsToShow: 'Sin resultados'
+  };
+
+  // Configuración por defecto para no repetir código en cada columna
   public defaultColDef: ColDef = {
     sortable: true,
     filter: false,

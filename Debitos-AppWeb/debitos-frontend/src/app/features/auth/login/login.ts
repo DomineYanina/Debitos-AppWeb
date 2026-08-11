@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
@@ -6,7 +7,7 @@ import { AuthService } from '../../../core/services/auth';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule], // Importamos el módulo de formularios
+  imports: [ReactiveFormsModule, CommonModule],
   templateUrl: './login.html',
   styleUrl: './login.css'
 })
@@ -15,6 +16,8 @@ export class LoginComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
 
+  cargando: boolean = false;
+
   // Definimos las reglas del formulario
   loginForm = this.fb.group({
     usuario: ['', Validators.required],
@@ -22,7 +25,8 @@ export class LoginComponent {
   });
 
   onSubmit() {
-    if (this.loginForm.valid) {
+    if (this.loginForm.valid && !this.cargando) {
+      this.cargando = true;
       this.authService.login(this.loginForm.value).subscribe({
         next: (respuesta) => {
           // 1. Guardamos los datos
@@ -32,6 +36,7 @@ export class LoginComponent {
           this.router.navigate(['/auditoria']);
         },
         error: (err) => {
+          this.cargando = false;
           alert('Credenciales incorrectas o el servidor está apagado.');
         }
       });

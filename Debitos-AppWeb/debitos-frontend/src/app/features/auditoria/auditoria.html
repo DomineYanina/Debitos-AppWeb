@@ -147,8 +147,8 @@
       </div>
       <button class="btn-exportar" (click)="exportarAExcel()" [disabled]="prestacionesFiltradas.length === 0">Exportar Excel</button>
 
-      <!-- Se oculta SOLO si es NC -->
-      <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC'" (click)="guardarParcialmente()">Guardar parcialmente</button>
+      <!-- Se oculta si es NC o si la Nota de Crédito ya fue creada -->
+      <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC' && !notaDeCreditoYaCreada" (click)="guardarParcialmente()">Guardar parcialmente</button>
 
       <!-- Botón NC: visible si es FC o ND y la FC aún no tiene una NC creada -->
       <ng-container *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'">
@@ -257,18 +257,23 @@
     </div>
 
     <div class="resultados-wrapper" *ngIf="prestaciones.length > 0; else sinDatos">
-      <ag-grid-angular
-        style="width: 100%; height: 500px;"
-        [theme]="theme"
-        [rowData]="prestacionesFiltradas"
-        [columnDefs]="columnDefs"
-        [defaultColDef]="defaultColDef"
-        [rowSelection]="rowSelection"
-        [autoSizeStrategy]="autoSizeStrategy"
-        (gridReady)="onGridReady($event)"
-        (selectionChanged)="onSelectionChanged($event)"
-        (cellValueChanged)="onCellValueChanged($event)">
-      </ag-grid-angular>
+      <div class="tabla-grid-container">
+        <ag-grid-angular
+          style="width: 100%;"
+          [domLayout]="'autoHeight'"
+          [theme]="theme"
+          [rowData]="prestacionesFiltradas"
+          [columnDefs]="columnDefs"
+          [defaultColDef]="defaultColDef"
+          [overlayNoRowsTemplate]="overlayNoRowsTemplate"
+          [localeText]="localeText"
+          [rowSelection]="rowSelection"
+          [autoSizeStrategy]="autoSizeStrategy"
+          (gridReady)="onGridReady($event)"
+          (selectionChanged)="onSelectionChanged($event)"
+          (cellValueChanged)="onCellValueChanged($event)">
+        </ag-grid-angular>
+      </div>
 
       <div class="totales-footer" style="display: flex; justify-content: flex-end; gap: 20px; padding: 15px; background: #f8f9fa; border-top: 2px solid #ccc; font-weight: bold;">
         <span>Total Cantidad: {{ totalCantidad }}</span>

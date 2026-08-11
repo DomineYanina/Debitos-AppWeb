@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://172.16.14.210:8080'
+  apiUrl: 'http://debitos-auditoria.cmm.com.ar:8080'
 };
