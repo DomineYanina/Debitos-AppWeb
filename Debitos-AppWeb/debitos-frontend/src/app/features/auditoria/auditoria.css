@@ -1144,3 +1144,46 @@ tr.row-selected {
   border-left: 1px solid #cbd5e1 !important;
 }
 
+/* Badges informativos de documentos ya creados */
+.nc-ya-creada-badge,
+.nd-ya-creada-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: default;
+  user-select: none;
+
+  .badge-header {
+    font-weight: 700;
+    font-size: 0.88rem;
+  }
+
+  .badge-detalle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-top: 1px dashed rgba(0, 0, 0, 0.15);
+    padding-top: 0.4rem;
+
+    span {
+      white-space: nowrap;
+    }
+  }
+}
+
+.nc-ya-creada-badge {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1.5px solid #86efac;
+}
+
+.nd-ya-creada-badge {
+  background-color: #fffbeb;
+  color: #92400e;
+  border: 1.5px solid #fcd34d;
+}
+

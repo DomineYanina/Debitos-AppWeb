@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
 import { AuditoriaService } from '../../core/services/auditoria';
+import { DocumentoAsociado } from '../../core/models/documento-asociado';
 import {ExcelExportService} from '../../core/services/excel-export';
 import { AgGridModule } from 'ag-grid-angular';
 import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
@@ -141,6 +142,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   filtroGrupo: string = '';
   filtroFecha: string = '';
   tipoBusquedaRealizada: string = '';
+  notaDeCreditoYaCreada: boolean = false;
+  notaDeDebitoYaCreada: boolean = false;
+  documentoCreadoInfo: DocumentoAsociado | null = null;
 
   soloSinMotivoDebito: boolean = false;
   soloSinMotivoRefactura: boolean = false;
@@ -512,6 +516,70 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.prepararFiltros(this.prestaciones);
         this.aplicarFiltros();
         this.configurarColumnas();
+
+        // Si la búsqueda es de una FC, verificamos si ya tiene NC creada
+        if (this.tipoBusquedaRealizada === 'FC') {
+          const letra = filtros.letra || '';
+          const puntoVenta = filtros.puntoVenta ?? '';
+          const numero = filtros.numero ?? '';
+          this.notaDeDebitoYaCreada = false;
+          this.documentoCreadoInfo = null;
+          this.auditoriaService.verificarTieneNC(letra, puntoVenta, numero).subscribe({
+            next: (doc) => {
+              this.notaDeCreditoYaCreada = !!doc;
+              this.documentoCreadoInfo = doc;
+              this.cdr.detectChanges();
+            },
+            error: () => {
+              this.notaDeCreditoYaCreada = false;
+              this.documentoCreadoInfo = null;
+              this.cdr.detectChanges();
+            }
+          });
+        } else if (this.tipoBusquedaRealizada === 'NC') {
+          // Si la búsqueda es de una NC, verificamos si ya tiene ND creada
+          const letra = filtros.letra || '';
+          const puntoVenta = filtros.puntoVenta ?? '';
+          const numero = filtros.numero ?? '';
+          this.notaDeCreditoYaCreada = false;
+          this.documentoCreadoInfo = null;
+          this.auditoriaService.verificarTieneND(letra, puntoVenta, numero).subscribe({
+            next: (doc) => {
+              this.notaDeDebitoYaCreada = !!doc;
+              this.documentoCreadoInfo = doc;
+              this.cdr.detectChanges();
+            },
+            error: () => {
+              this.notaDeDebitoYaCreada = false;
+              this.documentoCreadoInfo = null;
+              this.cdr.detectChanges();
+            }
+          });
+        } else if (this.tipoBusquedaRealizada === 'ND') {
+          // Si la búsqueda es de una ND, verificamos si ya tiene NC creada (hija de la ND)
+          const letra = filtros.letra || '';
+          const puntoVenta = filtros.puntoVenta ?? '';
+          const numero = filtros.numero ?? '';
+          this.notaDeDebitoYaCreada = false;
+          this.documentoCreadoInfo = null;
+          this.auditoriaService.verificarTieneNCParaND(letra, puntoVenta, numero).subscribe({
+            next: (doc) => {
+              this.notaDeCreditoYaCreada = !!doc;
+              this.documentoCreadoInfo = doc;
+              this.cdr.detectChanges();
+            },
+            error: () => {
+              this.notaDeCreditoYaCreada = false;
+              this.documentoCreadoInfo = null;
+              this.cdr.detectChanges();
+            }
+          });
+        } else {
+          this.notaDeCreditoYaCreada = false;
+          this.notaDeDebitoYaCreada = false;
+          this.documentoCreadoInfo = null;
+        }
+
         this.cdr.detectChanges();
 
         this.cargando = false;
@@ -1167,6 +1235,21 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.cerrarModalNuevaNota();
         this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`, undefined, 'exito');
         this.cargando = false;
+
+        if (this.tipoNuevaNota === 'NC') {
+          this.notaDeCreditoYaCreada = true;
+        } else if (this.tipoNuevaNota === 'ND') {
+          this.notaDeDebitoYaCreada = true;
+        }
+
+        this.documentoCreadoInfo = {
+          tipo: datosNotaForm.tipo ?? '',
+          letra: datosNotaForm.letra ?? '',
+          ptovta: Number(datosNotaForm.puntoVenta) || 0,
+          numero: Number(datosNotaForm.numero) || 0,
+          fecha: datosNotaForm.fecha ?? ''
+        };
+
         this.cdr.detectChanges();
         this.modificadosSinGuardar.clear();
       },

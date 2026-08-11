@@ -1,5 +1,6 @@
 package com.debitos.backend.controller;
 
+import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.model.RegistroUsabilidad;
 import com.debitos.backend.repository.RegistroUsabilidadRepository;
@@ -21,6 +22,33 @@ public class AuditoriaController {
 
     @Autowired
     private RegistroUsabilidadRepository registroUsabilidadRepository;
+
+    @GetMapping("/tiene-nc")
+    public ResponseEntity<DocumentoAsociadoDTO> tieneNotaDeCredito(
+            @RequestParam String letra,
+            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam int numero) {
+        DocumentoAsociadoDTO dto = auditoriaService.obtenerNotaDeCreditoCreada(letra, ptovta, numero);
+        return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/tiene-nd")
+    public ResponseEntity<DocumentoAsociadoDTO> tieneNotaDeDebito(
+            @RequestParam String letra,
+            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam int numero) {
+        DocumentoAsociadoDTO dto = auditoriaService.obtenerNotaDeDebitoCreada(letra, ptovta, numero);
+        return ResponseEntity.ok(dto);
+    }
+
+    @GetMapping("/tiene-nc-para-nd")
+    public ResponseEntity<DocumentoAsociadoDTO> tieneNotaDeCreditoParaND(
+            @RequestParam String letra,
+            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam int numero) {
+        DocumentoAsociadoDTO dto = auditoriaService.obtenerNotaDeCreditoCreadaParaND(letra, ptovta, numero);
+        return ResponseEntity.ok(dto);
+    }
 
     @GetMapping("/buscar")
     public ResponseEntity<?> buscar(

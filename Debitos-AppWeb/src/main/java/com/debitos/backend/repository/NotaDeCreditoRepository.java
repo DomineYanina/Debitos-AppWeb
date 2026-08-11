@@ -1,5 +1,6 @@
 package com.debitos.backend.repository;
 
+import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.model.NotaDeCredito;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,6 +32,92 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     // Verifica si ya existe una NC generada a partir de una ND específica
     Optional<NotaDeCredito> findByNotaDeDebitoPadreId(Integer idNotaDeDebito);
+
+    // Verifica si todas las prestaciones de una FC ya tienen una NC "completa" (tipo, fecha, letra, numero y ptovta no nulos)
+    @Query(value = """
+        SELECT CASE
+            WHEN COUNT(al.id) > 0
+                 AND COUNT(nc.id) = COUNT(al.id)
+                 AND COUNT(nc.tipo) = COUNT(al.id)
+                 AND COUNT(nc.fecha) = COUNT(al.id)
+                 AND COUNT(nc.letra) = COUNT(al.id)
+                 AND COUNT(nc.numero) = COUNT(al.id)
+                 AND COUNT(nc.ptovta) = COUNT(al.id)
+            THEN true
+            ELSE false
+        END
+        FROM amb_liquidado al
+        LEFT JOIN notadecredito nc
+            ON al.id = nc.id_prestacion
+           AND nc.id_notadedebito IS NULL
+           AND nc.tipo IS NOT NULL
+           AND nc.fecha IS NOT NULL
+           AND nc.letra IS NOT NULL
+           AND nc.numero IS NOT NULL
+           AND nc.ptovta IS NOT NULL
+        WHERE al.cob_factura_letra = :letra
+          AND al.cob_factura_ptoventa = :ptovta
+          AND al.cob_factura_numero = :numero
+        """, nativeQuery = true)
+    boolean existeNcCompletaParaFactura(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query("""
+        SELECT DISTINCT new com.debitos.backend.dto.DocumentoAsociadoDTO(nc.tipo, nc.letra, nc.ptovta, nc.numero, nc.fecha)
+        FROM NotaDeCredito nc
+        JOIN nc.prestacion al
+        WHERE al.cobFacturaLetra = :letra
+          AND al.cobFacturaPtoVenta = :ptovta
+          AND al.cobFacturaNumero = :numero
+          AND nc.notaDeDebitoPadre IS NULL
+          AND nc.tipo IS NOT NULL
+          AND nc.fecha IS NOT NULL
+          AND nc.letra IS NOT NULL
+          AND nc.numero IS NOT NULL
+          AND nc.ptovta IS NOT NULL
+    """)
+    List<DocumentoAsociadoDTO> findNcCompletaParaFactura(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    // Verifica si todas las ND (identificadas por letra/ptovta/numero) ya tienen una NC hija "completa" (tipo, fecha, letra, numero y ptovta no nulos)
+    @Query(value = """
+        SELECT CASE
+            WHEN COUNT(nd.id) > 0
+                 AND COUNT(nc.id) = COUNT(nd.id)
+                 AND COUNT(nc.tipo) = COUNT(nd.id)
+                 AND COUNT(nc.fecha) = COUNT(nd.id)
+                 AND COUNT(nc.letra) = COUNT(nd.id)
+                 AND COUNT(nc.numero) = COUNT(nd.id)
+                 AND COUNT(nc.ptovta) = COUNT(nd.id)
+            THEN true
+            ELSE false
+        END
+        FROM notadedebito nd
+        LEFT JOIN notadecredito nc
+            ON nc.id_notadedebito = nd.id
+           AND nc.tipo IS NOT NULL
+           AND nc.fecha IS NOT NULL
+           AND nc.letra IS NOT NULL
+           AND nc.numero IS NOT NULL
+           AND nc.ptovta IS NOT NULL
+        WHERE nd.letra = :letra
+          AND nd.ptovta = :ptovta
+          AND nd.numero = :numero
+        """, nativeQuery = true)
+    boolean existeNcCompletaParaNotaDebito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query("""
+        SELECT DISTINCT new com.debitos.backend.dto.DocumentoAsociadoDTO(nc.tipo, nc.letra, nc.ptovta, nc.numero, nc.fecha)
+        FROM NotaDeCredito nc
+        JOIN nc.notaDeDebitoPadre nd
+        WHERE nd.letra = :letra
+          AND nd.ptovta = :ptovta
+          AND nd.numero = :numero
+          AND nc.tipo IS NOT NULL
+          AND nc.fecha IS NOT NULL
+          AND nc.letra IS NOT NULL
+          AND nc.numero IS NOT NULL
+          AND nc.ptovta IS NOT NULL
+    """)
+    List<DocumentoAsociadoDTO> findNcCompletaParaNotaDebito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
     @Query(value = """
         SELECT al.id AS id, al.carnet AS carnet, al.codigo_cobertura AS cobertura, al.paciente AS paciente, 

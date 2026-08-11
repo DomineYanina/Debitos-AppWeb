@@ -1,5 +1,6 @@
 package com.debitos.backend.service;
 
+import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.model.AmbLiquidado;
 import com.debitos.backend.model.NotaDeCredito;
@@ -46,6 +47,54 @@ public class AuditoriaService {
             case "ND" -> notaDeDebitoRepository.findPrestacionesPorNotaDebito(letra, ptovta, numero);
             default -> throw new IllegalArgumentException("Tipo de documento desconocido: " + facturaTipo);
         };
+    }
+
+    /**
+     * Verifica si todas las prestaciones de una FC ya tienen una NC formalmente creada
+     * (con tipo, fecha, letra, numero y ptovta no nulos en la tabla notadecredito).
+     */
+    public boolean tieneNotaDeCreditoCreada(String letra, int ptovta, int numero) {
+        return notaDeCreditoRepository.existeNcCompletaParaFactura(letra, ptovta, numero);
+    }
+
+    public DocumentoAsociadoDTO obtenerNotaDeCreditoCreada(String letra, int ptovta, int numero) {
+        if (notaDeCreditoRepository.existeNcCompletaParaFactura(letra, ptovta, numero)) {
+            return notaDeCreditoRepository.findNcCompletaParaFactura(letra, ptovta, numero)
+                    .stream().findFirst().orElse(null);
+        }
+        return null;
+    }
+
+    /**
+     * Verifica si todas las prestaciones de una NC ya tienen una ND formalmente creada
+     * (con tipo, fecha, letra, numero y ptovta no nulos en la tabla notadedebito).
+     */
+    public boolean tieneNotaDeDebitoCreada(String letra, int ptovta, int numero) {
+        return notaDeDebitoRepository.existeNdCompletaParaNotaCredito(letra, ptovta, numero);
+    }
+
+    public DocumentoAsociadoDTO obtenerNotaDeDebitoCreada(String letra, int ptovta, int numero) {
+        if (notaDeDebitoRepository.existeNdCompletaParaNotaCredito(letra, ptovta, numero)) {
+            return notaDeDebitoRepository.findNdCompletaParaNotaCredito(letra, ptovta, numero)
+                    .stream().findFirst().orElse(null);
+        }
+        return null;
+    }
+
+    /**
+     * Verifica si todas las ND (identificadas por letra/ptovta/numero) ya tienen una NC hija formalmente creada
+     * (con tipo, fecha, letra, numero y ptovta no nulos en la tabla notadecredito, enlazada por id_notadedebito).
+     */
+    public boolean tieneNotaDeCreditoCreadaParaND(String letra, int ptovta, int numero) {
+        return notaDeCreditoRepository.existeNcCompletaParaNotaDebito(letra, ptovta, numero);
+    }
+
+    public DocumentoAsociadoDTO obtenerNotaDeCreditoCreadaParaND(String letra, int ptovta, int numero) {
+        if (notaDeCreditoRepository.existeNcCompletaParaNotaDebito(letra, ptovta, numero)) {
+            return notaDeCreditoRepository.findNcCompletaParaNotaDebito(letra, ptovta, numero)
+                    .stream().findFirst().orElse(null);
+        }
+        return null;
     }
 
     @Transactional

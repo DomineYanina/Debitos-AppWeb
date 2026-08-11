@@ -3,17 +3,19 @@ package com.debitos.backend.service;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.security.Key;
 import java.util.Date;
 import java.util.function.Function;
 
 @Service
 public class JwtService {
-    // ESTA CLAVE DEBE SER SECRETA Y LARGA (Mínimo 32 caracteres)
-    private static final String SECRET_KEY = "TuClaveSuperSecretaQueNadieDebeConocerParaElTPI2026";
+
+    @Value("${jwt.secret}")
+    private String secretKey;
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -49,12 +51,10 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        // Usamos getBytes() en lugar de Base64 para que acepte cualquier texto plano
-        byte[] keyBytes = SECRET_KEY.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] keyBytes = secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // Agregá esto dentro de JwtService.java
     public String generateToken(String username) {
         return Jwts.builder()
                 .setSubject(username)

@@ -150,8 +150,38 @@
       <!-- Se oculta SOLO si es NC -->
       <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC'" (click)="guardarParcialmente()">Guardar parcialmente</button>
 
-      <button class="btn-accion-doc btn-nueva-nota" *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'" (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
-      <button class="btn-accion-doc btn-nueva-nota" *ngIf="tipoBusquedaRealizada === 'NC'" (click)="abrirModalNuevaNota('ND')">Nueva Nota de Débito</button>
+      <!-- Botón NC: visible si es FC o ND y la FC aún no tiene una NC creada -->
+      <ng-container *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'">
+        <button class="btn-accion-doc btn-nueva-nota"
+                *ngIf="!notaDeCreditoYaCreada"
+                (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
+        <div class="nc-ya-creada-badge" *ngIf="notaDeCreditoYaCreada">
+          <div class="badge-header">✅ Nota de crédito ya creada</div>
+          <div class="badge-detalle" *ngIf="documentoCreadoInfo">
+            <span><strong>Tipo:</strong> {{ documentoCreadoInfo.tipo }}</span>
+            <span><strong>Letra:</strong> {{ documentoCreadoInfo.letra }}</span>
+            <span><strong>Pto. Venta:</strong> {{ documentoCreadoInfo.ptovta }}</span>
+            <span><strong>Nº:</strong> {{ documentoCreadoInfo.numero }}</span>
+            <span><strong>Fecha:</strong> {{ documentoCreadoInfo.fecha | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+      </ng-container>
+      <!-- Botón ND: visible si es NC y la NC aún no tiene una ND creada -->
+      <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
+        <button class="btn-accion-doc btn-nueva-nota"
+                *ngIf="!notaDeDebitoYaCreada"
+                (click)="abrirModalNuevaNota('ND')">Nueva Nota de Débito</button>
+        <div class="nd-ya-creada-badge" *ngIf="notaDeDebitoYaCreada">
+          <div class="badge-header">✅ Nota de débito ya creada</div>
+          <div class="badge-detalle" *ngIf="documentoCreadoInfo">
+            <span><strong>Tipo:</strong> {{ documentoCreadoInfo.tipo }}</span>
+            <span><strong>Letra:</strong> {{ documentoCreadoInfo.letra }}</span>
+            <span><strong>Pto. Venta:</strong> {{ documentoCreadoInfo.ptovta }}</span>
+            <span><strong>Nº:</strong> {{ documentoCreadoInfo.numero }}</span>
+            <span><strong>Fecha:</strong> {{ documentoCreadoInfo.fecha | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+      </ng-container>
     </div>
   </section>
 
@@ -214,7 +244,7 @@
 
         <!-- NUEVO: COMENTARIOS MASIVOS -->
         <div class="grupo-input-accion">
-          <label>Comentarios:</label>
+          <label>Coment. Refactura:</label>
           <input type="text" [(ngModel)]="comentariosMasivo" class="input-grilla" style="width: 150px;" placeholder="Escribir...">
           <button class="btn-aplicar-masivo" (click)="aplicarComentariosMasivo()" [disabled]="!comentariosMasivo">Aplicar</button>
         </div>

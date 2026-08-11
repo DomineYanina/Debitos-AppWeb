@@ -1,14 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
   private http = inject(HttpClient);
-  // URL temporal asumiendo que tu Spring Boot correrá en el puerto 8080
-  private apiUrl = 'http://localhost:8080/api/auth';
+  private apiUrl = `${environment.apiUrl}/api/auth`;
 
   login(credenciales: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/login`, credenciales);
@@ -16,7 +16,7 @@ export class AuthService {
 
   guardarToken(token: string, usuario: string) {
     localStorage.setItem('token', token);
-    localStorage.setItem('usuario', usuario); // Guardamos el usuario para usarlo como hacías en C#
+    localStorage.setItem('usuario', usuario);
   }
 
   isLoggedIn(): boolean {
@@ -29,7 +29,6 @@ export class AuthService {
   }
 
   obtenerUsuario(): string {
-    // Si por algún motivo se borró del storage, mandamos 'Desconocido' para que la base no explote con un null
     return localStorage.getItem('usuario') || 'Desconocido';
   }
 }

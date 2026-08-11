@@ -64,7 +64,7 @@ export class AuditoriaGridConfigService {
       { headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
         valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
       },
-      { headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
+      { headerName: 'Comentarios\nRefactura', field: 'comentarios', headerClass: 'bg-naranja',
         editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
         cellClassRules: {
           'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',

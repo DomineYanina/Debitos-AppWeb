@@ -56,7 +56,7 @@ export class ExcelExportService {
         { header: 'Comentario Previo', key: 'comentarioPrevio' },
         { header: 'Motivo Refactura', key: 'motivoRefactura' },
         { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentarios', key: 'comentarios' }
+        { header: 'Comentarios Refactura', key: 'comentarios' }
       ];
     }
 
@@ -77,7 +77,7 @@ export class ExcelExportService {
       { header: 'Imp. Debitado', key: 'importeDebitado', style: { numFmt: '#,##0.00' } },
       { header: 'Motivo Refactura', key: 'motivoRefactura' },
       { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-      { header: 'Comentarios', key: 'comentarios' }
+      { header: 'Comentarios Refactura', key: 'comentarios' }
     ];
   }
 
