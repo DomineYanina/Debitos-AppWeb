@@ -21,17 +21,19 @@ import { AuditoriaMathService } from '../../core/services/auditoria-math';
 import { AuditoriaGridConfigService } from '../../core/services/auditoria-grid-config';
 import { InactividadService } from '../../core/services/InactividadService';
 import { TourService } from '../../core/services/tour.service';
+import { HelpDrawerComponent } from '../../core/components/help-drawer/help-drawer.component';
 
 @Component({
   selector: 'app-auditoria',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule],
+  imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule, HelpDrawerComponent],
   templateUrl: './auditoria.html',
   styleUrl: './auditoria.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
 export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
+  isHelpDrawerOpen = false;
   modificadosSinGuardar = new Set<number>(); // Guarda los IDs de las filas tocadas
   guardandoSilencioso = false;
 
@@ -116,6 +118,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   reproducirTourCompleto(): void {
     const tieneResultados = this.prestaciones.length > 0;
     this.tourService.startFullTour(tieneResultados);
+  }
+
+  /**
+   * Cierra el panel de ayuda y desencadena la reproducción del tour guiado.
+   */
+  reproducirTourDesdeAyuda(): void {
+    this.isHelpDrawerOpen = false;
+    this.reproducirTourCompleto();
   }
 
   ngOnDestroy() {

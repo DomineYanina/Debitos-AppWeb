@@ -369,4 +369,18 @@
       </div>
     </div>
   </div>
+
+  <!-- Botón Flotante de Ayuda (Preguntas Frecuentes FAQ) -->
+  <button type="button" class="btn-floating-help" (click)="isHelpDrawerOpen = true" title="Preguntas Frecuentes (FAQ)" aria-label="Abrir Preguntas Frecuentes">
+    <span class="help-icon">?</span>
+  </button>
+
+  <!-- Lazy Loading del Drawer Offcanvas con sintaxis Angular 21 @defer -->
+  @defer (when isHelpDrawerOpen) {
+    <app-help-drawer
+      [isOpen]="isHelpDrawerOpen"
+      (closeDrawer)="isHelpDrawerOpen = false"
+      (startTourRequested)="reproducirTourDesdeAyuda()">
+    </app-help-drawer>
+  }
 </div>

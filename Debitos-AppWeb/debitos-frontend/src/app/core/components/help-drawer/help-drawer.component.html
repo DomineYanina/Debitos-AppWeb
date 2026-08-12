@@ -1,0 +1,81 @@
+<!-- Backdrop translúcido para oscurecer la pantalla al abrir -->
+<div class="drawer-backdrop" [class.open]="isOpen()" (click)="onClose()"></div>
+
+<!-- Contenedor Principal del Panel Offcanvas/Drawer -->
+<div class="drawer-container" [class.open]="isOpen()">
+  <!-- Encabezado del Panel -->
+  <header class="drawer-header">
+    <div class="drawer-header-title">
+      <span class="faq-icon">❓</span>
+      <h2>Preguntas Frecuentes</h2>
+    </div>
+    <button type="button" class="btn-close" (click)="onClose()" aria-label="Cerrar panel de ayuda">&times;</button>
+  </header>
+
+  <!-- Contenido Principal con FAQ agrupado -->
+  <main class="drawer-body">
+    <!-- Categoría 1: Búsqueda y Filtros -->
+    <section class="faq-group">
+      <h3>Búsqueda y Filtros</h3>
+
+      <article class="faq-item">
+        <h4>¿Cómo busco un documento específico?</h4>
+        <p>Seleccioná el Tipo de documento (ej. Factura o Nota de Débito) en el panel superior, completá los campos de
+          Letra, Punto de Venta y Número, y presioná el botón azul Buscar.</p>
+      </article>
+
+      <article class="faq-item">
+        <h4>¿Cómo borro los filtros aplicados?</h4>
+        <p>Para restablecer los menús desplegables a su estado original sin perder la búsqueda, presioná el botón
+          Limpiar Filtros.</p>
+      </article>
+    </section>
+
+    <!-- Categoría 2: Interacción con la Grilla -->
+    <section class="faq-group">
+      <h3>Interacción con la Grilla</h3>
+
+      <article class="faq-item">
+        <h4>¿Cómo selecciono los registros a procesar?</h4>
+        <p>Utilizá las casillas de verificación de la primera columna. Para seleccionar todo, usá la casilla vacía del
+          encabezado superior izquierdo.</p>
+      </article>
+
+      <article class="faq-item">
+        <h4>¿Qué indican los totales inferiores?</h4>
+        <p>Resumen los valores de los registros visualizados actualmente (Cantidad, Total Neto, Coseguro), reflejando
+          inmediatamente los filtros aplicados.</p>
+      </article>
+
+    </section>
+
+    <!-- Categoría 3: Acciones y Exportación -->
+    <section class="faq-group">
+      <h3>Acciones y Exportación</h3>
+
+      <article class="faq-item">
+        <h4>¿Qué diferencia hay entre "Guardar parcialmente" y "Nueva Nota de Crédito"?</h4>
+        <p>Guardar parcialmente registra tu progreso sin emitir documento. Nueva Nota de Crédito finaliza el proceso y
+          genera el documento oficial.</p>
+      </article>
+
+      <article class="faq-item">
+        <h4>¿Qué hace "Exportar Excel"?</h4>
+        <p>Descarga una planilla con las filas y columnas exactas que estás viendo, respetando los filtros actuales.</p>
+      </article>
+
+      <article class="faq-item">
+        <h4>¿Qué son los contadores superiores?</h4>
+        <p>Muestran el resumen del documento: cantidad aceptada, total debitado e importe disponible para refacturar.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <!-- Pie del Panel con Acción Guiada -->
+  <footer class="drawer-footer">
+    <button type="button" class="btn-restart-tour" (click)="onRestartTour()">
+      <span>🔄</span> Volver a ver el recorrido guiado
+    </button>
+  </footer>
+</div>
