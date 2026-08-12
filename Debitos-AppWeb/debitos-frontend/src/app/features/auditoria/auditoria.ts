@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
@@ -20,6 +20,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import { AuditoriaMathService } from '../../core/services/auditoria-math';
 import { AuditoriaGridConfigService } from '../../core/services/auditoria-grid-config';
 import { InactividadService } from '../../core/services/InactividadService';
+import { TourService } from '../../core/services/tour.service';
 
 @Component({
   selector: 'app-auditoria',
@@ -30,9 +31,12 @@ import { InactividadService } from '../../core/services/InactividadService';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class AuditoriaComponent implements OnInit, OnDestroy {
+export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   modificadosSinGuardar = new Set<number>(); // Guarda los IDs de las filas tocadas
   guardandoSilencioso = false;
+
+  // ── Tour guiado ─────────────────────────────────────────────────────────────
+  private readonly tourService = inject(TourService);
   private autoguardado$ = new Subject<void>();
   private autoguardadoSub?: Subscription;
 
@@ -91,6 +95,27 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       }
     }
     this.inactividadService.iniciarSeguimiento();
+  }
+
+  /**
+   * Se ejecuta UNA VEZ, después de que Angular renderizó el HTML del componente.
+   * Es el momento seguro para iniciar el tour, ya que todos los selectores
+   * CSS (.busqueda-section, .btn-buscar, .grilla-section) ya existen en el DOM.
+   *
+   * El setTimeout de 300 ms le da tiempo a AG Grid para terminar
+   * su propia inicialización interna antes de que Shepherd tome el control.
+   */
+  ngAfterViewInit(): void {
+    setTimeout(() => this.tourService.startSearchTour(), 300);
+  }
+
+  /**
+   * Permite al usuario volver a reproducir el tour guiado completo por toda la plataforma
+   * en cualquier momento desde el botón de la cabecera.
+   */
+  reproducirTourCompleto(): void {
+    const tieneResultados = this.prestaciones.length > 0;
+    this.tourService.startFullTour(tieneResultados);
   }
 
   ngOnDestroy() {
@@ -602,6 +627,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
 
         this.cargando = false;
+
+        // Disparar la Fase 2 del tour guiado (Filtros, Grilla y Acciones) cuando los datos están renderizados
+        if (this.prestaciones.length > 0) {
+          setTimeout(() => this.tourService.startResultsTour(), 400);
+        }
       },
       error: (err) => {
         console.error(err);

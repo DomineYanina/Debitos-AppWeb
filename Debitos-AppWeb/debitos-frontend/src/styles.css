@@ -1,5 +1,12 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* ── Estilos base de Shepherd.js (tour guiado) ──────────────────────────────
+   Importamos el CSS del paquete shepherd.js que viene como dependencia
+   transitiva de angular-shepherd. Este @import debe estar antes que cualquier
+   regla propia para que nuestros estilos puedan sobreescribir los defaults. */
+@import '../node_modules/shepherd.js/dist/css/shepherd.css';
+
+
 * {
   margin: 0;
   padding: 0;

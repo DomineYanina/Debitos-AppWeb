@@ -1,7 +1,10 @@
 <div class="auditoria-container">
   <header class="page-header">
     <h2>Buscador de Documentos</h2>
-    <button class="btn-logout" (click)="onLogout()">Cerrar Sesión</button>
+    <div class="header-actions">
+      <button class="btn-tour-help" (click)="reproducirTourCompleto()">Ver Tour Guiado</button>
+      <button class="btn-logout" (click)="onLogout()">Cerrar Sesión</button>
+    </div>
   </header>
 
   <section class="busqueda-section">
@@ -129,17 +132,17 @@
     </div>
 
     <div class="resumen-contadores">
-      <div class="contador-box has-tooltip"
+      <div class="contador-box contador-aceptados has-tooltip"
            data-tooltip="Cantidad total de documentos que fueron aceptados sin débitos">
         <span class="contador-label">Aceptados:</span>
         <span class="contador-valor">{{ cantAceptados }}</span>
       </div>
-      <div class="contador-box has-tooltip"
+      <div class="contador-box contador-debitado has-tooltip"
            data-tooltip="Suma del importe neto de los débitos aplicados">
         <span class="contador-label">Total Debitado:</span>
         <span class="contador-valor text-danger">{{ totalDebitadoAceptado | currency }}</span>
       </div>
-      <div class="contador-box has-tooltip"
+      <div class="contador-box contador-refacturar has-tooltip"
            data-tooltip="Monto total habilitado para una nueva refacturación">
         <span class="contador-label">Total a Refacturar:</span>
         <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
@@ -150,7 +153,7 @@
               data-tooltip="Quita las filas seleccionadas actualmente de la vista">Limpiar Filas</button>
     </div>
 
-    <div class="filtro-columna">
+    <div class="filtro-columna botonera-acciones-container">
       <div class="indicador-guardado" *ngIf="modificadosSinGuardar.size > 0" style="color: #d9534f; font-weight: bold; background: #fdf2f2; padding: 8px 12px; border-radius: 5px; border: 1px solid #d9534f;">
         ⚠️ {{ modificadosSinGuardar.size }} registro(s) sin guardar
       </div>
@@ -285,12 +288,12 @@
       </div>
 
       <div class="totales-footer" style="display: flex; justify-content: flex-end; gap: 20px; padding: 15px; background: #f8f9fa; border-top: 2px solid #ccc; font-weight: bold;">
-        <span class="has-tooltip" data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad }}</span>
-        <span class="has-tooltip" data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal | currency }}</span>
-        <span class="has-tooltip" data-tooltip="Total del coseguro a cargo del paciente en este documento">Coseguro: {{ totalCoseguroGlobal | currency }}</span>
-        <span class="has-tooltip" data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado | currency }}</span>
-        <span class="text-danger has-tooltip" *ngIf="tipoBusquedaRealizada !== 'NC'" data-tooltip="Suma total de los importes debitados en este documento">Total Debitado: {{ totalDebitado | currency }}</span>
-        <span class="text-success has-tooltip" data-tooltip="Monto total aprobado para refacturación en este período">Total Refacturado: {{ totalRefacturadoGlobal | currency }}</span>
+        <span class="total-cantidad-item has-tooltip" data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad }}</span>
+        <span class="total-neto-item has-tooltip" data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal | currency }}</span>
+        <span class="total-coseguro-item has-tooltip" data-tooltip="Total del coseguro a cargo del paciente en este documento">Coseguro: {{ totalCoseguroGlobal | currency }}</span>
+        <span class="total-facturado-item has-tooltip" data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado | currency }}</span>
+        <span class="total-debitado-item text-danger has-tooltip" *ngIf="tipoBusquedaRealizada !== 'NC'" data-tooltip="Suma total de los importes debitados en este documento">Total Debitado: {{ totalDebitado | currency }}</span>
+        <span class="total-refacturado-item text-success has-tooltip" data-tooltip="Monto total aprobado para refacturación en este período">Total Refacturado: {{ totalRefacturarRechazado | currency }}</span>
       </div>
     </div>
 
