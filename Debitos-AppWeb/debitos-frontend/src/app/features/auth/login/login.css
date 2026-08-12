@@ -21,6 +21,25 @@
     font-size: 1.8rem;
   }
 
+  .error-banner {
+    background-color: #fff5f5;
+    border: 1px solid #feb2b2;
+    color: #c53030;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.2rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    line-height: 1.4;
+
+    .error-icon {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+  }
+
   .form-group {
     margin-bottom: 1.2rem;
 
@@ -44,9 +63,46 @@
         border-color: #4299e1;
       }
     }
+
+    .password-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+
+      input {
+        padding-right: 2.75rem;
+      }
+
+      .btn-toggle-password {
+        position: absolute;
+        right: 0.5rem;
+        background: transparent;
+        border: none;
+        padding: 0.35rem;
+        width: auto;
+        height: auto;
+        color: #718096;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: color 0.2s, background-color 0.2s;
+
+        &:hover {
+          color: #2d3748;
+          background-color: #edf2f7;
+        }
+
+        &:focus {
+          outline: none;
+          color: #3182ce;
+        }
+      }
+    }
   }
 
-  button {
+  .btn-ingresar {
     width: 100%;
     padding: 0.75rem;
     background-color: #3182ce;

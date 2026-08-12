@@ -80,4 +80,16 @@ describe('AuthInterceptor', () => {
     expect(routerSpy.rutaNavegada).toBe('');
   });
 
+  it('NO debería desloguear ni redirigir si el error 401 ocurre durante la petición a /api/auth/login', () => {
+    httpClient.post('/api/auth/login', {}).subscribe({ error: () => {} });
+
+    const peticion = httpMock.expectOne('/api/auth/login');
+
+    // Forzamos error 401 al intentar autenticar
+    peticion.flush('Credenciales incorrectas', { status: 401, statusText: 'Unauthorized' });
+
+    expect(authServiceSpy.logoutLlamado).toBe(false);
+    expect(routerSpy.rutaNavegada).toBe('');
+  });
+
 });
