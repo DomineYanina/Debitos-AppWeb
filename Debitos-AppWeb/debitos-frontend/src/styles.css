@@ -10,3 +10,63 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f5f7fa;
 }
+
+/* =============================================
+   Sistema de Tooltips CSS puro (sin librerías)
+   Uso: agregar class="has-tooltip" y data-tooltip="Texto"
+   ============================================= */
+
+.has-tooltip {
+  position: relative;
+  cursor: default;
+}
+
+.has-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333333;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 12px;
+  font-weight: normal;
+  padding: 6px 10px;
+  border-radius: 5px;
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 250px;
+  width: max-content;
+  text-align: center;
+  line-height: 1.4;
+  z-index: 99999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  /* Animación de aparición */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* Flecha apuntando hacia abajo (al elemento) */
+.has-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #333333;
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.has-tooltip:hover::after,
+.has-tooltip:hover::before {
+  opacity: 1;
+  visibility: visible;
+}

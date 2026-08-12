@@ -103,42 +103,51 @@
           </select>
         </div>
         <div class="botones-limpieza-stack">
-          <button class="btn-clear" (click)="resetFiltros()">Limpiar Filtros</button>
-          <button class="btn-clear-rows" (click)="limpiarFilasSeleccionadas()" [disabled]="registrosSeleccionados.length === 0">Limpiar Filas</button>
+          <button class="btn-clear" (click)="resetFiltros()" [disabled]="!filtroPaciente && !filtroProfesional && !filtroPrestacion && !filtroGrupo && !filtroFecha && !soloValorizadas && !soloSinMotivoDebito && !soloSinMotivoRefactura">Limpiar Filtros</button>
         </div>
       </div>
 
       <div class="checkbox-filters">
         <div class="check-item">
           <input type="checkbox" id="checkVal" [(ngModel)]="soloValorizadas" (change)="aplicarFiltros()">
-          <label for="checkVal">Ver solo prestaciones valorizadas</label>
+          <label for="checkVal" class="has-tooltip"
+                 data-tooltip="Muestra únicamente las prestaciones que tienen un valor asignado mayor a cero">Ver solo prestaciones valorizadas</label>
         </div>
         <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
           <div class="check-item">
             <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
-            <label for="checkDebito">Ver solo prest. sin mot. de débito</label>
+            <label for="checkDebito" class="has-tooltip"
+                   data-tooltip="Oculta las prestaciones que ya tienen un motivo de débito cargado">Ver solo prest. sin mot. de débito</label>
           </div>
         </ng-container>
         <div class="check-item">
           <input type="checkbox" id="checkRefac" [(ngModel)]="soloSinMotivoRefactura" (change)="aplicarFiltros()">
-          <label for="checkRefac">Ver solo prest. sin mot. de refactura</label>
+          <label for="checkRefac" class="has-tooltip"
+                 data-tooltip="Filtra las prestaciones pendientes de refacturación en este período">Ver solo prest. sin mot. de refactura</label>
         </div>
       </div>
     </div>
 
     <div class="resumen-contadores">
-      <div class="contador-box">
+      <div class="contador-box has-tooltip"
+           data-tooltip="Cantidad total de documentos que fueron aceptados sin débitos">
         <span class="contador-label">Aceptados:</span>
         <span class="contador-valor">{{ cantAceptados }}</span>
       </div>
-      <div class="contador-box">
+      <div class="contador-box has-tooltip"
+           data-tooltip="Suma del importe neto de los débitos aplicados">
         <span class="contador-label">Total Debitado:</span>
         <span class="contador-valor text-danger">{{ totalDebitadoAceptado | currency }}</span>
       </div>
-      <div class="contador-box">
+      <div class="contador-box has-tooltip"
+           data-tooltip="Monto total habilitado para una nueva refacturación">
         <span class="contador-label">Total a Refacturar:</span>
         <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
       </div>
+      <button class="btn-clear-rows has-tooltip"
+              (click)="limpiarFilasSeleccionadas()"
+              [disabled]="registrosSeleccionados.length === 0"
+              data-tooltip="Quita las filas seleccionadas actualmente de la vista">Limpiar Filas</button>
     </div>
 
     <div class="filtro-columna">
@@ -276,12 +285,12 @@
       </div>
 
       <div class="totales-footer" style="display: flex; justify-content: flex-end; gap: 20px; padding: 15px; background: #f8f9fa; border-top: 2px solid #ccc; font-weight: bold;">
-        <span>Total Cantidad: {{ totalCantidad }}</span>
-        <span>Total Neto: {{ totalNetoGlobal | currency }}</span>
-        <span>Coseguro: {{ totalCoseguroGlobal | currency }}</span>
-        <span>Total Facturado: {{ totalFacturado | currency }}</span>
-        <span class="text-danger" *ngIf="tipoBusquedaRealizada !== 'NC'">Total Debitado: {{ totalDebitado | currency }}</span>
-        <span class="text-success">Total Refacturado: {{ totalRefacturadoGlobal | currency }}</span>
+        <span class="has-tooltip" data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad }}</span>
+        <span class="has-tooltip" data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal | currency }}</span>
+        <span class="has-tooltip" data-tooltip="Total del coseguro a cargo del paciente en este documento">Coseguro: {{ totalCoseguroGlobal | currency }}</span>
+        <span class="has-tooltip" data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado | currency }}</span>
+        <span class="text-danger has-tooltip" *ngIf="tipoBusquedaRealizada !== 'NC'" data-tooltip="Suma total de los importes debitados en este documento">Total Debitado: {{ totalDebitado | currency }}</span>
+        <span class="text-success has-tooltip" data-tooltip="Monto total aprobado para refacturación en este período">Total Refacturado: {{ totalRefacturadoGlobal | currency }}</span>
       </div>
     </div>
 

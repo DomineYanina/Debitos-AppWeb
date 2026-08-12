@@ -1,5 +1,5 @@
 import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
@@ -8,17 +8,18 @@ import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
 import { AuditoriaService } from '../../core/services/auditoria';
 import { DocumentoAsociado } from '../../core/models/documento-asociado';
-import {ExcelExportService} from '../../core/services/excel-export';
+import { ExcelExportService } from '../../core/services/excel-export';
 import { AgGridModule } from 'ag-grid-angular';
 import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
 import { GroupedSelectEditor } from '../../core/components/grouped-select-editor/grouped-select-editor';
-import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA} from '../../core/constants/motivos';
+import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
+
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import {AuditoriaMathService} from '../../core/services/auditoria-math';
-import {AuditoriaGridConfigService} from '../../core/services/auditoria-grid-config';
-import {InactividadService} from '../../core/services/InactividadService';
+import { AuditoriaMathService } from '../../core/services/auditoria-math';
+import { AuditoriaGridConfigService } from '../../core/services/auditoria-grid-config';
+import { InactividadService } from '../../core/services/InactividadService';
 
 @Component({
   selector: 'app-auditoria',
@@ -114,7 +115,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   comentariosMasivo: string = '';
   comentariosDebitoMasivo: string = '';
 
-  cargando : boolean = false;
+  cargando: boolean = false;
   private fb = inject(FormBuilder);
   cdr = inject(ChangeDetectorRef);
   private authService = inject(AuthService);
@@ -149,6 +150,19 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   soloSinMotivoDebito: boolean = false;
   soloSinMotivoRefactura: boolean = false;
   soloValorizadas: boolean = false;
+
+  get hayFiltrosActivos(): boolean {
+    return !!(
+      this.filtroPaciente ||
+      this.filtroProfesional ||
+      this.filtroPrestacion ||
+      this.filtroGrupo ||
+      this.filtroFecha ||
+      this.soloValorizadas ||
+      this.soloSinMotivoDebito ||
+      this.soloSinMotivoRefactura
+    );
+  }
 
   prestacionesPaginadas: Prestacion[] = []; // Esta es la que va a leer el HTML
   paginaActual: number = 1;
@@ -210,8 +224,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   modalVisible: boolean = false;
   modalMensaje: string = '';
-  modalAceptarCb: () => void = () => {};
-  modalCancelarCb: () => void = () => {};
+  modalAceptarCb: () => void = () => { };
+  modalCancelarCb: () => void = () => { };
 
   modalNuevaNotaVisible: boolean = false;
   tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
@@ -283,7 +297,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'LIMPIEZA_FILAS_CONFIRMADA',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Cantidad de filas blanqueadas
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.registrosSeleccionados.forEach(p => {
         p.debitoAceptado = '';
@@ -321,7 +335,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_REFACTURA',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosConPrevio.length
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         this.ejecutarMasivoRefactura(motivo, true);
         this.cerrarModal();
@@ -414,7 +428,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta("No se aplicó el comentario porque ninguna de las filas seleccionadas tiene el Débito Aceptado marcado como 'NO'.", undefined, 'error');
     } else if (aplicados < this.registrosSeleccionados.length) {
@@ -446,10 +460,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta("No se aplicó el comentario porque ninguna fila seleccionada tiene un Motivo de Débito cargado.", undefined, 'error');
-    }else if (aplicados < this.registrosSeleccionados.length) {
+    } else if (aplicados < this.registrosSeleccionados.length) {
       this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s). Las demás fueron ignoradas por no tener Motivo de Débito.`);
     }
 
@@ -495,7 +509,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_BUSQUEDA_FORMULARIO_INVALIDO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Revise los datos de búsqueda, faltan campos obligatorios.', undefined, 'error');
       return; // Cortamos la ejecución
@@ -611,7 +625,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
           evento: `ERROR_HTTP_${err.status}_AL_BUSCAR`,
           cantidadRegistrosPendientes: this.modificadosSinGuardar.size
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         if (err.status === 404) {
           this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.', undefined, 'error');
@@ -663,7 +677,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_ACCION_MASIVA_SIN_FILAS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Primero tenés que seleccionar al menos una fila en la grilla usando las casillas de verificación.', undefined, 'error');
       return;
@@ -677,7 +691,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_ACCION_MASIVA_SIN_MOTIVO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Seleccioná un motivo de débito del menú desplegable antes de aplicar.', undefined, 'error');
       return;
@@ -698,7 +712,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_DEBITO',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosConPrevio.length // Cantidad de celdas pisadas
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         this.ejecutarMasivoDebito(motivo, true);
         this.cerrarModal();
@@ -835,7 +849,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'GRILLA_VACIA_POR_FILTROS_ACTIVOS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
     }
   }
 
@@ -858,8 +872,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.aplicarFiltros();
   }
 
-  getIcono(col:string){
-    if(this.columnaOrden === col){
+  getIcono(col: string) {
+    if (this.columnaOrden === col) {
       return this.direccionOrden === 'asc' ? '▲' : '▼';
     }
     return '';
@@ -923,7 +937,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       evento: `GRILLA_ORDENADA_POR_${String(columna).toUpperCase()}_${this.direccionOrden.toUpperCase()}`,
       fechaHora: new Date().toISOString(),
       cantidadRegistrosPendientes: 0
-    }).subscribe({ error: () => {} });
+    }).subscribe({ error: () => { } });
   }
 
   toggleSelectAll(event: Event) {
@@ -973,7 +987,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_EXPORTAR_EXCEL_VACIO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('No hay datos visibles en la grilla para exportar. Revisá los filtros aplicados.', undefined, 'error');
       return;
@@ -986,7 +1000,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       evento: 'EXPORTACION_EXCEL_EXITOSA',
       fechaHora: new Date().toISOString(),
       cantidadRegistrosPendientes: this.prestacionesFiltradas.length
-    }).subscribe({ error: () => {} });
+    }).subscribe({ error: () => { } });
 
     const f = this.busquedaForm.value;
     const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
@@ -1014,7 +1028,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'INTENTO_GUARDAR_VACIO',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: 0
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         this.mostrarAlerta('No hay registros con motivos asignados para guardar.', undefined, 'error');
       }
@@ -1077,7 +1091,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: `ERROR_HTTP_${err.status}_AL_GUARDAR`,
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosParaGuardar.length
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         if (silencioso) {
           this.guardandoSilencioso = false;
@@ -1130,7 +1144,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'ERROR_TIPEO_LETRA_NUMERO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.modificadosSinGuardar.size // Dato real
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta(
         'El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.',
@@ -1169,7 +1183,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'INTENTO_CREAR_ND_SIN_RECHAZOS',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: 0
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND', undefined, 'error');
         return;
@@ -1195,7 +1209,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: `INTENTO_CREAR_NOTA_FORMULARIO_INVALIDO`,
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Por favor, complete todos los campos correctamente.', undefined, 'error');
       return;
@@ -1284,7 +1298,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: `ERROR_HTTP_${err.status}_AL_CREAR_NOTA_${this.tipoNuevaNota}`,
           cantidadRegistrosPendientes: registrosParaGuardar.length,
           fechaHora: new Date().toISOString(),
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`, undefined, 'error');
         this.cdr.detectChanges();
@@ -1356,7 +1370,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
             evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_DEBITO',
             fechaHora: new Date().toISOString(),
             cantidadRegistrosPendientes: 1
-          }).subscribe({ error: () => {} });
+          }).subscribe({ error: () => { } });
 
           this.ejecutarIndividualDebito(p, nuevo);
           event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila
@@ -1388,7 +1402,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
             evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_REFACTURA',
             fechaHora: new Date().toISOString(),
             cantidadRegistrosPendientes: 1
-          }).subscribe({ error: () => {} });
+          }).subscribe({ error: () => { } });
 
           this.ejecutarIndividualRefactura(p, nuevo);
           event.api.refreshCells({ rowNodes: [event.node] });

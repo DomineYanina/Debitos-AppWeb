@@ -17,7 +17,7 @@ export class AuditoriaGridConfigService {
     const esSoloLectura = tipo === 'NC';
 
     let columnas: ColDef[] = [
-      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' },
+      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, headerTooltip: 'Seleccionar o deseleccionar todas las filas cargadas', width: 50, pinned: 'left' },
       { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
@@ -32,7 +32,7 @@ export class AuditoriaGridConfigService {
     ];
 
     if (tipo === 'ND' || (tipo === 'NC' && tieneComentariosPrevios)) {
-      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', headerTooltip: 'Historial de comentarios y observaciones de auditorías anteriores', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
     }
 
     columnas.push(
@@ -52,6 +52,7 @@ export class AuditoriaGridConfigService {
 
     columnas.push({
       headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
+      headerTooltip: 'Observaciones específicas sobre el débito aplicado a esta prestación',
       editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
       cellClassRules: {
         'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
@@ -65,6 +66,7 @@ export class AuditoriaGridConfigService {
         valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
       },
       { headerName: 'Comentarios\nRefactura', field: 'comentarios', headerClass: 'bg-naranja',
+        headerTooltip: 'Notas y aclaraciones sobre el proceso de refacturación',
         editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
         cellClassRules: {
           'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
