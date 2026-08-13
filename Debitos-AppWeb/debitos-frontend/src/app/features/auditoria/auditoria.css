@@ -143,7 +143,7 @@
     font-size: 0.9rem;
 
     thead {
-      background-color: #edf2f7;
+      background-color: #e2e8f0;
 
       tr th {
         padding: 1rem;
@@ -379,7 +379,7 @@ tfoot tr td {
   position: sticky;
   top: 0;
   /* Se pega al borde superior del contenedor */
-  background-color: #f8fafc;
+  background-color: #e2e8f0;
   /* CRÍTICO: Debe tener color sólido, si es transparente se mezclan las letras */
   z-index: 10;
   /* Lo mantiene por encima de las filas de datos */
@@ -641,7 +641,7 @@ tr.row-selected {
 .tabla-container th.col-checkbox {
   z-index: 20 !important;
   /* CRÍTICO: Debe ser mayor que el z-index: 10 de los otros th */
-  background-color: #f8fafc;
+  background-color: #e2e8f0;
   /* Mantener el color del thead */
 }
 
@@ -697,19 +697,28 @@ tr.row-selected {
    ========================================================================== */
 
 /* 1. Definición de colores base para Encabezados (th) y Celdas (td) */
-.tabla-container thead th.bg-celeste,
+.tabla-container thead th.bg-celeste {
+  background-color: #96EBF7;
+}
+
 .tabla-container table tbody tr td.bg-celeste {
   background-color: #B9F6FD;
   /* Celeste muy suave */
 }
 
-.tabla-container thead th.bg-gris,
+.tabla-container thead th.bg-gris {
+  background-color: #e2e8f0;
+}
+
 .tabla-container table tbody tr td.bg-gris {
   background-color: #f2f3f3;
   /* Gris muy suave */
 }
 
-.tabla-container thead th.bg-naranja,
+.tabla-container thead th.bg-naranja {
+  background-color: #e39b52;
+}
+
 .tabla-container table tbody tr td.bg-naranja {
   background-color: #FDC48B;
   /* Naranja muy suave */
@@ -1268,26 +1277,52 @@ tr.row-selected {
    AG-GRID: COLORES, BORDES Y SELECCIÓN TIPO EXCEL
    ========================================================= */
 
-/* 1. Colores de fondo para Encabezados (th) y Celdas (td) */
-::ng-deep .bg-celeste {
+/* 1. Colores de fondo para Encabezados (th / .ag-header-cell) y Celdas (td / .ag-cell) */
+::ng-deep .ag-header-cell.bg-celeste {
+  background-color: #71d2df !important;
+  color: #1e293b !important;
+}
+
+::ng-deep .ag-cell.bg-celeste {
   background-color: #B9F6FD !important;
   color: #1e293b !important;
 }
 
-::ng-deep .bg-gris {
+::ng-deep .ag-header-cell.bg-gris {
+  background-color: #c4ccd5 !important;
+  color: #1e293b !important;
+}
+
+::ng-deep .ag-cell.bg-gris {
   background-color: #f1f5f9 !important;
   /* Un gris mucho más luminoso y suave */
   color: #1e293b !important;
 }
 
-::ng-deep .bg-naranja {
+::ng-deep .ag-header-cell.bg-naranja {
+  background-color: #FCB56E !important;
+  color: #1e293b !important;
+}
+
+::ng-deep .ag-cell.bg-naranja {
   background-color: #FDC48B !important;
   color: #1e293b !important;
 }
 
-::ng-deep .bg-azul-auditoria {
+::ng-deep .ag-header-cell.bg-azul-auditoria {
+  background-color: #004C90 !important;
+  color: #ffffff !important;
+}
+
+::ng-deep .ag-cell.bg-azul-auditoria {
   background-color: #005FB3 !important;
   color: #ffffff !important;
+}
+
+/* Fallback general para encabezados sin clase de color */
+::ng-deep .ag-header,
+::ng-deep .ag-header-cell:not([class*="bg-"]) {
+  background-color: #e2e8f0 !important;
 }
 
 /* 2. Si la fila está seleccionada, quitamos el fondo forzado para ver el highlight de ag-Grid */
@@ -1368,9 +1403,9 @@ tr.row-selected {
 .btn-floating-help {
   position: fixed;
   bottom: 28px;
-  right: 28px;
-  width: 52px;
-  height: 52px;
+  left: 28px;
+  width: 45px;
+  height: 45px;
   border-radius: 50%;
   background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
   color: #ffffff;
@@ -1689,4 +1724,3 @@ tr.row-selected {
     }
   }
 }
-

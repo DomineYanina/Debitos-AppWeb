@@ -6,7 +6,6 @@
   <!-- Encabezado del Panel -->
   <header class="drawer-header">
     <div class="drawer-header-title">
-      <span class="faq-icon">❓</span>
       <h2>Preguntas Frecuentes</h2>
     </div>
     <button type="button" class="btn-close" (click)="onClose()" aria-label="Cerrar panel de ayuda">&times;</button>
@@ -16,66 +15,412 @@
   <main class="drawer-body">
     <!-- Categoría 1: Búsqueda y Filtros -->
     <section class="faq-group">
-      <h3>Búsqueda y Filtros</h3>
+      <button type="button" class="faq-group-header" (click)="toggleGroup('busqueda')"
+        [attr.aria-expanded]="isGroupOpen('busqueda')" aria-controls="faq-group-busqueda">
+        <span class="faq-group-title">Búsqueda y Filtros</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('busqueda')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
 
-      <article class="faq-item">
-        <h4>¿Cómo busco un documento específico?</h4>
-        <p>Seleccioná el Tipo de documento (ej. Factura o Nota de Débito) en el panel superior, completá los campos de
-          Letra, Punto de Venta y Número, y presioná el botón azul Buscar.</p>
-      </article>
+      <div id="faq-group-busqueda" class="faq-group-content" [class.open]="isGroupOpen('busqueda')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('busqueda-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('busqueda-q1')"
+              [attr.aria-expanded]="isQuestionOpen('busqueda-q1')" aria-controls="faq-ans-busqueda-q1">
+              <span class="faq-question-text">¿Cómo busco un documento específico?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('busqueda-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-busqueda-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('busqueda-q1')">
+              <div class="faq-answer-inner">
+                <p>Seleccioná el Tipo de documento (ej. Factura o Nota de Débito) en el panel superior, completá los
+                  campos de Letra, Punto de Venta y Número, y presioná el botón azul <strong>Buscar</strong>.</p>
+              </div>
+            </div>
+          </article>
 
-      <article class="faq-item">
-        <h4>¿Cómo borro los filtros aplicados?</h4>
-        <p>Para restablecer los menús desplegables a su estado original sin perder la búsqueda, presioná el botón
-          Limpiar Filtros.</p>
-      </article>
+          <article class="faq-item" [class.open]="isQuestionOpen('busqueda-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('busqueda-q2')"
+              [attr.aria-expanded]="isQuestionOpen('busqueda-q2')" aria-controls="faq-ans-busqueda-q2">
+              <span class="faq-question-text">¿Cómo borro los filtros aplicados?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('busqueda-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-busqueda-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('busqueda-q2')">
+              <div class="faq-answer-inner">
+                <p>Para restablecer los menús desplegables a su estado original sin perder la búsqueda, presioná el
+                  botón <strong>Limpiar Filtros</strong>.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
     </section>
 
-    <!-- Categoría 2: Interacción con la Grilla -->
+    <!-- Categoría 2: Edición y Aplicación Masiva -->
     <section class="faq-group">
-      <h3>Interacción con la Grilla</h3>
+      <button type="button" class="faq-group-header" (click)="toggleGroup('edicion')"
+        [attr.aria-expanded]="isGroupOpen('edicion')" aria-controls="faq-group-edicion">
+        <span class="faq-group-title">Edición y Aplicación Masiva</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('edicion')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
 
-      <article class="faq-item">
-        <h4>¿Cómo selecciono los registros a procesar?</h4>
-        <p>Utilizá las casillas de verificación de la primera columna. Para seleccionar todo, usá la casilla vacía del
-          encabezado superior izquierdo.</p>
-      </article>
+      <div id="faq-group-edicion" class="faq-group-content" [class.open]="isGroupOpen('edicion')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('edicion-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('edicion-q1')"
+              [attr.aria-expanded]="isQuestionOpen('edicion-q1')" aria-controls="faq-ans-edicion-q1">
+              <span class="faq-question-text">¿Cómo aplico cambios a múltiples registros al mismo tiempo?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('edicion-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-edicion-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('edicion-q1')">
+              <div class="faq-answer-inner">
+                <p>Seleccioná las prestaciones deseadas utilizando las casillas de verificación de la primera columna de
+                  la grilla. Luego, utilizá la barra de acciones masivas sobre la tabla para definir el estado (Débito
+                  Aceptado, Motivo, Importe o Comentario) y presioná el botón azul <strong>Aplicar masivo</strong>.
+                </p>
+              </div>
+            </div>
+          </article>
 
-      <article class="faq-item">
-        <h4>¿Qué indican los totales inferiores?</h4>
-        <p>Resumen los valores de los registros visualizados actualmente (Cantidad, Total Neto, Coseguro), reflejando
-          inmediatamente los filtros aplicados.</p>
-      </article>
-
+          <article class="faq-item" [class.open]="isQuestionOpen('edicion-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('edicion-q2')"
+              [attr.aria-expanded]="isQuestionOpen('edicion-q2')" aria-controls="faq-ans-edicion-q2">
+              <span class="faq-question-text">¿Qué sucede si modifico datos y no los guardo de inmediato?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('edicion-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-edicion-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('edicion-q2')">
+              <div class="faq-answer-inner">
+                <p>Los registros modificados se destacan visualmente en la grilla y el sistema activa una protección. Si
+                  intentás cerrar la pestaña del navegador o salir de la página antes de guardar, se mostrará un cartel
+                  de advertencia para evitar la pérdida accidental de datos.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
     </section>
 
-    <!-- Categoría 3: Acciones y Exportación -->
+    <!-- Categoría 3: Clasificación de Motivos y Criterios -->
     <section class="faq-group">
-      <h3>Acciones y Exportación</h3>
+      <button type="button" class="faq-group-header" (click)="toggleGroup('motivos')"
+        [attr.aria-expanded]="isGroupOpen('motivos')" aria-controls="faq-group-motivos">
+        <span class="faq-group-title">Clasificación de Motivos y Criterios</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('motivos')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
 
-      <article class="faq-item">
-        <h4>¿Qué diferencia hay entre "Guardar parcialmente" y "Nueva Nota de Crédito"?</h4>
-        <p>Guardar parcialmente registra tu progreso sin emitir documento. Nueva Nota de Crédito finaliza el proceso y
-          genera el documento oficial.</p>
-      </article>
+      <div id="faq-group-motivos" class="faq-group-content" [class.open]="isGroupOpen('motivos')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('motivos-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('motivos-q1')"
+              [attr.aria-expanded]="isQuestionOpen('motivos-q1')" aria-controls="faq-ans-motivos-q1">
+              <span class="faq-question-text">¿Cómo están organizados los motivos de débito y refacturación?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('motivos-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-motivos-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('motivos-q1')">
+              <div class="faq-answer-inner">
+                <p>Los motivos se agrupan en 6 categorías normalizadas (Administrativos, Médicos/Auditoría,
+                  Contractuales/Nomenclador, Operativos/Documentales, Ajustes Comerciales, y Otros). Esto te permite
+                  encontrar rápidamente la justificación exacta seleccionando la categoría correspondiente.</p>
+              </div>
+            </div>
+          </article>
 
-      <article class="faq-item">
-        <h4>¿Qué hace "Exportar Excel"?</h4>
-        <p>Descarga una planilla con las filas y columnas exactas que estás viendo, respetando los filtros actuales.</p>
-      </article>
+          <article class="faq-item" [class.open]="isQuestionOpen('motivos-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('motivos-q2')"
+              [attr.aria-expanded]="isQuestionOpen('motivos-q2')" aria-controls="faq-ans-motivos-q2">
+              <span class="faq-question-text">¿Cómo puedo quitar un motivo que asigné por error a una prestación?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('motivos-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-motivos-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('motivos-q2')">
+              <div class="faq-answer-inner">
+                <p>Podés seleccionar la opción <strong>Borrar</strong> en el desplegable de motivos (tanto en edición
+                  individual como masiva). Al hacerlo, el campo volverá a quedar vacío.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
-      <article class="faq-item">
-        <h4>¿Qué son los contadores superiores?</h4>
-        <p>Muestran el resumen del documento: cantidad aceptada, total debitado e importe disponible para refacturar.
-        </p>
-      </article>
+    <!-- Categoría 4: Interacción con la Grilla -->
+    <section class="faq-group">
+      <button type="button" class="faq-group-header" (click)="toggleGroup('grilla')"
+        [attr.aria-expanded]="isGroupOpen('grilla')" aria-controls="faq-group-grilla">
+        <span class="faq-group-title">Interacción con la Grilla</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('grilla')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
+
+      <div id="faq-group-grilla" class="faq-group-content" [class.open]="isGroupOpen('grilla')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('grilla-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('grilla-q1')"
+              [attr.aria-expanded]="isQuestionOpen('grilla-q1')" aria-controls="faq-ans-grilla-q1">
+              <span class="faq-question-text">¿Cómo selecciono los registros a procesar?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('grilla-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-grilla-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('grilla-q1')">
+              <div class="faq-answer-inner">
+                <p>Utilizá las casillas de verificación de la primera columna. Para seleccionar todo, usá la casilla
+                  vacía del encabezado superior izquierdo.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('grilla-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('grilla-q2')"
+              [attr.aria-expanded]="isQuestionOpen('grilla-q2')" aria-controls="faq-ans-grilla-q2">
+              <span class="faq-question-text">¿Qué indican los totales inferiores?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('grilla-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-grilla-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('grilla-q2')">
+              <div class="faq-answer-inner">
+                <p>Resumen los valores de los registros visualizados actualmente (Cantidad, Total Neto, Coseguro),
+                  reflejando inmediatamente los filtros aplicados.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categoría 5: Cálculos y Totales Automáticos -->
+    <section class="faq-group">
+      <button type="button" class="faq-group-header" (click)="toggleGroup('calculos')"
+        [attr.aria-expanded]="isGroupOpen('calculos')" aria-controls="faq-group-calculos">
+        <span class="faq-group-title">Cálculos y Totales Automáticos</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('calculos')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
+
+      <div id="faq-group-calculos" class="faq-group-content" [class.open]="isGroupOpen('calculos')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('calculos-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('calculos-q1')"
+              [attr.aria-expanded]="isQuestionOpen('calculos-q1')" aria-controls="faq-ans-calculos-q1">
+              <span class="faq-question-text">¿Cómo se calcula el importe de "Total Refacturado"?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('calculos-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-calculos-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('calculos-q1')">
+              <div class="faq-answer-inner">
+                <p>El indicador suma automáticamente los importes de refacturación de aquellas prestaciones donde
+                  marcaste que el débito NO fue aceptado (Débito Aceptado = NO).</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('calculos-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('calculos-q2')"
+              [attr.aria-expanded]="isQuestionOpen('calculos-q2')" aria-controls="faq-ans-calculos-q2">
+              <span class="faq-question-text">¿Los totales inferiores cambian si aplico un filtro en la tabla?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('calculos-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-calculos-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('calculos-q2')">
+              <div class="faq-answer-inner">
+                <p>Sí. Todos los contadores del pie de página son dinámicos y resumen únicamente las prestaciones que
+                  tenés visibles en pantalla en ese momento, reflejando inmediatamente cualquier filtro o búsqueda
+                  aplicada.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categoría 4: Gestión de Documentos y Guardado -->
+    <section class="faq-group">
+      <button type="button" class="faq-group-header" (click)="toggleGroup('documentos')"
+        [attr.aria-expanded]="isGroupOpen('documentos')" aria-controls="faq-group-documentos">
+        <span class="faq-group-title">Gestión de Documentos y Guardado</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('documentos')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
+
+      <div id="faq-group-documentos" class="faq-group-content" [class.open]="isGroupOpen('documentos')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('documentos-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('documentos-q1')"
+              [attr.aria-expanded]="isQuestionOpen('documentos-q1')" aria-controls="faq-ans-documentos-q1">
+              <span class="faq-question-text">¿Puedo retomar una auditoría guardada parcialmente?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('documentos-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-documentos-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('documentos-q1')">
+              <div class="faq-answer-inner">
+                <p>Sí. Al seleccionar <strong>Guardar parcialmente</strong>, tu progreso queda registrado en la base
+                  de datos sin emitir un comprobante definitivo. Podés buscar el documento nuevamente en cualquier
+                  momento y continuar desde donde lo dejaste.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('documentos-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('documentos-q2')"
+              [attr.aria-expanded]="isQuestionOpen('documentos-q2')" aria-controls="faq-ans-documentos-q2">
+              <span class="faq-question-text">¿Qué diferencia hay entre guardar parcialmente y generar un nuevo
+                documento?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('documentos-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-documentos-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('documentos-q2')">
+              <div class="faq-answer-inner">
+                <p><strong>Guardar parcialmente</strong> almacena tu avance en estado borrador para seguir editándolo
+                  más tarde sin emitir ningún comprobante. En cambio, <strong>generar un nuevo documento</strong> (ya
+                  sea Nota de Crédito o Nota de Débito) finaliza el proceso de auditoría y emite el comprobante oficial
+                  definitivo.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categoría 5: Herramientas y Exportación -->
+    <section class="faq-group">
+      <button type="button" class="faq-group-header" (click)="toggleGroup('exportacion')"
+        [attr.aria-expanded]="isGroupOpen('exportacion')" aria-controls="faq-group-exportacion">
+        <span class="faq-group-title">Herramientas y Exportación</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('exportacion')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
+
+      <div id="faq-group-exportacion" class="faq-group-content" [class.open]="isGroupOpen('exportacion')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('exportacion-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('exportacion-q1')"
+              [attr.aria-expanded]="isQuestionOpen('exportacion-q1')" aria-controls="faq-ans-exportacion-q1">
+              <span class="faq-question-text">¿Qué información se descarga al presionar "Exportar Excel"?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('exportacion-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-exportacion-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('exportacion-q1')">
+              <div class="faq-answer-inner">
+                <p>Descarga una planilla de cálculo (.xlsx) con las filas y columnas exactas que estás viendo en
+                  pantalla, respetando los filtros actuales y los importes calculados.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('exportacion-q2')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('exportacion-q2')"
+              [attr.aria-expanded]="isQuestionOpen('exportacion-q2')" aria-controls="faq-ans-exportacion-q2">
+              <span class="faq-question-text">¿Cómo puedo volver a ver el recorrido guiado por la pantalla?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('exportacion-q2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-exportacion-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('exportacion-q2')">
+              <div class="faq-answer-inner">
+                <p>Podés reiniciar el tutorial interactivo en cualquier momento haciendo clic en el botón azul
+                  <strong>Volver a ver el recorrido guiado</strong> ubicado en el pie de este panel o desde el ícono
+                  correspondiente en la barra superior.
+                </p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
     </section>
   </main>
 
   <!-- Pie del Panel con Acción Guiada -->
   <footer class="drawer-footer">
     <button type="button" class="btn-restart-tour" (click)="onRestartTour()">
-      <span>🔄</span> Volver a ver el recorrido guiado
+      Volver a ver el recorrido guiado
     </button>
   </footer>
 </div>

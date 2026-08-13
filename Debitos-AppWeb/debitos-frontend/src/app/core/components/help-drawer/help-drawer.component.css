@@ -125,54 +125,170 @@
 
 /* Grupos y Categorías FAQ */
 .faq-group {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .faq-group:last-child {
   margin-bottom: 0.5rem;
 }
 
-.faq-group h3 {
-  margin: 0 0 1rem 0;
+/* Botón desplegable del Título de Categoría */
+.faq-group-header {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 0.4rem 0.25rem 0.5rem 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  border-radius: 4px 4px 0 0;
+}
+
+.faq-group-header:hover {
+  border-bottom-color: #2563eb;
+}
+
+.faq-group-header:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.faq-group-title {
   font-size: 1.05rem;
   font-weight: 700;
   color: #1e293b;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 0.4rem;
-  display: flex;
-  align-items: center;
+  transition: color 0.2s ease;
 }
 
-/* Tarjeta / Item FAQ */
+.faq-group-header:hover .faq-group-title {
+  color: #2563eb;
+}
+
+/* Icono Flecha Desplegable (Chevron) */
+.faq-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+.faq-group-header:hover .faq-chevron {
+  color: #2563eb;
+}
+
+.faq-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+/* Animación Desplegable Suave mediante CSS Grid */
+.faq-group-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  opacity: 0;
+}
+
+.faq-group-content.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.faq-group-inner {
+  overflow: hidden;
+  padding-top: 0.75rem;
+}
+
+/* Tarjeta / Item FAQ Anidado (Pregunta Desplegable) */
 .faq-item {
   background-color: #f8fafc;
   border-left: 4px solid #3b82f6;
   border-radius: 0 8px 8px 0;
-  padding: 0.9rem 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.65rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  overflow: hidden;
 }
 
-.faq-item:hover {
+.faq-item:hover,
+.faq-item.open {
   background-color: #ffffff;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
-  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.12);
 }
 
-.faq-item h4 {
-  margin: 0 0 0.4rem 0;
+.faq-question-button {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.faq-question-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.faq-question-text {
   font-size: 0.92rem;
   font-weight: 600;
   color: #1e3a8a;
   line-height: 1.35;
+  transition: color 0.2s ease;
 }
 
-.faq-item p {
+.faq-question-button:hover .faq-question-text {
+  color: #2563eb;
+}
+
+.faq-question-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease;
+}
+
+.faq-question-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+/* Respuesta Anidada con Animación Grid */
+.faq-answer-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+  opacity: 0;
+}
+
+.faq-answer-wrapper.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.faq-answer-inner {
+  overflow: hidden;
+  padding: 0 0.85rem 0.75rem 0.85rem;
+}
+
+.faq-answer-inner p {
   margin: 0;
   font-size: 0.85rem;
   line-height: 1.5;
   color: #475569;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 0.6rem;
 }
 
 /* Pie del Drawer y Botón del Tour Guiado */
