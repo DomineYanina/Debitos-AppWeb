@@ -25,6 +25,9 @@ public class NotaDeDebito {
 
     private String tipo;
 
+    @Column(name = "tipo_nd")
+    private String tipoNd;
+
     @Column(length = 1)
     private String letra;
 
@@ -82,6 +85,14 @@ public class NotaDeDebito {
 
     public void setTipo(String tipo) {
         this.tipo = tipo;
+    }
+
+    public String getTipoNd() {
+        return tipoNd;
+    }
+
+    public void setTipoNd(String tipoNd) {
+        this.tipoNd = tipoNd;
     }
 
     public String getLetra() {

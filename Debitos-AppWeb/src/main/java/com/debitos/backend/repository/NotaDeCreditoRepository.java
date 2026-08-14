@@ -131,11 +131,28 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                
                -- CORRECCIÓN: Traemos los comentarios de la ND padre mediante el JOIN
-               ndPadre.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios
+               ndPadre.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios,
+               
+               -- Regla 2: expone si la NC tiene ND padre (null = hija de FC, permite múltiples ND)
+               nc.id_notadedebito AS "idNotaDeDebito"
         FROM notadecredito nc
         LEFT JOIN notadedebito ndPadre ON nc.id_notadedebito = ndPadre.id
         JOIN amb_liquidado al ON nc.id_prestacion = al.id
         WHERE nc.letra = :letra AND nc.ptovta = :ptovta AND nc.numero = :numero
         """, nativeQuery = true)
     List<PrestacionAuditoriaDTO> findPrestacionesPorNotaCredito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT DISTINCT 
+               CAST(CASE WHEN nc.id_notadedebito IS NOT NULL THEN ndPadre.tipo ELSE 'FC' END AS VARCHAR) AS tipo,
+               CAST(CASE WHEN nc.id_notadedebito IS NOT NULL THEN ndPadre.letra ELSE al.cob_factura_letra END AS VARCHAR) AS letra,
+               CAST(CASE WHEN nc.id_notadedebito IS NOT NULL THEN ndPadre.ptovta ELSE al.cob_factura_ptoventa END AS INTEGER) AS ptovta,
+               CAST(CASE WHEN nc.id_notadedebito IS NOT NULL THEN ndPadre.numero ELSE al.cob_factura_numero END AS INTEGER) AS numero,
+               CAST(CASE WHEN nc.id_notadedebito IS NOT NULL THEN ndPadre.fecha ELSE al.fecha END AS DATE) AS fecha
+        FROM notadecredito nc
+        JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        LEFT JOIN notadedebito ndPadre ON nc.id_notadedebito = ndPadre.id
+        WHERE nc.letra = :letra AND nc.ptovta = :ptovta AND nc.numero = :numero
+        """, nativeQuery = true)
+    List<Object[]> findDocumentoAsociadoPadreRaw(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 }

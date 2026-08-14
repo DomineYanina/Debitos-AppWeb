@@ -106,7 +106,7 @@
         </div>
         <div class="botones-limpieza-stack">
           <button class="btn-clear" (click)="resetFiltros()"
-            [disabled]="!filtroPaciente && !filtroProfesional && !filtroPrestacion && !filtroGrupo && !filtroFecha && !soloValorizadas && !soloSinMotivoDebito && !soloSinMotivoRefactura">Limpiar
+            [disabled]="!filtroPaciente && !filtroProfesional && !filtroPrestacion && !filtroGrupo && !filtroFecha && !soloValorizadas && !soloSinMotivoDebito && !soloSinMotivoRefactura && !soloSinNC">Limpiar
             Filtros</button>
         </div>
       </div>
@@ -118,6 +118,14 @@
             data-tooltip="Muestra únicamente las prestaciones que tienen un valor asignado mayor a cero">Ver solo
             prestaciones valorizadas</label>
         </div>
+        <ng-container *ngIf="tipoBusquedaRealizada === 'FC'">
+          <div class="check-item">
+            <input type="checkbox" id="checkSinNC" [(ngModel)]="soloSinNC" (change)="aplicarFiltros()">
+            <label for="checkSinNC" class="has-tooltip"
+              data-tooltip="Oculta las prestaciones que ya pertenecen a una Nota de Crédito previa">Ver solo
+              prestaciones sin NC</label>
+          </div>
+        </ng-container>
         <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
           <div class="check-item">
             <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
@@ -168,36 +176,28 @@
       <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC' && !notaDeCreditoYaCreada"
         (click)="guardarParcialmente()">Guardar parcialmente</button>
 
-      <!-- Botón NC: visible si es FC o ND y la FC aún no tiene una NC creada -->
+      <!-- Botón NC: visible si es FC o ND -->
+      <!-- Regla 1: en FC, siempre visible (múltiples NC permitidas).
+           En ND, se oculta si ya existe una NC hija (relación 1:1). -->
       <ng-container *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'">
-        <button class="btn-accion-doc btn-nueva-nota" *ngIf="!notaDeCreditoYaCreada"
+        <!-- Para FC: siempre visible; para ND: visible solo si aún no hay NC hija -->
+        <button class="btn-accion-doc btn-nueva-nota"
+          *ngIf="tipoBusquedaRealizada === 'FC' || (tipoBusquedaRealizada === 'ND' && !notaDeCreditoYaCreada)"
           (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
-        <div class="nc-ya-creada-badge" *ngIf="notaDeCreditoYaCreada">
-          <div class="badge-header">✅ Nota de crédito ya creada</div>
-          <div class="badge-detalle" *ngIf="documentoCreadoInfo">
-            <span><strong>Tipo:</strong> {{ documentoCreadoInfo.tipo }}</span>
-            <span><strong>Letra:</strong> {{ documentoCreadoInfo.letra }}</span>
-            <span><strong>Pto. Venta:</strong> {{ documentoCreadoInfo.ptovta }}</span>
-            <span><strong>Nº:</strong> {{ documentoCreadoInfo.numero }}</span>
-            <span><strong>Fecha:</strong> {{ documentoCreadoInfo.fecha | date:'dd/MM/yyyy' }}</span>
-          </div>
-        </div>
       </ng-container>
-      <!-- Botón ND: visible si es NC y la NC aún no tiene una ND creada -->
+
+      <!-- Botón ND: visible para cualquier NC -->
       <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
-        <button class="btn-accion-doc btn-nueva-nota" *ngIf="!notaDeDebitoYaCreada"
-          (click)="abrirModalNuevaNota('ND')">Nueva Nota de Débito</button>
-        <div class="nd-ya-creada-badge" *ngIf="notaDeDebitoYaCreada">
-          <div class="badge-header">✅ Nota de débito ya creada</div>
-          <div class="badge-detalle" *ngIf="documentoCreadoInfo">
-            <span><strong>Tipo:</strong> {{ documentoCreadoInfo.tipo }}</span>
-            <span><strong>Letra:</strong> {{ documentoCreadoInfo.letra }}</span>
-            <span><strong>Pto. Venta:</strong> {{ documentoCreadoInfo.ptovta }}</span>
-            <span><strong>Nº:</strong> {{ documentoCreadoInfo.numero }}</span>
-            <span><strong>Fecha:</strong> {{ documentoCreadoInfo.fecha | date:'dd/MM/yyyy' }}</span>
-          </div>
-        </div>
+        <button class="btn-accion-doc btn-nueva-nota" (click)="abrirModalNuevaNota('ND')">Nueva
+          Nota de Débito</button>
       </ng-container>
+
+      <!-- Botón limpio para abrir el modal de Documentos Asociados (evita deformar la barra superior) -->
+      <button class="btn-accion-doc btn-ver-docs"
+        *ngIf="documentosCreadosInfo.length > 0 || (tipoBusquedaRealizada === 'ND' && notaDeCreditoYaCreada)"
+        (click)="abrirModalDocumentosAsociados()">
+        📋 Ver documentos asociados ({{ documentosCreadosInfo.length || 1 }})
+      </button>
     </div>
   </section>
 
@@ -379,6 +379,23 @@
             <label>Fecha</label>
             <input type="date" formControlName="fecha" class="input-grilla">
           </div>
+          <div class="form-grupo-tipo-nd full-width" *ngIf="mostrarRadioTipoNd">
+            <label class="label-tipo-nd">Motivo / Tipo de ND *</label>
+            <div class="opciones-radio-tipo-nd">
+              <label class="radio-option" [class.disabled]="deshabilitarTipoIva" [title]="tooltipTipoIva">
+                <input type="radio" formControlName="tipoNd" value="Por ajuste de IVA" [disabled]="deshabilitarTipoIva" (change)="onTipoNdChange()">
+                <span>Por ajuste de IVA</span>
+              </label>
+              <label class="radio-option" [class.disabled]="deshabilitarTipoRefactura" [title]="tooltipTipoRefactura">
+                <input type="radio" formControlName="tipoNd" value="Por Refactura" [disabled]="deshabilitarTipoRefactura" (change)="onTipoNdChange()">
+                <span>Por Refactura</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-grupo-modal full-width" *ngIf="mostrarRadioTipoNd && nuevaNotaForm.get('tipoNd')?.value === 'Por ajuste de IVA'" style="margin-top: 15px;">
+            <label style="font-weight: 600; color: #1e293b; font-size: 0.9rem; margin-bottom: 6px; display: block;">Importe de ND por Ajuste de IVA ($) *</label>
+            <input type="number" formControlName="importeNd" class="input-grilla" placeholder="Ej: 1500.00" step="0.01" min="0.01" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem;">
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -401,6 +418,68 @@
       </div>
       <div class="modal-footer" style="justify-content: center;">
         <button class="btn-modal-aceptar" (click)="cerrarModalAlerta()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal dedicado para consultar Documentos Asociados sin deformar la interfaz -->
+  <div class="modal-overlay" *ngIf="modalDocumentosAsociadosVisible">
+    <div class="modal-box modal-docs-asociados">
+      <div class="modal-header">
+        <h3>Documentos Asociados Generados</h3>
+      </div>
+      <div class="modal-body">
+        <div class="tabla-modal-wrapper" *ngIf="documentosCreadosInfo.length > 0">
+          <table class="tabla-modal-docs">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Letra</th>
+                <th>Pto. Venta</th>
+                <th>Número</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (doc of documentosCreadosInfo; track doc.numero) {
+              <tr>
+                <td><span class="tag-doc-tipo">{{ doc.tipo }}</span></td>
+                <td>{{ doc.letra }}</td>
+                <td>{{ doc.ptovta }}</td>
+                <td><strong>{{ doc.numero }}</strong></td>
+                <td>{{ doc.fecha | date:'dd/MM/yyyy' }}</td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Caso individual ND→NC de respaldo -->
+        <div class="tabla-modal-wrapper" *ngIf="documentosCreadosInfo.length === 0 && documentoCreadoInfo">
+          <table class="tabla-modal-docs">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Letra</th>
+                <th>Pto. Venta</th>
+                <th>Número</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="tag-doc-tipo">{{ documentoCreadoInfo.tipo }}</span></td>
+                <td>{{ documentoCreadoInfo.letra }}</td>
+                <td>{{ documentoCreadoInfo.ptovta }}</td>
+                <td><strong>{{ documentoCreadoInfo.numero }}</strong></td>
+                <td>{{ documentoCreadoInfo.fecha | date:'dd/MM/yyyy' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <button class="btn-modal-cancelar" (click)="cerrarModalDocumentosAsociados()">Cerrar</button>
       </div>
     </div>
   </div>

@@ -1724,3 +1724,276 @@ tr.row-selected {
     }
   }
 }
+
+/* ==========================================================================
+   HISTORIAL DE DOCUMENTOS GENERADOS (ACUMULATIVO NC / ND)
+   ========================================================================== */
+
+.historial-documentos-wrapper {
+  margin-top: 8px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.historial-titulo {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+
+.historial-lista {
+  max-height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+/* Scrollbar estilizado moderno (WebKit) */
+.historial-lista::-webkit-scrollbar {
+  width: 6px;
+}
+
+.historial-lista::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.historial-lista::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.historial-lista::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Badges minis compactos */
+.documento-badge-mini {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s, border-color 0.2s;
+
+  span {
+    white-space: nowrap;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+}
+
+/* Variante Nota de Crédito (Celeste suave) */
+.documento-badge-mini.nc-badge {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0369a1;
+
+  &:hover {
+    background-color: #e0f2fe;
+    border-color: #7dd3fc;
+  }
+}
+
+/* Variante Nota de Débito (Verde suave) */
+.documento-badge-mini.nd-badge {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+
+  &:hover {
+    background-color: #dcfce7;
+    border-color: #86efac;
+  }
+}
+
+/* Botón para ver documentos asociados en modal */
+.btn-accion-doc.btn-ver-docs {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+
+  &:hover {
+    background-color: #e2e8f0;
+    border-color: #94a3b8;
+    color: #0f172a;
+  }
+}
+
+/* Modal Documentos Asociados */
+.modal-box.modal-docs-asociados {
+  max-width: 650px;
+  width: 90%;
+  border-radius: 8px;
+}
+
+.tabla-modal-wrapper {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.tabla-modal-docs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  thead {
+    background-color: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 700;
+      color: #475569;
+      border-bottom: 2px solid #e2e8f0;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #f1f5f9;
+
+      &:hover {
+        background-color: #f8fafc;
+      }
+
+      td {
+        padding: 10px 14px;
+        color: #1e293b;
+      }
+    }
+  }
+}
+
+.tag-doc-tipo {
+  display: inline-block;
+  padding: 2px 8px;
+  background-color: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+  font-size: 0.78rem;
+  border-radius: 4px;
+  border: 1px solid #bae6fd;
+}
+
+/* ==========================================================================
+   BOTONERA DE ACCIONES EN 2 FILAS DE 2 BOTONES (2x2 GRID CON ANCHO ORIGINAL)
+   ========================================================================== */
+
+.botonera-acciones-container {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+  width: 280px !important;
+  max-width: 280px !important;
+  box-sizing: border-box !important;
+
+  .indicador-guardado {
+    grid-column: 1 / -1;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .btn-exportar,
+  .btn-accion-doc {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 42px;
+    padding: 6px 6px !important;
+    font-size: 0.78rem !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* ==========================================================================
+   ESTILOS PARA RADIOBUTTONS TIPO_ND (NUEVA NOTA DE DÉBITO DESDE NC)
+   ========================================================================== */
+
+.form-grupo-tipo-nd {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label-tipo-nd {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.opciones-radio-tipo-nd {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #f8fafc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.radio-option:hover:not(.disabled) {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.radio-option input[type="radio"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.radio-option.disabled {
+  opacity: 0.55;
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.radio-option.disabled input[type="radio"] {
+  cursor: not-allowed;
+}
+
+
+
+

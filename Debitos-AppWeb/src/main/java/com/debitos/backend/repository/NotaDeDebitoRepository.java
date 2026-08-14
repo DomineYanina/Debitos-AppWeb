@@ -54,20 +54,20 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         """, nativeQuery = true)
     boolean existeNdCompletaParaNotaCredito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
-    @Query("""
-        SELECT DISTINCT new com.debitos.backend.dto.DocumentoAsociadoDTO(nd.tipo, nd.letra, nd.ptovta, nd.numero, nd.fecha)
-        FROM NotaDeDebito nd
-        JOIN nd.notaDeCreditoPadre nc
-        WHERE nc.letra = :letra
-          AND nc.ptovta = :ptovta
-          AND nc.numero = :numero
-          AND nd.tipo IS NOT NULL
-          AND nd.fecha IS NOT NULL
-          AND nd.letra IS NOT NULL
-          AND nd.numero IS NOT NULL
-          AND nd.ptovta IS NOT NULL
-    """)
-    List<DocumentoAsociadoDTO> findNdCompletaParaNotaCredito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+    @Query(value = """
+        SELECT DISTINCT nd.tipo AS tipo, nd.letra AS letra, nd.ptovta AS ptovta, nd.numero AS numero, nd.fecha AS fecha, nd.tipo_nd AS tipoNd
+        FROM notadedebito nd
+        LEFT JOIN notadecredito nc ON nd.id_notadecredito = nc.id
+        WHERE (nc.letra = :letra AND nc.ptovta = :ptovta AND nc.numero = :numero)
+           OR (nd.tipo_nd = 'Por ajuste de IVA' AND nd.tiporegistro = (SELECT DISTINCT n2.tiporegistro FROM notadecredito n2 WHERE n2.letra = :letra AND n2.ptovta = :ptovta AND n2.numero = :numero LIMIT 1))
+        """, nativeQuery = true)
+    List<Object[]> findNdCompletaParaNotaCreditoRaw(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd WHERE nd.notaDeCreditoPadre.id = :notaDeCreditoPadreId AND nd.tipoNd = :tipoNd")
+    boolean existsByNotaDeCreditoPadreIdAndTipoNd(@Param("notaDeCreditoPadreId") Integer notaDeCreditoPadreId, @Param("tipoNd") String tipoNd);
+
+    @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd WHERE nd.tiporegistro = :tipoRegistro AND nd.tipoNd = :tipoNd")
+    boolean existsByTiporegistroAndTipoNd(@Param("tipoRegistro") String tipoRegistro, @Param("tipoNd") String tipoNd);
 
     @Query(value = """
         SELECT al.id AS id, al.carnet AS carnet, al.codigo_cobertura AS cobertura, al.paciente AS paciente, 

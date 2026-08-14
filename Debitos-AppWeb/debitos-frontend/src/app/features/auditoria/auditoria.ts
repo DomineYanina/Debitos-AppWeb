@@ -172,19 +172,31 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   modalAlertaCallback: any = null;
   modalAlertaTipo: 'exito' | 'error' | 'peligro' | 'normal' = 'normal';
 
+  modalDocumentosAsociadosVisible: boolean = false;
+
   filtroPaciente: string = '';
   filtroProfesional: string = '';
   filtroPrestacion: string = '';
   filtroGrupo: string = '';
   filtroFecha: string = '';
   tipoBusquedaRealizada: string = '';
-  notaDeCreditoYaCreada: boolean = false;
-  notaDeDebitoYaCreada: boolean = false;
+  notaDeCreditoYaCreada: boolean = false; // solo se usa para ND (relación 1:1)
+  notaDeDebitoYaCreada: boolean = false;  // solo se usa para ND→NC (relación 1:1)
+
+  // Regla 1/2: listas de documentos asociados ya creados
+  documentosCreadosInfo: DocumentoAsociado[] = [];
+  ndsCreadasDesdeNc: DocumentoAsociado[] = [];
+
+  // Regla 2: indica si la NC buscada es hija de una ND (true) → bloquea nueva ND
+  ncEsHijaDeND: boolean = false;
+
+  // Mantener por compatibilidad con /tiene-nc-para-nd (relación 1:1 ND→NC)
   documentoCreadoInfo: DocumentoAsociado | null = null;
 
   soloSinMotivoDebito: boolean = false;
   soloSinMotivoRefactura: boolean = false;
   soloValorizadas: boolean = false;
+  soloSinNC: boolean = false;
 
   get hayFiltrosActivos(): boolean {
     return !!(
@@ -195,7 +207,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.filtroFecha ||
       this.soloValorizadas ||
       this.soloSinMotivoDebito ||
-      this.soloSinMotivoRefactura
+      this.soloSinMotivoRefactura ||
+      this.soloSinNC
     );
   }
 
@@ -273,6 +286,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   modalNuevaNotaVisible: boolean = false;
   tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
 
+  mostrarRadioTipoNd: boolean = false;
+  deshabilitarTipoIva: boolean = false;
+  deshabilitarTipoRefactura: boolean = false;
+  tooltipTipoIva: string = '';
+  tooltipTipoRefactura: string = '';
+
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
@@ -285,8 +304,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     letra: ['', [Validators.required, Validators.maxLength(1)]],
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]],
-    fecha: ['', Validators.required]
+    fecha: ['', Validators.required],
+    tipoNd: [''],
+    importeNd: [null as number | null]
   });
+
+  onTipoNdChange() {
+    const val = this.nuevaNotaForm.get('tipoNd')?.value;
+    const ctrl = this.nuevaNotaForm.get('importeNd');
+    if (val === 'Por ajuste de IVA') {
+      ctrl?.setValidators([Validators.required, Validators.min(0.01)]);
+    } else {
+      ctrl?.clearValidators();
+      ctrl?.setValue(null);
+    }
+    ctrl?.updateValueAndValidity();
+    this.cdr.detectChanges();
+  }
 
   cerrarModal() {
     this.modalVisible = false;
@@ -579,51 +613,78 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.aplicarFiltros();
         this.configurarColumnas();
 
-        // Si la búsqueda es de una FC, verificamos si ya tiene NC creada
+        // Si la búsqueda es de una FC, verificamos las NC ya creadas (Regla 1: puede haber varias)
         if (this.tipoBusquedaRealizada === 'FC') {
           const letra = filtros.letra || '';
           const puntoVenta = filtros.puntoVenta ?? '';
           const numero = filtros.numero ?? '';
           this.notaDeDebitoYaCreada = false;
+          this.documentosCreadosInfo = [];
           this.documentoCreadoInfo = null;
+          this.ncEsHijaDeND = false;
           this.auditoriaService.verificarTieneNC(letra, puntoVenta, numero).subscribe({
-            next: (doc) => {
-              this.notaDeCreditoYaCreada = !!doc;
-              this.documentoCreadoInfo = doc;
+            next: (docs) => {
+              // Para FC el botón siempre está visible (Regla 1); solo mostramos el historial
+              this.notaDeCreditoYaCreada = false; // nunca bloquea el botón en FC
+              this.documentosCreadosInfo = docs ?? [];
               this.cdr.detectChanges();
             },
             error: () => {
-              this.notaDeCreditoYaCreada = false;
-              this.documentoCreadoInfo = null;
+              this.documentosCreadosInfo = [];
               this.cdr.detectChanges();
             }
           });
         } else if (this.tipoBusquedaRealizada === 'NC') {
-          // Si la búsqueda es de una NC, verificamos si ya tiene ND creada
           const letra = filtros.letra || '';
           const puntoVenta = filtros.puntoVenta ?? '';
           const numero = filtros.numero ?? '';
           this.notaDeCreditoYaCreada = false;
+          this.documentosCreadosInfo = [];
           this.documentoCreadoInfo = null;
-          this.auditoriaService.verificarTieneND(letra, puntoVenta, numero).subscribe({
+          this.ndsCreadasDesdeNc = [];
+
+          // Detectar si la NC buscada es hija de una ND leyendo el campo idNotaDeDebito
+          const primeraConId = this.prestaciones.find(p => p.idNotaDeDebito !== undefined);
+          this.ncEsHijaDeND = !!(primeraConId && primeraConId.idNotaDeDebito !== null && primeraConId.idNotaDeDebito !== undefined);
+
+          // Cargar el documento asociado padre (FC si idNotaDeDebito es null, o ND si no es null)
+          this.auditoriaService.obtenerDocumentoAsociadoNC(letra, puntoVenta, numero).subscribe({
             next: (doc) => {
-              this.notaDeDebitoYaCreada = !!doc;
-              this.documentoCreadoInfo = doc;
+              this.documentosCreadosInfo = doc ? [doc] : [];
               this.cdr.detectChanges();
             },
             error: () => {
-              this.notaDeDebitoYaCreada = false;
-              this.documentoCreadoInfo = null;
+              this.documentosCreadosInfo = [];
               this.cdr.detectChanges();
             }
           });
+
+          // Si la NC es hija de FC (ncEsHijaDeND = false), consultamos las ND creadas a partir de esta NC
+          if (!this.ncEsHijaDeND) {
+            this.auditoriaService.verificarTieneND(letra, puntoVenta, numero).subscribe({
+              next: (docs) => {
+                this.notaDeDebitoYaCreada = false;
+                this.ndsCreadasDesdeNc = docs ?? [];
+                this.cdr.detectChanges();
+              },
+              error: () => {
+                this.ndsCreadasDesdeNc = [];
+                this.cdr.detectChanges();
+              }
+            });
+          } else {
+            this.notaDeDebitoYaCreada = true;
+            this.cdr.detectChanges();
+          }
         } else if (this.tipoBusquedaRealizada === 'ND') {
-          // Si la búsqueda es de una ND, verificamos si ya tiene NC creada (hija de la ND)
+          // Si la búsqueda es de una ND, verificamos si ya tiene NC creada (relación 1:1)
           const letra = filtros.letra || '';
           const puntoVenta = filtros.puntoVenta ?? '';
           const numero = filtros.numero ?? '';
           this.notaDeDebitoYaCreada = false;
+          this.documentosCreadosInfo = [];
           this.documentoCreadoInfo = null;
+          this.ncEsHijaDeND = false;
           this.auditoriaService.verificarTieneNCParaND(letra, puntoVenta, numero).subscribe({
             next: (doc) => {
               this.notaDeCreditoYaCreada = !!doc;
@@ -639,7 +700,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         } else {
           this.notaDeCreditoYaCreada = false;
           this.notaDeDebitoYaCreada = false;
+          this.documentosCreadosInfo = [];
           this.documentoCreadoInfo = null;
+          this.ncEsHijaDeND = false;
         }
 
         this.cdr.detectChanges();
@@ -877,8 +940,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       const cumpleSinDebito = !this.soloSinMotivoDebito || (!p.motivoDebito || p.motivoDebito.trim() === '');
       const cumpleSinRefactura = !this.soloSinMotivoRefactura || (!p.motivoRefactura || p.motivoRefactura.trim() === '');
       const cumpleValorizadas = !this.soloValorizadas || (p.total > 0);
+      const cumpleSinNC = !this.soloSinNC || !p.ncNumero;
 
-      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas;
+      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas && cumpleSinNC;
     });
 
     this.prepararFiltros(this.prestacionesFiltradas);
@@ -916,6 +980,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.soloSinMotivoDebito = false;
     this.soloSinMotivoRefactura = false;
     this.soloValorizadas = false;
+    this.soloSinNC = false;
     this.prepararFiltros(this.prestaciones);
     this.aplicarFiltros();
   }
@@ -1213,30 +1278,72 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Validación según el tipo de nota
     if (tipo === 'NC') {
+      // Regla 3: Si el documento base es una ND y su motivo es "Por ajuste de IVA",
+      // bloquear la creación de NC y mostrar alerta al usuario.
+      if (this.tipoBusquedaRealizada === 'ND') {
+        const motivosND = this.prestaciones.map(p => p.motivoRefactura?.trim()).filter(Boolean);
+        const esAjusteIVA = motivosND.some(m => m === 'Por ajuste de IVA');
+        if (esAjusteIVA) {
+          this.mostrarAlerta(
+            'No se puede generar una Nota de Crédito a partir de una Nota de Débito cuyo motivo sea "Por ajuste de IVA".',
+            undefined,
+            'error'
+          );
+          return;
+        }
+      }
+
       const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
       if (prestacionesConDebito.length === 0) {
         this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.', undefined, 'error');
         return;
       }
-      this.nuevaNotaForm.reset({ tipo: 'NC' });
+      this.mostrarRadioTipoNd = false;
+      this.nuevaNotaForm.get('tipoNd')?.clearValidators();
+      this.nuevaNotaForm.get('tipoNd')?.updateValueAndValidity();
+      this.nuevaNotaForm.reset({ tipo: 'NC', tipoNd: '' });
     } else {
-      // Candado 1: Verificamos que haya registros con Débito Aceptado en "NO"
+      // Candado 1: Verificamos si la NC es de origen FC y si "Por ajuste de IVA" no ha sido creado aún
+      const yaExisteIva = this.tipoBusquedaRealizada === 'NC' && !this.ncEsHijaDeND && this.ndsCreadasDesdeNc.some(d => d.tipoNd === 'Por ajuste de IVA');
+      const yaExisteRefactura = this.tipoBusquedaRealizada === 'NC' && !this.ncEsHijaDeND && this.ndsCreadasDesdeNc.some(d => d.tipoNd === 'Por Refactura');
       const prestacionesConRefactura = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
 
-      if (prestacionesConRefactura.length === 0) {
-        // Disparar métrica
-        this.auditoriaService.registrarMetricaUsabilidad({
-          usuario: this.authService.obtenerUsuario(),
-          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
-          evento: 'INTENTO_CREAR_ND_SIN_RECHAZOS',
-          fechaHora: new Date().toISOString(),
-          cantidadRegistrosPendientes: 0
-        }).subscribe({ error: () => { } });
-
-        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND', undefined, 'error');
+      // Si no hay prestaciones con débito aceptado en "NO" Y tampoco está disponible "Por ajuste de IVA":
+      if (prestacionesConRefactura.length === 0 && (this.tipoBusquedaRealizada !== 'NC' || this.ncEsHijaDeND || yaExisteIva)) {
+        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND por Refactura.', undefined, 'error');
         return;
       }
-      this.nuevaNotaForm.reset({ tipo: 'ND' });
+
+      // Evaluar si la NC es creada a partir de una FC (ncEsHijaDeND === false)
+      if (this.tipoBusquedaRealizada === 'NC' && !this.ncEsHijaDeND) {
+        if (yaExisteIva && yaExisteRefactura) {
+          this.mostrarAlerta(
+            'Ya se generaron las dos Notas de Débito permitidas (Por ajuste de IVA y Por Refactura) para esta Nota de Crédito.',
+            undefined,
+            'error'
+          );
+          return;
+        }
+
+        this.mostrarRadioTipoNd = true;
+        this.deshabilitarTipoIva = yaExisteIva;
+        this.tooltipTipoIva = yaExisteIva ? 'Ya se generó una Nota de Débito por ajuste de IVA para esta Nota de Crédito.' : '';
+        this.deshabilitarTipoRefactura = yaExisteRefactura;
+        this.tooltipTipoRefactura = yaExisteRefactura ? 'Ya se generó una Nota de Débito por refactura para esta Nota de Crédito.' : '';
+
+        this.nuevaNotaForm.get('tipoNd')?.setValidators([Validators.required]);
+      } else {
+        this.mostrarRadioTipoNd = false;
+        this.deshabilitarTipoIva = false;
+        this.deshabilitarTipoRefactura = false;
+        this.tooltipTipoIva = '';
+        this.tooltipTipoRefactura = '';
+        this.nuevaNotaForm.get('tipoNd')?.clearValidators();
+      }
+      this.nuevaNotaForm.get('tipoNd')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('importeNd')?.clearValidators();
+      this.nuevaNotaForm.get('importeNd')?.updateValueAndValidity();
+      this.nuevaNotaForm.reset({ tipo: 'ND', tipoNd: '', importeNd: null });
     }
 
     this.modalNuevaNotaVisible = true;
@@ -1245,6 +1352,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   cerrarModalNuevaNota() {
     this.modalNuevaNotaVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  abrirModalDocumentosAsociados() {
+    this.modalDocumentosAsociadosVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalDocumentosAsociados() {
+    this.modalDocumentosAsociadosVisible = false;
     this.cdr.detectChanges();
   }
 
@@ -1263,20 +1380,50 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const registrosParaGuardar = this.prestaciones.filter(p => {
-      if (this.tipoNuevaNota === 'NC') {
-        return p.motivoDebito && p.motivoDebito.trim() !== '';
-      } else {
-        // Candado 2: Solo enviamos al backend los que dicen estrictamente "NO"
-        return p.debitoAceptado === 'NO';
+    // 1. Si el usuario modificó prestaciones que YA pertenecían a una NC previa (ej. NC1),
+    // guardamos silenciosamente sus cambios de comentarios/motivos sin vincularlas a la nueva NC.
+    if (this.tipoBusquedaRealizada === 'FC' && this.tipoNuevaNota === 'NC') {
+      const modificadosConNcPrevia = this.prestaciones.filter(p => p.ncNumero && this.modificadosSinGuardar.has(p.id!));
+      if (modificadosConNcPrevia.length > 0) {
+        this.guardarParcialmente(true);
       }
-    });
+    }
 
-    // 2. Preparamos los datos del formulario (Letra en Mayúscula)
-    const datosNotaForm = { ...this.nuevaNotaForm.value };
+    // 2. Filtramos ÚNICAMENTE los registros pendientes (sin NC previa) para integrar la NUEVA Nota
+    const tipoNdSeleccionado = this.nuevaNotaForm.get('tipoNd')?.value;
+    let registrosParaGuardar: Prestacion[] = [];
+
+    if (this.tipoNuevaNota === 'NC') {
+      registrosParaGuardar = this.prestaciones.filter(p => {
+        if (this.tipoBusquedaRealizada === 'FC' && p.ncNumero) {
+          return false;
+        }
+        return p.motivoDebito && p.motivoDebito.trim() !== '';
+      });
+
+      if (registrosParaGuardar.length === 0) {
+        this.mostrarAlerta('No hay prestaciones pendientes (sin NC previa) con Motivo de Débito cargado para generar una nueva NC.', undefined, 'error');
+        return;
+      }
+    } else if (tipoNdSeleccionado === 'Por ajuste de IVA') {
+      registrosParaGuardar = [];
+    } else {
+      registrosParaGuardar = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
+
+      if (registrosParaGuardar.length === 0) {
+        this.mostrarAlerta('No hay prestaciones con Débito Aceptado en "NO" para generar una ND por Refactura.', undefined, 'error');
+        return;
+      }
+    }
+
+    // 3. Preparamos los datos del formulario (Letra en Mayúscula)
+    const datosNotaForm: any = { ...this.nuevaNotaForm.getRawValue() };
     datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
+    if (tipoNdSeleccionado === 'Por ajuste de IVA') {
+      datosNotaForm.importeRefactura = datosNotaForm.importeNd;
+    }
 
-    // 3. Armamos el Payload "Todo en Uno"
+    // 4. Armamos el Payload "Todo en Uno"
     const payload = {
       // Datos del documento que está cargado en la grilla (Original)
       origen: this.tipoBusquedaRealizada,
@@ -1299,26 +1446,47 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     request$.subscribe({
       next: () => {
+        this.modificadosSinGuardar.clear(); // <-- Limpiamos PRIMERO la lista de pendientes sin guardar
         this.cerrarModalNuevaNota();
-        this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`, undefined, 'exito');
         this.cargando = false;
 
-        if (this.tipoNuevaNota === 'NC') {
-          this.notaDeCreditoYaCreada = true;
-        } else if (this.tipoNuevaNota === 'ND') {
-          this.notaDeDebitoYaCreada = true;
-        }
-
-        this.documentoCreadoInfo = {
+        // Construimos el objeto del documento recién creado
+        const nuevaEntrada: DocumentoAsociado = {
           tipo: datosNotaForm.tipo ?? '',
           letra: datosNotaForm.letra ?? '',
           ptovta: Number(datosNotaForm.puntoVenta) || 0,
           numero: Number(datosNotaForm.numero) || 0,
-          fecha: datosNotaForm.fecha ?? ''
+          fecha: datosNotaForm.fecha ?? '',
+          tipoNd: datosNotaForm.tipoNd || undefined
         };
 
+        if (this.tipoNuevaNota === 'NC') {
+          // Actualizamos en memoria local del frontend solo los registros que NO pertenecían a una NC previa
+          registrosParaGuardar.forEach(p => {
+            if (!p.ncNumero) {
+              p.ncNumero = Number(datosNotaForm.numero) || 0;
+              p.ncTipo = datosNotaForm.tipo ?? '';
+              p.ncLetra = datosNotaForm.letra ?? '';
+              p.ncPtoVenta = Number(datosNotaForm.puntoVenta) || 0;
+              p.ncFecha = datosNotaForm.fecha ?? '';
+            }
+          });
+
+          // Regla 1: agregamos al historial sin reemplazar (puede haber varias NC)
+          this.documentosCreadosInfo = [...this.documentosCreadosInfo, nuevaEntrada];
+          // Para FC el botón nunca se bloquea; para ND sí (relación 1:1)
+          if (this.tipoBusquedaRealizada === 'ND') {
+            this.notaDeCreditoYaCreada = true;
+            this.documentoCreadoInfo = nuevaEntrada;
+          }
+        } else if (this.tipoNuevaNota === 'ND') {
+          // Guardamos la ND creada en la lista interna para validar los radiobuttons
+          this.ndsCreadasDesdeNc = [...this.ndsCreadasDesdeNc, nuevaEntrada];
+        }
+
+        this.aplicarFiltros();
+        this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`, undefined, 'exito');
         this.cdr.detectChanges();
-        this.modificadosSinGuardar.clear();
       },
       error: (err) => {
         console.error(err);

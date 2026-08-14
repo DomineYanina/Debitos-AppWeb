@@ -26,4 +26,12 @@ export interface Prestacion {
   cobertura?: string;
   prestacionEnglobante?: string;
   comentariosDebito?: string;
+  // Regla 2: null = NC hija de FC (permite múltiples ND); not null = NC hija de ND (no permite nuevas ND)
+  idNotaDeDebito?: number | null;
+  // Campos de NC ya asignada a la prestación
+  ncNumero?: number;
+  ncTipo?: string;
+  ncLetra?: string;
+  ncPtoVenta?: number;
+  ncFecha?: string;
 }

@@ -8,6 +8,7 @@ public class DocumentoAsociadoDTO {
     private Integer ptovta;
     private Integer numero;
     private LocalDate fecha;
+    private String tipoNd;
 
     public DocumentoAsociadoDTO() {}
 
@@ -17,6 +18,15 @@ public class DocumentoAsociadoDTO {
         this.ptovta = ptovta;
         this.numero = numero;
         this.fecha = fecha;
+    }
+
+    public DocumentoAsociadoDTO(String tipo, String letra, Integer ptovta, Integer numero, LocalDate fecha, String tipoNd) {
+        this.tipo = tipo;
+        this.letra = letra;
+        this.ptovta = ptovta;
+        this.numero = numero;
+        this.fecha = fecha;
+        this.tipoNd = tipoNd;
     }
 
     public String getTipo() {
@@ -57,5 +67,13 @@ public class DocumentoAsociadoDTO {
 
     public void setFecha(LocalDate fecha) {
         this.fecha = fecha;
+    }
+
+    public String getTipoNd() {
+        return tipoNd;
+    }
+
+    public void setTipoNd(String tipoNd) {
+        this.tipoNd = tipoNd;
     }
 }

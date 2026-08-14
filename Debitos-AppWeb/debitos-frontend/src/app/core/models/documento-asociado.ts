@@ -4,4 +4,5 @@ export interface DocumentoAsociado {
   ptovta: number;
   numero: number;
   fecha: string;
+  tipoNd?: string;
 }

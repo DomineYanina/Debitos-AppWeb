@@ -28,20 +28,28 @@ export class AuditoriaService {
     return this.http.post(`${this.apiUrl}/nueva-nota-debito`, payload);
   }
 
-  verificarTieneNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
-    return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/tiene-nc`, {
+  // Regla 1: ahora devuelve un array (una FC puede tener múltiples NC)
+  verificarTieneNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado[]> {
+    return this.http.get<DocumentoAsociado[]>(`${this.apiUrl}/tiene-nc`, {
       params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
     });
   }
 
-  verificarTieneND(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
-    return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/tiene-nd`, {
+  // Regla 2: ahora devuelve un array (una NC hija de FC puede tener múltiples ND)
+  verificarTieneND(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado[]> {
+    return this.http.get<DocumentoAsociado[]>(`${this.apiUrl}/tiene-nd`, {
       params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
     });
   }
 
   verificarTieneNCParaND(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
     return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/tiene-nc-para-nd`, {
+      params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  obtenerDocumentoAsociadoNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
+    return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/documento-asociado-nc`, {
       params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
     });
   }
