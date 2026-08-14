@@ -22,7 +22,7 @@ export class AuditoriaGridConfigService {
       { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : '' },
+      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => { if (!params.value) return ''; const [anio, mes, dia] = params.value.split('-'); return `${dia}/${mes}/${anio}`; } },
       { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 84, minWidth: 84, suppressAutoSize: true },
       { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 67, minWidth: 67, suppressAutoSize: true },

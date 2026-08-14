@@ -22,8 +22,7 @@
       <div class="form-group">
         <label for="letra">Letra</label>
         <input id="letra" type="text" formControlName="letra" placeholder="A, B, C..." maxlength="1"
-               style="text-transform: uppercase;"
-               (input)="validarLetraInput($event, 'busqueda')">
+          style="text-transform: uppercase;" (input)="validarLetraInput($event, 'busqueda')">
       </div>
 
       <div class="form-group">
@@ -60,7 +59,7 @@
 
         <div class="filter-item">
           <div class="label-container">
-            <label>Profesional</label>
+            <label>Médico</label>
             <button *ngIf="filtroProfesional" class="btn-undo" (click)="limpiarFiltro('profesional')">✕</button>
           </div>
           <select [(ngModel)]="filtroProfesional" (change)="aplicarFiltros()">
@@ -102,11 +101,13 @@
           </div>
           <select [(ngModel)]="filtroFecha" (change)="aplicarFiltros()">
             <option value="">Todas</option>
-            <option *ngFor="let item of fechasList" [value]="item">{{ item | date:'dd/MM/yyyy' }}</option>
+            <option *ngFor="let item of fechasList" [value]="item">{{ formatearFecha(item) }}</option>
           </select>
         </div>
         <div class="botones-limpieza-stack">
-          <button class="btn-clear" (click)="resetFiltros()" [disabled]="!filtroPaciente && !filtroProfesional && !filtroPrestacion && !filtroGrupo && !filtroFecha && !soloValorizadas && !soloSinMotivoDebito && !soloSinMotivoRefactura">Limpiar Filtros</button>
+          <button class="btn-clear" (click)="resetFiltros()"
+            [disabled]="!filtroPaciente && !filtroProfesional && !filtroPrestacion && !filtroGrupo && !filtroFecha && !soloValorizadas && !soloSinMotivoDebito && !soloSinMotivoRefactura">Limpiar
+            Filtros</button>
         </div>
       </div>
 
@@ -114,59 +115,63 @@
         <div class="check-item">
           <input type="checkbox" id="checkVal" [(ngModel)]="soloValorizadas" (change)="aplicarFiltros()">
           <label for="checkVal" class="has-tooltip"
-                 data-tooltip="Muestra únicamente las prestaciones que tienen un valor asignado mayor a cero">Ver solo prestaciones valorizadas</label>
+            data-tooltip="Muestra únicamente las prestaciones que tienen un valor asignado mayor a cero">Ver solo
+            prestaciones valorizadas</label>
         </div>
         <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
           <div class="check-item">
             <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
             <label for="checkDebito" class="has-tooltip"
-                   data-tooltip="Oculta las prestaciones que ya tienen un motivo de débito cargado">Ver solo prest. sin mot. de débito</label>
+              data-tooltip="Oculta las prestaciones que ya tienen un motivo de débito cargado">Ver solo prest. sin mot.
+              de débito</label>
           </div>
         </ng-container>
         <div class="check-item">
           <input type="checkbox" id="checkRefac" [(ngModel)]="soloSinMotivoRefactura" (change)="aplicarFiltros()">
           <label for="checkRefac" class="has-tooltip"
-                 data-tooltip="Filtra las prestaciones pendientes de refacturación en este período">Ver solo prest. sin mot. de refactura</label>
+            data-tooltip="Filtra las prestaciones pendientes de refacturación en este período">Ver solo prest. sin mot.
+            de refactura</label>
         </div>
       </div>
     </div>
 
     <div class="resumen-contadores">
       <div class="contador-box contador-aceptados has-tooltip"
-           data-tooltip="Cantidad total de documentos que fueron aceptados sin débitos">
+        data-tooltip="Cantidad total de documentos que fueron aceptados sin débitos">
         <span class="contador-label">Aceptados:</span>
         <span class="contador-valor">{{ cantAceptados }}</span>
       </div>
       <div class="contador-box contador-debitado has-tooltip"
-           data-tooltip="Suma del importe neto de los débitos aplicados">
+        data-tooltip="Suma del importe neto de los débitos aplicados">
         <span class="contador-label">Total Debitado:</span>
         <span class="contador-valor text-danger">{{ totalDebitadoAceptado | currency }}</span>
       </div>
       <div class="contador-box contador-refacturar has-tooltip"
-           data-tooltip="Monto total habilitado para una nueva refacturación">
+        data-tooltip="Monto total habilitado para una nueva refacturación">
         <span class="contador-label">Total a Refacturar:</span>
         <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
       </div>
-      <button class="btn-clear-rows has-tooltip"
-              (click)="limpiarFilasSeleccionadas()"
-              [disabled]="registrosSeleccionados.length === 0"
-              data-tooltip="Quita las filas seleccionadas actualmente de la vista">Limpiar Filas</button>
+      <button class="btn-clear-rows has-tooltip" (click)="limpiarFilasSeleccionadas()"
+        [disabled]="registrosSeleccionados.length === 0"
+        data-tooltip="Quita las filas seleccionadas actualmente de la vista">Limpiar Filas</button>
     </div>
 
     <div class="filtro-columna botonera-acciones-container">
-      <div class="indicador-guardado" *ngIf="modificadosSinGuardar.size > 0" style="color: #d9534f; font-weight: bold; background: #fdf2f2; padding: 8px 12px; border-radius: 5px; border: 1px solid #d9534f;">
+      <div class="indicador-guardado" *ngIf="modificadosSinGuardar.size > 0"
+        style="color: #d9534f; font-weight: bold; background: #fdf2f2; padding: 8px 12px; border-radius: 5px; border: 1px solid #d9534f;">
         ⚠️ {{ modificadosSinGuardar.size }} registro(s) sin guardar
       </div>
-      <button class="btn-exportar" (click)="exportarAExcel()" [disabled]="prestacionesFiltradas.length === 0">Exportar Excel</button>
+      <button class="btn-exportar" (click)="exportarAExcel()" [disabled]="prestacionesFiltradas.length === 0">Exportar
+        Excel</button>
 
       <!-- Se oculta si es NC o si la Nota de Crédito ya fue creada -->
-      <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC' && !notaDeCreditoYaCreada" (click)="guardarParcialmente()">Guardar parcialmente</button>
+      <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC' && !notaDeCreditoYaCreada"
+        (click)="guardarParcialmente()">Guardar parcialmente</button>
 
       <!-- Botón NC: visible si es FC o ND y la FC aún no tiene una NC creada -->
       <ng-container *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'">
-        <button class="btn-accion-doc btn-nueva-nota"
-                *ngIf="!notaDeCreditoYaCreada"
-                (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
+        <button class="btn-accion-doc btn-nueva-nota" *ngIf="!notaDeCreditoYaCreada"
+          (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
         <div class="nc-ya-creada-badge" *ngIf="notaDeCreditoYaCreada">
           <div class="badge-header">✅ Nota de crédito ya creada</div>
           <div class="badge-detalle" *ngIf="documentoCreadoInfo">
@@ -180,9 +185,8 @@
       </ng-container>
       <!-- Botón ND: visible si es NC y la NC aún no tiene una ND creada -->
       <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
-        <button class="btn-accion-doc btn-nueva-nota"
-                *ngIf="!notaDeDebitoYaCreada"
-                (click)="abrirModalNuevaNota('ND')">Nueva Nota de Débito</button>
+        <button class="btn-accion-doc btn-nueva-nota" *ngIf="!notaDeDebitoYaCreada"
+          (click)="abrirModalNuevaNota('ND')">Nueva Nota de Débito</button>
         <div class="nd-ya-creada-badge" *ngIf="notaDeDebitoYaCreada">
           <div class="badge-header">✅ Nota de débito ya creada</div>
           <div class="badge-detalle" *ngIf="documentoCreadoInfo">
@@ -198,7 +202,8 @@
   </section>
 
   <section class="grilla-section" style="position: relative;">
-    <div class="acciones-masivas-bar" *ngIf="registrosSeleccionados.length > 0 && !cargando && tipoBusquedaRealizada !== 'NC'">
+    <div class="acciones-masivas-bar"
+      *ngIf="registrosSeleccionados.length > 0 && !cargando && tipoBusquedaRealizada !== 'NC'">
       <div class="info-seleccion">
         <span class="badge">{{ registrosSeleccionados.length }}</span> filas seleccionadas
       </div>
@@ -210,7 +215,8 @@
               <option value="">Seleccionar...</option>
               <option *ngFor="let estado of listaDebitoAceptado" [value]="estado">{{ estado }}</option>
             </select>
-            <button class="btn-aplicar-masivo" (click)="aplicarDebitoAceptadoMasivo()" [disabled]="!debitoAceptadoMasivoSeleccionado">Aplicar</button>
+            <button class="btn-aplicar-masivo" (click)="aplicarDebitoAceptadoMasivo()"
+              [disabled]="!debitoAceptadoMasivoSeleccionado">Aplicar</button>
           </div>
           <div class="grupo-input-accion">
             <label>Motivo Débito:</label>
@@ -220,19 +226,24 @@
                 <option *ngFor="let m of grupo.motivos" [value]="m">{{ m }}</option>
               </optgroup>
             </select>
-            <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()" [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
+            <button class="btn-aplicar-masivo" (click)="aplicarMotivoMasivo()"
+              [disabled]="!motivoMasivoSeleccionado">Aplicar</button>
           </div>
           <!-- NUEVO: IMPORTE DEBITADO MASIVO -->
           <div class="grupo-input-accion">
             <label>Imp. Debitado:</label>
-            <input type="number" [(ngModel)]="importeDebitadoMasivo" class="input-grilla" style="width: 80px;" placeholder="$">
-            <button class="btn-aplicar-masivo" (click)="aplicarImporteDebitadoMasivo()" [disabled]="importeDebitadoMasivo == null">Aplicar</button>
+            <input type="number" [(ngModel)]="importeDebitadoMasivo" class="input-grilla" style="width: 80px;"
+              placeholder="$">
+            <button class="btn-aplicar-masivo" (click)="aplicarImporteDebitadoMasivo()"
+              [disabled]="importeDebitadoMasivo == null">Aplicar</button>
           </div>
           <!-- NUEVO: COMENTARIOS DÉBITO MASIVOS -->
           <div class="grupo-input-accion">
             <label>Coment. Débito:</label>
-            <input type="text" [(ngModel)]="comentariosDebitoMasivo" class="input-grilla" style="width: 150px;" placeholder="Escribir...">
-            <button class="btn-aplicar-masivo" (click)="aplicarComentariosDebitoMasivo()" [disabled]="!comentariosDebitoMasivo">Aplicar</button>
+            <input type="text" [(ngModel)]="comentariosDebitoMasivo" class="input-grilla" style="width: 150px;"
+              placeholder="Escribir...">
+            <button class="btn-aplicar-masivo" (click)="aplicarComentariosDebitoMasivo()"
+              [disabled]="!comentariosDebitoMasivo">Aplicar</button>
           </div>
         </ng-container>
 
@@ -244,21 +255,26 @@
               <option *ngFor="let r of grupo.motivos" [value]="r">{{ r }}</option>
             </optgroup>
           </select>
-          <button class="btn-aplicar-masivo" (click)="aplicarMotivoRefacturaMasivo()" [disabled]="!motivoRefacturaMasivoSeleccionado">Aplicar</button>
+          <button class="btn-aplicar-masivo" (click)="aplicarMotivoRefacturaMasivo()"
+            [disabled]="!motivoRefacturaMasivoSeleccionado">Aplicar</button>
         </div>
 
         <!-- NUEVO: IMPORTE REFACTURA MASIVO -->
         <div class="grupo-input-accion">
           <label>Imp. Refactura:</label>
-          <input type="number" [(ngModel)]="importeRefacturaMasivo" class="input-grilla" style="width: 80px;" placeholder="$">
-          <button class="btn-aplicar-masivo" (click)="aplicarImporteRefacturaMasivo()" [disabled]="importeRefacturaMasivo == null">Aplicar</button>
+          <input type="number" [(ngModel)]="importeRefacturaMasivo" class="input-grilla" style="width: 80px;"
+            placeholder="$">
+          <button class="btn-aplicar-masivo" (click)="aplicarImporteRefacturaMasivo()"
+            [disabled]="importeRefacturaMasivo == null">Aplicar</button>
         </div>
 
         <!-- NUEVO: COMENTARIOS MASIVOS -->
         <div class="grupo-input-accion">
           <label>Coment. Refactura:</label>
-          <input type="text" [(ngModel)]="comentariosMasivo" class="input-grilla" style="width: 150px;" placeholder="Escribir...">
-          <button class="btn-aplicar-masivo" (click)="aplicarComentariosMasivo()" [disabled]="!comentariosMasivo">Aplicar</button>
+          <input type="text" [(ngModel)]="comentariosMasivo" class="input-grilla" style="width: 150px;"
+            placeholder="Escribir...">
+          <button class="btn-aplicar-masivo" (click)="aplicarComentariosMasivo()"
+            [disabled]="!comentariosMasivo">Aplicar</button>
         </div>
       </div>
     </div>
@@ -270,30 +286,33 @@
 
     <div class="resultados-wrapper" *ngIf="prestaciones.length > 0; else sinDatos">
       <div class="tabla-grid-container">
-        <ag-grid-angular
-          style="width: 100%; height: 500px;"
-          [theme]="theme"
-          [rowData]="prestacionesFiltradas"
-          [columnDefs]="columnDefs"
-          [defaultColDef]="defaultColDef"
-          [overlayNoRowsTemplate]="overlayNoRowsTemplate"
-          [localeText]="localeText"
-          [rowSelection]="rowSelection"
-          [alwaysShowHorizontalScroll]="true"
-          [autoSizeStrategy]="autoSizeStrategy"
-          (gridReady)="onGridReady($event)"
-          (selectionChanged)="onSelectionChanged($event)"
-          (cellValueChanged)="onCellValueChanged($event)">
+        <ag-grid-angular style="width: 100%; height: 500px;" [theme]="theme" [rowData]="prestacionesFiltradas"
+          [columnDefs]="columnDefs" [defaultColDef]="defaultColDef" [overlayNoRowsTemplate]="overlayNoRowsTemplate"
+          [localeText]="localeText" [rowSelection]="rowSelection" [alwaysShowHorizontalScroll]="true"
+          [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event)"
+          (selectionChanged)="onSelectionChanged($event)" (cellValueChanged)="onCellValueChanged($event)">
         </ag-grid-angular>
       </div>
 
       <div class="totales-footer">
-        <span class="total-cantidad-item has-tooltip" data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad }}</span>
-        <span class="total-neto-item has-tooltip" data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal | currency }}</span>
-        <span class="total-coseguro-item has-tooltip" data-tooltip="Total del coseguro a cargo del paciente en este documento">Coseguro: {{ totalCoseguroGlobal | currency }}</span>
-        <span class="total-facturado-item has-tooltip" data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado | currency }}</span>
-        <span class="total-debitado-item text-danger has-tooltip" *ngIf="tipoBusquedaRealizada !== 'NC'" data-tooltip="Suma total de los importes debitados en este documento">Total Debitado: {{ totalDebitado | currency }}</span>
-        <span class="total-refacturado-item text-success has-tooltip" data-tooltip="Monto total aprobado para refacturación en este período">Total Refacturado: {{ totalRefacturarRechazado | currency }}</span>
+        <span class="total-cantidad-item has-tooltip"
+          data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad
+          }}</span>
+        <span class="total-neto-item has-tooltip"
+          data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal | currency
+          }}</span>
+        <span class="total-coseguro-item has-tooltip"
+          data-tooltip="Total del coseguro a cargo del paciente en este documento">Coseguro: {{ totalCoseguroGlobal |
+          currency }}</span>
+        <span class="total-facturado-item has-tooltip"
+          data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado | currency
+          }}</span>
+        <span class="total-debitado-item text-danger has-tooltip" *ngIf="tipoBusquedaRealizada !== 'NC'"
+          data-tooltip="Suma total de los importes debitados en este documento">Total Debitado: {{ totalDebitado |
+          currency }}</span>
+        <span class="total-refacturado-item text-success has-tooltip"
+          data-tooltip="Monto total aprobado para refacturación en este período">Total Refacturado: {{
+          totalRefacturarRechazado | currency }}</span>
       </div>
     </div>
 
@@ -306,8 +325,12 @@
 
   <div class="modal-overlay" *ngIf="modalVisible">
     <div class="modal-box">
-      <div class="modal-header"><h3>Atención</h3></div>
-      <div class="modal-body"><p class="texto-modal">{{ modalMensaje }}</p></div>
+      <div class="modal-header">
+        <h3>Atención</h3>
+      </div>
+      <div class="modal-body">
+        <p class="texto-modal">{{ modalMensaje }}</p>
+      </div>
       <div class="modal-footer">
         <button class="btn-modal-cancelar" (click)="modalCancelarCb()">Cancelar</button>
         <button class="btn-modal-aceptar" (click)="modalAceptarCb()">Confirmar</button>
@@ -317,7 +340,9 @@
 
   <div class="modal-overlay" *ngIf="modalNuevaNotaVisible">
     <div class="modal-box">
-      <div class="modal-header"><h3>Generar Nueva Nota de {{ tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito' }}</h3></div>
+      <div class="modal-header">
+        <h3>Generar Nueva Nota de {{ tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito' }}</h3>
+      </div>
       <div class="modal-body">
         <form [formGroup]="nuevaNotaForm" class="form-modal">
           <div class="form-grupo-fila">
@@ -325,16 +350,19 @@
               <label>Tipo</label>
               <select formControlName="tipo" class="input-grilla">
                 <ng-container *ngIf="tipoNuevaNota === 'NC'">
-                  <option value="NC">NC</option><option value="NCE">NCE</option>
+                  <option value="NC">NC</option>
+                  <option value="NCE">NCE</option>
                 </ng-container>
                 <ng-container *ngIf="tipoNuevaNota === 'ND'">
-                  <option value="ND">ND</option><option value="NDE">NDE</option>
+                  <option value="ND">ND</option>
+                  <option value="NDE">NDE</option>
                 </ng-container>
               </select>
             </div>
             <div class="form-grupo-input">
               <label>Letra</label>
-              <input type="text" formControlName="letra" class="input-grilla" maxlength="1" style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNota')">
+              <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
+                style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNota')">
             </div>
           </div>
           <div class="form-grupo-fila">
@@ -355,15 +383,22 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()" [disabled]="nuevaNotaForm.invalid || cargando">Guardar Nota</button>
+        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()"
+          [disabled]="nuevaNotaForm.invalid || cargando">Guardar Nota</button>
       </div>
     </div>
   </div>
 
-  <div class="modal-overlay" *ngIf="modalAlertaVisible" [style.background-color]="modalAlertaTipo === 'peligro' ? 'rgb(185 0 0 / 60%)' : ''">
-    <div class="modal-box" [style.border]="modalAlertaTipo === 'exito' ? '3px solid #28a745' : (modalAlertaTipo === 'error' ? '3px solid #dc3545' : '')">
-      <div class="modal-header"><h3>Aviso del Sistema</h3></div>
-      <div class="modal-body"><p class="texto-modal">{{ modalAlertaMensaje }}</p></div>
+  <div class="modal-overlay" *ngIf="modalAlertaVisible"
+    [style.background-color]="modalAlertaTipo === 'peligro' ? 'rgb(185 0 0 / 60%)' : ''">
+    <div class="modal-box"
+      [style.border]="modalAlertaTipo === 'exito' ? '3px solid #28a745' : (modalAlertaTipo === 'error' ? '3px solid #dc3545' : '')">
+      <div class="modal-header">
+        <h3>Aviso del Sistema</h3>
+      </div>
+      <div class="modal-body">
+        <p class="texto-modal">{{ modalAlertaMensaje }}</p>
+      </div>
       <div class="modal-footer" style="justify-content: center;">
         <button class="btn-modal-aceptar" (click)="cerrarModalAlerta()">Aceptar</button>
       </div>
@@ -371,16 +406,15 @@
   </div>
 
   <!-- Botón Flotante de Ayuda (Preguntas Frecuentes FAQ) -->
-  <button type="button" class="btn-floating-help" (click)="isHelpDrawerOpen = true" title="Preguntas Frecuentes (FAQ)" aria-label="Abrir Preguntas Frecuentes">
+  <button type="button" class="btn-floating-help" (click)="isHelpDrawerOpen = true" title="Preguntas Frecuentes (FAQ)"
+    aria-label="Abrir Preguntas Frecuentes">
     <span class="help-icon">?</span>
   </button>
 
   <!-- Lazy Loading del Drawer Offcanvas con sintaxis Angular 21 @defer -->
   @defer (when isHelpDrawerOpen) {
-    <app-help-drawer
-      [isOpen]="isHelpDrawerOpen"
-      (closeDrawer)="isHelpDrawerOpen = false"
-      (startTourRequested)="reproducirTourDesdeAyuda()">
-    </app-help-drawer>
+  <app-help-drawer [isOpen]="isHelpDrawerOpen" (closeDrawer)="isHelpDrawerOpen = false"
+    (startTourRequested)="reproducirTourDesdeAyuda()">
+  </app-help-drawer>
   }
 </div>

@@ -199,6 +199,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  // Formatea una fecha ISO 'YYYY-MM-DD' a 'DD/MM/YYYY' sin usar el constructor Date,
+  // evitando el desplazamiento de un día causado por la conversión UTC → local.
+  formatearFecha(fechaIso: string): string {
+    if (!fechaIso) return '';
+    const [anio, mes, dia] = fechaIso.split('-');
+    return `${dia}/${mes}/${anio}`;
+  }
+
   prestacionesPaginadas: Prestacion[] = []; // Esta es la que va a leer el HTML
   paginaActual: number = 1;
   itemsPorPagina: number = 100;
