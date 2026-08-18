@@ -14,6 +14,14 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/login`, credenciales);
   }
 
+  verificarUsuario(usuario: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/verificar-usuario/${encodeURIComponent(usuario)}`);
+  }
+
+  cambiarClave(usuario: string, nuevaClave: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/cambiar-clave`, { usuario, nuevaClave });
+  }
+
   guardarToken(token: string, usuario: string) {
     localStorage.setItem('token', token);
     localStorage.setItem('usuario', usuario);

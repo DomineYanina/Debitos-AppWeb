@@ -307,7 +307,7 @@ describe('AuditoriaComponent', () => {
       component.modalNuevaNotaVisible = true;
 
       // 2. Llenar el formulario del modal
-      component.nuevaNotaForm.setValue({
+      component.nuevaNotaForm.patchValue({
         tipo: 'NC', letra: 'b', puntoVenta: '12', numero: '456', fecha: '2026-04-27'
       });
 

@@ -38,6 +38,14 @@
           </svg>
         </button>
       </div>
+      <div class="olvide-clave-wrapper">
+        <button type="button" class="btn-olvide-clave" (click)="onOlvidePassword()" [disabled]="verificandoUsuario">
+          <span *ngIf="!verificandoUsuario">Olvidé mi contraseña</span>
+          <span *ngIf="verificandoUsuario" class="spinner-container">
+            <span class="spinner-btn spinner-small"></span> Verificando usuario...
+          </span>
+        </button>
+      </div>
     </div>
 
     <button type="submit" [disabled]="loginForm.invalid || cargando" class="btn-ingresar">
@@ -47,4 +55,100 @@
       </span>
     </button>
   </form>
+
+  <!-- Modal de Cambio de Contraseña -->
+  <div *ngIf="mostrarModalOlvideClave" class="modal-backdrop" (click)="cerrarModalOlvideClave()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Cambiar Contraseña</h3>
+        <button type="button" class="btn-close-modal" (click)="cerrarModalOlvideClave()" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-user-info">
+          Modificando contraseña para el usuario: <strong>{{ usuarioVerificado }}</strong>
+        </p>
+
+        <div *ngIf="mensajeErrorModal" class="error-banner">
+          <span class="error-icon">⚠️</span>
+          <span>{{ mensajeErrorModal }}</span>
+        </div>
+
+        <div *ngIf="mensajeExitoModal" class="success-banner">
+          <span class="success-icon">✓</span>
+          <span>{{ mensajeExitoModal }}</span>
+        </div>
+
+        <form [formGroup]="modalForm" (ngSubmit)="onSubmitCambiarClave()">
+          <div class="form-group">
+            <label for="nuevaClave">Nueva Contraseña</label>
+            <div class="password-input-wrapper">
+              <input 
+                id="nuevaClave" 
+                [type]="mostrarNuevaPassword ? 'text' : 'password'" 
+                formControlName="nuevaClave" 
+                placeholder="Ingresá tu nueva contraseña"
+              >
+              <button 
+                type="button" 
+                class="btn-toggle-password" 
+                (click)="toggleMostrarNuevaPassword()" 
+                [attr.aria-label]="mostrarNuevaPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                [title]="mostrarNuevaPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                <svg *ngIf="!mostrarNuevaPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg *ngIf="mostrarNuevaPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmarClave">Confirmar Nueva Contraseña</label>
+            <div class="password-input-wrapper">
+              <input 
+                id="confirmarClave" 
+                [type]="mostrarConfirmarPassword ? 'text' : 'password'" 
+                formControlName="confirmarClave" 
+                placeholder="Repetir nueva contraseña"
+              >
+              <button 
+                type="button" 
+                class="btn-toggle-password" 
+                (click)="toggleMostrarConfirmarPassword()" 
+                [attr.aria-label]="mostrarConfirmarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                [title]="mostrarConfirmarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              >
+                <svg *ngIf="!mostrarConfirmarPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg *ngIf="mostrarConfirmarPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancelar" (click)="cerrarModalOlvideClave()" [disabled]="cargandoCambioClave">
+              Cancelar
+            </button>
+            <button type="submit" class="btn-modificar-clave" [disabled]="modalForm.invalid || cargandoCambioClave">
+              <span *ngIf="!cargandoCambioClave">Modificar Contraseña</span>
+              <span *ngIf="cargandoCambioClave" class="spinner-container">
+                <span class="spinner-btn"></span> Guardando...
+              </span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </div>
