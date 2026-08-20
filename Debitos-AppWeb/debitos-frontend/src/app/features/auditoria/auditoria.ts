@@ -449,14 +449,38 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdr.detectChanges();
   }
 
+  esPorcIvaDeshabilitadoEnNc(porc: number): boolean {
+    if (this.nuevaNotaForm.get('tipoNc')?.value !== 'Por ajuste de IVA') return false;
+    if (this.nuevaNotaForm.get('subtipoIva')?.value !== 'No prestacional') return false;
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    return porcNd !== null && porcNd !== undefined && Number(porcNd) === porc;
+  }
+
+  esPorcIvaDeshabilitadoEnNd(porc: number): boolean {
+    if (this.nuevaNotaForm.get('tipoNc')?.value !== 'Por ajuste de IVA') return false;
+    if (this.nuevaNotaForm.get('subtipoIva')?.value !== 'No prestacional') return false;
+    const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+    return porcNc !== null && porcNc !== undefined && Number(porcNc) === porc;
+  }
+
   onPorcIvaNdChange() {
+    const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+    if (subtipoIva === 'No prestacional') {
+      const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+      const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+      if (porcNd !== null && porcNc !== null && Number(porcNd) === Number(porcNc)) {
+        this.nuevaNotaForm.patchValue({ porcIva: null });
+        this.onNetoManualChange();
+      }
+    }
+
     const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
     if (this.netoAjusteIva > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
       this.montoIvaNdCalculado = Number((this.netoAjusteIva * (Number(porcNd) / 100)).toFixed(2));
     } else {
       this.montoIvaNdCalculado = 0;
     }
-      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
     this.cdr.detectChanges();
   }
 
@@ -512,6 +536,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   onPorcIvaChange() {
     const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
     if (subtipoIva === 'No prestacional') {
+      const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+      const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+      if (porcNc !== null && porcNd !== null && Number(porcNc) === Number(porcNd)) {
+        this.nuevaNotaDebitoIvaForm.patchValue({ porcIva: null });
+        this.onPorcIvaNdChange();
+      }
       this.onNetoManualChange();
     } else {
       this.calcularTotalesIvaPrestacional();
@@ -820,17 +850,22 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
 
         if (res && res.tipoVista === 'TABLA_AJUSTE_IVA') {
-          this.esTablaAjusteIva = true;
-          this.filasResumenAjusteIva = res.resumenAjusteIva || [];
+          // Los documentos de ajuste de IVA ya vienen integrados en filasHistorialComprobantes
+          // (con sus campos origenTipo="IVA", nivel, porcentajeIva, montoIva).
+          // Abrimos directamente el modal de historial en lugar de mostrar la tabla separada.
+          this.esTablaAjusteIva = false;
+          this.filasResumenAjusteIva = [];
           this.prestaciones = [];
           this.prestacionesFiltradas = [];
           this.cargando = false;
+          this.modalHistorialVisible = true;
           this.cdr.detectChanges();
           return;
         }
 
         this.esTablaAjusteIva = false;
         this.filasResumenAjusteIva = [];
+
         const data = (res && res.prestaciones) ? res.prestaciones : (Array.isArray(res) ? res : []);
 
         this.prestaciones = data.map((p: any) => {
@@ -1691,6 +1726,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   esDocumentoBuscado(fila: any): boolean {
     if (!fila || !this.busquedaForm || !this.busquedaForm.value) return false;
+    // Los placeholders de ND de ajuste IVA nunca se resaltan
+    if (fila.placeholderNdAjusteIva) return false;
+
     const tipo = (this.busquedaForm.value.tipo || '').toUpperCase();
     const letra = (this.busquedaForm.value.letra || '').toUpperCase();
     const ptovta = Number(this.busquedaForm.value.puntoVenta);
@@ -1714,6 +1752,18 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   cargarDocumentoDesdeHistorial(fila: any) {
     if (!fila) return;
+
+    // Si es el placeholder de ND de ajuste IVA pendiente de crear → abrir modal de crear ND
+    if (fila.placeholderNdAjusteIva) {
+      this.cerrarModalHistorialComprobantes();
+      this.abrirModalCrearNdAjusteIvaDesdeTabla();
+      return;
+    }
+
+    // Si es una fila de ajuste de IVA ya existente (NC o ND con número real) → no tiene prestaciones
+    if (fila.origenTipo === 'IVA') {
+      return;
+    }
 
     this.cerrarModalHistorialComprobantes();
 

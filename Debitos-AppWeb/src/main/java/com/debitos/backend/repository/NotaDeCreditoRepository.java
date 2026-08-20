@@ -174,15 +174,33 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     @Query(value = """
         SELECT nc.tipo AS tipo, nc.letra AS letra, nc.ptovta AS ptovta, nc.numero AS numero, 
-               CAST(MIN(nc.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto
+               CAST(MIN(nc.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto,
+               SUM(COALESCE(al.iva, 0)) AS montoIva
         FROM notadecredito nc
         JOIN amb_liquidado al ON nc.id_prestacion = al.id
         WHERE UPPER(al.cob_factura_letra) = UPPER(:letra) 
           AND al.cob_factura_ptoventa = :ptovta 
           AND al.cob_factura_numero = :numero
+          AND nc.id_notadedebito IS NULL
           AND nc.tipo IS NOT NULL AND nc.letra IS NOT NULL AND nc.numero IS NOT NULL AND nc.ptovta IS NOT NULL
         GROUP BY nc.tipo, nc.letra, nc.ptovta, nc.numero
         ORDER BY MIN(nc.fecha) ASC, nc.numero ASC
         """, nativeQuery = true)
     List<Object[]> findNcsResumenParaFacturaMadre(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT nc.tipo AS tipo, nc.letra AS letra, nc.ptovta AS ptovta, nc.numero AS numero, 
+               CAST(MIN(nc.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto,
+               SUM(COALESCE(al.iva, 0)) AS montoIva
+        FROM notadecredito nc
+        JOIN notadedebito nd ON nc.id_notadedebito = nd.id
+        JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        WHERE UPPER(nd.letra) = UPPER(:letraNd) 
+          AND nd.ptovta = :ptovtaNd 
+          AND nd.numero = :numeroNd
+          AND nc.tipo IS NOT NULL AND nc.letra IS NOT NULL AND nc.numero IS NOT NULL AND nc.ptovta IS NOT NULL
+        GROUP BY nc.tipo, nc.letra, nc.ptovta, nc.numero
+        ORDER BY MIN(nc.fecha) ASC, nc.numero ASC
+        """, nativeQuery = true)
+    List<Object[]> findNcsResumenParaNdPadre(@Param("letraNd") String letraNd, @Param("ptovtaNd") Integer ptovtaNd, @Param("numeroNd") Integer numeroNd);
 }

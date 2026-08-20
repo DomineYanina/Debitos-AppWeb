@@ -2017,6 +2017,151 @@ tr.row-selected {
   cursor: not-allowed;
 }
 
+/* ══════════════════════════════════════════════
+   HISTORIAL DE COMPROBANTES — VISTA DE ÁRBOL
+   ══════════════════════════════════════════════ */
 
+/* Modal más ancho para acomodar las columnas de IVA */
+.historial-modal-box {
+  max-width: 1080px;
+  width: 94%;
+}
 
+/* Tabla base del historial */
+.historial-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #15803d;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.historial-tabla thead tr {
+  background-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.historial-tabla th {
+  padding: 9px 12px;
+  border: 1px solid #94a3b8;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.historial-tabla td {
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  vertical-align: middle;
+}
+
+.historial-tabla tbody tr {
+  background-color: #e2e8f0;
+  color: #1e293b;
+  transition: background-color 0.15s ease;
+}
+
+/* Fila del documento buscado (resaltado en celeste) */
+.historial-tabla tbody tr.historial-fila-buscado {
+  background-color: rgb(217, 242, 249) !important;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.historial-celda-tipo.historial-fila-buscado {
+  background: rgb(217, 242, 249) !important;
+}
+
+/* Fila de ajuste IVA ya existente: tono verde muy suave */
+.historial-tabla tbody tr.historial-fila-iva {
+  background-color: #f0fdf4;
+  color: #1e293b;
+}
+
+/* Fila placeholder de ND pendiente: tono amarillo suave */
+.historial-tabla tbody tr.historial-fila-placeholder {
+  background-color: #fffbeb;
+  color: #92400e;
+  font-style: italic;
+}
+
+/* Celda de tipo: siempre fondo blanco para el árbol */
+.historial-celda-tipo {
+  background: #ffffff !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Contenedor del tipo con indentación de árbol */
+.historial-tipo-contenedor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Niveles de indentación */
+.historial-nivel-0 { padding-left: 0; }
+.historial-nivel-1 { padding-left: 18px; }
+.historial-nivel-2 { padding-left: 36px; }
+
+/* Conector de árbol └─ */
+.historial-conector {
+  font-family: 'Courier New', monospace;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 400;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+/* Texto del tipo de documento */
+.historial-tipo-texto {
+  font-weight: 700;
+  color: inherit;
+}
+
+/* Badges de origen */
+.badge-origen {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.badge-ref {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-iva {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+/* Link de crear nota de débito desde el modal */
+.historial-link-crear-nd {
+  color: #059669;
+  text-decoration: underline;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.historial-link-crear-nd:hover {
+  color: #047857;
+}
+
+/* Etiqueta informativa para filas IVA sin acciones */
+.historial-iva-info {
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-style: italic;
+  white-space: nowrap;
+}
 

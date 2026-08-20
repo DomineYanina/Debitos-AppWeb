@@ -29,6 +29,20 @@ public class ResultadoBusquedaDTO {
         this.historialComprobantes = historialComprobantes;
     }
 
+    public static ResultadoBusquedaDTO dePrestaciones(List<PrestacionAuditoriaDTO> prestaciones) {
+        ResultadoBusquedaDTO dto = new ResultadoBusquedaDTO();
+        dto.setTipoVista("ESTANDAR");
+        dto.setPrestaciones(prestaciones);
+        return dto;
+    }
+
+    public static ResultadoBusquedaDTO deAjusteIva(List<FilaAjusteIvaResumenDTO> resumenAjusteIva) {
+        ResultadoBusquedaDTO dto = new ResultadoBusquedaDTO();
+        dto.setTipoVista("TABLA_AJUSTE_IVA");
+        dto.setResumenAjusteIva(resumenAjusteIva);
+        return dto;
+    }
+
     public String getTipoVista() { return tipoVista; }
     public void setTipoVista(String tipoVista) { this.tipoVista = tipoVista; }
 

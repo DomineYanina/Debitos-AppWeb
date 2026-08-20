@@ -40,7 +40,7 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
     @Query(value = """
         SELECT MAX(al.periodo) AS periodo,
                SUM(COALESCE(al.total_neto, 0)) AS montoNeto,
-               SUM(COALESCE(al.total, 0) - COALESCE(al.total_neto, 0)) AS montoIva
+               SUM(COALESCE(al.iva, 0)) AS montoIva
         FROM amb_liquidado al
         WHERE UPPER(al.cob_factura_letra) = UPPER(:letra) 
           AND al.cob_factura_ptoventa = :ptovta 

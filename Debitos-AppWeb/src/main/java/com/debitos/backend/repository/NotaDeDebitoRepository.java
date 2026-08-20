@@ -102,7 +102,8 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
 
     @Query(value = """
         SELECT nd.tipo AS tipo, nd.letra AS letra, nd.ptovta AS ptovta, nd.numero AS numero, 
-               CAST(MIN(nd.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto
+               CAST(MIN(nd.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto,
+               SUM(COALESCE(al.iva, 0)) AS montoIva
         FROM notadedebito nd
         JOIN notadecredito nc ON nc.id = nd.id_notadecredito
         JOIN amb_liquidado al ON nd.id_prestacion = al.id
