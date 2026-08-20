@@ -46,6 +46,9 @@ public class AmbLiquidado {
 
     private String tiporegistro;
 
+    @Column(name = "periodo")
+    private String periodo;
+
     public Integer getId() {
         return id;
     }
@@ -204,5 +207,13 @@ public class AmbLiquidado {
 
     public void setTiporegistro(String tiporegistro) {
         this.tiporegistro = tiporegistro;
+    }
+
+    public String getPeriodo() {
+        return periodo;
+    }
+
+    public void setPeriodo(String periodo) {
+        this.periodo = periodo;
     }
 }

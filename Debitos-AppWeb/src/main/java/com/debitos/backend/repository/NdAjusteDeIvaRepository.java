@@ -16,4 +16,18 @@ public interface NdAjusteDeIvaRepository extends JpaRepository<NdAjusteDeIva, In
             @Param("ptovtaNd") Integer ptovtaNd,
             @Param("numeroNd") Integer numeroNd
     );
+
+    @Query("SELECT n FROM NdAjusteDeIva n WHERE UPPER(n.letraNc) = UPPER(:letraNc) AND n.ptovtaNc = :ptovtaNc AND n.numeroNc = :numeroNc")
+    java.util.Optional<NdAjusteDeIva> findByLetraNcAndPtovtaNcAndNumeroNc(
+            @Param("letraNc") String letraNc,
+            @Param("ptovtaNc") Integer ptovtaNc,
+            @Param("numeroNc") Integer numeroNc
+    );
+
+    @Query("SELECT n FROM NdAjusteDeIva n WHERE UPPER(n.letraNd) = UPPER(:letraNd) AND n.ptovtaNd = :ptovtaNd AND n.numeroNd = :numeroNd")
+    java.util.Optional<NdAjusteDeIva> findByLetraNdAndPtovtaNdAndNumeroNd(
+            @Param("letraNd") String letraNd,
+            @Param("ptovtaNd") Integer ptovtaNd,
+            @Param("numeroNd") Integer numeroNd
+    );
 }

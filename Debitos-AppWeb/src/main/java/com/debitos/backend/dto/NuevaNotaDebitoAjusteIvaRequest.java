@@ -15,6 +15,7 @@ public class NuevaNotaDebitoAjusteIvaRequest {
     private Object neto;
     private Object iva;
     private Object porcIva;
+    private Object fecha;
     private String usuario;
 
     public NuevaNotaDebitoAjusteIvaRequest() {}
@@ -113,5 +114,13 @@ public class NuevaNotaDebitoAjusteIvaRequest {
 
     public void setUsuario(String usuario) {
         this.usuario = usuario;
+    }
+
+    public Object getFecha() {
+        return fecha;
+    }
+
+    public void setFecha(Object fecha) {
+        this.fecha = fecha;
     }
 }

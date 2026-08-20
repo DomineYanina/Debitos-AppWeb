@@ -91,4 +91,27 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         WHERE nd.letra = :letra AND nd.ptovta = :ptovta AND nd.numero = :numero
         """, nativeQuery = true)
     List<PrestacionAuditoriaDTO> findPrestacionesPorNotaDebito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT DISTINCT al.cob_factura_letra, al.cob_factura_ptoventa, al.cob_factura_numero
+        FROM notadedebito nd
+        JOIN amb_liquidado al ON nd.id_prestacion = al.id
+        WHERE nd.letra = :letra AND nd.ptovta = :ptovta AND nd.numero = :numero
+        """, nativeQuery = true)
+    List<Object[]> findFacturaMadreDeNd(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT nd.tipo AS tipo, nd.letra AS letra, nd.ptovta AS ptovta, nd.numero AS numero, 
+               CAST(MIN(nd.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto
+        FROM notadedebito nd
+        JOIN notadecredito nc ON nc.id = nd.id_notadecredito
+        JOIN amb_liquidado al ON nd.id_prestacion = al.id
+        WHERE UPPER(nc.letra) = UPPER(:letraNc) 
+          AND nc.ptovta = :ptovtaNc 
+          AND nc.numero = :numeroNc
+          AND nd.tipo IS NOT NULL AND nd.letra IS NOT NULL AND nd.numero IS NOT NULL AND nd.ptovta IS NOT NULL
+        GROUP BY nd.tipo, nd.letra, nd.ptovta, nd.numero
+        ORDER BY MIN(nd.fecha) ASC, nd.numero ASC
+        """, nativeQuery = true)
+    List<Object[]> findNdsResumenParaNcPadre(@Param("letraNc") String letraNc, @Param("ptovtaNc") Integer ptovtaNc, @Param("numeroNc") Integer numeroNc);
 }

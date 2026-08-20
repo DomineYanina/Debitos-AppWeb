@@ -36,4 +36,15 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
         WHERE al.cob_factura_letra = :letra AND al.cob_factura_ptoventa = :ptovta AND al.cob_factura_numero = :numero
         """, nativeQuery = true)
     List<PrestacionAuditoriaDTO> findPrestacionesPorFactura(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT MAX(al.periodo) AS periodo,
+               SUM(COALESCE(al.total_neto, 0)) AS montoNeto,
+               SUM(COALESCE(al.total, 0) - COALESCE(al.total_neto, 0)) AS montoIva
+        FROM amb_liquidado al
+        WHERE UPPER(al.cob_factura_letra) = UPPER(:letra) 
+          AND al.cob_factura_ptoventa = :ptovta 
+          AND al.cob_factura_numero = :numero
+        """, nativeQuery = true)
+    Object[] findTotalesFacturaMadre(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 }

@@ -41,7 +41,7 @@ export class AuditoriaService {
 
   verificarTieneNcAjusteIva(tipo: string, letra: string, puntoVenta: string | number, numero: string | number): Observable<boolean> {
     return this.http.get<boolean>(`${this.apiUrl}/tiene-nc-ajuste-iva`, {
-      params: { tipo, letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+      params: { tipo, letra: String(letra).toUpperCase(), puntoVenta: String(puntoVenta), numero: String(numero) }
     });
   }
 
@@ -61,6 +61,12 @@ export class AuditoriaService {
   obtenerDocumentoAsociadoNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
     return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/documento-asociado-nc`, {
       params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  obtenerHistorialComprobantes(tipo: string, letra: string, puntoVenta: string | number, numero: string | number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/historial-comprobantes`, {
+      params: { tipo, letra: String(letra).toUpperCase(), puntoVenta: String(puntoVenta), numero: String(numero) }
     });
   }
 

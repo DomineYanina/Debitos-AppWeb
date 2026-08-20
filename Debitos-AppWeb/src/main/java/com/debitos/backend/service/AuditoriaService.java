@@ -58,6 +58,277 @@ public class AuditoriaService {
         };
     }
 
+    public ResultadoBusquedaDTO buscarUnificado(String tipo, String letra, int ptovta, int numero) {
+        ResultadoBusquedaDTO resultado = null;
+
+        if ("NC".equalsIgnoreCase(tipo)) {
+            // 1. Primero busca en notadecredito
+            try {
+                String tipoRegistro = obtenerTipoRegistro("NC", letra, ptovta, numero);
+                if (tipoRegistro != null) {
+                    List<PrestacionAuditoriaDTO> resultadosNc = obtenerPrestaciones("NC", tipoRegistro, letra, ptovta, numero);
+                    if (resultadosNc != null && !resultadosNc.isEmpty()) {
+                        resultado = new ResultadoBusquedaDTO("ESTANDAR", resultadosNc, null);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // 2. Si no se encontró en notadecredito, busca en nc_ajustedeiva
+            if (resultado == null) {
+                java.util.Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(letra, ptovta, numero);
+                if (ncIvaOpt.isPresent()) {
+                    NcAjusteDeIva ncIva = ncIvaOpt.get();
+                    List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenAjusteIva(ncIva);
+                    resultado = new ResultadoBusquedaDTO("TABLA_AJUSTE_IVA", null, filas);
+                }
+            }
+        } else if ("ND".equalsIgnoreCase(tipo)) {
+            // 1. Primero busca en notadedebito
+            try {
+                String tipoRegistro = obtenerTipoRegistro("ND", letra, ptovta, numero);
+                if (tipoRegistro != null) {
+                    List<PrestacionAuditoriaDTO> resultadosNd = obtenerPrestaciones("ND", tipoRegistro, letra, ptovta, numero);
+                    if (resultadosNd != null && !resultadosNd.isEmpty()) {
+                        resultado = new ResultadoBusquedaDTO("ESTANDAR", resultadosNd, null);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // 2. Si no se encontró en notadedebito, busca en nd_ajustedeiva
+            if (resultado == null) {
+                java.util.Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(letra, ptovta, numero);
+                if (ndIvaOpt.isPresent()) {
+                    NdAjusteDeIva ndIva = ndIvaOpt.get();
+                    java.util.Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(
+                            ndIva.getLetraNc(), ndIva.getPtovtaNc(), ndIva.getNumeroNc()
+                    );
+                    if (ncIvaOpt.isPresent()) {
+                        List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenAjusteIva(ncIvaOpt.get());
+                        resultado = new ResultadoBusquedaDTO("TABLA_AJUSTE_IVA", null, filas);
+                    } else {
+                        List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenDesdeNdIva(ndIva);
+                        resultado = new ResultadoBusquedaDTO("TABLA_AJUSTE_IVA", null, filas);
+                    }
+                }
+            }
+        }
+
+        if (resultado == null) {
+            String tipoRegistro = obtenerTipoRegistro(tipo, letra, ptovta, numero);
+            if (tipoRegistro != null) {
+                List<PrestacionAuditoriaDTO> resultados = obtenerPrestaciones(tipo, tipoRegistro, letra, ptovta, numero);
+                resultado = new ResultadoBusquedaDTO("ESTANDAR", resultados, null);
+            }
+        }
+
+        return adjuntarVerificacionesEHistorial(resultado, tipo, letra, ptovta, numero);
+    }
+
+    private ResultadoBusquedaDTO adjuntarVerificacionesEHistorial(ResultadoBusquedaDTO dto, String tipo, String letra, int ptovta, int numero) {
+        if (dto == null) return null;
+
+        try {
+            if ("FC".equalsIgnoreCase(tipo)) {
+                dto.setDocumentosCreadosInfo(obtenerNotasDeCreditoCreadasParaFC(letra, ptovta, numero));
+            } else if ("NC".equalsIgnoreCase(tipo) || "NCE".equalsIgnoreCase(tipo)) {
+                dto.setDocumentosCreadosInfo(obtenerNotasDeDebitoCreadasParaNC(letra, ptovta, numero));
+            } else if ("ND".equalsIgnoreCase(tipo) || "NDE".equalsIgnoreCase(tipo)) {
+                dto.setDocumentoCreadoInfo(obtenerNotaDeCreditoCreadaParaND(letra, ptovta, numero));
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            dto.setHistorialComprobantes(obtenerHistorialComprobantes(tipo, letra, ptovta, numero));
+        } catch (Exception ignored) {}
+
+        return dto;
+    }
+
+    private List<FilaAjusteIvaResumenDTO> construirTablaResumenAjusteIva(NcAjusteDeIva ncIva) {
+        List<FilaAjusteIvaResumenDTO> filas = new ArrayList<>();
+
+        // 1. Fila FC (Factura madre)
+        Object[] totalesFcObj = ambLiquidadoRepository.findTotalesFacturaMadre(ncIva.getLetraFc(), ncIva.getPtovtaFc(), ncIva.getNumeroFc());
+        String periodoFcStr = "";
+        BigDecimal netoFc = BigDecimal.ZERO;
+        BigDecimal ivaFc = BigDecimal.ZERO;
+
+        if (totalesFcObj != null && totalesFcObj.length > 0) {
+            Object rowObj = totalesFcObj[0];
+            if (rowObj instanceof Object[] row) {
+                if (row[0] != null) periodoFcStr = row[0].toString();
+                if (row[1] != null) netoFc = new BigDecimal(row[1].toString());
+                if (row[2] != null) ivaFc = new BigDecimal(row[2].toString());
+            }
+        }
+
+        FilaAjusteIvaResumenDTO filaFc = new FilaAjusteIvaResumenDTO(
+                ncIva.getTipoFc(),
+                ncIva.getLetraFc(),
+                ncIva.getPtovtaFc(),
+                ncIva.getNumeroFc(),
+                periodoFcStr,
+                netoFc,
+                ncIva.getPorcIva(),
+                ivaFc
+        );
+        filas.add(filaFc);
+
+        // 2. Fila NC (Nota de Crédito)
+        String fechaNcStr = ncIva.getFecha() != null ? ncIva.getFecha().toString() : (ncIva.getFechaRegistro() != null ? ncIva.getFechaRegistro().toString().split("T")[0] : "");
+        FilaAjusteIvaResumenDTO filaNc = new FilaAjusteIvaResumenDTO(
+                ncIva.getTipoNc(),
+                ncIva.getLetraNc(),
+                ncIva.getPtovtaNc(),
+                ncIva.getNumeroNc(),
+                fechaNcStr,
+                ncIva.getNeto(),
+                ncIva.getPorcIva(),
+                ncIva.getIva()
+        );
+        filas.add(filaNc);
+
+        // 3. Fila ND (Nota de Débito)
+        java.util.Optional<NdAjusteDeIva> ndOpt = ndAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(
+                ncIva.getLetraNc(), ncIva.getPtovtaNc(), ncIva.getNumeroNc()
+        );
+
+        if (ndOpt.isPresent()) {
+            NdAjusteDeIva ndIva = ndOpt.get();
+            String fechaNdStr = ndIva.getFecha() != null ? ndIva.getFecha().toString() : (ndIva.getFechaRegistro() != null ? ndIva.getFechaRegistro().toString().split("T")[0] : "");
+            FilaAjusteIvaResumenDTO filaNd = new FilaAjusteIvaResumenDTO(
+                    ndIva.getTipoNd(),
+                    ndIva.getLetraNd(),
+                    ndIva.getPtovtaNd(),
+                    ndIva.getNumeroNd(),
+                    fechaNdStr,
+                    ndIva.getNeto(),
+                    ndIva.getPorcIva(),
+                    ndIva.getIva()
+            );
+            filas.add(filaNd);
+        } else {
+            FilaAjusteIvaResumenDTO filaNd = new FilaAjusteIvaResumenDTO(
+                    "ND", "", null, null, "", null, null, null
+            );
+            filas.add(filaNd);
+        }
+
+        return filas;
+    }
+
+    private List<FilaAjusteIvaResumenDTO> construirTablaResumenDesdeNdIva(NdAjusteDeIva ndIva) {
+        List<FilaAjusteIvaResumenDTO> filas = new ArrayList<>();
+
+        // 1. Fila FC vacía
+        filas.add(new FilaAjusteIvaResumenDTO("FC", "", null, null, "", null, null, null));
+
+        // 2. Fila NC con datos mínimos de la NC padre almacenados en ndIva
+        filas.add(new FilaAjusteIvaResumenDTO(ndIva.getTipoNc(), ndIva.getLetraNc(), ndIva.getPtovtaNc(), ndIva.getNumeroNc(), "", null, null, null));
+
+        // 3. Fila ND
+        String fechaNdStr = ndIva.getFecha() != null ? ndIva.getFecha().toString() : (ndIva.getFechaRegistro() != null ? ndIva.getFechaRegistro().toString().split("T")[0] : "");
+        filas.add(new FilaAjusteIvaResumenDTO(
+                ndIva.getTipoNd(),
+                ndIva.getLetraNd(),
+                ndIva.getPtovtaNd(),
+                ndIva.getNumeroNd(),
+                fechaNdStr,
+                ndIva.getNeto(),
+                ndIva.getPorcIva(),
+                ndIva.getIva()
+        ));
+
+        return filas;
+    }
+
+    public List<FilaHistorialDTO> obtenerHistorialComprobantes(String tipo, String letra, int ptovta, int numero) {
+        List<FilaHistorialDTO> historial = new ArrayList<>();
+
+        String letraFc = letra;
+        Integer ptovtaFc = ptovta;
+        Integer numeroFc = numero;
+
+        if ("NC".equalsIgnoreCase(tipo) || "NCE".equalsIgnoreCase(tipo)) {
+            List<Object[]> fcMadre = notaDeCreditoRepository.findFacturaMadreDeNc(letra, ptovta, numero);
+            if (fcMadre != null && !fcMadre.isEmpty() && fcMadre.get(0) != null) {
+                Object[] row = fcMadre.get(0);
+                if (row[0] != null) letraFc = row[0].toString();
+                if (row[1] != null) ptovtaFc = Integer.parseInt(row[1].toString());
+                if (row[2] != null) numeroFc = Integer.parseInt(row[2].toString());
+            }
+        } else if ("ND".equalsIgnoreCase(tipo) || "NDE".equalsIgnoreCase(tipo)) {
+            List<Object[]> fcMadre = notaDeDebitoRepository.findFacturaMadreDeNd(letra, ptovta, numero);
+            if (fcMadre != null && !fcMadre.isEmpty() && fcMadre.get(0) != null) {
+                Object[] row = fcMadre.get(0);
+                if (row[0] != null) letraFc = row[0].toString();
+                if (row[1] != null) ptovtaFc = Integer.parseInt(row[1].toString());
+                if (row[2] != null) numeroFc = Integer.parseInt(row[2].toString());
+            }
+        }
+
+        // 1. Fila FC (Factura madre)
+        Object[] totalesFcObj = ambLiquidadoRepository.findTotalesFacturaMadre(letraFc, ptovtaFc, numeroFc);
+        String periodoFcStr = "";
+        BigDecimal netoFc = BigDecimal.ZERO;
+        if (totalesFcObj != null && totalesFcObj.length > 0) {
+            Object rowObj = totalesFcObj[0];
+            if (rowObj instanceof Object[] row) {
+                if (row[0] != null) periodoFcStr = row[0].toString();
+                if (row[1] != null) netoFc = new BigDecimal(row[1].toString());
+            } else {
+                if (totalesFcObj[0] != null) periodoFcStr = totalesFcObj[0].toString();
+                if (totalesFcObj.length > 1 && totalesFcObj[1] != null) netoFc = new BigDecimal(totalesFcObj[1].toString());
+            }
+        }
+        String tipoFc = "FC";
+
+        FilaHistorialDTO filaFc = new FilaHistorialDTO(
+                tipoFc, letraFc, ptovtaFc, numeroFc, periodoFcStr, netoFc
+        );
+        historial.add(filaFc);
+
+        // 2. NCs hijas de la Factura madre
+        List<Object[]> ncs = notaDeCreditoRepository.findNcsResumenParaFacturaMadre(letraFc, ptovtaFc, numeroFc);
+        if (ncs != null) {
+            for (Object[] rowNc : ncs) {
+                String tipoNcStr = rowNc[0] != null ? rowNc[0].toString() : "NC";
+                String letraNcStr = rowNc[1] != null ? rowNc[1].toString() : "";
+                Integer ptovtaNcInt = rowNc[2] != null ? Integer.parseInt(rowNc[2].toString()) : null;
+                Integer numeroNcInt = rowNc[3] != null ? Integer.parseInt(rowNc[3].toString()) : null;
+                String fechaNcStr = rowNc[4] != null ? rowNc[4].toString() : "";
+                BigDecimal netoNc = rowNc[5] != null ? new BigDecimal(rowNc[5].toString()) : BigDecimal.ZERO;
+
+                FilaHistorialDTO filaNc = new FilaHistorialDTO(
+                        tipoNcStr, letraNcStr, ptovtaNcInt, numeroNcInt, fechaNcStr, netoNc
+                );
+                historial.add(filaNc);
+
+                // 3. NDs hijas de esta NC
+                if (letraNcStr != null && ptovtaNcInt != null && numeroNcInt != null) {
+                    List<Object[]> nds = notaDeDebitoRepository.findNdsResumenParaNcPadre(letraNcStr, ptovtaNcInt, numeroNcInt);
+                    if (nds != null) {
+                        for (Object[] rowNd : nds) {
+                            String tipoNdStr = rowNd[0] != null ? rowNd[0].toString() : "ND";
+                            String letraNdStr = rowNd[1] != null ? rowNd[1].toString() : "";
+                            Integer ptovtaNdInt = rowNd[2] != null ? Integer.parseInt(rowNd[2].toString()) : null;
+                            Integer numeroNdInt = rowNd[3] != null ? Integer.parseInt(rowNd[3].toString()) : null;
+                            String fechaNdStr = rowNd[4] != null ? rowNd[4].toString() : "";
+                            BigDecimal netoNd = rowNd[5] != null ? new BigDecimal(rowNd[5].toString()) : BigDecimal.ZERO;
+
+                            FilaHistorialDTO filaNd = new FilaHistorialDTO(
+                                    tipoNdStr, letraNdStr, ptovtaNdInt, numeroNdInt, fechaNdStr, netoNd
+                            );
+                            historial.add(filaNd);
+                        }
+                    }
+                }
+            }
+        }
+
+        return historial;
+    }
+
     public boolean tieneNotaDeCreditoCreada(String letra, int ptovta, int numero) {
         return notaDeCreditoRepository.existeNcCompletaParaFactura(letra, ptovta, numero);
     }
@@ -397,6 +668,12 @@ public class AuditoriaService {
             ncIva.setIva(iva != null ? iva : BigDecimal.ZERO);
             ncIva.setPorcIva(porcIva != null ? porcIva : BigDecimal.ZERO);
 
+            if (datosNota.getFecha() != null && !datosNota.getFecha().toString().trim().isEmpty()) {
+                try {
+                    ncIva.setFecha(java.sql.Date.valueOf(datosNota.getFecha().toString()).toLocalDate());
+                } catch (Exception ignored) {}
+            }
+
             ncAjusteDeIvaRepository.save(ncIva);
 
             if ("No prestacional".equals(datosNota.getSubtipoIva())) {
@@ -592,12 +869,24 @@ public class AuditoriaService {
         ndIva.setIva(iva);
         ndIva.setPorcIva(porcIva);
 
+        if (request.getFecha() != null && !request.getFecha().toString().trim().isEmpty()) {
+            try {
+                ndIva.setFecha(java.sql.Date.valueOf(request.getFecha().toString()).toLocalDate());
+            } catch (Exception ignored) {}
+        }
+
         ndAjusteDeIvaRepository.save(ndIva);
     }
 
     public boolean tieneNcAjusteIva(String tipoFc, String letraFc, int ptovtaFc, int numeroFc) {
-        boolean existeEnNcAjusteIva = ncAjusteDeIvaRepository.existsByTipoFcAndLetraFcAndPtovtaFcAndNumeroFc(tipoFc, letraFc, ptovtaFc, numeroFc);
-        boolean existeEnNotaCredito = notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado(letraFc, ptovtaFc, numeroFc);
+        if (letraFc == null || letraFc.trim().isEmpty()) {
+            return false;
+        }
+        String tipoUpper = (tipoFc != null && !tipoFc.trim().isEmpty()) ? tipoFc.trim().toUpperCase() : "FC";
+        String letraUpper = letraFc.trim().toUpperCase();
+
+        boolean existeEnNcAjusteIva = ncAjusteDeIvaRepository.existsByTipoFcAndLetraFcAndPtovtaFcAndNumeroFc(tipoUpper, letraUpper, ptovtaFc, numeroFc);
+        boolean existeEnNotaCredito = notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado(letraUpper, ptovtaFc, numeroFc);
         return existeEnNcAjusteIva || existeEnNotaCredito;
     }
 }

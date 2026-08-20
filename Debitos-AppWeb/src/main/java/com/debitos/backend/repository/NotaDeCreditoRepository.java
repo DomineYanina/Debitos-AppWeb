@@ -22,8 +22,8 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
     @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n WHERE n.tipo = :tipo AND n.letra = :letra AND n.ptovta = :ptovta AND n.numero = :numero")
     boolean existsByTipoAndLetraAndPtovtaAndNumero(@Param("tipo") String tipo, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
-    // Verifica si ya existe una NC prestacional por IVA mal facturado para la factura
-    @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n JOIN n.prestacion p WHERE p.cobFacturaLetra = :letra AND p.cobFacturaPtoVenta = :ptovta AND p.cobFacturaNumero = :numero AND LOWER(TRIM(n.motivoDebito)) = 'iva mal facturado'")
+    // Condición 1: Que en la tabla notadecredito exista algún registro cuyo valor en la columna motivodedebito sea "Iva mal facturado", y que ese id prestación corresponda a una prestación de la Factura buscada
+    @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n JOIN n.prestacion p WHERE UPPER(p.cobFacturaLetra) = UPPER(:letra) AND p.cobFacturaPtoVenta = :ptovta AND p.cobFacturaNumero = :numero AND LOWER(TRIM(n.motivoDebito)) = 'iva mal facturado'")
     boolean existsByFacturaAndIvaMalFacturado(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
     // Para traer todos los registros al consultar la grilla por NC
@@ -163,4 +163,26 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         WHERE nc.letra = :letra AND nc.ptovta = :ptovta AND nc.numero = :numero
         """, nativeQuery = true)
     List<Object[]> findDocumentoAsociadoPadreRaw(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT DISTINCT al.cob_factura_letra, al.cob_factura_ptoventa, al.cob_factura_numero
+        FROM notadecredito nc
+        JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        WHERE nc.letra = :letra AND nc.ptovta = :ptovta AND nc.numero = :numero
+        """, nativeQuery = true)
+    List<Object[]> findFacturaMadreDeNc(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    @Query(value = """
+        SELECT nc.tipo AS tipo, nc.letra AS letra, nc.ptovta AS ptovta, nc.numero AS numero, 
+               CAST(MIN(nc.fecha) AS VARCHAR) AS fecha, SUM(al.total_neto) AS montoNeto
+        FROM notadecredito nc
+        JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        WHERE UPPER(al.cob_factura_letra) = UPPER(:letra) 
+          AND al.cob_factura_ptoventa = :ptovta 
+          AND al.cob_factura_numero = :numero
+          AND nc.tipo IS NOT NULL AND nc.letra IS NOT NULL AND nc.numero IS NOT NULL AND nc.ptovta IS NOT NULL
+        GROUP BY nc.tipo, nc.letra, nc.ptovta, nc.numero
+        ORDER BY MIN(nc.fecha) ASC, nc.numero ASC
+        """, nativeQuery = true)
+    List<Object[]> findNcsResumenParaFacturaMadre(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 }

@@ -45,6 +45,9 @@ public class NdAjusteDeIva {
     @Column(name = "porc_iva", nullable = false, precision = 5, scale = 2)
     private BigDecimal porcIva;
 
+    @Column(name = "fecha")
+    private java.time.LocalDate fecha;
+
     @Column(name = "fecha_registro")
     private LocalDateTime fechaRegistro;
 
@@ -159,5 +162,13 @@ public class NdAjusteDeIva {
 
     public void setFechaRegistro(LocalDateTime fechaRegistro) {
         this.fechaRegistro = fechaRegistro;
+    }
+
+    public java.time.LocalDate getFecha() {
+        return fecha;
+    }
+
+    public void setFecha(java.time.LocalDate fecha) {
+        this.fecha = fecha;
     }
 }

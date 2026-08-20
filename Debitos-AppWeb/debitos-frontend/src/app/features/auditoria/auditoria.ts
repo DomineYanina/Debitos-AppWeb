@@ -310,6 +310,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   montoIvaNdCalculado: number = 0;
   cargandoNdIva: boolean = false;
   deshabilitarPorAjusteIva: boolean = false;
+  esTablaAjusteIva: boolean = false;
+  filasResumenAjusteIva: any[] = [];
+  soloCrearNdAjusteIva: boolean = false;
+  modalHistorialVisible: boolean = false;
+  filasHistorialComprobantes: any[] = [];
+  cantidadHistorial: number = 1;
 
   obtenerFechaHoy(): string {
     return new Date().toISOString().split('T')[0];
@@ -366,8 +372,22 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdr.detectChanges();
   }
 
+  onRadioOptionClick(event: MouseEvent, opcion: string) {
+    if (opcion === 'Por ajuste de IVA' && this.deshabilitarPorAjusteIva) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   onTipoNcChange() {
     const tipoNc = this.nuevaNotaForm.get('tipoNc')?.value;
+
+    if (this.deshabilitarPorAjusteIva && tipoNc === 'Por ajuste de IVA') {
+      this.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
+      this.cdr.detectChanges();
+      return;
+    }
+
     if (tipoNc === 'Por ajuste de IVA') {
       this.nuevaNotaForm.get('subtipoIva')?.setValidators([Validators.required]);
       this.nuevaNotaForm.patchValue({ subtipoIva: '', netoNc: null, porcIva: null, ivaNc: null });
@@ -436,11 +456,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     } else {
       this.montoIvaNdCalculado = 0;
     }
-    this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
     this.cdr.detectChanges();
   }
 
   guardarNotaDebitoAjusteIva() {
+    if (this.soloCrearNdAjusteIva) {
+      this.guardarNdAjusteIvaSolo();
+      return;
+    }
+
     if (this.nuevaNotaDebitoIvaForm.invalid || !this.datosNcCreada) {
       this.mostrarAlerta('Por favor, complete todos los campos requeridos de la Nota de Débito.', undefined, 'error');
       return;
@@ -460,6 +485,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       neto: this.netoAjusteIva,
       iva: this.montoIvaNdCalculado,
       porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
+      fecha: this.nuevaNotaDebitoIvaForm.value.fecha,
       usuario: this.authService.obtenerUsuario()
     };
 
@@ -782,8 +808,30 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     filtros.letra = filtros.letra ? filtros.letra.toUpperCase() : '';
 
     this.auditoriaService.buscarPrestaciones(filtros).subscribe({
-      next: (data) => {
+      next: (res: any) => {
         this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
+
+        // Asignación directa de datos consolidados recibidos en la respuesta única de /buscar
+        this.documentosCreadosInfo = (res && res.documentosCreadosInfo) ? res.documentosCreadosInfo : [];
+        this.documentoCreadoInfo = (res && res.documentoCreadoInfo) ? res.documentoCreadoInfo : null;
+        this.notaDeCreditoYaCreada = !!this.documentoCreadoInfo;
+
+        this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
+        this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
+
+        if (res && res.tipoVista === 'TABLA_AJUSTE_IVA') {
+          this.esTablaAjusteIva = true;
+          this.filasResumenAjusteIva = res.resumenAjusteIva || [];
+          this.prestaciones = [];
+          this.prestacionesFiltradas = [];
+          this.cargando = false;
+          this.cdr.detectChanges();
+          return;
+        }
+
+        this.esTablaAjusteIva = false;
+        this.filasResumenAjusteIva = [];
+        const data = (res && res.prestaciones) ? res.prestaciones : (Array.isArray(res) ? res : []);
 
         this.prestaciones = data.map((p: any) => {
           p.debitoAceptado = p.debitoAceptado || '';
@@ -796,103 +844,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.aplicarFiltros();
         this.configurarColumnas();
 
-        // Si la búsqueda es de una FC, verificamos las NC ya creadas (Regla 1: puede haber varias)
-        if (this.tipoBusquedaRealizada === 'FC') {
-          const letra = filtros.letra || '';
-          const puntoVenta = filtros.puntoVenta ?? '';
-          const numero = filtros.numero ?? '';
-          this.notaDeDebitoYaCreada = false;
-          this.documentosCreadosInfo = [];
-          this.documentoCreadoInfo = null;
-          this.ncEsHijaDeND = false;
-          this.auditoriaService.verificarTieneNC(letra, puntoVenta, numero).subscribe({
-            next: (docs) => {
-              // Para FC el botón siempre está visible (Regla 1); solo mostramos el historial
-              this.notaDeCreditoYaCreada = false; // nunca bloquea el botón en FC
-              this.documentosCreadosInfo = docs ?? [];
-              this.cdr.detectChanges();
-            },
-            error: () => {
-              this.documentosCreadosInfo = [];
-              this.cdr.detectChanges();
-            }
-          });
-        } else if (this.tipoBusquedaRealizada === 'NC') {
-          const letra = filtros.letra || '';
-          const puntoVenta = filtros.puntoVenta ?? '';
-          const numero = filtros.numero ?? '';
-          this.notaDeCreditoYaCreada = false;
-          this.documentosCreadosInfo = [];
-          this.documentoCreadoInfo = null;
-          this.ndsCreadasDesdeNc = [];
-
-          // Detectar si la NC buscada es hija de una ND leyendo el campo idNotaDeDebito
-          const primeraConId = this.prestaciones.find(p => p.idNotaDeDebito !== undefined);
-          this.ncEsHijaDeND = !!(primeraConId && primeraConId.idNotaDeDebito !== null && primeraConId.idNotaDeDebito !== undefined);
-
-          // Cargar el documento asociado padre (FC si idNotaDeDebito es null, o ND si no es null)
-          this.auditoriaService.obtenerDocumentoAsociadoNC(letra, puntoVenta, numero).subscribe({
-            next: (doc) => {
-              this.documentosCreadosInfo = doc ? [doc] : [];
-              this.cdr.detectChanges();
-            },
-            error: () => {
-              this.documentosCreadosInfo = [];
-              this.cdr.detectChanges();
-            }
-          });
-
-          // Si la NC es hija de FC (ncEsHijaDeND = false), consultamos las ND creadas a partir de esta NC
-          if (!this.ncEsHijaDeND) {
-            this.auditoriaService.verificarTieneND(letra, puntoVenta, numero).subscribe({
-              next: (docs) => {
-                this.notaDeDebitoYaCreada = false;
-                this.ndsCreadasDesdeNc = docs ?? [];
-                this.cdr.detectChanges();
-              },
-              error: () => {
-                this.ndsCreadasDesdeNc = [];
-                this.cdr.detectChanges();
-              }
-            });
-          } else {
-            this.notaDeDebitoYaCreada = true;
-            this.cdr.detectChanges();
-          }
-        } else if (this.tipoBusquedaRealizada === 'ND') {
-          // Si la búsqueda es de una ND, verificamos si ya tiene NC creada (relación 1:1)
-          const letra = filtros.letra || '';
-          const puntoVenta = filtros.puntoVenta ?? '';
-          const numero = filtros.numero ?? '';
-          this.notaDeDebitoYaCreada = false;
-          this.documentosCreadosInfo = [];
-          this.documentoCreadoInfo = null;
-          this.ncEsHijaDeND = false;
-          this.auditoriaService.verificarTieneNCParaND(letra, puntoVenta, numero).subscribe({
-            next: (doc) => {
-              this.notaDeCreditoYaCreada = !!doc;
-              this.documentoCreadoInfo = doc;
-              this.cdr.detectChanges();
-            },
-            error: () => {
-              this.notaDeCreditoYaCreada = false;
-              this.documentoCreadoInfo = null;
-              this.cdr.detectChanges();
-            }
-          });
-        } else {
-          this.notaDeCreditoYaCreada = false;
-          this.notaDeDebitoYaCreada = false;
-          this.documentosCreadosInfo = [];
-          this.documentoCreadoInfo = null;
-          this.ncEsHijaDeND = false;
-        }
-
+        this.cargando = false;
         this.cdr.detectChanges();
 
-        this.cargando = false;
-
-        // Disparar la Fase 2 del tour guiado (Filtros, Grilla y Acciones) cuando los datos están renderizados
+        // Disparar la Fase 2 del tour guiado cuando los datos están renderizados
         if (this.prestaciones.length > 0) {
           setTimeout(() => this.tourService.startResultsTour(), 400);
         }
@@ -1592,17 +1547,194 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   cerrarModalNuevaNota() {
     this.modalNuevaNotaVisible = false;
+    this.soloCrearNdAjusteIva = false;
+    this.nuevaNotaForm.enable();
+    this.nuevaNotaDebitoIvaForm.enable();
+    this.nuevaNotaForm.reset();
+    this.nuevaNotaDebitoIvaForm.reset();
     this.cdr.detectChanges();
+  }
+
+  abrirModalCrearNdAjusteIvaDesdeTabla() {
+    if (!this.filasResumenAjusteIva || this.filasResumenAjusteIva.length < 2) return;
+
+    const filaNc = this.filasResumenAjusteIva[1];
+    if (!filaNc) return;
+
+    this.soloCrearNdAjusteIva = true;
+    this.modalNuevaNotaVisible = true;
+    this.tipoNuevaNota = 'NC';
+
+    this.nuevaNotaForm.patchValue({
+      tipo: filaNc.tipoDocumento || 'NC',
+      letra: filaNc.letra || '',
+      puntoVenta: filaNc.puntoVenta || '',
+      numero: filaNc.numero || '',
+      fecha: filaNc.fechaDocumento || this.obtenerFechaHoy(),
+      tipoNc: 'Por ajuste de IVA',
+      subtipoIva: 'No prestacional',
+      netoNc: filaNc.montoNeto,
+      porcIva: filaNc.porcentajeIva,
+      ivaNc: filaNc.montoIva
+    });
+
+    this.nuevaNotaForm.disable();
+
+    this.nuevaNotaDebitoIvaForm.enable();
+    this.nuevaNotaDebitoIvaForm.patchValue({
+      tipo: 'ND',
+      letra: '',
+      puntoVenta: '',
+      numero: '',
+      fecha: this.obtenerFechaHoy(),
+      porcIva: filaNc.porcentajeIva
+    });
+
+    this.netoAjusteIva = filaNc.montoNeto || 0;
+    this.onPorcIvaNdChange();
+
+    this.cdr.detectChanges();
+  }
+
+  guardarNdAjusteIvaSolo() {
+    if (this.nuevaNotaDebitoIvaForm.invalid) {
+      this.nuevaNotaDebitoIvaForm.markAllAsTouched();
+      this.mostrarAlerta('Por favor, complete todos los campos obligatorios de la Nota de Débito por Ajuste de IVA.', undefined, 'error');
+      return;
+    }
+
+    const filaNc = this.filasResumenAjusteIva && this.filasResumenAjusteIva.length > 1 ? this.filasResumenAjusteIva[1] : null;
+    if (!filaNc) {
+      this.mostrarAlerta('No se encontraron los datos de la Nota de Crédito padre.', undefined, 'error');
+      return;
+    }
+
+    const payload = {
+      tipoNc: filaNc.tipoDocumento || 'NC',
+      letraNc: filaNc.letra,
+      ptovtaNc: filaNc.puntoVenta,
+      numeroNc: filaNc.numero,
+
+      tipoNd: this.nuevaNotaDebitoIvaForm.value.tipo,
+      letraNd: this.nuevaNotaDebitoIvaForm.value.letra?.toUpperCase(),
+      ptovtaNd: this.nuevaNotaDebitoIvaForm.value.puntoVenta,
+      numeroNd: this.nuevaNotaDebitoIvaForm.value.numero,
+
+      neto: this.netoAjusteIva,
+      iva: this.montoIvaNdCalculado,
+      porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
+      fecha: this.nuevaNotaDebitoIvaForm.value.fecha,
+      usuario: this.authService.obtenerUsuario()
+    };
+
+    this.cargandoNdIva = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaDebitoAjusteIva(payload).subscribe({
+      next: () => {
+        this.cargandoNdIva = false;
+        this.cerrarModalNuevaNota();
+        this.mostrarAlerta('¡Nota de Débito por Ajuste de IVA generada y guardada con éxito!', undefined, 'exito');
+        this.onBuscar();
+      },
+      error: (err) => {
+        console.error(err);
+        this.cargandoNdIva = false;
+        const mensajeServer = err.error?.message || err.error?.mensaje || 'Error al procesar la Nota de Débito por Ajuste de IVA.';
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   abrirModalDocumentosAsociados() {
-    this.modalDocumentosAsociadosVisible = true;
-    this.cdr.detectChanges();
+    this.abrirModalHistorialComprobantes();
   }
 
   cerrarModalDocumentosAsociados() {
-    this.modalDocumentosAsociadosVisible = false;
+    this.cerrarModalHistorialComprobantes();
+  }
+
+  cargarHistorialComprobantes(tipo: string, letra: string, puntoVenta: string | number, numero: string | number) {
+    this.auditoriaService.obtenerHistorialComprobantes(tipo, letra, puntoVenta, numero).subscribe({
+      next: (res) => {
+        this.filasHistorialComprobantes = res || [];
+        this.cantidadHistorial = this.filasHistorialComprobantes.length;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.warn('Error al obtener historial de comprobantes', err);
+      }
+    });
+  }
+
+  abrirModalHistorialComprobantes() {
+    if (this.filasHistorialComprobantes.length === 0 && this.busquedaForm.valid) {
+      const filtros = this.busquedaForm.value;
+      this.cargarHistorialComprobantes(filtros.tipo || 'FC', filtros.letra || '', filtros.puntoVenta || '', filtros.numero || '');
+    }
+    this.modalHistorialVisible = true;
     this.cdr.detectChanges();
+  }
+
+  cerrarModalHistorialComprobantes() {
+    this.modalHistorialVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  obtenerTipoDisplay(tipo: string): string {
+    if (!tipo) return 'FC';
+    const t = tipo.trim();
+    if (t === 'Internados' || t === 'Ambulatorios') return 'FC';
+    return t;
+  }
+
+  esDocumentoBuscado(fila: any): boolean {
+    if (!fila || !this.busquedaForm || !this.busquedaForm.value) return false;
+    const tipo = (this.busquedaForm.value.tipo || '').toUpperCase();
+    const letra = (this.busquedaForm.value.letra || '').toUpperCase();
+    const ptovta = Number(this.busquedaForm.value.puntoVenta);
+    const numero = Number(this.busquedaForm.value.numero);
+
+    const filaTipo = this.obtenerTipoDisplay(fila.tipoDocumento).toUpperCase();
+    const filaLetra = (fila.letra || '').toUpperCase();
+    const filaPtovta = Number(fila.puntoVenta);
+    const filaNumero = Number(fila.numero);
+
+    if (filaLetra !== letra || filaPtovta !== ptovta || filaNumero !== numero) {
+      return false;
+    }
+
+    if (tipo === 'FC' && filaTipo === 'FC') return true;
+    if (tipo === 'NC' && (filaTipo === 'NC' || filaTipo === 'NCE')) return true;
+    if (tipo === 'ND' && (filaTipo === 'ND' || filaTipo === 'NDE')) return true;
+
+    return tipo === filaTipo;
+  }
+
+  cargarDocumentoDesdeHistorial(fila: any) {
+    if (!fila) return;
+
+    this.cerrarModalHistorialComprobantes();
+
+    let tipoMapeado = 'FC';
+    const tipoRaw = this.obtenerTipoDisplay(fila.tipoDocumento).toUpperCase();
+    if (tipoRaw.includes('NC')) {
+      tipoMapeado = 'NC';
+    } else if (tipoRaw.includes('ND')) {
+      tipoMapeado = 'ND';
+    } else {
+      tipoMapeado = 'FC';
+    }
+
+    this.busquedaForm.patchValue({
+      tipo: tipoMapeado,
+      letra: fila.letra || '',
+      puntoVenta: fila.puntoVenta || '',
+      numero: fila.numero || ''
+    });
+
+    this.onBuscar();
   }
 
   guardarNuevaNotaBD() {

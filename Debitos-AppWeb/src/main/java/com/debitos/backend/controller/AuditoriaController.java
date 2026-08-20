@@ -75,6 +75,16 @@ public class AuditoriaController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/historial-comprobantes")
+    public ResponseEntity<List<com.debitos.backend.dto.FilaHistorialDTO>> obtenerHistorialComprobantes(
+            @RequestParam String tipo,
+            @RequestParam String letra,
+            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam int numero) {
+        List<com.debitos.backend.dto.FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes(tipo, letra, ptovta, numero);
+        return ResponseEntity.ok(historial);
+    }
+
     @GetMapping("/buscar")
     public ResponseEntity<?> buscar(
             @RequestParam String tipo,
@@ -82,14 +92,13 @@ public class AuditoriaController {
             @RequestParam(name = "puntoVenta") int ptovta,
             @RequestParam int numero) {
 
-        String tipoRegistro = auditoriaService.obtenerTipoRegistro(tipo, letra, ptovta, numero);
+        com.debitos.backend.dto.ResultadoBusquedaDTO resultado = auditoriaService.buscarUnificado(tipo, letra, ptovta, numero);
 
-        if (tipoRegistro == null) {
+        if (resultado == null) {
             return ResponseEntity.notFound().build();
         }
 
-        List<PrestacionAuditoriaDTO> resultados = auditoriaService.obtenerPrestaciones(tipo, tipoRegistro, letra, ptovta, numero);
-        return ResponseEntity.ok(resultados);
+        return ResponseEntity.ok(resultado);
     }
 
     @PostMapping("/guardar-parcialmente")
