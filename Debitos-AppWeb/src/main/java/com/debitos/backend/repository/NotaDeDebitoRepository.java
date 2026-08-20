@@ -18,6 +18,10 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
     @Query("SELECT DISTINCT n.tiporegistro FROM NotaDeDebito n WHERE n.letra = :letra AND n.ptovta = :ptovta AND n.numero = :numero")
     String findDistinctTipoRegistro(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    // Verifica si ya existe una ND con el mismo tipo, letra, pto venta y número
+    @Query("SELECT COUNT(n) > 0 FROM NotaDeDebito n WHERE n.tipo = :tipo AND n.letra = :letra AND n.ptovta = :ptovta AND n.numero = :numero")
+    boolean existsByTipoAndLetraAndPtovtaAndNumero(@Param("tipo") String tipo, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
     // Para traer todos los registros al consultar la grilla por ND
     List<NotaDeDebito> findByLetraAndPtovtaAndNumero(String letra, Integer ptovta, Integer numero);
 

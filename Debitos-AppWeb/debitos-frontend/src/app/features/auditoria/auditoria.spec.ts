@@ -24,7 +24,12 @@ describe('AuditoriaComponent', () => {
       buscarPrestaciones: () => of([]),
       guardarParcialmente: () => of({}),
       guardarNuevaNotaCredito: () => of({}),
-      guardarNuevaNotaDebito: () => of({})
+      guardarNuevaNotaDebito: () => of({}),
+      registrarMetricaUsabilidad: () => of({}),
+      verificarTieneNC: () => of([]),
+      verificarTieneND: () => of([]),
+      verificarTieneNCParaND: () => of(null),
+      obtenerDocumentoAsociadoParaNC: () => of(null)
     };
     authServiceSpy = { obtenerUsuario: () => 'tester', logout: () => {} };
     excelServiceSpy = { exportarPrestaciones: () => {} };
@@ -78,8 +83,8 @@ describe('AuditoriaComponent', () => {
       component.busquedaForm.setValue({ tipo: 'ND', letra: 'A', puntoVenta: '10', numero: '123' });
 
       const mockData = [
-        { id: 1, paciente: 'Perez', total: 1000, debitoAceptado: true },
-        { id: 2, paciente: 'Gomez', total: 2000, debitoAceptado: false }
+        { id: 1, paciente: 'Perez', total: 1000, debitoAceptado: 'SI' },
+        { id: 2, paciente: 'Gomez', total: 2000, debitoAceptado: 'NO' }
       ] as unknown as Prestacion[];
 
       // Secuestramos la respuesta y atrapamos los parámetros que Angular intenta enviar
@@ -203,6 +208,16 @@ describe('AuditoriaComponent', () => {
       // VERIFICACIÓN: El registro 2 que tenía datos debe haber quedado en blanco
       expect(component.prestacionesFiltradas[1].motivoDebito).toBe('');
       expect(component.prestacionesFiltradas[1].debitoAceptado).toBe('');
+    });
+
+    it('debería calcular el importeDebitado como el valor del IVA cuando el motivo sea "Iva mal facturado"', () => {
+      const p = { id: 10, total: 121, totalNeto: 100, motivoDebito: '' } as Prestacion;
+      component.ejecutarIndividualDebito(p, 'Iva mal facturado');
+      expect(p.importeDebitado).toBe(21);
+
+      const p2 = { id: 11, total: 500, totalNeto: 500, motivoDebito: '' } as Prestacion;
+      component.ejecutarIndividualDebito(p2, 'Afiliado capitado');
+      expect(p2.importeDebitado).toBe(500);
     });
   });
 

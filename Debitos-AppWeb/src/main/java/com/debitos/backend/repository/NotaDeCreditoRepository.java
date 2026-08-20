@@ -18,6 +18,14 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
     @Query("SELECT DISTINCT n.tiporegistro FROM NotaDeCredito n WHERE n.letra = :letra AND n.ptovta = :ptovta AND n.numero = :numero")
     String findDistinctTipoRegistro(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    // Verifica si ya existe una NC con el mismo tipo, letra, pto venta y número
+    @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n WHERE n.tipo = :tipo AND n.letra = :letra AND n.ptovta = :ptovta AND n.numero = :numero")
+    boolean existsByTipoAndLetraAndPtovtaAndNumero(@Param("tipo") String tipo, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    // Verifica si ya existe una NC prestacional por IVA mal facturado para la factura
+    @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n JOIN n.prestacion p WHERE p.cobFacturaLetra = :letra AND p.cobFacturaPtoVenta = :ptovta AND p.cobFacturaNumero = :numero AND LOWER(TRIM(n.motivoDebito)) = 'iva mal facturado'")
+    boolean existsByFacturaAndIvaMalFacturado(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
     // Para traer todos los registros al consultar la grilla por NC
     List<NotaDeCredito> findByLetraAndPtovtaAndNumero(String letra, Integer ptovta, Integer numero);
 

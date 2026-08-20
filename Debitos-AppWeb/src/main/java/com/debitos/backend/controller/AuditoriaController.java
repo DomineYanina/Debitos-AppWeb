@@ -1,6 +1,10 @@
 package com.debitos.backend.controller;
 
 import com.debitos.backend.dto.DocumentoAsociadoDTO;
+import com.debitos.backend.dto.GuardarParcialRequest;
+import com.debitos.backend.dto.NuevaNotaCreditoRequest;
+import com.debitos.backend.dto.NuevaNotaDebitoAjusteIvaRequest;
+import com.debitos.backend.dto.NuevaNotaDebitoRequest;
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.model.RegistroUsabilidad;
 import com.debitos.backend.repository.RegistroUsabilidadRepository;
@@ -31,6 +35,16 @@ public class AuditoriaController {
             @RequestParam int numero) {
         List<DocumentoAsociadoDTO> lista = auditoriaService.obtenerNotasDeCreditoCreadasParaFC(letra, ptovta, numero);
         return ResponseEntity.ok(lista);
+    }
+
+    @GetMapping("/tiene-nc-ajuste-iva")
+    public ResponseEntity<Boolean> tieneNcAjusteIva(
+            @RequestParam String tipo,
+            @RequestParam String letra,
+            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam int numero) {
+        boolean existe = auditoriaService.tieneNcAjusteIva(tipo, letra, ptovta, numero);
+        return ResponseEntity.ok(existe);
     }
 
     // Regla 2: devuelve la lista completa de ND creadas para una NC
@@ -71,7 +85,6 @@ public class AuditoriaController {
         String tipoRegistro = auditoriaService.obtenerTipoRegistro(tipo, letra, ptovta, numero);
 
         if (tipoRegistro == null) {
-            // Esto también se podría manejar tirando una excepción, pero devolver un 404 limpio está perfecto
             return ResponseEntity.notFound().build();
         }
 
@@ -79,30 +92,28 @@ public class AuditoriaController {
         return ResponseEntity.ok(resultados);
     }
 
-    // FIJATE QUÉ LIMPIOS QUEDAN LOS POST AHORA: SIN TRY-CATCH
-
     @PostMapping("/guardar-parcialmente")
-    public ResponseEntity<Map<String, String>> guardarParcialmente(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, String>> guardarParcialmente(@RequestBody GuardarParcialRequest payload) {
         auditoriaService.procesarGuardadoParcial(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Guardado exitoso"));
     }
 
-    // Regla 3: si el motivo de la ND es "Por ajuste de IVA", el servicio lanza
-    // IllegalArgumentException que se traduce en HTTP 400 Bad Request.
     @PostMapping("/nueva-nota-credito")
-    public ResponseEntity<?> guardarNuevaNotaCredito(@RequestBody Map<String, Object> payload) {
-        try {
-            auditoriaService.procesarNuevaNotaCredito(payload);
-            return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito generada exitosamente"));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<Map<String, String>> guardarNuevaNotaCredito(@RequestBody NuevaNotaCreditoRequest payload) {
+        auditoriaService.procesarNuevaNotaCredito(payload);
+        return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito generada exitosamente"));
     }
 
     @PostMapping("/nueva-nota-debito")
-    public ResponseEntity<Map<String, String>> guardarNuevaNotaDebito(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, String>> guardarNuevaNotaDebito(@RequestBody NuevaNotaDebitoRequest payload) {
         auditoriaService.procesarNuevaNotaDebito(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Débito generada exitosamente"));
+    }
+
+    @PostMapping("/nueva-nota-debito-ajuste-iva")
+    public ResponseEntity<Map<String, String>> guardarNuevaNotaDebitoAjusteIva(@RequestBody NuevaNotaDebitoAjusteIvaRequest payload) {
+        auditoriaService.procesarNuevaNotaDebitoAjusteIva(payload);
+        return ResponseEntity.ok(Map.of("mensaje", "Nota de Débito por Ajuste de IVA generada exitosamente"));
     }
 
     @PostMapping("/telemetria/usabilidad")

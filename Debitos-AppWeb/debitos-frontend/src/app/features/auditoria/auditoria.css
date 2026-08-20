@@ -1098,6 +1098,29 @@ tr.row-selected {
   display: flex;
   flex-direction: column;
   animation: slideUpModal 0.3s ease-out;
+  transition: width 0.3s ease, max-width 0.3s ease;
+}
+
+.modal-box.modal-box-doble {
+  width: 900px;
+  max-width: 95vw;
+}
+
+.modal-paneles-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.panel-modal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel-modal.panel-izquierdo {
+  border-right: 1px solid #cbd5e1;
 }
 
 @keyframes slideUpModal {

@@ -1,9 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { LoadingBarComponent } from './core/components/loading-bar/loading-bar.component';
+import { NotificationToastComponent } from './core/components/notification-toast/notification-toast.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  standalone: true,
+  imports: [RouterOutlet, LoadingBarComponent, NotificationToastComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

@@ -299,15 +299,198 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     numero: ['', [Validators.required, Validators.min(1)]]
   });
 
+  montoNetoPrestacional: number = 0;
+  montoIvaPrestacionalOriginal: number = 0;
+  montoIvaCalculado: number = 0;
+  hasPrestacionesIvaMalFacturado: boolean = false;
+
+  ncGuardadaExitosamente: boolean = false;
+  datosNcCreada: any = null;
+  netoAjusteIva: number = 0;
+  montoIvaNdCalculado: number = 0;
+  cargandoNdIva: boolean = false;
+  deshabilitarPorAjusteIva: boolean = false;
+
+  obtenerFechaHoy(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
   nuevaNotaForm = this.fb.group({
     tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]],
     fecha: ['', Validators.required],
+    tipoNc: ['Refactura'],
+    subtipoIva: [''],
+    netoNc: [null as number | null],
+    porcIva: [null as number | null],
+    ivaNc: [null as number | null],
     tipoNd: [''],
     importeNd: [null as number | null]
   });
+
+  nuevaNotaDebitoIvaForm = this.fb.group({
+    tipo: ['ND', Validators.required],
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: [this.obtenerFechaHoy(), Validators.required],
+    porcIva: [null as number | null, Validators.required],
+    ivaNd: [null as number | null]
+  });
+
+  calcularTotalesIvaPrestacional() {
+    const prestIvaMalFacturado = this.prestaciones.filter(
+      p => p.motivoDebito && p.motivoDebito.trim().toLowerCase() === 'iva mal facturado'
+    );
+    this.hasPrestacionesIvaMalFacturado = prestIvaMalFacturado.length > 0;
+    this.montoNetoPrestacional = prestIvaMalFacturado.reduce((sum, p) => sum + (p.totalNeto || 0), 0);
+    this.montoIvaPrestacionalOriginal = prestIvaMalFacturado.reduce((sum, p) => sum + this.obtenerMontoIva(p), 0);
+
+    const porc = this.nuevaNotaForm.get('porcIva')?.value;
+    if (porc !== null && porc !== undefined && String(porc) !== '') {
+      this.montoIvaCalculado = Number((this.montoNetoPrestacional * (Number(porc) / 100)).toFixed(2));
+    } else {
+      this.montoIvaCalculado = Number(this.montoIvaPrestacionalOriginal.toFixed(2));
+    }
+    this.nuevaNotaForm.patchValue({ ivaNc: this.montoIvaCalculado }, { emitEvent: false });
+
+    if (!this.hasPrestacionesIvaMalFacturado) {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors({ sinIvaMalFacturado: true });
+    } else {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
+    }
+    this.netoAjusteIva = this.montoNetoPrestacional;
+    this.onPorcIvaNdChange();
+    this.cdr.detectChanges();
+  }
+
+  onTipoNcChange() {
+    const tipoNc = this.nuevaNotaForm.get('tipoNc')?.value;
+    if (tipoNc === 'Por ajuste de IVA') {
+      this.nuevaNotaForm.get('subtipoIva')?.setValidators([Validators.required]);
+      this.nuevaNotaForm.patchValue({ subtipoIva: '', netoNc: null, porcIva: null, ivaNc: null });
+      this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
+      this.onSubtipoIvaChange();
+    } else {
+      // Refactura
+      this.nuevaNotaForm.get('subtipoIva')?.clearValidators();
+      this.nuevaNotaForm.get('netoNc')?.clearValidators();
+      this.nuevaNotaForm.get('porcIva')?.clearValidators();
+      this.nuevaNotaForm.patchValue({ subtipoIva: '', netoNc: null, porcIva: null, ivaNc: null });
+      this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('netoNc')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('porcIva')?.updateValueAndValidity();
+    }
+    this.cdr.detectChanges();
+  }
+
+  onSubtipoIvaChange() {
+    const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+    const netoCtrl = this.nuevaNotaForm.get('netoNc');
+    const porcCtrl = this.nuevaNotaForm.get('porcIva');
+
+    if (subtipoIva === 'No prestacional') {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
+      netoCtrl?.setValidators([Validators.required, Validators.min(0.01)]);
+      porcCtrl?.setValidators([Validators.required]);
+      this.onNetoManualChange();
+    } else if (subtipoIva === 'Prestacional') {
+      netoCtrl?.clearValidators();
+      netoCtrl?.setValue(null);
+      porcCtrl?.clearValidators();
+      this.calcularTotalesIvaPrestacional();
+    } else {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
+      netoCtrl?.clearValidators();
+      netoCtrl?.setValue(null);
+      porcCtrl?.clearValidators();
+      this.nuevaNotaForm.patchValue({ porcIva: null, ivaNc: null });
+    }
+    netoCtrl?.updateValueAndValidity();
+    porcCtrl?.updateValueAndValidity();
+    this.cdr.detectChanges();
+  }
+
+  onNetoManualChange() {
+    const neto = Number(this.nuevaNotaForm.get('netoNc')?.value) || 0;
+    const porcVal = this.nuevaNotaForm.get('porcIva')?.value;
+    if (neto > 0 && porcVal !== null && porcVal !== undefined && String(porcVal) !== '') {
+      const ivaCalc = Number((neto * (Number(porcVal) / 100)).toFixed(2));
+      this.nuevaNotaForm.patchValue({ ivaNc: ivaCalc }, { emitEvent: false });
+      this.montoIvaCalculado = ivaCalc;
+    } else {
+      this.nuevaNotaForm.patchValue({ ivaNc: null }, { emitEvent: false });
+      this.montoIvaCalculado = 0;
+    }
+    this.netoAjusteIva = neto;
+    this.onPorcIvaNdChange();
+    this.cdr.detectChanges();
+  }
+
+  onPorcIvaNdChange() {
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    if (this.netoAjusteIva > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+      this.montoIvaNdCalculado = Number((this.netoAjusteIva * (Number(porcNd) / 100)).toFixed(2));
+    } else {
+      this.montoIvaNdCalculado = 0;
+    }
+    this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    this.cdr.detectChanges();
+  }
+
+  guardarNotaDebitoAjusteIva() {
+    if (this.nuevaNotaDebitoIvaForm.invalid || !this.datosNcCreada) {
+      this.mostrarAlerta('Por favor, complete todos los campos requeridos de la Nota de Débito.', undefined, 'error');
+      return;
+    }
+
+    const payload = {
+      tipoNc: this.datosNcCreada.tipo,
+      letraNc: this.datosNcCreada.letra,
+      ptovtaNc: this.datosNcCreada.puntoVenta,
+      numeroNc: this.datosNcCreada.numero,
+
+      tipoNd: this.nuevaNotaDebitoIvaForm.value.tipo,
+      letraNd: this.nuevaNotaDebitoIvaForm.value.letra?.toUpperCase(),
+      ptovtaNd: this.nuevaNotaDebitoIvaForm.value.puntoVenta,
+      numeroNd: this.nuevaNotaDebitoIvaForm.value.numero,
+
+      neto: this.netoAjusteIva,
+      iva: this.montoIvaNdCalculado,
+      porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
+      usuario: this.authService.obtenerUsuario()
+    };
+
+    this.cargandoNdIva = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaDebitoAjusteIva(payload).subscribe({
+      next: () => {
+        this.cargandoNdIva = false;
+        this.cerrarModalNuevaNota();
+        this.mostrarAlerta('¡Nota de Crédito y Nota de Débito por Ajuste de IVA generadas y guardadas con éxito!', undefined, 'exito');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        this.cargandoNdIva = false;
+        const mensajeServer = err.error?.message || err.error?.mensaje || 'Error al procesar la Nota de Débito por Ajuste de IVA.';
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onPorcIvaChange() {
+    const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+    if (subtipoIva === 'No prestacional') {
+      this.onNetoManualChange();
+    } else {
+      this.calcularTotalesIvaPrestacional();
+    }
+  }
 
   onTipoNdChange() {
     const val = this.nuevaNotaForm.get('tipoNd')?.value;
@@ -840,6 +1023,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private obtenerMontoIva(p: Prestacion): number {
+    if ((p as any).iva != null && !isNaN(Number((p as any).iva))) {
+      return Number((p as any).iva);
+    }
+    const total = p.total || 0;
+    const totalNeto = p.totalNeto || 0;
+    const diferencia = total - totalNeto;
+    return diferencia > 0 ? Number(diferencia.toFixed(2)) : 0;
+  }
+
   ejecutarMasivoDebito(motivo: string, sobreescribirTodos: boolean) {
     this.registrosSeleccionados.forEach(p => {
       if (!sobreescribirTodos && p.motivoDebito && p.motivoDebito !== '') return;
@@ -850,7 +1043,13 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         p.comentariosDebito = ''; // <--- Agregamos la limpieza acá también
       } else {
         p.motivoDebito = motivo;
-        if (motivo !== 'No aplica') p.importeDebitado = p.total;
+        if (motivo !== 'No aplica') {
+          if (motivo.trim().toLowerCase() === 'iva mal facturado') {
+            p.importeDebitado = this.obtenerMontoIva(p);
+          } else {
+            p.importeDebitado = p.total;
+          }
+        }
       }
       this.registrarCambio(p);
     });
@@ -899,7 +1098,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       p.importeDebitado = undefined;
       p.comentariosDebito = ''; // <--- Agregamos la limpieza acá
     } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
-      p.importeDebitado = p.total;
+      if (nuevoMotivo.trim().toLowerCase() === 'iva mal facturado') {
+        p.importeDebitado = this.obtenerMontoIva(p);
+      } else {
+        p.importeDebitado = p.total;
+      }
     }
     (p as any)._motivoDebitoPrevio = p.motivoDebito;
     this.calcularTotales();
@@ -1240,12 +1443,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdr.detectChanges();
   }
 
-  validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota') {
+  validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota' | 'nuevaNotaDebitoIva') {
     const input = event.target as HTMLInputElement;
     const valor = input.value;
 
     // Identificamos dinámicamente cuál formulario estamos tocando
-    const formActual = tipoFormulario === 'busqueda' ? this.busquedaForm : this.nuevaNotaForm;
+    const formActual = tipoFormulario === 'busqueda'
+      ? this.busquedaForm
+      : (tipoFormulario === 'nuevaNotaDebitoIva' ? this.nuevaNotaDebitoIvaForm : this.nuevaNotaForm);
 
     // Si el valor contiene algún dígito del 0 al 9
     if (/[0-9]/.test(valor)) {
@@ -1278,8 +1483,6 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Validación según el tipo de nota
     if (tipo === 'NC') {
-      // Regla 3: Si el documento base es una ND y su motivo es "Por ajuste de IVA",
-      // bloquear la creación de NC y mostrar alerta al usuario.
       if (this.tipoBusquedaRealizada === 'ND') {
         const motivosND = this.prestaciones.map(p => p.motivoRefactura?.trim()).filter(Boolean);
         const esAjusteIVA = motivosND.some(m => m === 'Por ajuste de IVA');
@@ -1293,57 +1496,94 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         }
       }
 
-      const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
-      if (prestacionesConDebito.length === 0) {
-        this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.', undefined, 'error');
-        return;
-      }
       this.mostrarRadioTipoNd = false;
       this.nuevaNotaForm.get('tipoNd')?.clearValidators();
       this.nuevaNotaForm.get('tipoNd')?.updateValueAndValidity();
-      this.nuevaNotaForm.reset({ tipo: 'NC', tipoNd: '' });
+
+      this.ncGuardadaExitosamente = false;
+      this.datosNcCreada = null;
+      this.netoAjusteIva = 0;
+      this.montoIvaNdCalculado = 0;
+      this.nuevaNotaForm.enable();
+
+      this.nuevaNotaForm.reset({
+        tipo: 'NC',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        tipoNc: 'Refactura',
+        subtipoIva: '',
+        netoNc: null,
+        porcIva: null,
+        ivaNc: null,
+        tipoNd: '',
+        importeNd: null
+      });
+
+      this.nuevaNotaDebitoIvaForm.reset({
+        tipo: 'ND',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        porcIva: null,
+        ivaNd: null
+      });
+
+      this.deshabilitarPorAjusteIva = false;
+
+      if (this.tipoBusquedaRealizada === 'FC') {
+        const letra = this.busquedaForm.value.letra ?? '';
+        const ptoVta = this.busquedaForm.value.puntoVenta ?? 0;
+        const numero = this.busquedaForm.value.numero ?? 0;
+
+        this.auditoriaService.verificarTieneNcAjusteIva('FC', letra, ptoVta, numero).subscribe({
+          next: (existe) => {
+            this.deshabilitarPorAjusteIva = existe;
+            if (existe && this.nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA') {
+              this.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
+              this.onTipoNcChange();
+            }
+            this.cdr.detectChanges();
+          },
+          error: (err) => console.error('Error al verificar NC por Ajuste de IVA previa:', err)
+        });
+      }
+
+      this.onTipoNcChange();
+      this.calcularTotalesIvaPrestacional();
     } else {
-      // Candado 1: Verificamos si la NC es de origen FC y si "Por ajuste de IVA" no ha sido creado aún
-      const yaExisteIva = this.tipoBusquedaRealizada === 'NC' && !this.ncEsHijaDeND && this.ndsCreadasDesdeNc.some(d => d.tipoNd === 'Por ajuste de IVA');
-      const yaExisteRefactura = this.tipoBusquedaRealizada === 'NC' && !this.ncEsHijaDeND && this.ndsCreadasDesdeNc.some(d => d.tipoNd === 'Por Refactura');
       const prestacionesConRefactura = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
 
-      // Si no hay prestaciones con débito aceptado en "NO" Y tampoco está disponible "Por ajuste de IVA":
-      if (prestacionesConRefactura.length === 0 && (this.tipoBusquedaRealizada !== 'NC' || this.ncEsHijaDeND || yaExisteIva)) {
+      if (prestacionesConRefactura.length === 0) {
         this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND por Refactura.', undefined, 'error');
         return;
       }
 
-      // Evaluar si la NC es creada a partir de una FC (ncEsHijaDeND === false)
-      if (this.tipoBusquedaRealizada === 'NC' && !this.ncEsHijaDeND) {
-        if (yaExisteIva && yaExisteRefactura) {
-          this.mostrarAlerta(
-            'Ya se generaron las dos Notas de Débito permitidas (Por ajuste de IVA y Por Refactura) para esta Nota de Crédito.',
-            undefined,
-            'error'
-          );
-          return;
-        }
-
-        this.mostrarRadioTipoNd = true;
-        this.deshabilitarTipoIva = yaExisteIva;
-        this.tooltipTipoIva = yaExisteIva ? 'Ya se generó una Nota de Débito por ajuste de IVA para esta Nota de Crédito.' : '';
-        this.deshabilitarTipoRefactura = yaExisteRefactura;
-        this.tooltipTipoRefactura = yaExisteRefactura ? 'Ya se generó una Nota de Débito por refactura para esta Nota de Crédito.' : '';
-
-        this.nuevaNotaForm.get('tipoNd')?.setValidators([Validators.required]);
-      } else {
-        this.mostrarRadioTipoNd = false;
-        this.deshabilitarTipoIva = false;
-        this.deshabilitarTipoRefactura = false;
-        this.tooltipTipoIva = '';
-        this.tooltipTipoRefactura = '';
-        this.nuevaNotaForm.get('tipoNd')?.clearValidators();
-      }
+      this.mostrarRadioTipoNd = false;
+      this.deshabilitarTipoIva = false;
+      this.deshabilitarTipoRefactura = false;
+      this.tooltipTipoIva = '';
+      this.tooltipTipoRefactura = '';
+      this.nuevaNotaForm.get('tipoNd')?.clearValidators();
       this.nuevaNotaForm.get('tipoNd')?.updateValueAndValidity();
       this.nuevaNotaForm.get('importeNd')?.clearValidators();
       this.nuevaNotaForm.get('importeNd')?.updateValueAndValidity();
-      this.nuevaNotaForm.reset({ tipo: 'ND', tipoNd: '', importeNd: null });
+      this.nuevaNotaForm.get('netoNc')?.clearValidators();
+      this.nuevaNotaForm.get('porcIva')?.clearValidators();
+      this.nuevaNotaForm.get('netoNc')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('porcIva')?.updateValueAndValidity();
+
+      this.nuevaNotaForm.reset({
+        tipo: 'ND',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        tipoNd: 'Por Refactura',
+        importeNd: null
+      });
     }
 
     this.modalNuevaNotaVisible = true;
@@ -1367,7 +1607,6 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   guardarNuevaNotaBD() {
     if (this.nuevaNotaForm.invalid) {
-      // Métrica: Se trabó porque no llenó bien los campos
       this.auditoriaService.registrarMetricaUsabilidad({
         usuario: this.authService.obtenerUsuario(),
         documentoReferencia: 'MODAL_NUEVA_NOTA',
@@ -1380,8 +1619,6 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // 1. Si el usuario modificó prestaciones que YA pertenecían a una NC previa (ej. NC1),
-    // guardamos silenciosamente sus cambios de comentarios/motivos sin vincularlas a la nueva NC.
     if (this.tipoBusquedaRealizada === 'FC' && this.tipoNuevaNota === 'NC') {
       const modificadosConNcPrevia = this.prestaciones.filter(p => p.ncNumero && this.modificadosSinGuardar.has(p.id!));
       if (modificadosConNcPrevia.length > 0) {
@@ -1389,21 +1626,43 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    // 2. Filtramos ÚNICAMENTE los registros pendientes (sin NC previa) para integrar la NUEVA Nota
     const tipoNdSeleccionado = this.nuevaNotaForm.get('tipoNd')?.value;
     let registrosParaGuardar: Prestacion[] = [];
 
     if (this.tipoNuevaNota === 'NC') {
-      registrosParaGuardar = this.prestaciones.filter(p => {
-        if (this.tipoBusquedaRealizada === 'FC' && p.ncNumero) {
-          return false;
-        }
-        return p.motivoDebito && p.motivoDebito.trim() !== '';
-      });
+      const tipoNc = this.nuevaNotaForm.get('tipoNc')?.value;
+      const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
 
-      if (registrosParaGuardar.length === 0) {
-        this.mostrarAlerta('No hay prestaciones pendientes (sin NC previa) con Motivo de Débito cargado para generar una nueva NC.', undefined, 'error');
-        return;
+      if (tipoNc === 'Por ajuste de IVA') {
+        if (subtipoIva === 'No prestacional') {
+          registrosParaGuardar = [];
+        } else {
+          // Prestacional
+          registrosParaGuardar = this.prestaciones.filter(p => {
+            if (this.tipoBusquedaRealizada === 'FC' && p.ncNumero) {
+              return false;
+            }
+            return p.motivoDebito && p.motivoDebito.trim().toLowerCase() === 'iva mal facturado';
+          });
+
+          if (registrosParaGuardar.length === 0) {
+            this.mostrarAlerta('No hay prestaciones con Motivo de Débito "Iva mal facturado" para generar una NC por Ajuste de IVA Prestacional.', undefined, 'error');
+            return;
+          }
+        }
+      } else {
+        // Refactura
+        registrosParaGuardar = this.prestaciones.filter(p => {
+          if (this.tipoBusquedaRealizada === 'FC' && p.ncNumero) {
+            return false;
+          }
+          return p.motivoDebito && p.motivoDebito.trim() !== '';
+        });
+
+        if (registrosParaGuardar.length === 0) {
+          this.mostrarAlerta('No hay prestaciones pendientes (sin NC previa) con Motivo de Débito cargado para generar una nueva NC.', undefined, 'error');
+          return;
+        }
       }
     } else if (tipoNdSeleccionado === 'Por ajuste de IVA') {
       registrosParaGuardar = [];
@@ -1416,10 +1675,19 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
 
-    // 3. Preparamos los datos del formulario (Letra en Mayúscula)
     const datosNotaForm: any = { ...this.nuevaNotaForm.getRawValue() };
     datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
-    if (tipoNdSeleccionado === 'Por ajuste de IVA') {
+    if (this.tipoNuevaNota === 'NC' && datosNotaForm.tipoNc === 'Por ajuste de IVA') {
+      if (datosNotaForm.subtipoIva === 'No prestacional') {
+        datosNotaForm.neto = datosNotaForm.netoNc;
+        datosNotaForm.iva = datosNotaForm.ivaNc;
+        datosNotaForm.porcIva = datosNotaForm.porcIva;
+      } else {
+        datosNotaForm.neto = this.montoNetoPrestacional;
+        datosNotaForm.iva = this.montoIvaCalculado;
+        datosNotaForm.porcIva = datosNotaForm.porcIva;
+      }
+    } else if (tipoNdSeleccionado === 'Por ajuste de IVA') {
       datosNotaForm.importeRefactura = datosNotaForm.importeNd;
     }
 
@@ -1447,7 +1715,6 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     request$.subscribe({
       next: () => {
         this.modificadosSinGuardar.clear(); // <-- Limpiamos PRIMERO la lista de pendientes sin guardar
-        this.cerrarModalNuevaNota();
         this.cargando = false;
 
         // Construimos el objeto del documento recién creado
@@ -1485,6 +1752,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         this.aplicarFiltros();
+
+        if (this.tipoNuevaNota === 'NC' && datosNotaForm.tipoNc === 'Por ajuste de IVA') {
+          this.datosNcCreada = datosNotaForm;
+          this.ncGuardadaExitosamente = true;
+          this.nuevaNotaForm.disable();
+          this.cdr.detectChanges();
+          return;
+        }
+
+        this.cerrarModalNuevaNota();
         this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`, undefined, 'exito');
         this.cdr.detectChanges();
       },
@@ -1516,7 +1793,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
           fechaHora: new Date().toISOString(),
         }).subscribe({ error: () => { } });
 
-        this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`, undefined, 'error');
+        const mensajeServer = err.error?.message || err.error?.mensaje || `Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`;
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
         this.cdr.detectChanges();
       }
     });

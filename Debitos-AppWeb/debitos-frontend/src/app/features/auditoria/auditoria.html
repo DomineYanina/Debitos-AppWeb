@@ -339,69 +339,265 @@
   </div>
 
   <div class="modal-overlay" *ngIf="modalNuevaNotaVisible">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3>Generar Nueva Nota de {{ tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito' }}</h3>
-      </div>
-      <div class="modal-body">
-        <form [formGroup]="nuevaNotaForm" class="form-modal">
-          <div class="form-grupo-fila">
-            <div class="form-grupo-input">
-              <label>Tipo</label>
-              <select formControlName="tipo" class="input-grilla">
-                <ng-container *ngIf="tipoNuevaNota === 'NC'">
-                  <option value="NC">NC</option>
-                  <option value="NCE">NCE</option>
+    <div class="modal-box"
+      [ngClass]="{'modal-box-doble': tipoNuevaNota === 'NC' && nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA'}">
+      <div class="modal-paneles-container">
+
+        <!-- PANEL IZQUIERDO: NOTA DE CRÉDITO O NOTA DE DÉBITO ESTÁNDAR -->
+        <div class="panel-modal panel-izquierdo">
+          <div class="modal-header">
+            <h3>Generar Nueva Nota de {{ tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito' }}</h3>
+          </div>
+          <div class="modal-body">
+            <form [formGroup]="nuevaNotaForm" class="form-modal">
+              <div class="form-grupo-fila">
+                <div class="form-grupo-input">
+                  <label>Tipo</label>
+                  <select formControlName="tipo" class="input-grilla">
+                    <ng-container *ngIf="tipoNuevaNota === 'NC'">
+                      <option value="NC">NC</option>
+                      <option value="NCE">NCE</option>
+                    </ng-container>
+                    <ng-container *ngIf="tipoNuevaNota === 'ND'">
+                      <option value="ND">ND</option>
+                      <option value="NDE">NDE</option>
+                    </ng-container>
+                  </select>
+                </div>
+                <div class="form-grupo-input">
+                  <label>Letra</label>
+                  <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
+                    style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNota')">
+                </div>
+              </div>
+              <div class="form-grupo-fila">
+                <div class="form-grupo-input">
+                  <label>Punto Venta</label>
+                  <input type="number" formControlName="puntoVenta" class="input-grilla">
+                </div>
+                <div class="form-grupo-input">
+                  <label>Número</label>
+                  <input type="number" formControlName="numero" class="input-grilla">
+                </div>
+              </div>
+              <div class="form-grupo-input full-width">
+                <label>Fecha</label>
+                <input type="date" formControlName="fecha" class="input-grilla">
+              </div>
+              <!-- SECTOR EXCLUSIVO PARA NOTA DE CRÉDITO (NC) -->
+              <ng-container *ngIf="tipoNuevaNota === 'NC'">
+                <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
+                  <label class="label-tipo-nd">Tipo de NC *</label>
+                  <div class="opciones-radio-tipo-nd">
+                    <label class="radio-option">
+                      <input type="radio" formControlName="tipoNc" value="Refactura" (change)="onTipoNcChange()">
+                      <span>Por Prestaciones</span>
+                    </label>
+                    <label class="radio-option" [style.opacity]="deshabilitarPorAjusteIva ? '0.5' : '1'"
+                      [style.cursor]="deshabilitarPorAjusteIva ? 'not-allowed' : 'pointer'"
+                      [title]="deshabilitarPorAjusteIva ? 'Ya existe una Nota de Crédito por Ajuste de IVA registrada para esta factura' : ''">
+                      <input type="radio" formControlName="tipoNc" value="Por ajuste de IVA" (change)="onTipoNcChange()"
+                        [disabled]="deshabilitarPorAjusteIva">
+                      <span>Por ajuste de IVA</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- SI LA NC ES POR AJUSTE DE IVA -->
+                <ng-container *ngIf="nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA'">
+                  <div class="form-grupo-tipo-nd full-width" style="margin-top: 12px;">
+                    <label class="label-tipo-nd">Modalidad de Ajuste de IVA *</label>
+                    <div class="opciones-radio-tipo-nd">
+                      <label class="radio-option">
+                        <input type="radio" formControlName="subtipoIva" value="Prestacional"
+                          (change)="onSubtipoIvaChange()">
+                        <span>Con detalle</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" formControlName="subtipoIva" value="No prestacional"
+                          (change)="onSubtipoIvaChange()">
+                        <span>Concepto</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- OPCIÓN 1: NO PRESTACIONAL -->
+                  <div *ngIf="nuevaNotaForm.get('subtipoIva')?.value === 'No prestacional'"
+                    style="margin-top: 12px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div class="form-grupo-modal full-width">
+                      <label
+                        style="font-weight: 600; color: #1e293b; font-size: 0.88rem; margin-bottom: 4px; display: block;">Monto
+                        Neto ($) *</label>
+                      <input type="number" formControlName="netoNc" class="input-grilla" placeholder="Ej: 1000.00"
+                        step="0.01" min="0.01"
+                        style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem;"
+                        (input)="onNetoManualChange()">
+                    </div>
+
+                    <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
+                      <label class="label-tipo-nd">Porcentaje de IVA *</label>
+                      <div class="opciones-radio-tipo-nd">
+                        <label class="radio-option">
+                          <input type="radio" formControlName="porcIva" [value]="0" (change)="onPorcIvaChange()">
+                          <span>0%</span>
+                        </label>
+                        <label class="radio-option">
+                          <input type="radio" formControlName="porcIva" [value]="10.5" (change)="onPorcIvaChange()">
+                          <span>10.5%</span>
+                        </label>
+                        <label class="radio-option">
+                          <input type="radio" formControlName="porcIva" [value]="21" (change)="onPorcIvaChange()">
+                          <span>21%</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div
+                      style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a;">
+                      <strong>Monto de IVA:</strong> {{ (nuevaNotaForm.get('ivaNc')?.value != null ?
+                      nuevaNotaForm.get('ivaNc')?.value : 0) | currency:'USD':'symbol':'1.2-2' }}
+                    </div>
+                  </div>
+
+                  <!-- OPCIÓN 2: PRESTACIONAL -->
+                  <div *ngIf="nuevaNotaForm.get('subtipoIva')?.value === 'Prestacional'" style="margin-top: 12px;">
+                    <!-- SI NO HAY PRESTACIONES CON IVA MAL FACTURADO -->
+                    <div *ngIf="!hasPrestacionesIvaMalFacturado"
+                      style="padding: 14px; background: #fff5f5; border-radius: 8px; border: 1px solid #feb2b2; color: #c53030; font-size: 0.9rem; text-align: center; font-weight: 500;">
+                      ⚠️ No hay ninguna prestación cargada cuyo Motivo de Débito sea "Iva mal facturado".
+                    </div>
+
+                    <!-- SI HAY PRESTACIONES CON IVA MAL FACTURADO -->
+                    <div *ngIf="hasPrestacionesIvaMalFacturado"
+                      style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                      <div style="margin-bottom: 10px; font-size: 0.9rem; color: #334155;">
+                        <div style="margin-bottom: 6px;">
+                          <strong>Monto Neto (Prestaciones "Iva mal facturado"):</strong> {{ montoNetoPrestacional |
+                          currency:'USD':'symbol':'1.2-2' }}
+                        </div>
+                      </div>
+
+                      <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
+                        <label class="label-tipo-nd">Nuevo Porcentaje de IVA</label>
+                        <div class="opciones-radio-tipo-nd">
+                          <label class="radio-option">
+                            <input type="radio" formControlName="porcIva" [value]="0" (change)="onPorcIvaChange()">
+                            <span>0%</span>
+                          </label>
+                          <label class="radio-option">
+                            <input type="radio" formControlName="porcIva" [value]="10.5" (change)="onPorcIvaChange()">
+                            <span>10.5%</span>
+                          </label>
+                          <label class="radio-option">
+                            <input type="radio" formControlName="porcIva" [value]="21" (change)="onPorcIvaChange()">
+                            <span>21%</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div
+                        style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a;">
+                        <strong>Monto de IVA:</strong> {{ montoIvaCalculado | currency:'USD':'symbol':'1.2-2' }}
+                      </div>
+                    </div>
+                  </div>
                 </ng-container>
-                <ng-container *ngIf="tipoNuevaNota === 'ND'">
-                  <option value="ND">ND</option>
-                  <option value="NDE">NDE</option>
-                </ng-container>
-              </select>
-            </div>
-            <div class="form-grupo-input">
-              <label>Letra</label>
-              <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
-                style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNota')">
-            </div>
+              </ng-container>
+            </form>
           </div>
-          <div class="form-grupo-fila">
-            <div class="form-grupo-input">
-              <label>Punto Venta</label>
-              <input type="number" formControlName="puntoVenta" class="input-grilla">
-            </div>
-            <div class="form-grupo-input">
-              <label>Número</label>
-              <input type="number" formControlName="numero" class="input-grilla">
-            </div>
+          <div class="modal-footer">
+            <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+            <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()"
+              [disabled]="nuevaNotaForm.invalid || cargando || ncGuardadaExitosamente">
+              {{ ncGuardadaExitosamente ? '✓ Guardado' : 'Guardar Nota' }}
+            </button>
           </div>
-          <div class="form-grupo-input full-width">
-            <label>Fecha</label>
-            <input type="date" formControlName="fecha" class="input-grilla">
+        </div>
+
+        <!-- PANEL DERECHO: NOTA DE DÉBITO POR AJUSTE DE IVA -->
+        <div class="panel-modal panel-derecho"
+          *ngIf="tipoNuevaNota === 'NC' && nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA'">
+          <div class="modal-header">
+            <h3>Generar Nueva Nota de Débito</h3>
           </div>
-          <div class="form-grupo-tipo-nd full-width" *ngIf="mostrarRadioTipoNd">
-            <label class="label-tipo-nd">Motivo / Tipo de ND *</label>
-            <div class="opciones-radio-tipo-nd">
-              <label class="radio-option" [class.disabled]="deshabilitarTipoIva" [title]="tooltipTipoIva">
-                <input type="radio" formControlName="tipoNd" value="Por ajuste de IVA" [disabled]="deshabilitarTipoIva" (change)="onTipoNdChange()">
-                <span>Por ajuste de IVA</span>
-              </label>
-              <label class="radio-option" [class.disabled]="deshabilitarTipoRefactura" [title]="tooltipTipoRefactura">
-                <input type="radio" formControlName="tipoNd" value="Por Refactura" [disabled]="deshabilitarTipoRefactura" (change)="onTipoNdChange()">
-                <span>Por Refactura</span>
-              </label>
-            </div>
+          <div class="modal-body">
+            <form [formGroup]="nuevaNotaDebitoIvaForm" class="form-modal">
+              <div class="form-grupo-fila">
+                <div class="form-grupo-input">
+                  <label>Tipo</label>
+                  <select formControlName="tipo" class="input-grilla">
+                    <option value="ND">ND</option>
+                    <option value="NDE">NDE</option>
+                  </select>
+                </div>
+                <div class="form-grupo-input">
+                  <label>Letra</label>
+                  <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
+                    style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNotaDebitoIva')">
+                </div>
+              </div>
+              <div class="form-grupo-fila">
+                <div class="form-grupo-input">
+                  <label>Punto Venta</label>
+                  <input type="number" formControlName="puntoVenta" class="input-grilla">
+                </div>
+                <div class="form-grupo-input">
+                  <label>Número</label>
+                  <input type="number" formControlName="numero" class="input-grilla">
+                </div>
+              </div>
+              <div class="form-grupo-input full-width">
+                <label>Fecha</label>
+                <input type="date" formControlName="fecha" class="input-grilla">
+              </div>
+
+              <!-- BLOQUE DE MONTO NETO Y PORCENTAJES DE IVA DE ND -->
+              <div
+                style="margin-top: 12px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div class="form-grupo-modal full-width" style="margin-bottom: 10px;">
+                  <label
+                    style="font-weight: 600; color: #1e293b; font-size: 0.88rem; margin-bottom: 4px; display: block;">Monto
+                    neto</label>
+                  <div
+                    style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; background: #ffffff; color: #334155; font-weight: 500;">
+                    {{ netoAjusteIva | currency:'USD':'symbol':'1.2-2' }}
+                  </div>
+                </div>
+
+                <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
+                  <label class="label-tipo-nd">Porcentaje de IVA en Nota de Débito *</label>
+                  <div class="opciones-radio-tipo-nd">
+                    <label class="radio-option">
+                      <input type="radio" formControlName="porcIva" [value]="0" (change)="onPorcIvaNdChange()">
+                      <span>0%</span>
+                    </label>
+                    <label class="radio-option">
+                      <input type="radio" formControlName="porcIva" [value]="10.5" (change)="onPorcIvaNdChange()">
+                      <span>10.5%</span>
+                    </label>
+                    <label class="radio-option">
+                      <input type="radio" formControlName="porcIva" [value]="21" (change)="onPorcIvaNdChange()">
+                      <span>21%</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div
+                  style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a;">
+                  <strong>Monto de IVA:</strong> {{ montoIvaNdCalculado | currency:'USD':'symbol':'1.2-2' }}
+                </div>
+              </div>
+            </form>
           </div>
-          <div class="form-grupo-modal full-width" *ngIf="mostrarRadioTipoNd && nuevaNotaForm.get('tipoNd')?.value === 'Por ajuste de IVA'" style="margin-top: 15px;">
-            <label style="font-weight: 600; color: #1e293b; font-size: 0.9rem; margin-bottom: 6px; display: block;">Importe de ND por Ajuste de IVA ($) *</label>
-            <input type="number" formControlName="importeNd" class="input-grilla" placeholder="Ej: 1500.00" step="0.01" min="0.01" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem;">
+          <div class="modal-footer">
+            <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+            <button class="btn-modal-aceptar" (click)="guardarNotaDebitoAjusteIva()"
+              [disabled]="!ncGuardadaExitosamente || nuevaNotaDebitoIvaForm.invalid || cargandoNdIva">
+              Guardar Nota
+            </button>
           </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-        <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()"
-          [disabled]="nuevaNotaForm.invalid || cargando">Guardar Nota</button>
+        </div>
+
       </div>
     </div>
   </div>

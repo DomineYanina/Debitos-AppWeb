@@ -28,10 +28,20 @@ export class AuditoriaService {
     return this.http.post(`${this.apiUrl}/nueva-nota-debito`, payload);
   }
 
+  guardarNuevaNotaDebitoAjusteIva(payload: any) {
+    return this.http.post(`${this.apiUrl}/nueva-nota-debito-ajuste-iva`, payload);
+  }
+
   // Regla 1: ahora devuelve un array (una FC puede tener múltiples NC)
   verificarTieneNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado[]> {
     return this.http.get<DocumentoAsociado[]>(`${this.apiUrl}/tiene-nc`, {
       params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  verificarTieneNcAjusteIva(tipo: string, letra: string, puntoVenta: string | number, numero: string | number): Observable<boolean> {
+    return this.http.get<boolean>(`${this.apiUrl}/tiene-nc-ajuste-iva`, {
+      params: { tipo, letra, puntoVenta: String(puntoVenta), numero: String(numero) }
     });
   }
 

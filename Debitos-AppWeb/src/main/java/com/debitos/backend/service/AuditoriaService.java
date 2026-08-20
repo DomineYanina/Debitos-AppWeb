@@ -1,11 +1,14 @@
 package com.debitos.backend.service;
 
-import com.debitos.backend.dto.DocumentoAsociadoDTO;
-import com.debitos.backend.dto.PrestacionAuditoriaDTO;
+import com.debitos.backend.dto.*;
 import com.debitos.backend.model.AmbLiquidado;
+import com.debitos.backend.model.NcAjusteDeIva;
+import com.debitos.backend.model.NdAjusteDeIva;
 import com.debitos.backend.model.NotaDeCredito;
 import com.debitos.backend.model.NotaDeDebito;
 import com.debitos.backend.repository.AmbLiquidadoRepository;
+import com.debitos.backend.repository.NcAjusteDeIvaRepository;
+import com.debitos.backend.repository.NdAjusteDeIvaRepository;
 import com.debitos.backend.repository.NotaDeCreditoRepository;
 import com.debitos.backend.repository.NotaDeDebitoRepository;
 import jakarta.transaction.Transactional;
@@ -30,6 +33,12 @@ public class AuditoriaService {
     @Autowired
     private NotaDeDebitoRepository notaDeDebitoRepository;
 
+    @Autowired
+    private NcAjusteDeIvaRepository ncAjusteDeIvaRepository;
+
+    @Autowired
+    private NdAjusteDeIvaRepository ndAjusteDeIvaRepository;
+
     public String obtenerTipoRegistro(String tipoFactura, String letra, int ptovta, int numero) {
         return switch (tipoFactura) {
             case "FC" -> ambLiquidadoRepository.findDistinctTipoRegistro(letra, ptovta, numero);
@@ -49,25 +58,14 @@ public class AuditoriaService {
         };
     }
 
-    /**
-     * Verifica si todas las prestaciones de una FC ya tienen una NC formalmente creada
-     * (con tipo, fecha, letra, numero y ptovta no nulos en la tabla notadecredito).
-     */
     public boolean tieneNotaDeCreditoCreada(String letra, int ptovta, int numero) {
         return notaDeCreditoRepository.existeNcCompletaParaFactura(letra, ptovta, numero);
     }
 
-    /**
-     * Regla 1: Una FC puede tener múltiples NC → devuelve la lista completa de NC creadas.
-     * El controller expone esta lista; el frontend la muestra como badges individuales.
-     */
     public List<DocumentoAsociadoDTO> obtenerNotasDeCreditoCreadasParaFC(String letra, int ptovta, int numero) {
         return notaDeCreditoRepository.findNcCompletaParaFactura(letra, ptovta, numero);
     }
 
-    /**
-     * Regla 2: Una NC hija de FC puede tener múltiples ND → devuelve la lista completa.
-     */
     public boolean tieneNotaDeDebitoCreada(String letra, int ptovta, int numero) {
         return notaDeDebitoRepository.existeNdCompletaParaNotaCredito(letra, ptovta, numero);
     }
@@ -95,9 +93,6 @@ public class AuditoriaService {
         return lista;
     }
 
-    /**
-     * Relación ND→NC sigue siendo 1:1 (una ND genera a lo sumo una NC hija).
-     */
     public boolean tieneNotaDeCreditoCreadaParaND(String letra, int ptovta, int numero) {
         return notaDeCreditoRepository.existeNcCompletaParaNotaDebito(letra, ptovta, numero);
     }
@@ -116,66 +111,65 @@ public class AuditoriaService {
     }
 
     @Transactional
-    public void procesarGuardadoParcial(Map<String, Object> payload) {
-        String documentoOrigen = (String) payload.get("documentoOrigen");
-        String letra = (String) payload.get("letra");
-        Integer ptovta = Integer.valueOf(payload.get("ptovta").toString());
-        Integer numero = Integer.valueOf(payload.get("numero").toString());
-        String usuario = (String) payload.get("usuario");
+    public void procesarGuardadoParcial(GuardarParcialRequest request) {
+        if (request == null) return;
+        String documentoOrigen = request.getDocumentoOrigen();
+        String letra = request.getLetra();
+        Integer ptovta = request.getPtovta() != null ? Integer.valueOf(request.getPtovta().toString()) : 0;
+        Integer numero = request.getNumero() != null ? Integer.valueOf(request.getNumero().toString()) : 0;
+        String usuario = request.getUsuario();
 
         String tipoRegistro = obtenerTipoRegistro(documentoOrigen, letra, ptovta, numero);
-        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
+        List<RegistroAuditoriaDTO> registros = request.getRegistros();
 
-        if (registros == null || registros.isEmpty())
-            return;
+        if (registros == null || registros.isEmpty()) return;
 
-        // 1. LECTURA EN LOTE: Extraemos todos los IDs y hacemos un solo SELECT
         List<Integer> idsPrestaciones = registros.stream()
-                .map(p -> ((Number) p.get("id")).intValue())
+                .filter(p -> p.getId() != null)
+                .map(RegistroAuditoriaDTO::getId)
                 .toList();
 
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
-        // 2. LISTAS DE ACUMULACIÓN: Para evitar escribir de a uno
         List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
         List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
 
-        for (Map<String, Object> p : registros) {
-            Integer idPrestacion = ((Number) p.get("id")).intValue();
+        for (RegistroAuditoriaDTO p : registros) {
+            Integer idPrestacion = p.getId();
+            if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
 
             if (prestacion == null) {
                 throw new RuntimeException("Prestación no encontrada: " + idPrestacion);
             }
 
-            BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
-            BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
-            Boolean debitoAceptadoBool = parsearBooleano(p.get("debitoAceptado"));
-            Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
-            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante")
-                    : "";
+            BigDecimal importeDebitado = parsearMonto(p.getImporteDebitado());
+            BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+            Boolean debitoAceptadoBool = parsearBooleano(p.getDebitoAceptado());
+            Integer diasFacturados = parsearEntero(p.getDiasFacturados());
+            String prestacionEnglobante = p.getPrestacionEnglobante() != null ? p.getPrestacionEnglobante() : "";
 
             if ("FC".equals(documentoOrigen)) {
                 NotaDeCredito nc = obtenerOCrearNotaCreditoPrimaria(idPrestacion);
 
                 nc.setPrestacion(prestacion);
-                nc.setMotivoDebito((String) p.get("motivoDebito"));
+                nc.setMotivoDebito(p.getMotivoDebito());
                 nc.setImporteDebitado(importeDebitado);
                 nc.setDebitoaceptado(debitoAceptadoBool);
-                nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                nc.setMotivoderefactura(p.getMotivoRefactura());
                 nc.setImportederefactura(importeRefactura);
-                nc.setComentarios((String) p.get("comentarios"));
+                nc.setComentarios(p.getComentarios());
                 nc.setDiasfacturados(diasFacturados);
                 nc.setPrestacionenglobante(prestacionEnglobante);
                 nc.setUsuario(usuario);
-                nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                nc.setComentariosDebito(p.getComentariosDebito());
                 nc.setTiporegistro(tipoRegistro);
 
                 if (nc.getId() == null)
                     nc.setCargadocompletamente(false);
 
-                notasCreditoAGuardar.add(nc); // ACUMULAMOS
+                notasCreditoAGuardar.add(nc);
             } else if ("NC".equals(documentoOrigen)) {
                 notaDeCreditoRepository
                         .findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
@@ -185,12 +179,12 @@ public class AuditoriaService {
 
                             nd.setPrestacion(prestacion);
                             nd.setNotaDeCreditoPadre(ncPadre);
-                            nd.setMotivorefactura((String) p.get("motivoRefactura"));
+                            nd.setMotivorefactura(p.getMotivoRefactura());
                             nd.setImporterefactura(importeRefactura);
-                            nd.setComentarios((String) p.get("comentarios"));
+                            nd.setComentarios(p.getComentarios());
                             nd.setDiasfacturados(diasFacturados);
                             nd.setUsuario(usuario);
-                            nd.setCodigo((String) p.get("codigo"));
+                            nd.setCodigo(p.getCodigo());
                             nd.setTiporegistro(tipoRegistro);
 
                             if (nd.getId() == null) {
@@ -198,7 +192,7 @@ public class AuditoriaService {
                                 nd.setCargarcompletamente(false);
                             }
 
-                            notasDebitoAGuardar.add(nd); // ACUMULAMOS
+                            notasDebitoAGuardar.add(nd);
                         });
             } else if ("ND".equals(documentoOrigen)) {
                 notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
@@ -208,27 +202,26 @@ public class AuditoriaService {
 
                             nc.setPrestacion(prestacion);
                             nc.setNotaDeDebitoPadre(ndPadre);
-                            nc.setMotivoDebito((String) p.get("motivoDebito"));
+                            nc.setMotivoDebito(p.getMotivoDebito());
                             nc.setImporteDebitado(importeDebitado);
                             nc.setDebitoaceptado(debitoAceptadoBool);
-                            nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                            nc.setMotivoderefactura(p.getMotivoRefactura());
                             nc.setImportederefactura(importeRefactura);
-                            nc.setComentarios((String) p.get("comentarios"));
+                            nc.setComentarios(p.getComentarios());
                             nc.setDiasfacturados(diasFacturados);
                             nc.setPrestacionenglobante(prestacionEnglobante);
                             nc.setUsuario(usuario);
-                            nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                            nc.setComentariosDebito(p.getComentariosDebito());
                             nc.setTiporegistro(tipoRegistro);
 
                             if (nc.getId() == null)
                                 nc.setCargadocompletamente(false);
 
-                            notasCreditoAGuardar.add(nc); // ACUMULAMOS
+                            notasCreditoAGuardar.add(nc);
                         });
             }
         }
 
-        // 3. ESCRITURA EN LOTE: Guardamos todo junto
         if (!notasCreditoAGuardar.isEmpty()) {
             notaDeCreditoRepository.saveAll(notasCreditoAGuardar);
         }
@@ -238,24 +231,25 @@ public class AuditoriaService {
     }
 
     @Transactional
-    public void procesarNuevaNotaDebito(Map<String, Object> payload) {
-        String usuario = (String) payload.get("usuario");
-        Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
-        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
+    public void procesarNuevaNotaDebito(NuevaNotaDebitoRequest request) {
+        if (request == null) return;
+        String usuario = request.getUsuario();
+        DatosNotaDTO datosNota = request.getDatosNota();
+        List<RegistroAuditoriaDTO> registros = request.getRegistros();
 
-        String tipoRegistro = obtenerTipoRegistro((String) payload.get("origen"), (String) payload.get("letraOriginal"),
-                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                Integer.valueOf(payload.get("numeroOriginal").toString()));
+        String tipoRegistro = obtenerTipoRegistro(request.getOrigen(), request.getLetraOriginal(),
+                Integer.valueOf(request.getPtovtaOriginal().toString()),
+                Integer.valueOf(request.getNumeroOriginal().toString()));
 
-        Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
-        Integer numero = Integer.valueOf(datosNota.get("numero").toString());
-        java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.get("fecha").toString()).toLocalDate();
-        String tipoDoc = (String) datosNota.get("tipo");
-        String letraDoc = (String) datosNota.get("letra");
-        String tipoNd = (String) datosNota.get("tipoNd");
+        Integer puntoVenta = Integer.valueOf(datosNota.getPuntoVenta().toString());
+        Integer numero = Integer.valueOf(datosNota.getNumero().toString());
+        java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.getFecha().toString()).toLocalDate();
+        String tipoDoc = datosNota.getTipo();
+        String letraDoc = datosNota.getLetra();
+        String tipoNd = datosNota.getTipoNd();
 
         if ("Por ajuste de IVA".equals(tipoNd)) {
-            BigDecimal importeRefactura = parsearMonto(datosNota.get("importeRefactura"));
+            BigDecimal importeRefactura = parsearMonto(datosNota.getImporteRefactura());
             if (importeRefactura == null || importeRefactura.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Debe ingresar un importe válido para la Nota de Débito por ajuste de IVA.");
             }
@@ -283,34 +277,27 @@ public class AuditoriaService {
         if (registros == null || registros.isEmpty())
             return;
 
-        List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
+        List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
         List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
 
-        for (Map<String, Object> p : registros) {
-            Integer idPrestacion = ((Number) p.get("id")).intValue();
+        for (RegistroAuditoriaDTO p : registros) {
+            Integer idPrestacion = p.getId();
+            if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
             if (prestacion == null)
                 continue;
 
-            BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
-            Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
+            BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+            Integer diasFacturados = parsearEntero(p.getDiasFacturados());
 
-            // Buscamos la NC padre correspondiente a esta prestación.
-            // Usamos findByLetraAndPtovtaAndNumeroAndPrestacionId sin el filtro de debitoaceptado,
-            // porque el frontend ya valida que el usuario solo envíe prestaciones con debitoAceptado='NO'.
             notaDeCreditoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(
-                    (String) payload.get("letraOriginal"),
-                    Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                    Integer.valueOf(payload.get("numeroOriginal").toString()),
+                    request.getLetraOriginal(),
+                    Integer.valueOf(request.getPtovtaOriginal().toString()),
+                    Integer.valueOf(request.getNumeroOriginal().toString()),
                     idPrestacion).ifPresent(ncPadre -> {
-
-                        // Regla 2: Si la NC es hija directa de una FC (notaDeDebitoPadre == null),
-                        // se permite generar MÚLTIPLES ND independientes → siempre new NotaDeDebito().
-                        // Si la NC es hija de una ND (notaDeDebitoPadre != null), la relación es 1:1
-                        // → upsert sobre la ND existente para no duplicar.
                         final NotaDeDebito nd;
                         if (ncPadre.getNotaDeDebitoPadre() == null) {
                             if (tipoNd == null || tipoNd.trim().isEmpty()) {
@@ -319,10 +306,10 @@ public class AuditoriaService {
                             if (notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNd(ncPadre.getId(), tipoNd)) {
                                 throw new IllegalArgumentException("Ya existe una Nota de Débito de tipo '" + tipoNd + "' para la Nota de Crédito seleccionada.");
                             }
-                            nd = new NotaDeDebito(); // Regla 2: nueva ND independiente
+                            nd = new NotaDeDebito();
                         } else {
                             nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
-                                    .orElse(new NotaDeDebito()); // Relación 1:1 mantenida
+                                    .orElse(new NotaDeDebito());
                         }
 
                         nd.setPrestacion(prestacion);
@@ -333,14 +320,14 @@ public class AuditoriaService {
                         nd.setNumero(numero);
                         nd.setFecha(fechaDoc);
                         nd.setTipoNd(tipoNd);
-                        nd.setMotivorefactura((String) p.get("motivoRefactura"));
+                        nd.setMotivorefactura(p.getMotivoRefactura());
                         nd.setImporterefactura(importeRefactura);
-                        nd.setComentarios((String) p.get("comentarios"));
-                        nd.setComentariosDebito((String) p.get("comentariosDebito"));
+                        nd.setComentarios(p.getComentarios());
+                        nd.setComentariosDebito(p.getComentariosDebito());
                         nd.setDiasfacturados(diasFacturados);
                         nd.setUsuario(usuario);
                         nd.setTiporegistro(tipoRegistro);
-                        nd.setCodigo((String) p.get("codigo"));
+                        nd.setCodigo(p.getCodigo());
                         nd.setCargadocompletamente(true);
 
                         if (nd.getId() == null)
@@ -356,67 +343,108 @@ public class AuditoriaService {
     }
 
     @Transactional
-    public void procesarNuevaNotaCredito(Map<String, Object> payload) {
-        String origen = (String) payload.get("origen");
-        String usuario = (String) payload.get("usuario");
-        Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
-        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
+    public void procesarNuevaNotaCredito(NuevaNotaCreditoRequest request) {
+        if (request == null) return;
+        String origen = request.getOrigen();
+        String usuario = request.getUsuario();
+        DatosNotaDTO datosNota = request.getDatosNota();
+        List<RegistroAuditoriaDTO> registros = request.getRegistros();
 
-        String tipoRegistro = obtenerTipoRegistro(origen, (String) payload.get("letraOriginal"),
-                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                Integer.valueOf(payload.get("numeroOriginal").toString()));
+        if (datosNota == null) return;
+
+        Integer puntoVenta = Integer.valueOf(datosNota.getPuntoVenta().toString());
+        Integer numero = Integer.valueOf(datosNota.getNumero().toString());
+        String tipoDoc = datosNota.getTipo();
+        String letraDoc = datosNota.getLetra();
+
+        // Verificación previa de existencia en ambas tablas (notadecredito y nc_ajustedeiva)
+        boolean existeEnNc = notaDeCreditoRepository.existsByTipoAndLetraAndPtovtaAndNumero(tipoDoc, letraDoc, puntoVenta, numero);
+        boolean existeEnNcIva = ncAjusteDeIvaRepository.existsByTipoNcAndLetraNcAndPtovtaNcAndNumeroNc(tipoDoc, letraDoc, puntoVenta, numero);
+
+        if (existeEnNc || existeEnNcIva) {
+            throw new IllegalArgumentException(
+                String.format("Ya existe una Nota de Crédito registrada con los datos especificados (%s %s-%04d-%08d).",
+                    tipoDoc, letraDoc, puntoVenta, numero)
+            );
+        }
+
+        String tipoRegistro = obtenerTipoRegistro(origen, request.getLetraOriginal(),
+                Integer.valueOf(request.getPtovtaOriginal().toString()),
+                Integer.valueOf(request.getNumeroOriginal().toString()));
+
+        // Manejo especial para NC por Ajuste de IVA
+        if (datosNota != null && "Por ajuste de IVA".equals(datosNota.getTipoNc())) {
+            BigDecimal neto = parsearMonto(datosNota.getNeto());
+            BigDecimal iva = parsearMonto(datosNota.getIva());
+            BigDecimal porcIva = parsearMonto(datosNota.getPorcIva());
+
+            if ("No prestacional".equals(datosNota.getSubtipoIva()) && (neto == null || iva == null || porcIva == null)) {
+                throw new IllegalArgumentException("Debe ingresar el neto, IVA y porcentaje de IVA válidos para la NC por Ajuste de IVA No prestacional.");
+            }
+
+            NcAjusteDeIva ncIva = new NcAjusteDeIva();
+            ncIva.setLetraFc(request.getLetraOriginal());
+            ncIva.setPtovtaFc(Integer.valueOf(request.getPtovtaOriginal().toString()));
+            ncIva.setTipoFc(origen);
+            ncIva.setNumeroFc(Integer.valueOf(request.getNumeroOriginal().toString()));
+
+            ncIva.setLetraNc(datosNota.getLetra());
+            ncIva.setPtovtaNc(Integer.valueOf(datosNota.getPuntoVenta().toString()));
+            ncIva.setTipoNc(datosNota.getTipo());
+            ncIva.setNumeroNc(Integer.valueOf(datosNota.getNumero().toString()));
+
+            ncIva.setNeto(neto != null ? neto : BigDecimal.ZERO);
+            ncIva.setIva(iva != null ? iva : BigDecimal.ZERO);
+            ncIva.setPorcIva(porcIva != null ? porcIva : BigDecimal.ZERO);
+
+            ncAjusteDeIvaRepository.save(ncIva);
+
+            if ("No prestacional".equals(datosNota.getSubtipoIva())) {
+                return;
+            }
+        }
 
         if (registros == null || registros.isEmpty())
             return;
 
-        List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
+        List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
         List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
 
-        Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
-        Integer numero = Integer.valueOf(datosNota.get("numero").toString());
-        java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.get("fecha").toString()).toLocalDate();
-        String tipoDoc = (String) datosNota.get("tipo");
-        String letraDoc = (String) datosNota.get("letra");
+        java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.getFecha().toString()).toLocalDate();
 
-        for (Map<String, Object> p : registros) {
-            Integer idPrestacion = ((Number) p.get("id")).intValue();
+        for (RegistroAuditoriaDTO p : registros) {
+            Integer idPrestacion = p.getId();
+            if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
             if (prestacion == null)
                 continue;
 
-            BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
-            BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
-            Boolean debitoAceptadoBool = parsearBooleano(p.get("debitoAceptado"));
-            Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
-            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante")
-                    : "";
+            BigDecimal importeDebitado = parsearMonto(p.getImporteDebitado());
+            BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+            Boolean debitoAceptadoBool = parsearBooleano(p.getDebitoAceptado());
+            Integer diasFacturados = parsearEntero(p.getDiasFacturados());
+            String prestacionEnglobante = p.getPrestacionEnglobante() != null ? p.getPrestacionEnglobante() : "";
 
             if ("FC".equals(origen)) {
-                // Buscamos si la prestación ya posee un registro de NC previo (priorizando formal sobre borrador)
                 NotaDeCredito nc = obtenerOCrearNotaCreditoPrimaria(idPrestacion);
 
                 nc.setPrestacion(prestacion);
-                nc.setMotivoDebito((String) p.get("motivoDebito"));
+                nc.setMotivoDebito(p.getMotivoDebito());
                 nc.setImporteDebitado(importeDebitado);
                 nc.setDebitoaceptado(debitoAceptadoBool);
-                nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                nc.setMotivoderefactura(p.getMotivoRefactura());
                 nc.setImportederefactura(importeRefactura);
                 nc.setPrestacionenglobante(prestacionEnglobante);
-                nc.setComentarios((String) p.get("comentarios"));
-                nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                nc.setComentarios(p.getComentarios());
+                nc.setComentariosDebito(p.getComentariosDebito());
                 nc.setDiasfacturados(diasFacturados);
                 nc.setUsuario(usuario);
                 nc.setTiporegistro(tipoRegistro);
                 nc.setCargadocompletamente(true);
 
-                // EXCLUSIVIDAD DE MEMBRESÍA:
-                // Solo si la prestación aún NO pertenece a una NC formal (nc.getNumero() == null),
-                // le asignamos los datos de la NUEVA NC que se está generando.
-                // Si la prestación ya pertenecía a una NC previa (nc.getNumero() != null),
-                // se conservan sus datos de cabecera de la NC previa (no se reasigna a la nueva NC).
                 if (nc.getNumero() == null) {
                     nc.setTipo(tipoDoc);
                     nc.setLetra(letraDoc);
@@ -429,21 +457,16 @@ public class AuditoriaService {
 
             } else if ("ND".equals(origen)) {
                 notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(
-                        (String) payload.get("letraOriginal"),
-                        Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                        Integer.valueOf(payload.get("numeroOriginal").toString()),
+                        request.getLetraOriginal(),
+                        Integer.valueOf(request.getPtovtaOriginal().toString()),
+                        Integer.valueOf(request.getNumeroOriginal().toString()),
                         idPrestacion).ifPresent(ndPadre -> {
-
-                            // Regla 3: No se puede crear una NC a partir de una ND cuyo motivo sea
-                            // "Por ajuste de IVA". La validación se hace en el servicio para
-                            // garantizar integridad aunque el frontend ya lo bloquea en la UI.
                             String motivoNd = ndPadre.getMotivorefactura();
                             if ("Por ajuste de IVA".equals(motivoNd)) {
                                 throw new IllegalArgumentException(
                                         "No se puede generar una NC a partir de un ajuste de IVA");
                             }
 
-                            // Relación ND→NC sigue siendo 1:1: upsert sobre la NC hija.
                             NotaDeCredito nc = notaDeCreditoRepository.findByNotaDeDebitoPadreId(ndPadre.getId())
                                     .orElse(new NotaDeCredito());
 
@@ -454,14 +477,14 @@ public class AuditoriaService {
                             nc.setPtovta(puntoVenta);
                             nc.setNumero(numero);
                             nc.setFecha(fechaDoc);
-                            nc.setMotivoDebito((String) p.get("motivoDebito"));
+                            nc.setMotivoDebito(p.getMotivoDebito());
                             nc.setImporteDebitado(importeDebitado);
                             nc.setDebitoaceptado(debitoAceptadoBool);
-                            nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                            nc.setMotivoderefactura(p.getMotivoRefactura());
                             nc.setImportederefactura(importeRefactura);
                             nc.setPrestacionenglobante(prestacionEnglobante);
-                            nc.setComentarios((String) p.get("comentarios"));
-                            nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                            nc.setComentarios(p.getComentarios());
+                            nc.setComentariosDebito(p.getComentariosDebito());
                             nc.setDiasfacturados(diasFacturados);
                             nc.setUsuario(usuario);
                             nc.setTiporegistro(tipoRegistro);
@@ -524,5 +547,57 @@ public class AuditoriaService {
             return new DocumentoAsociadoDTO(tipo, l, p, n, f);
         }
         return null;
+    }
+
+    @Transactional
+    public void procesarNuevaNotaDebitoAjusteIva(NuevaNotaDebitoAjusteIvaRequest request) {
+        if (request == null) return;
+
+        String tipoNd = request.getTipoNd();
+        String letraNd = request.getLetraNd();
+        Integer ptovtaNd = Integer.valueOf(request.getPtovtaNd().toString());
+        Integer numeroNd = Integer.valueOf(request.getNumeroNd().toString());
+
+        // Validar existencia previa en notadedebito y nd_ajustedeiva
+        boolean existeEnNd = notaDeDebitoRepository.existsByTipoAndLetraAndPtovtaAndNumero(tipoNd, letraNd, ptovtaNd, numeroNd);
+        boolean existeEnNdIva = ndAjusteDeIvaRepository.existsByTipoNdAndLetraNdAndPtovtaNdAndNumeroNd(tipoNd, letraNd, ptovtaNd, numeroNd);
+
+        if (existeEnNd || existeEnNdIva) {
+            throw new IllegalArgumentException(
+                String.format("Ya existe una Nota de Débito registrada con los datos especificados (%s %s-%04d-%08d).",
+                    tipoNd, letraNd, ptovtaNd, numeroNd)
+            );
+        }
+
+        BigDecimal neto = parsearMonto(request.getNeto());
+        BigDecimal iva = parsearMonto(request.getIva());
+        BigDecimal porcIva = parsearMonto(request.getPorcIva());
+
+        if (neto == null || iva == null || porcIva == null) {
+            throw new IllegalArgumentException("Debe ingresar valores de Neto, IVA y Porcentaje de IVA válidos para la Nota de Débito por Ajuste de IVA.");
+        }
+
+        NdAjusteDeIva ndIva = new NdAjusteDeIva();
+        ndIva.setTipoNc(request.getTipoNc());
+        ndIva.setLetraNc(request.getLetraNc());
+        ndIva.setPtovtaNc(Integer.valueOf(request.getPtovtaNc().toString()));
+        ndIva.setNumeroNc(Integer.valueOf(request.getNumeroNc().toString()));
+
+        ndIva.setTipoNd(tipoNd);
+        ndIva.setLetraNd(letraNd);
+        ndIva.setPtovtaNd(ptovtaNd);
+        ndIva.setNumeroNd(numeroNd);
+
+        ndIva.setNeto(neto);
+        ndIva.setIva(iva);
+        ndIva.setPorcIva(porcIva);
+
+        ndAjusteDeIvaRepository.save(ndIva);
+    }
+
+    public boolean tieneNcAjusteIva(String tipoFc, String letraFc, int ptovtaFc, int numeroFc) {
+        boolean existeEnNcAjusteIva = ncAjusteDeIvaRepository.existsByTipoFcAndLetraFcAndPtovtaFcAndNumeroFc(tipoFc, letraFc, ptovtaFc, numeroFc);
+        boolean existeEnNotaCredito = notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado(letraFc, ptovtaFc, numeroFc);
+        return existeEnNcAjusteIva || existeEnNotaCredito;
     }
 }
