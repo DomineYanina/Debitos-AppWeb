@@ -24,6 +24,7 @@ describe('AuditoriaComponent', () => {
       buscarPrestaciones: () => of([]),
       guardarParcialmente: () => of({}),
       guardarNuevaNotaCredito: () => of({}),
+      editarNcAjusteIva: () => of({}),
       guardarNuevaNotaDebito: () => of({}),
       registrarMetricaUsabilidad: () => of({}),
       verificarTieneNC: () => of([]),
@@ -32,7 +33,7 @@ describe('AuditoriaComponent', () => {
       obtenerDocumentoAsociadoParaNC: () => of(null)
     };
     authServiceSpy = { obtenerUsuario: () => 'tester', logout: () => {} };
-    excelServiceSpy = { exportarPrestaciones: () => {} };
+    excelServiceSpy = { exportarPrestaciones: () => {}, exportarHistorialComprobantes: () => {} };
     routerSpy = { navigate: () => {} };
 
     await TestBed.configureTestingModule({

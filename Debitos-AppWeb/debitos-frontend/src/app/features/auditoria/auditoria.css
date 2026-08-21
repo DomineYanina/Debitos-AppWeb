@@ -1119,8 +1119,30 @@ tr.row-selected {
   min-width: 0;
 }
 
+.panel-modal .modal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-modal .form-modal {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .panel-modal.panel-izquierdo {
   border-right: 1px solid #cbd5e1;
+}
+
+.card-ajuste-iva {
+  margin-top: auto;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slideUpModal {
@@ -1199,6 +1221,31 @@ tr.row-selected {
 
 .btn-modal-aceptar:hover {
   background-color: #2b6cb0;
+}
+
+.btn-modal-editar {
+  padding: 0.5rem 1.2rem;
+  background-color: #2563eb;
+  border: 1px solid #1d4ed8;
+  border-radius: 4px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-modal-editar:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-modal-editar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-accion-doc {
@@ -2010,11 +2057,14 @@ tr.row-selected {
   opacity: 0.55;
   background-color: #f1f5f9;
   border-color: #e2e8f0;
-  cursor: not-allowed;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
 }
 
-.radio-option.disabled input[type="radio"] {
-  cursor: not-allowed;
+.radio-option.disabled input[type="radio"],
+.radio-option.disabled span {
+  cursor: not-allowed !important;
+  pointer-events: none !important;
 }
 
 /* ══════════════════════════════════════════════
@@ -2025,6 +2075,34 @@ tr.row-selected {
 .historial-modal-box {
   max-width: 1080px;
   width: 94%;
+}
+
+/* Botón de exportación dentro del modal */
+.btn-exportar-historial {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #107c41;
+  color: #ffffff;
+  border: 1px solid #0b5c30;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-exportar-historial:hover {
+  background-color: #0b6a37;
+  box-shadow: 0 2px 6px rgba(16, 124, 65, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-exportar-historial:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Tabla base del historial */

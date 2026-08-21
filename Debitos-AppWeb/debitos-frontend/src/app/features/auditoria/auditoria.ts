@@ -305,6 +305,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   hasPrestacionesIvaMalFacturado: boolean = false;
 
   ncGuardadaExitosamente: boolean = false;
+  editandoNcAjusteIva: boolean = false;
   datosNcCreada: any = null;
   netoAjusteIva: number = 0;
   montoIvaNdCalculado: number = 0;
@@ -463,18 +464,27 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     return porcNc !== null && porcNc !== undefined && Number(porcNc) === porc;
   }
 
+  prevenirClickSiDeshabilitado(event: MouseEvent, deshabilitado: boolean) {
+    if (deshabilitado) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   onPorcIvaNdChange() {
     const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
-    if (subtipoIva === 'No prestacional') {
-      const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
-      const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
-      if (porcNd !== null && porcNc !== null && Number(porcNd) === Number(porcNc)) {
-        this.nuevaNotaForm.patchValue({ porcIva: null });
-        this.onNetoManualChange();
-      }
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+
+    if (subtipoIva === 'No prestacional' && porcNd !== null && porcNd !== undefined && porcNc !== null && porcNc !== undefined && Number(porcNd) === Number(porcNc)) {
+      // Bloqueamos la selección del mismo porcentaje que tiene NC
+      this.nuevaNotaDebitoIvaForm.patchValue({ porcIva: null }, { emitEvent: false });
+      this.montoIvaNdCalculado = 0;
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: 0 }, { emitEvent: false });
+      this.cdr.detectChanges();
+      return;
     }
 
-    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
     if (this.netoAjusteIva > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
       this.montoIvaNdCalculado = Number((this.netoAjusteIva * (Number(porcNd) / 100)).toFixed(2));
     } else {
@@ -482,6 +492,80 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
     this.cdr.detectChanges();
+  }
+
+  iniciarEdicionNcAjusteIva() {
+    this.editandoNcAjusteIva = true;
+    this.nuevaNotaForm.enable();
+    this.nuevaNotaDebitoIvaForm.disable();
+    this.cdr.detectChanges();
+  }
+
+  cancelarEdicionNcAjusteIva() {
+    if (this.datosNcCreada) {
+      this.nuevaNotaForm.patchValue(this.datosNcCreada);
+      this.onNetoManualChange();
+    }
+    this.editandoNcAjusteIva = false;
+    this.nuevaNotaForm.disable();
+    this.nuevaNotaDebitoIvaForm.enable();
+    this.cdr.detectChanges();
+  }
+
+  guardarEdicionNcAjusteIva() {
+    if (this.nuevaNotaForm.invalid) {
+      this.nuevaNotaForm.markAllAsTouched();
+      this.mostrarAlerta('Por favor, completá todos los campos requeridos de la Nota de Crédito.', undefined, 'error');
+      return;
+    }
+
+    const f = this.busquedaForm.value;
+    const datosNotaForm: any = { ...this.nuevaNotaForm.getRawValue() };
+    datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
+    if (datosNotaForm.subtipoIva === 'No prestacional') {
+      datosNotaForm.neto = datosNotaForm.netoNc;
+      datosNotaForm.iva = datosNotaForm.ivaNc;
+    } else {
+      datosNotaForm.neto = this.montoNetoPrestacional;
+      datosNotaForm.iva = this.montoIvaCalculado;
+    }
+
+    const payload = {
+      origen: this.tipoBusquedaRealizada,
+      usuario: this.authService.obtenerUsuario(),
+      letraOriginal: f.letra,
+      ptovtaOriginal: f.puntoVenta,
+      numeroOriginal: f.numero,
+      datosNota: datosNotaForm,
+      registros: []
+    };
+
+    this.cargando = true;
+    this.auditoriaService.editarNcAjusteIva(payload).subscribe({
+      next: () => {
+        this.cargando = false;
+        this.editandoNcAjusteIva = false;
+        this.datosNcCreada = datosNotaForm;
+        this.netoAjusteIva = Number(datosNotaForm.netoNc) || 0;
+        this.onPorcIvaNdChange();
+
+        this.nuevaNotaForm.disable();
+        this.nuevaNotaDebitoIvaForm.enable();
+
+        if (this.busquedaForm.valid) {
+          this.cargarHistorialComprobantes(f.tipo || 'FC', f.letra || '', f.puntoVenta || '', f.numero || '');
+        }
+
+        this.mostrarAlerta('¡Nota de Crédito por Ajuste de IVA modificada con éxito!', undefined, 'exito');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.cargando = false;
+        const mensajeServer = err.error?.message || err.error?.mensaje || 'Error al actualizar la Nota de Crédito.';
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   guardarNotaDebitoAjusteIva() {
@@ -538,9 +622,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (subtipoIva === 'No prestacional') {
       const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
       const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
-      if (porcNc !== null && porcNd !== null && Number(porcNc) === Number(porcNd)) {
-        this.nuevaNotaDebitoIvaForm.patchValue({ porcIva: null });
-        this.onPorcIvaNdChange();
+      if (porcNc !== null && porcNc !== undefined && porcNd !== null && porcNd !== undefined && Number(porcNc) === Number(porcNd)) {
+        // Bloqueamos la selección del mismo porcentaje que tiene ND
+        this.nuevaNotaForm.patchValue({ porcIva: null }, { emitEvent: false });
+        this.onNetoManualChange();
+        this.cdr.detectChanges();
+        return;
       }
       this.onNetoManualChange();
     } else {
@@ -1583,6 +1670,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   cerrarModalNuevaNota() {
     this.modalNuevaNotaVisible = false;
     this.soloCrearNdAjusteIva = false;
+    this.ncGuardadaExitosamente = false;
+    this.editandoNcAjusteIva = false;
+    this.datosNcCreada = null;
     this.nuevaNotaForm.enable();
     this.nuevaNotaDebitoIvaForm.enable();
     this.nuevaNotaForm.reset();
@@ -1715,6 +1805,39 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   cerrarModalHistorialComprobantes() {
     this.modalHistorialVisible = false;
     this.cdr.detectChanges();
+  }
+
+  exportarHistorialAExcel() {
+    if (!this.filasHistorialComprobantes || this.filasHistorialComprobantes.length === 0) {
+      this.mostrarAlerta('No hay comprobantes en el historial para exportar.', undefined, 'error');
+      return;
+    }
+
+    const tipo = (this.busquedaForm?.value?.tipo || 'FC').toUpperCase();
+    const letra = (this.busquedaForm?.value?.letra || '').toUpperCase();
+    const ptovta = this.busquedaForm?.value?.puntoVenta || '';
+    const numero = this.busquedaForm?.value?.numero || '';
+    const fechaHoy = new Date().toISOString().split('T')[0];
+
+    const filename = `Historial_Comprobantes_${tipo}_${letra}_${ptovta}_${numero}_${fechaHoy}.xlsx`;
+
+    const infoBuscado = {
+      tipo,
+      letra,
+      puntoVenta: ptovta,
+      numero
+    };
+
+    // Telemetría / Usabilidad
+    this.auditoriaService.registrarMetricaUsabilidad({
+      usuario: this.authService.obtenerUsuario(),
+      documentoReferencia: `${tipo}-${letra}-${ptovta}-${numero}`,
+      evento: 'EXPORTACION_EXCEL_HISTORIAL',
+      fechaHora: new Date().toISOString(),
+      cantidadRegistrosPendientes: this.filasHistorialComprobantes.length
+    }).subscribe({ error: () => { } });
+
+    this.excelService.exportarHistorialComprobantes(this.filasHistorialComprobantes, infoBuscado, filename);
   }
 
   obtenerTipoDisplay(tipo: string): string {

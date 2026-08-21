@@ -13,6 +13,8 @@ public class DatosNotaDTO {
     private Object neto;
     private Object iva;
     private Object porcIva;
+    private Object netoNc;
+    private Object ivaNc;
 
     public Object getPuntoVenta() {
         return puntoVenta;
@@ -87,7 +89,7 @@ public class DatosNotaDTO {
     }
 
     public Object getNeto() {
-        return neto;
+        return neto != null ? neto : netoNc;
     }
 
     public void setNeto(Object neto) {
@@ -95,7 +97,7 @@ public class DatosNotaDTO {
     }
 
     public Object getIva() {
-        return iva;
+        return iva != null ? iva : ivaNc;
     }
 
     public void setIva(Object iva) {
@@ -108,6 +110,22 @@ public class DatosNotaDTO {
 
     public void setPorcIva(Object porcIva) {
         this.porcIva = porcIva;
+    }
+
+    public Object getNetoNc() {
+        return netoNc;
+    }
+
+    public void setNetoNc(Object netoNc) {
+        this.netoNc = netoNc;
+    }
+
+    public Object getIvaNc() {
+        return ivaNc;
+    }
+
+    public void setIvaNc(Object ivaNc) {
+        this.ivaNc = ivaNc;
     }
 }
 

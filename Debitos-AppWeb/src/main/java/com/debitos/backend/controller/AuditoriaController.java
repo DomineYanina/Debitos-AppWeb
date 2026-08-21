@@ -113,6 +113,12 @@ public class AuditoriaController {
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito generada exitosamente"));
     }
 
+    @PutMapping("/editar-nc-ajuste-iva")
+    public ResponseEntity<Map<String, String>> editarNcAjusteDeIva(@RequestBody NuevaNotaCreditoRequest payload) {
+        auditoriaService.editarNcAjusteDeIva(payload);
+        return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito por Ajuste de IVA actualizada exitosamente"));
+    }
+
     @PostMapping("/nueva-nota-debito")
     public ResponseEntity<Map<String, String>> guardarNuevaNotaDebito(@RequestBody NuevaNotaDebitoRequest payload) {
         auditoriaService.procesarNuevaNotaDebito(payload);

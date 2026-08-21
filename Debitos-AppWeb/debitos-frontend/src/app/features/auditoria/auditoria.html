@@ -426,31 +426,34 @@
 
                   <!-- OPCIÓN 1: NO PRESTACIONAL -->
                   <div *ngIf="nuevaNotaForm.get('subtipoIva')?.value === 'No prestacional'"
-                    style="margin-top: 12px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    class="card-ajuste-iva">
                     <div class="form-grupo-modal full-width">
                       <label
                         style="font-weight: 600; color: #1e293b; font-size: 0.88rem; margin-bottom: 4px; display: block;">Monto
                         Neto ($) *</label>
                       <input type="number" formControlName="netoNc" class="input-grilla" placeholder="Ej: 1000.00"
                         step="0.01" min="0.01"
-                        style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem;"
+                        style="width: 100%; height: 38px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box;"
                         (input)="onNetoManualChange()">
                     </div>
 
                     <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
-                      <label class="label-tipo-nd">Porcentaje de IVA *</label>
+                      <label class="label-tipo-nd">Porcentaje de IVA en Nota de Crédito *</label>
                       <div class="opciones-radio-tipo-nd">
-                        <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNc(0)">
+                        <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNc(0)"
+                          (click)="prevenirClickSiDeshabilitado($event, esPorcIvaDeshabilitadoEnNc(0))">
                           <input type="radio" formControlName="porcIva" [value]="0" (change)="onPorcIvaChange()"
                             [disabled]="esPorcIvaDeshabilitadoEnNc(0)">
                           <span>0%</span>
                         </label>
-                        <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNc(10.5)">
+                        <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNc(10.5)"
+                          (click)="prevenirClickSiDeshabilitado($event, esPorcIvaDeshabilitadoEnNc(10.5))">
                           <input type="radio" formControlName="porcIva" [value]="10.5" (change)="onPorcIvaChange()"
                             [disabled]="esPorcIvaDeshabilitadoEnNc(10.5)">
                           <span>10.5%</span>
                         </label>
-                        <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNc(21)">
+                        <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNc(21)"
+                          (click)="prevenirClickSiDeshabilitado($event, esPorcIvaDeshabilitadoEnNc(21))">
                           <input type="radio" formControlName="porcIva" [value]="21" (change)="onPorcIvaChange()"
                             [disabled]="esPorcIvaDeshabilitadoEnNc(21)">
                           <span>21%</span>
@@ -459,8 +462,8 @@
                     </div>
 
                     <div
-                      style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a;">
-                      <strong>Monto de IVA:</strong> {{ (nuevaNotaForm.get('ivaNc')?.value != null ?
+                      style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a; height: 42px; box-sizing: border-box; display: flex; align-items: center;">
+                      <strong>Monto de IVA:</strong>&nbsp;{{ (nuevaNotaForm.get('ivaNc')?.value != null ?
                       nuevaNotaForm.get('ivaNc')?.value : 0) | currency:'USD':'symbol':'1.2-2' }}
                     </div>
                   </div>
@@ -512,11 +515,30 @@
             </form>
           </div>
           <div class="modal-footer">
-            <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-            <button class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()"
-              [disabled]="nuevaNotaForm.invalid || cargando || ncGuardadaExitosamente || soloCrearNdAjusteIva">
-              {{ ncGuardadaExitosamente ? '✓ Guardado' : 'Guardar Nota' }}
-            </button>
+            <ng-container *ngIf="!ncGuardadaExitosamente">
+              <button type="button" class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+              <button type="button" class="btn-modal-aceptar" (click)="guardarNuevaNotaBD()"
+                [disabled]="nuevaNotaForm.invalid || cargando || soloCrearNdAjusteIva">
+                Guardar Nota
+              </button>
+            </ng-container>
+            <ng-container *ngIf="ncGuardadaExitosamente">
+              <ng-container *ngIf="!editandoNcAjusteIva">
+                <button type="button" class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+                <button type="button" class="btn-modal-editar" (click)="iniciarEdicionNcAjusteIva()" [disabled]="cargando">
+                  ✏️ Editar
+                </button>
+              </ng-container>
+              <ng-container *ngIf="editandoNcAjusteIva">
+                <button type="button" class="btn-modal-cancelar" (click)="cancelarEdicionNcAjusteIva()" [disabled]="cargando">
+                  Cancelar
+                </button>
+                <button type="button" class="btn-modal-aceptar" (click)="guardarEdicionNcAjusteIva()"
+                  [disabled]="nuevaNotaForm.invalid || cargando">
+                  Guardar cambios
+                </button>
+              </ng-container>
+            </ng-container>
           </div>
         </div>
 
@@ -558,14 +580,13 @@
               </div>
 
               <!-- BLOQUE DE MONTO NETO Y PORCENTAJES DE IVA DE ND -->
-              <div
-                style="margin-top: 12px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <div class="form-grupo-modal full-width" style="margin-bottom: 10px;">
+              <div class="card-ajuste-iva">
+                <div class="form-grupo-modal full-width">
                   <label
                     style="font-weight: 600; color: #1e293b; font-size: 0.88rem; margin-bottom: 4px; display: block;">Monto
-                    neto</label>
+                    Neto ($)</label>
                   <div
-                    style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; background: #ffffff; color: #334155; font-weight: 500;">
+                    style="width: 100%; height: 38px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; background: #ffffff; color: #334155; font-weight: 500; box-sizing: border-box; display: flex; align-items: center;">
                     {{ netoAjusteIva | currency:'USD':'symbol':'1.2-2' }}
                   </div>
                 </div>
@@ -573,17 +594,20 @@
                 <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
                   <label class="label-tipo-nd">Porcentaje de IVA en Nota de Débito *</label>
                   <div class="opciones-radio-tipo-nd">
-                    <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNd(0)">
+                    <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNd(0)"
+                      (click)="prevenirClickSiDeshabilitado($event, esPorcIvaDeshabilitadoEnNd(0))">
                       <input type="radio" formControlName="porcIva" [value]="0" (change)="onPorcIvaNdChange()"
                         [disabled]="esPorcIvaDeshabilitadoEnNd(0)">
                       <span>0%</span>
                     </label>
-                    <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNd(10.5)">
+                    <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNd(10.5)"
+                      (click)="prevenirClickSiDeshabilitado($event, esPorcIvaDeshabilitadoEnNd(10.5))">
                       <input type="radio" formControlName="porcIva" [value]="10.5" (change)="onPorcIvaNdChange()"
                         [disabled]="esPorcIvaDeshabilitadoEnNd(10.5)">
                       <span>10.5%</span>
                     </label>
-                    <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNd(21)">
+                    <label class="radio-option" [class.disabled]="esPorcIvaDeshabilitadoEnNd(21)"
+                      (click)="prevenirClickSiDeshabilitado($event, esPorcIvaDeshabilitadoEnNd(21))">
                       <input type="radio" formControlName="porcIva" [value]="21" (change)="onPorcIvaNdChange()"
                         [disabled]="esPorcIvaDeshabilitadoEnNd(21)">
                       <span>21%</span>
@@ -592,16 +616,16 @@
                 </div>
 
                 <div
-                  style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a;">
-                  <strong>Monto de IVA:</strong> {{ montoIvaNdCalculado | currency:'USD':'symbol':'1.2-2' }}
+                  style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a; height: 42px; box-sizing: border-box; display: flex; align-items: center;">
+                  <strong>Monto de IVA:</strong>&nbsp;{{ montoIvaNdCalculado | currency:'USD':'symbol':'1.2-2' }}
                 </div>
               </div>
             </form>
           </div>
           <div class="modal-footer">
-            <button class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-            <button class="btn-modal-aceptar" (click)="guardarNotaDebitoAjusteIva()"
-              [disabled]="(!ncGuardadaExitosamente && !soloCrearNdAjusteIva) || nuevaNotaDebitoIvaForm.invalid || cargandoNdIva">
+            <button type="button" class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+            <button type="button" class="btn-modal-aceptar" (click)="guardarNotaDebitoAjusteIva()"
+              [disabled]="(!ncGuardadaExitosamente && !soloCrearNdAjusteIva) || editandoNcAjusteIva || nuevaNotaDebitoIvaForm.invalid || cargandoNdIva">
               Guardar Nota
             </button>
           </div>
@@ -631,8 +655,23 @@
   <div class="modal-overlay" *ngIf="modalHistorialVisible">
     <div class="modal-box historial-modal-box">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; color: #1e293b; font-size: 1.1rem; font-weight: 600;">Historial de Comprobantes Asociados</h3>
-        <button (click)="cerrarModalHistorialComprobantes()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;">✕</button>
+        <h3 style="margin: 0; color: #1e293b; font-size: 1.1rem; font-weight: 600;">Historial de Comprobantes Asociados
+        </h3>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button type="button" class="btn-exportar-historial" (click)="exportarHistorialAExcel()"
+            title="Exportar historial a Excel (.xlsx)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Exportar a Excel
+          </button>
+          <button (click)="cerrarModalHistorialComprobantes()"
+            style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;"
+            aria-label="Cerrar">✕</button>
+        </div>
       </div>
       <div class="modal-body" style="padding: 20px;">
         <div style="overflow-x: auto;">
@@ -652,12 +691,11 @@
             </thead>
             <tbody>
               <tr *ngFor="let fila of filasHistorialComprobantes"
-                  [class.historial-fila-buscado]="esDocumentoBuscado(fila)"
-                  [class.historial-fila-iva]="fila.origenTipo === 'IVA' && !fila.placeholderNdAjusteIva"
-                  [class.historial-fila-placeholder]="fila.placeholderNdAjusteIva">
+                [class.historial-fila-buscado]="esDocumentoBuscado(fila)"
+                [class.historial-fila-iva]="fila.origenTipo === 'IVA' && !fila.placeholderNdAjusteIva"
+                [class.historial-fila-placeholder]="fila.placeholderNdAjusteIva">
                 <!-- Tipo de documento con indentación de árbol y badge -->
-                <td class="historial-celda-tipo"
-                    [class.historial-fila-buscado]="esDocumentoBuscado(fila)">
+                <td class="historial-celda-tipo" [class.historial-fila-buscado]="esDocumentoBuscado(fila)">
                   <div class="historial-tipo-contenedor" [style.padding-left.px]="(fila.nivel || 0) * 16">
                     <span *ngIf="(fila.nivel || 0) > 0" class="historial-conector">└─</span>
                     <span class="historial-tipo-texto">{{ obtenerTipoDisplay(fila.tipoDocumento) }}</span>
@@ -682,18 +720,19 @@
                   <!-- Placeholder ND de ajuste IVA: link para crear -->
                   <ng-container *ngIf="fila.placeholderNdAjusteIva">
                     <a href="javascript:void(0)" (click)="cargarDocumentoDesdeHistorial(fila)"
-                       class="historial-link-crear-nd">
+                      class="historial-link-crear-nd">
                       + Crear Nota de Débito
                     </a>
                   </ng-container>
                   <!-- Fila IVA ya existente (NC o ND con número): sin acción de ver prestaciones -->
                   <ng-container *ngIf="fila.origenTipo === 'IVA' && !fila.placeholderNdAjusteIva">
-                    <span class="historial-iva-info" title="Documento de ajuste de IVA — no tiene prestaciones">📋 Ajuste IVA</span>
+                    <span class="historial-iva-info" title="Documento de ajuste de IVA — no tiene prestaciones">📋
+                      Ajuste IVA</span>
                   </ng-container>
                   <!-- FC o documentos de refactura: ver prestaciones -->
                   <ng-container *ngIf="!fila.origenTipo || fila.origenTipo === 'REF'">
                     <a href="javascript:void(0)" (click)="cargarDocumentoDesdeHistorial(fila)"
-                       style="color: #2563eb; text-decoration: underline; font-weight: 600; cursor: pointer; font-size: 0.88rem;">
+                      style="color: #2563eb; text-decoration: underline; font-weight: 600; cursor: pointer; font-size: 0.88rem;">
                       Ver prestaciones
                     </a>
                   </ng-container>

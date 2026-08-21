@@ -127,6 +127,224 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: totalColumnas } };
   }
 
+  async exportarHistorialComprobantes(
+    filas: any[],
+    documentoBuscadoInfo: { tipo: string; letra: string; puntoVenta: string | number; numero: string | number } | null,
+    filename: string
+  ) {
+    if (!filas || filas.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Historial Comprobantes');
+
+    // 1. Título y Fila Informativa Superior
+    worksheet.mergeCells('A1:J1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'HISTORIAL DE COMPROBANTES ASOCIADOS';
+    titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.mergeCells('A2:J2');
+    const subTitleCell = worksheet.getCell('A2');
+    const fechaDescarga = new Date().toLocaleString('es-AR');
+    let docBuscadoStr = '';
+    if (documentoBuscadoInfo) {
+      docBuscadoStr = `Documento Consultado: ${documentoBuscadoInfo.tipo} ${documentoBuscadoInfo.letra}-${documentoBuscadoInfo.puntoVenta}-${documentoBuscadoInfo.numero}  |  `;
+    }
+    subTitleCell.value = `${docBuscadoStr}Total Comprobantes en la Cadena: ${filas.length}  |  Fecha de Reporte: ${fechaDescarga}`;
+    subTitleCell.font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF334155' } };
+    subTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    subTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(2).height = 20;
+
+    // Fila 3 vacía
+    worksheet.getRow(3).height = 8;
+
+    // 2. Encabezados de la tabla (Fila 4)
+    const encabezados = [
+      'Tipo de Documento',
+      'Rama / Origen',
+      'Letra',
+      'Punto de Venta',
+      'Número',
+      'Fecha',
+      'Monto Neto',
+      '% IVA',
+      'Monto IVA',
+      'Documento Antecesor (Padre)'
+    ];
+
+    const headerRow = worksheet.getRow(4);
+    headerRow.height = 24;
+    encabezados.forEach((headerText, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = headerText;
+      cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } };
+    });
+
+    // 3. Pila para determinar el antecesor (Padre)
+    const ancestorStack: string[] = [];
+
+    // 4. Filas de datos
+    let currentRowIdx = 5;
+    filas.forEach(fila => {
+      const nivel = fila.nivel || 0;
+      const tipoDisplay = this.obtenerTipoDisplay(fila.tipoDocumento);
+      const docActualStr = `${tipoDisplay} ${fila.letra || ''}-${fila.puntoVenta || ''}-${fila.numero || ''}`.trim();
+
+      // Antecesor
+      let antecesorStr = '(Documento Origen)';
+      if (nivel > 0 && ancestorStack[nivel - 1]) {
+        antecesorStr = ancestorStack[nivel - 1];
+      }
+      ancestorStack[nivel] = docActualStr;
+      ancestorStack.length = nivel + 1;
+
+      // Conector tipo árbol
+      const tipoConConector = nivel > 0 ? `${'   '.repeat(nivel)}└─ ${tipoDisplay}` : tipoDisplay;
+
+      // Rama / Origen
+      let ramaDisplay = 'Raíz';
+      if (fila.origenTipo === 'REF') ramaDisplay = 'Refactura (REF)';
+      else if (fila.origenTipo === 'IVA') ramaDisplay = 'Ajuste IVA (IVA)';
+
+      const row = worksheet.getRow(currentRowIdx);
+      row.height = 20;
+      row.outlineLevel = nivel;
+
+      const isBuscado = this.esDocBuscado(fila, documentoBuscadoInfo);
+
+      // Celdas
+      const c1 = row.getCell(1);
+      c1.value = tipoConConector;
+      c1.alignment = { vertical: 'middle', horizontal: 'left', indent: nivel };
+
+      const c2 = row.getCell(2);
+      c2.value = ramaDisplay;
+      c2.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const c3 = row.getCell(3);
+      c3.value = fila.letra || '';
+      c3.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const c4 = row.getCell(4);
+      c4.value = fila.puntoVenta != null ? Number(fila.puntoVenta) : '';
+      c4.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const c5 = row.getCell(5);
+      c5.value = fila.numero != null ? Number(fila.numero) : '';
+      c5.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const c6 = row.getCell(6);
+      c6.value = this.formatearFecha(fila.fechaDocumento || '');
+      c6.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const c7 = row.getCell(7);
+      c7.value = fila.montoNeto != null ? Number(fila.montoNeto) : null;
+      c7.numFmt = '$ #,##0.00;($ #,##0.00);$ 0.00';
+      c7.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      const c8 = row.getCell(8);
+      if (fila.porcentajeIva != null) {
+        c8.value = Number(fila.porcentajeIva) / 100;
+        c8.numFmt = '0.0%';
+      } else {
+        c8.value = '';
+      }
+      c8.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const c9 = row.getCell(9);
+      c9.value = fila.montoIva != null ? Number(fila.montoIva) : (fila.origenTipo === 'IVA' ? 0 : 0);
+      c9.numFmt = '$ #,##0.00;($ #,##0.00);$ 0.00';
+      c9.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      const c10 = row.getCell(10);
+      c10.value = antecesorStr;
+      c10.alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Colores de fondo: solo verde claro para ajuste de IVA, blanco para los demás
+      let bgArgb = 'FFFFFFFF';
+      if (fila.origenTipo === 'IVA') {
+        bgArgb = 'FFF0FDF4'; // Verde claro para ajuste de IVA
+      }
+
+      for (let col = 1; col <= 10; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        };
+        cell.font = {
+          name: 'Calibri',
+          size: 10,
+          bold: isBuscado || nivel === 0,
+          color: { argb: 'FF1E293B' }
+        };
+      }
+
+      currentRowIdx++;
+    });
+
+    // 5. Ajustar anchos de columnas
+    const minWidths = [24, 18, 10, 15, 14, 14, 18, 12, 18, 28];
+    for (let col = 1; col <= 10; col++) {
+      let maxLen = 0;
+      worksheet.getColumn(col).eachCell({ includeEmpty: false }, cell => {
+        if (Number(cell.row) > 3) {
+          const val = cell.value ? cell.value.toString() : '';
+          if (val.length > maxLen) maxLen = val.length;
+        }
+      });
+      worksheet.getColumn(col).width = Math.max(minWidths[col - 1], maxLen + 3);
+    }
+
+    worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: 10 } };
+
+    // 6. Descargar
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
+  }
+
+  private obtenerTipoDisplay(tipo: string): string {
+    if (!tipo) return 'FC';
+    const t = tipo.trim();
+    if (t === 'Internados' || t === 'Ambulatorios') return 'FC';
+    return t;
+  }
+
+  private esDocBuscado(fila: any, buscado: { tipo: string; letra: string; puntoVenta: string | number; numero: string | number } | null): boolean {
+    if (!buscado || !fila) return false;
+    if (fila.placeholderNdAjusteIva) return false;
+
+    const tipo = (buscado.tipo || '').toUpperCase();
+    const letra = (buscado.letra || '').toUpperCase();
+    const ptovta = Number(buscado.puntoVenta);
+    const numero = Number(buscado.numero);
+
+    const filaTipo = this.obtenerTipoDisplay(fila.tipoDocumento).toUpperCase();
+    const filaLetra = (fila.letra || '').toUpperCase();
+    const filaPtovta = Number(fila.puntoVenta);
+    const filaNumero = Number(fila.numero);
+
+    if (filaLetra !== letra || filaPtovta !== ptovta || filaNumero !== numero) {
+      return false;
+    }
+
+    if (tipo === 'FC' && filaTipo === 'FC') return true;
+    if (tipo === 'NC' && (filaTipo === 'NC' || filaTipo === 'NCE')) return true;
+    if (tipo === 'ND' && (filaTipo === 'ND' || filaTipo === 'NDE')) return true;
+
+    return tipo === filaTipo;
+  }
+
   private formatearFecha(fechaISO: string): string {
     if (!fechaISO) return '';
     const soloFecha = fechaISO.split('T')[0];

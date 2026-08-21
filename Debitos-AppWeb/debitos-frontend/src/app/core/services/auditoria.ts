@@ -24,6 +24,10 @@ export class AuditoriaService {
     return this.http.post(`${this.apiUrl}/nueva-nota-credito`, payload);
   }
 
+  editarNcAjusteIva(payload: any) {
+    return this.http.put(`${this.apiUrl}/editar-nc-ajuste-iva`, payload);
+  }
+
   guardarNuevaNotaDebito(payload: any) {
     return this.http.post(`${this.apiUrl}/nueva-nota-debito`, payload);
   }

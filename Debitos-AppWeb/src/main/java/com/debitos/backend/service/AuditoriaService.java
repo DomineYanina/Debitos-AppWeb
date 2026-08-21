@@ -886,6 +886,65 @@ public class AuditoriaService {
         }
     }
 
+    @Transactional
+    public void editarNcAjusteDeIva(NuevaNotaCreditoRequest request) {
+        if (request == null || request.getDatosNota() == null) return;
+
+        DatosNotaDTO datosNota = request.getDatosNota();
+        String letraFc = request.getLetraOriginal();
+        Integer ptovtaFc = Integer.valueOf(request.getPtovtaOriginal().toString());
+        Integer numeroFc = Integer.valueOf(request.getNumeroOriginal().toString());
+
+        java.util.Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraFcAndPtovtaFcAndNumeroFc(letraFc, ptovtaFc, numeroFc);
+        if (ncIvaOpt.isEmpty()) {
+            throw new IllegalArgumentException("No se encontró la Nota de Crédito por Ajuste de IVA asociada a la Factura.");
+        }
+
+        NcAjusteDeIva ncIva = ncIvaOpt.get();
+
+        Integer nuevoPtovta = Integer.valueOf(datosNota.getPuntoVenta().toString());
+        Integer nuevoNumero = Integer.valueOf(datosNota.getNumero().toString());
+        String nuevoTipo = datosNota.getTipo();
+        String nuevaLetra = datosNota.getLetra();
+
+        // Si cambió tipo, letra, ptovta o numero de la NC, verificar que no colisione con otra NC
+        boolean cambioIdentificador = !nuevoTipo.equalsIgnoreCase(ncIva.getTipoNc()) ||
+                                      !nuevaLetra.equalsIgnoreCase(ncIva.getLetraNc()) ||
+                                      !nuevoPtovta.equals(ncIva.getPtovtaNc()) ||
+                                      !nuevoNumero.equals(ncIva.getNumeroNc());
+
+        if (cambioIdentificador) {
+            boolean existeEnNc = notaDeCreditoRepository.existsByTipoAndLetraAndPtovtaAndNumero(nuevoTipo, nuevaLetra, nuevoPtovta, nuevoNumero);
+            boolean existeEnNcIva = ncAjusteDeIvaRepository.existsByTipoNcAndLetraNcAndPtovtaNcAndNumeroNc(nuevoTipo, nuevaLetra, nuevoPtovta, nuevoNumero);
+            if (existeEnNc || existeEnNcIva) {
+                throw new IllegalArgumentException(
+                    String.format("Ya existe otra Nota de Crédito registrada con los datos especificados (%s %s-%04d-%08d).",
+                        nuevoTipo, nuevaLetra, nuevoPtovta, nuevoNumero)
+                );
+            }
+        }
+
+        BigDecimal neto = parsearMonto(datosNota.getNeto());
+        BigDecimal iva = parsearMonto(datosNota.getIva());
+        BigDecimal porcIva = parsearMonto(datosNota.getPorcIva());
+
+        ncIva.setTipoNc(nuevoTipo);
+        ncIva.setLetraNc(nuevaLetra);
+        ncIva.setPtovtaNc(nuevoPtovta);
+        ncIva.setNumeroNc(nuevoNumero);
+        ncIva.setNeto(neto != null ? neto : BigDecimal.ZERO);
+        ncIva.setIva(iva != null ? iva : BigDecimal.ZERO);
+        ncIva.setPorcIva(porcIva != null ? porcIva : BigDecimal.ZERO);
+
+        if (datosNota.getFecha() != null && !datosNota.getFecha().toString().trim().isEmpty()) {
+            try {
+                ncIva.setFecha(java.sql.Date.valueOf(datosNota.getFecha().toString()).toLocalDate());
+            } catch (Exception ignored) {}
+        }
+
+        ncAjusteDeIvaRepository.save(ncIva);
+    }
+
     private BigDecimal parsearMonto(Object valor) {
         if (valor == null || valor.toString().trim().isEmpty()) {
             return null;
