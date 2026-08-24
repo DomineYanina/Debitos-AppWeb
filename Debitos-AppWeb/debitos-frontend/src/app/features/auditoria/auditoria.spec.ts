@@ -220,6 +220,18 @@ describe('AuditoriaComponent', () => {
       component.ejecutarIndividualDebito(p2, 'Afiliado capitado');
       expect(p2.importeDebitado).toBe(500);
     });
+
+    it('debería asignar el total a importeRefactura cuando debitoAceptado sea "NO" y se seleccione motivo de refactura', () => {
+      const p = { id: 12, total: 1500, totalNeto: 1500, debitoAceptado: 'NO', motivoRefactura: '' } as Prestacion;
+      component.ejecutarIndividualRefactura(p, 'Falta documentación');
+      expect(p.motivoRefactura).toBe('Falta documentación');
+      expect(p.importeRefactura).toBe(1500);
+
+      const p2 = { id: 13, total: 800, totalNeto: 800, debitoAceptado: 'SI', motivoRefactura: '' } as Prestacion;
+      component.ejecutarIndividualRefactura(p2, 'Falta documentación');
+      expect(p2.motivoRefactura).toBe('Falta documentación');
+      expect(p2.importeRefactura).toBeUndefined();
+    });
   });
 
   describe('Lógica de Guardado Parcial', () => {

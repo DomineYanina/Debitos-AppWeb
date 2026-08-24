@@ -758,7 +758,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   ejecutarMasivoRefactura(motivo: string, sobreescribirTodos: boolean) {
     this.registrosSeleccionados.forEach(p => {
       if (!sobreescribirTodos && p.motivoRefactura && p.motivoRefactura !== '') return;
-      p.motivoRefactura = motivo === 'Borrar' ? '' : motivo;
+      if (motivo === 'Borrar') {
+        p.motivoRefactura = '';
+        p.importeRefactura = undefined;
+      } else {
+        p.motivoRefactura = motivo;
+        if (p.debitoAceptado?.trim().toUpperCase() === 'NO') {
+          p.importeRefactura = p.total;
+        }
+      }
       this.registrarCambio(p);
     });
 
@@ -775,6 +783,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.registrosSeleccionados.forEach(p => {
       p.debitoAceptado = valor;
+      if (valor === 'NO') {
+        p.importeDebitado = undefined;
+        if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
+          p.importeRefactura = p.total;
+        }
+      } else if (valor === 'SI' || valor === '') {
+        p.comentarios = '';
+      }
       this.registrarCambio(p);
     });
 
@@ -1010,8 +1026,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ejecutarIndividualRefactura(p: Prestacion, nuevoMotivo: string) {
     p.motivoRefactura = nuevoMotivo;
-    if (nuevoMotivo === 'Borrar') p.motivoRefactura = '';
+    if (nuevoMotivo === 'Borrar') {
+      p.motivoRefactura = '';
+      p.importeRefactura = undefined;
+    } else if (nuevoMotivo && p.debitoAceptado?.trim().toUpperCase() === 'NO') {
+      p.importeRefactura = p.total;
+    }
     (p as any)._motivoRefacturaPrevio = p.motivoRefactura;
+    this.registrarCambio(p);
     this.calcularTotales();
   }
 
@@ -2145,6 +2167,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (colId === 'debitoAceptado') {
       if (nuevo === 'NO') {
         p.importeDebitado = undefined; // Limpia el importe si NO acepta el débito
+        if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
+          p.importeRefactura = p.total;
+        }
       } else {
         // Si cambió a "SI" o "Borrar", limpiamos los comentarios para no enviar basura al backend
         p.comentarios = '';
@@ -2152,7 +2177,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
       this.calcularTotales();
       this.registrarCambio(p);
-      // Refrescamos la fila completa para que la celda de Comentarios se bloquee/desbloquee instantáneamente
+      // Refrescamos la fila completa para que la celda de Comentarios y Refactura se sincronicen instantáneamente
       event.api.refreshCells({ rowNodes: [event.node], force: true });
       return;
     }
