@@ -221,6 +221,62 @@ describe('AuditoriaComponent', () => {
       expect(p2.importeDebitado).toBe(500);
     });
 
+    it('debería conservar el importeDebitado existente si se elige no sobreescribirlo', () => {
+      const p = { id: 10, total: 1000, totalNeto: 1000, motivoDebito: '', importeDebitado: 350 } as Prestacion;
+      component.ejecutarIndividualDebito(p, 'Falta firma', false);
+      expect(p.motivoDebito).toBe('Falta firma');
+      expect(p.importeDebitado).toBe(350); // Se conserva el valor previo
+    });
+
+    it('debería sobreescribir el importeDebitado si se confirma la sobreescritura', () => {
+      const p = { id: 10, total: 1000, totalNeto: 1000, motivoDebito: '', importeDebitado: 350 } as Prestacion;
+      component.ejecutarIndividualDebito(p, 'Falta firma', true);
+      expect(p.motivoDebito).toBe('Falta firma');
+      expect(p.importeDebitado).toBe(1000); // Se pisa con el total
+    });
+
+    it('debería abrir el modal de confirmación en onCellValueChanged si ya había un importeDebitado ingresado', () => {
+      const p = { id: 10, total: 1000, totalNeto: 1000, motivoDebito: '', importeDebitado: 300 } as Prestacion;
+      const eventMock: any = {
+        data: p,
+        colDef: { field: 'motivoDebito' },
+        newValue: 'Falta firma',
+        oldValue: '',
+        api: { refreshCells: jasmine.createSpy('refreshCells') },
+        node: { setDataValue: jasmine.createSpy('setDataValue') }
+      };
+
+      component.onCellValueChanged(eventMock);
+
+      expect(component.modalVisible).toBe(true);
+      expect(component.modalMensaje).toContain('ya tiene un importe debitado ingresado');
+
+      // Si el usuario confirma, pisa el importe
+      component.modalAceptarCb();
+      expect(p.motivoDebito).toBe('Falta firma');
+      expect(p.importeDebitado).toBe(1000);
+    });
+
+    it('debería conservar el importe ingresado si el usuario cancela en el modal de onCellValueChanged', () => {
+      const p = { id: 10, total: 1000, totalNeto: 1000, motivoDebito: '', importeDebitado: 300 } as Prestacion;
+      const eventMock: any = {
+        data: p,
+        colDef: { field: 'motivoDebito' },
+        newValue: 'Falta firma',
+        oldValue: '',
+        api: { refreshCells: jasmine.createSpy('refreshCells') },
+        node: { setDataValue: jasmine.createSpy('setDataValue') }
+      };
+
+      component.onCellValueChanged(eventMock);
+      expect(component.modalVisible).toBe(true);
+
+      // Si el usuario cancela, asigna el motivo pero mantiene el importe ingresado
+      component.modalCancelarCb();
+      expect(p.motivoDebito).toBe('Falta firma');
+      expect(p.importeDebitado).toBe(300);
+    });
+
     it('debería asignar el total a importeRefactura cuando debitoAceptado sea "NO" y se seleccione motivo de refactura', () => {
       const p = { id: 12, total: 1500, totalNeto: 1500, debitoAceptado: 'NO', motivoRefactura: '' } as Prestacion;
       component.ejecutarIndividualRefactura(p, 'Falta documentación');
@@ -366,4 +422,67 @@ describe('AuditoriaComponent', () => {
     });
   });
 
+  describe('Lógica de Exportación a Excel', () => {
+    beforeEach(() => {
+      component.busquedaForm.setValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.tipoBusquedaRealizada = 'FC';
+    });
+
+    it('debería exportar solo las prestaciones con Débito Aceptado "SI" o "NO"', () => {
+      component.prestacionesFiltradas = [
+        { id: 1, paciente: 'Perez', debitoAceptado: 'SI' },
+        { id: 2, paciente: 'Gomez', debitoAceptado: 'NO' },
+        { id: 3, paciente: 'Lopez', debitoAceptado: '' },
+        { id: 4, paciente: 'Diaz', debitoAceptado: undefined }
+      ] as any;
+
+      let datosExportados: any[] = [];
+      excelServiceSpy.exportarPrestaciones = (data: any[]) => {
+        datosExportados = data;
+      };
+
+      component.exportarAExcel();
+
+      expect(datosExportados.length).toBe(2);
+      expect(datosExportados[0].id).toBe(1);
+      expect(datosExportados[1].id).toBe(2);
+    });
+
+    it('debería mostrar alerta si no hay prestaciones con Débito Aceptado "SI" o "NO"', () => {
+      component.prestacionesFiltradas = [
+        { id: 1, paciente: 'Perez', debitoAceptado: '' },
+        { id: 2, paciente: 'Gomez', debitoAceptado: undefined }
+      ] as any;
+
+      let alertaMostrada = '';
+      component.mostrarAlerta = (mensaje: string) => { alertaMostrada = mensaje; };
+
+      let llamado = false;
+      excelServiceSpy.exportarPrestaciones = () => { llamado = true; };
+
+      component.exportarAExcel();
+
+      expect(alertaMostrada).toContain('No hay prestaciones con Débito Aceptado (SI o NO)');
+      expect(llamado).toBe(false);
+    });
+  });
+
+  describe('Configuración de Tooltips en Columnas de Comentarios', () => {
+    it('debería tener configurado tooltipValueGetter en las columnas de comentarios', () => {
+      component.tipoBusquedaRealizada = 'FC';
+      component.configurarColumnas();
+
+      const colComentariosDebito = component.columnDefs.find(c => c.field === 'comentariosDebito');
+      expect(colComentariosDebito).toBeDefined();
+      expect(typeof colComentariosDebito?.tooltipValueGetter).toBe('function');
+      expect((colComentariosDebito?.tooltipValueGetter as any)({ value: 'Observación de prueba' })).toBe('Observación de prueba');
+
+      const colComentariosRefactura = component.columnDefs.find(c => c.field === 'comentarios');
+      expect(colComentariosRefactura).toBeDefined();
+      expect(typeof colComentariosRefactura?.tooltipValueGetter).toBe('function');
+      expect((colComentariosRefactura?.tooltipValueGetter as any)({ value: 'Observación refactura' })).toBe('Observación refactura');
+    });
+  });
+
 });
+

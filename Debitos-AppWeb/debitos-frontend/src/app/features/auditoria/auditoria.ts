@@ -275,7 +275,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     resizable: true,
     suppressMovable: false, // Permite al usuario mover las columnas de lugar
     wrapHeaderText: true,
-    autoHeaderHeight: true
+    autoHeaderHeight: true,
+    tooltipShowDelay: 100
   };
 
   modalVisible: boolean = false;
@@ -1094,6 +1095,37 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     const motivo = this.motivoMasivoSeleccionado;
     const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoDebito && p.motivoDebito !== '');
 
+    const verificarImportesMasivos = (sobreescribirMotivos: boolean) => {
+      const filasDestino = this.registrosSeleccionados.filter(p => sobreescribirMotivos || !p.motivoDebito || p.motivoDebito === '');
+      const esMotivoConImporte = motivo !== 'Borrar' && motivo !== 'No aplica';
+
+      const filasConImporte = esMotivoConImporte
+        ? filasDestino.filter(p => {
+          const nuevoImp = (motivo.trim().toLowerCase() === 'iva mal facturado') ? this.obtenerMontoIva(p) : p.total;
+          return p.importeDebitado != null && p.importeDebitado !== undefined && p.importeDebitado !== nuevoImp;
+        })
+        : [];
+
+      if (filasConImporte.length > 0) {
+        this.modalMensaje = `Hay ${filasConImporte.length} registro(s) seleccionado(s) que ya tienen un importe debitado ingresado.\n\n¿Desea REEMPLAZAR los importes existentes por el nuevo valor?\n\n(Si selecciona Cancelar, se aplicará el motivo conservando los importes ya ingresados)`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarMasivoDebito(motivo, sobreescribirMotivos, true);
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          this.ejecutarMasivoDebito(motivo, sobreescribirMotivos, false);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+      } else {
+        this.ejecutarMasivoDebito(motivo, sobreescribirMotivos, true);
+      }
+    };
+
     if (registrosConPrevio.length > 0) {
       this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de débito.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
 
@@ -1107,18 +1139,18 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
           cantidadRegistrosPendientes: registrosConPrevio.length // Cantidad de celdas pisadas
         }).subscribe({ error: () => { } });
 
-        this.ejecutarMasivoDebito(motivo, true);
         this.cerrarModal();
+        verificarImportesMasivos(true);
       };
 
       this.modalCancelarCb = () => {
-        this.ejecutarMasivoDebito(motivo, false);
         this.cerrarModal();
+        verificarImportesMasivos(false);
       };
 
       this.modalVisible = true;
     } else {
-      this.ejecutarMasivoDebito(motivo, true);
+      verificarImportesMasivos(true);
     }
   }
 
@@ -1132,7 +1164,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     return diferencia > 0 ? Number(diferencia.toFixed(2)) : 0;
   }
 
-  ejecutarMasivoDebito(motivo: string, sobreescribirTodos: boolean) {
+  ejecutarMasivoDebito(motivo: string, sobreescribirTodos: boolean, sobreescribirImporte: boolean = true) {
     this.registrosSeleccionados.forEach(p => {
       if (!sobreescribirTodos && p.motivoDebito && p.motivoDebito !== '') return;
 
@@ -1143,10 +1175,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       } else {
         p.motivoDebito = motivo;
         if (motivo !== 'No aplica') {
-          if (motivo.trim().toLowerCase() === 'iva mal facturado') {
-            p.importeDebitado = this.obtenerMontoIva(p);
-          } else {
-            p.importeDebitado = p.total;
+          const nuevoImporte = (motivo.trim().toLowerCase() === 'iva mal facturado')
+            ? this.obtenerMontoIva(p)
+            : p.total;
+
+          if (sobreescribirImporte || p.importeDebitado == null) {
+            p.importeDebitado = nuevoImporte;
           }
         }
       }
@@ -1171,12 +1205,42 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     const previo = (p as any)._motivoDebitoPrevio;
     const nuevo = p.motivoDebito || '';
 
+    const verificarImporteYSobreescribir = () => {
+      const esMotivoConImporte = nuevo && nuevo !== 'Borrar' && nuevo !== 'No aplica';
+      const nuevoImporte = esMotivoConImporte
+        ? (nuevo.trim().toLowerCase() === 'iva mal facturado' ? this.obtenerMontoIva(p) : p.total)
+        : undefined;
+
+      const tieneImportePrevio = esMotivoConImporte && p.importeDebitado != null && p.importeDebitado !== undefined && p.importeDebitado !== nuevoImporte;
+
+      if (tieneImportePrevio) {
+        const importeFormateado = p.importeDebitado?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? p.importeDebitado;
+        const nuevoImporteFormateado = nuevoImporte?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? nuevoImporte;
+
+        this.modalMensaje = `Este registro ya tiene un importe debitado ingresado ($${importeFormateado}).\n\n¿Desea REEMPLAZAR el importe existente por el nuevo valor ($${nuevoImporteFormateado})?\n\n(Si selecciona Cancelar, se mantendrá el importe ya ingresado)`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarIndividualDebito(p, nuevo, true);
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          this.ejecutarIndividualDebito(p, nuevo, false);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+      } else {
+        this.ejecutarIndividualDebito(p, nuevo, true);
+      }
+    };
+
     if (previo && previo !== '' && previo !== nuevo) {
       this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
 
       this.modalAceptarCb = () => {
-        this.ejecutarIndividualDebito(p, nuevo);
         this.cerrarModal();
+        verificarImporteYSobreescribir();
       };
 
       this.modalCancelarCb = () => {
@@ -1186,21 +1250,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
       this.modalVisible = true;
     } else {
-      this.ejecutarIndividualDebito(p, nuevo);
+      verificarImporteYSobreescribir();
     }
   }
 
-  ejecutarIndividualDebito(p: Prestacion, nuevoMotivo: string) {
+  ejecutarIndividualDebito(p: Prestacion, nuevoMotivo: string, sobreescribirImporte: boolean = true) {
     p.motivoDebito = nuevoMotivo;
     if (nuevoMotivo === 'Borrar') {
       p.motivoDebito = '';
       p.importeDebitado = undefined;
       p.comentariosDebito = ''; // <--- Agregamos la limpieza acá
     } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
-      if (nuevoMotivo.trim().toLowerCase() === 'iva mal facturado') {
-        p.importeDebitado = this.obtenerMontoIva(p);
-      } else {
-        p.importeDebitado = p.total;
+      const nuevoImporte = (nuevoMotivo.trim().toLowerCase() === 'iva mal facturado')
+        ? this.obtenerMontoIva(p)
+        : p.total;
+
+      if (sobreescribirImporte || p.importeDebitado == null) {
+        p.importeDebitado = nuevoImporte;
       }
     }
     (p as any)._motivoDebitoPrevio = p.motivoDebito;
@@ -1408,20 +1474,41 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    let datosAExportar = this.prestacionesFiltradas;
+    if (this.tipoBusquedaRealizada !== 'NC') {
+      datosAExportar = this.prestacionesFiltradas.filter(p => {
+        const deb = p.debitoAceptado ? p.debitoAceptado.trim().toUpperCase() : '';
+        return deb === 'SI' || deb === 'NO';
+      });
+
+      if (datosAExportar.length === 0) {
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'INTENTO_EXPORTAR_EXCEL_SIN_DEBITO_ACEPTADO',
+          fechaHora: new Date().toISOString(),
+          cantidadRegistrosPendientes: 0
+        }).subscribe({ error: () => { } });
+
+        this.mostrarAlerta('No hay prestaciones con Débito Aceptado (SI o NO) para exportar.', undefined, 'error');
+        return;
+      }
+    }
+
     // Métrica opcional: Exportación exitosa (te sirve para saber qué tanto usan esta función)
     this.auditoriaService.registrarMetricaUsabilidad({
       usuario: this.authService.obtenerUsuario(),
       documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
       evento: 'EXPORTACION_EXCEL_EXITOSA',
       fechaHora: new Date().toISOString(),
-      cantidadRegistrosPendientes: this.prestacionesFiltradas.length
+      cantidadRegistrosPendientes: datosAExportar.length
     }).subscribe({ error: () => { } });
 
     const f = this.busquedaForm.value;
     const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
 
     this.excelService.exportarPrestaciones(
-      this.prestacionesFiltradas,
+      datosAExportar,
       this.tipoBusquedaRealizada,
       nombreArchivo
     );
@@ -2183,7 +2270,43 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     if (colId === 'motivoDebito') {
-      if (previo && previo !== '' && previo !== nuevo) {
+      const tieneMotivoPrevio = previo && previo !== '' && previo !== nuevo;
+
+      const verificarImporteYSobreescribir = () => {
+        const esMotivoConImporte = nuevo && nuevo !== 'Borrar' && nuevo !== 'No aplica';
+        const nuevoImporte = esMotivoConImporte
+          ? (nuevo.trim().toLowerCase() === 'iva mal facturado' ? this.obtenerMontoIva(p) : p.total)
+          : undefined;
+
+        const tieneImportePrevio = esMotivoConImporte && p.importeDebitado != null && p.importeDebitado !== undefined && p.importeDebitado !== nuevoImporte;
+
+        if (tieneImportePrevio) {
+          const importeFormateado = p.importeDebitado?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? p.importeDebitado;
+          const nuevoImporteFormateado = nuevoImporte?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? nuevoImporte;
+
+          this.modalMensaje = `Este registro ya tiene un importe debitado ingresado ($${importeFormateado}).\n\n¿Desea REEMPLAZAR el importe existente por el nuevo valor ($${nuevoImporteFormateado})?\n\n(Si selecciona Cancelar, se mantendrá el importe ya ingresado)`;
+
+          this.modalAceptarCb = () => {
+            this.ejecutarIndividualDebito(p, nuevo, true);
+            event.api.refreshCells({ rowNodes: [event.node] });
+            this.cerrarModal();
+          };
+
+          this.modalCancelarCb = () => {
+            this.ejecutarIndividualDebito(p, nuevo, false);
+            event.api.refreshCells({ rowNodes: [event.node] });
+            this.cerrarModal();
+          };
+
+          this.modalVisible = true;
+          this.cdr.detectChanges();
+        } else {
+          this.ejecutarIndividualDebito(p, nuevo, true);
+          event.api.refreshCells({ rowNodes: [event.node] });
+        }
+      };
+
+      if (tieneMotivoPrevio) {
         this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
 
         this.modalAceptarCb = () => {
@@ -2196,9 +2319,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
             cantidadRegistrosPendientes: 1
           }).subscribe({ error: () => { } });
 
-          this.ejecutarIndividualDebito(p, nuevo);
-          event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila
           this.cerrarModal();
+          verificarImporteYSobreescribir();
         };
 
         this.modalCancelarCb = () => {
@@ -2210,8 +2332,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.modalVisible = true;
         this.cdr.detectChanges();
       } else {
-        this.ejecutarIndividualDebito(p, nuevo);
-        event.api.refreshCells({ rowNodes: [event.node] });
+        verificarImporteYSobreescribir();
       }
     }
     else if (colId === 'motivoRefactura') {

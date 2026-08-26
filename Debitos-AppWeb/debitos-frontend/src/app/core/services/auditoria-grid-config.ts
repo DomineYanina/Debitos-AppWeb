@@ -32,7 +32,15 @@ export class AuditoriaGridConfigService {
     ];
 
     if (tipo === 'ND' || (tipo === 'NC' && tieneComentariosPrevios)) {
-      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', headerTooltip: 'Historial de comentarios y observaciones de auditorías anteriores', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+      columnas.push({
+        headerName: 'Comentarios\nPrevios',
+        field: 'comentarioPrevio',
+        headerTooltip: 'Historial de comentarios y observaciones de auditorías anteriores',
+        tooltipValueGetter: params => params.value || '',
+        editable: false,
+        cellClass: 'bg-azul-auditoria',
+        headerClass: 'bg-azul-auditoria'
+      });
     }
 
     columnas.push(
@@ -53,6 +61,7 @@ export class AuditoriaGridConfigService {
     columnas.push({
       headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
       headerTooltip: 'Observaciones específicas sobre el débito aplicado a esta prestación',
+      tooltipValueGetter: params => params.value || '',
       editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
       cellClassRules: {
         'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
@@ -67,6 +76,7 @@ export class AuditoriaGridConfigService {
       },
       { headerName: 'Comentarios\nRefactura', field: 'comentarios', headerClass: 'bg-naranja',
         headerTooltip: 'Notas y aclaraciones sobre el proceso de refacturación',
+        tooltipValueGetter: params => params.value || '',
         editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
         cellClassRules: {
           'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',

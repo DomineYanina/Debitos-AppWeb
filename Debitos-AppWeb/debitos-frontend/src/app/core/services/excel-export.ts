@@ -11,6 +11,15 @@ export class ExcelExportService {
   async exportarPrestaciones(data: Prestacion[], tipoBusqueda: string, filename: string) {
     if (!data || data.length === 0) return;
 
+    const registrosAExportar = tipoBusqueda === 'NC'
+      ? data
+      : data.filter(p => {
+          const deb = p.debitoAceptado ? p.debitoAceptado.trim().toUpperCase() : '';
+          return deb === 'SI' || deb === 'NO';
+        });
+
+    if (registrosAExportar.length === 0) return;
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Auditoría');
 
@@ -19,7 +28,7 @@ export class ExcelExportService {
     worksheet.columns = columnas;
 
     // 2. Mapeo y formateo de datos
-    data.forEach(p => {
+    registrosAExportar.forEach(p => {
       const registro = { ...p } as any;
       registro.fecha = this.formatearFecha(p.fecha || '');
       worksheet.addRow(registro);
