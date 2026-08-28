@@ -12,11 +12,11 @@ public class AmbLiquidado {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idcabecera")
+    private Cabecera cabecera;
+
     private String carnet;
-
-    @Column(name = "codigo_cobertura")
-    private String codigoCobertura;
-
     private String paciente;
     private String plan;
     private String efector;
@@ -34,20 +34,7 @@ public class AmbLiquidado {
     private BigDecimal coseguro;
     private BigDecimal total;
 
-    // Campos de pertenencia a la Factura
-    @Column(name = "cob_factura_letra", length = 1)
-    private String cobFacturaLetra;
-
-    @Column(name = "cob_factura_ptoventa")
-    private Integer cobFacturaPtoVenta;
-
-    @Column(name = "cob_factura_numero")
-    private Integer cobFacturaNumero;
-
-    private String tiporegistro;
-
-    @Column(name = "periodo")
-    private LocalDate periodo;
+    public AmbLiquidado() {}
 
     public Integer getId() {
         return id;
@@ -57,20 +44,20 @@ public class AmbLiquidado {
         this.id = id;
     }
 
+    public Cabecera getCabecera() {
+        return cabecera;
+    }
+
+    public void setCabecera(Cabecera cabecera) {
+        this.cabecera = cabecera;
+    }
+
     public String getCarnet() {
         return carnet;
     }
 
     public void setCarnet(String carnet) {
         this.carnet = carnet;
-    }
-
-    public String getCodigoCobertura() {
-        return codigoCobertura;
-    }
-
-    public void setCodigoCobertura(String codigoCobertura) {
-        this.codigoCobertura = codigoCobertura;
     }
 
     public String getPaciente() {
@@ -175,45 +162,5 @@ public class AmbLiquidado {
 
     public void setTotal(BigDecimal total) {
         this.total = total;
-    }
-
-    public String getCobFacturaLetra() {
-        return cobFacturaLetra;
-    }
-
-    public void setCobFacturaLetra(String cobFacturaLetra) {
-        this.cobFacturaLetra = cobFacturaLetra;
-    }
-
-    public Integer getCobFacturaPtoVenta() {
-        return cobFacturaPtoVenta;
-    }
-
-    public void setCobFacturaPtoVenta(Integer cobFacturaPtoVenta) {
-        this.cobFacturaPtoVenta = cobFacturaPtoVenta;
-    }
-
-    public Integer getCobFacturaNumero() {
-        return cobFacturaNumero;
-    }
-
-    public void setCobFacturaNumero(Integer cobFacturaNumero) {
-        this.cobFacturaNumero = cobFacturaNumero;
-    }
-
-    public String getTiporegistro() {
-        return tiporegistro;
-    }
-
-    public void setTiporegistro(String tiporegistro) {
-        this.tiporegistro = tiporegistro;
-    }
-
-    public LocalDate getPeriodo() {
-        return periodo;
-    }
-
-    public void setPeriodo(LocalDate periodo) {
-        this.periodo = periodo;
     }
 }

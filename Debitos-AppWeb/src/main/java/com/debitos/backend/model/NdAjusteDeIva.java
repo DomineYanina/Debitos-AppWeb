@@ -12,6 +12,10 @@ public class NdAjusteDeIva {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idcabecera")
+    private Cabecera cabecera;
+
     @Column(name = "letra_nc", nullable = false, length = 1)
     private String letraNc;
 
@@ -24,18 +28,6 @@ public class NdAjusteDeIva {
     @Column(name = "numero_nc", nullable = false)
     private Integer numeroNc;
 
-    @Column(name = "letra_nd", nullable = false, length = 1)
-    private String letraNd;
-
-    @Column(name = "ptovta_nd", nullable = false)
-    private Integer ptovtaNd;
-
-    @Column(name = "tipo_nd", nullable = false, length = 10)
-    private String tipoNd;
-
-    @Column(name = "numero_nd", nullable = false)
-    private Integer numeroNd;
-
     @Column(name = "neto", nullable = false, precision = 15, scale = 2)
     private BigDecimal neto;
 
@@ -44,9 +36,6 @@ public class NdAjusteDeIva {
 
     @Column(name = "porc_iva", nullable = false, precision = 5, scale = 2)
     private BigDecimal porcIva;
-
-    @Column(name = "fecha")
-    private java.time.LocalDate fecha;
 
     @Column(name = "fecha_registro")
     private LocalDateTime fechaRegistro;
@@ -66,6 +55,14 @@ public class NdAjusteDeIva {
 
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public Cabecera getCabecera() {
+        return cabecera;
+    }
+
+    public void setCabecera(Cabecera cabecera) {
+        this.cabecera = cabecera;
     }
 
     public String getLetraNc() {
@@ -100,38 +97,6 @@ public class NdAjusteDeIva {
         this.numeroNc = numeroNc;
     }
 
-    public String getLetraNd() {
-        return letraNd;
-    }
-
-    public void setLetraNd(String letraNd) {
-        this.letraNd = letraNd;
-    }
-
-    public Integer getPtovtaNd() {
-        return ptovtaNd;
-    }
-
-    public void setPtovtaNd(Integer ptovtaNd) {
-        this.ptovtaNd = ptovtaNd;
-    }
-
-    public String getTipoNd() {
-        return tipoNd;
-    }
-
-    public void setTipoNd(String tipoNd) {
-        this.tipoNd = tipoNd;
-    }
-
-    public Integer getNumeroNd() {
-        return numeroNd;
-    }
-
-    public void setNumeroNd(Integer numeroNd) {
-        this.numeroNd = numeroNd;
-    }
-
     public BigDecimal getNeto() {
         return neto;
     }
@@ -162,13 +127,5 @@ public class NdAjusteDeIva {
 
     public void setFechaRegistro(LocalDateTime fechaRegistro) {
         this.fechaRegistro = fechaRegistro;
-    }
-
-    public java.time.LocalDate getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(java.time.LocalDate fecha) {
-        this.fecha = fecha;
     }
 }

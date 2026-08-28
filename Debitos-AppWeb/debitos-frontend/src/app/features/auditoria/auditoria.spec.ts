@@ -277,6 +277,56 @@ describe('AuditoriaComponent', () => {
       expect(p.importeDebitado).toBe(300);
     });
 
+    it('debería consultar confirmación al cambiar debitoAceptado a NO si ya tenía importeDebitado cargado', () => {
+      const p = { id: 10, total: 1000, totalNeto: 1000, debitoAceptado: '', importeDebitado: 400 } as Prestacion;
+      const eventMock: any = {
+        data: p,
+        colDef: { field: 'debitoAceptado' },
+        newValue: 'NO',
+        oldValue: '',
+        api: { refreshCells: jasmine.createSpy('refreshCells') },
+        node: { setDataValue: jasmine.createSpy('setDataValue') }
+      };
+
+      component.onCellValueChanged(eventMock);
+
+      expect(component.modalVisible).toBe(true);
+      expect(component.modalMensaje).toContain('ya tiene un importe debitado ingresado');
+
+      // Si cancela, se mantiene el importe
+      component.modalCancelarCb();
+      expect(p.importeDebitado).toBe(400);
+
+      // Si confirma, se limpia el importe
+      component.onCellValueChanged(eventMock);
+      component.modalAceptarCb();
+      expect(p.importeDebitado).toBeUndefined();
+    });
+
+    it('debería consultar confirmación al aplicar masivamente debitoAceptado = NO si hay filas con importeDebitado', () => {
+      component.prestacionesFiltradas = [
+        { id: 1, seleccionada: true, debitoAceptado: '', importeDebitado: 300 },
+        { id: 2, seleccionada: true, debitoAceptado: '', importeDebitado: undefined }
+      ] as any;
+      component.actualizarEstadoSeleccion();
+      component.debitoAceptadoMasivoSeleccionado = 'NO';
+
+      component.aplicarDebitoAceptadoMasivo();
+
+      expect(component.modalVisible).toBe(true);
+
+      // Cancelar -> Conserva importe previo
+      component.modalCancelarCb();
+      expect(component.prestacionesFiltradas[0].debitoAceptado).toBe('NO');
+      expect(component.prestacionesFiltradas[0].importeDebitado).toBe(300);
+
+      // Aceptar -> Limpia importe
+      component.debitoAceptadoMasivoSeleccionado = 'NO';
+      component.aplicarDebitoAceptadoMasivo();
+      component.modalAceptarCb();
+      expect(component.prestacionesFiltradas[0].importeDebitado).toBeUndefined();
+    });
+
     it('debería asignar el total a importeRefactura cuando debitoAceptado sea "NO" y se seleccione motivo de refactura', () => {
       const p = { id: 12, total: 1500, totalNeto: 1500, debitoAceptado: 'NO', motivoRefactura: '' } as Prestacion;
       component.ejecutarIndividualRefactura(p, 'Falta documentación');

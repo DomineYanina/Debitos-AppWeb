@@ -13,7 +13,7 @@ export const LISTA_MOTIVOS_DEBITO = [
     categoria: '2. MÉDICOS / AUDITORÍA',
     motivos: [
       'Alta demorada', 'Demora en Inter Consulta', 'Demora en resolución quirúrgica', 'Diagnóstico ilegible',
-      'Diagnóstico no reconocido', 'Diferencia de criterio médico', 'Prestación no prescrita',
+      'Diagnóstico no reconocido', 'Diferencia de criterio médico', 'Falta de sello médico', 'Prestación no prescrita',
       'Prestación no reconocida', 'Prestación no justificada', 'Refactura con HC firmada',
       'Tratamiento Medico justificado en Auditoria'
     ]

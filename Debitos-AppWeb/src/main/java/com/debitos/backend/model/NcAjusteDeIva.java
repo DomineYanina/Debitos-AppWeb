@@ -12,6 +12,10 @@ public class NcAjusteDeIva {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idcabecera")
+    private Cabecera cabecera;
+
     @Column(name = "letra_fc", length = 1, nullable = false)
     private String letraFc;
 
@@ -24,18 +28,6 @@ public class NcAjusteDeIva {
     @Column(name = "numero_fc", nullable = false)
     private Integer numeroFc;
 
-    @Column(name = "letra_nc", length = 1, nullable = false)
-    private String letraNc;
-
-    @Column(name = "ptovta_nc", nullable = false)
-    private Integer ptovtaNc;
-
-    @Column(name = "tipo_nc", length = 10, nullable = false)
-    private String tipoNc;
-
-    @Column(name = "numero_nc", nullable = false)
-    private Integer numeroNc;
-
     @Column(name = "neto", precision = 15, scale = 2, nullable = false)
     private BigDecimal neto;
 
@@ -45,11 +37,10 @@ public class NcAjusteDeIva {
     @Column(name = "porc_iva", precision = 5, scale = 2, nullable = false)
     private BigDecimal porcIva;
 
-    @Column(name = "fecha")
-    private java.time.LocalDate fecha;
-
     @Column(name = "fecha_registro")
     private ZonedDateTime fechaRegistro;
+
+    public NcAjusteDeIva() {}
 
     @PrePersist
     @PreUpdate
@@ -63,6 +54,14 @@ public class NcAjusteDeIva {
 
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public Cabecera getCabecera() {
+        return cabecera;
+    }
+
+    public void setCabecera(Cabecera cabecera) {
+        this.cabecera = cabecera;
     }
 
     public String getLetraFc() {
@@ -97,38 +96,6 @@ public class NcAjusteDeIva {
         this.numeroFc = numeroFc;
     }
 
-    public String getLetraNc() {
-        return letraNc;
-    }
-
-    public void setLetraNc(String letraNc) {
-        this.letraNc = letraNc;
-    }
-
-    public Integer getPtovtaNc() {
-        return ptovtaNc;
-    }
-
-    public void setPtovtaNc(Integer ptovtaNc) {
-        this.ptovtaNc = ptovtaNc;
-    }
-
-    public String getTipoNc() {
-        return tipoNc;
-    }
-
-    public void setTipoNc(String tipoNc) {
-        this.tipoNc = tipoNc;
-    }
-
-    public Integer getNumeroNc() {
-        return numeroNc;
-    }
-
-    public void setNumeroNc(Integer numeroNc) {
-        this.numeroNc = numeroNc;
-    }
-
     public BigDecimal getNeto() {
         return neto;
     }
@@ -159,13 +126,5 @@ public class NcAjusteDeIva {
 
     public void setFechaRegistro(ZonedDateTime fechaRegistro) {
         this.fechaRegistro = fechaRegistro;
-    }
-
-    public java.time.LocalDate getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(java.time.LocalDate fecha) {
-        this.fecha = fecha;
     }
 }

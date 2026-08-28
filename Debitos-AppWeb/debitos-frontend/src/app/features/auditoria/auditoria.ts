@@ -275,8 +275,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     resizable: true,
     suppressMovable: false, // Permite al usuario mover las columnas de lugar
     wrapHeaderText: true,
-    autoHeaderHeight: true,
-    tooltipShowDelay: 100
+    autoHeaderHeight: true
   };
 
   modalVisible: boolean = false;
@@ -782,10 +781,38 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const valor = this.debitoAceptadoMasivoSeleccionado === 'Borrar' ? '' : this.debitoAceptadoMasivoSeleccionado;
 
+    if (valor === 'NO') {
+      const filasConImporte = this.registrosSeleccionados.filter(p => p.importeDebitado != null && p.importeDebitado !== undefined);
+
+      if (filasConImporte.length > 0) {
+        this.modalMensaje = `Hay ${filasConImporte.length} registro(s) seleccionado(s) que ya tienen un importe debitado ingresado.\n\n¿Desea REEMPLAZAR los importes existentes al marcar el débito como 'NO'?\n\n(Si selecciona Cancelar, se aplicará el cambio conservando los importes ya ingresados)`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarMasivoDebitoAceptado(valor, true);
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          this.ejecutarMasivoDebitoAceptado(valor, false);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+        return;
+      }
+    }
+
+    this.ejecutarMasivoDebitoAceptado(valor, true);
+  }
+
+  ejecutarMasivoDebitoAceptado(valor: string, sobreescribirImporte: boolean = true) {
     this.registrosSeleccionados.forEach(p => {
       p.debitoAceptado = valor;
       if (valor === 'NO') {
-        p.importeDebitado = undefined;
+        if (sobreescribirImporte || p.importeDebitado == null) {
+          p.importeDebitado = undefined;
+        }
         if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
           p.importeRefactura = p.total;
         }
@@ -2253,9 +2280,42 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     // --- LÓGICA PARA EL CAMBIO DE "DÉBITO ACEPTADO" ---
     if (colId === 'debitoAceptado') {
       if (nuevo === 'NO') {
-        p.importeDebitado = undefined; // Limpia el importe si NO acepta el débito
-        if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
-          p.importeRefactura = p.total;
+        const tieneImportePrevio = p.importeDebitado != null && p.importeDebitado !== undefined;
+
+        if (tieneImportePrevio) {
+          const importeFormateado = p.importeDebitado?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? p.importeDebitado;
+
+          this.modalMensaje = `Este registro ya tiene un importe debitado ingresado ($${importeFormateado}).\n\n¿Desea REEMPLAZAR los importes existentes al marcar el débito como 'NO'?\n\n(Si selecciona Cancelar, se aplicará el cambio conservando los importes ya ingresados)`;
+
+          this.modalAceptarCb = () => {
+            p.importeDebitado = undefined;
+            if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
+              p.importeRefactura = p.total;
+            }
+            this.calcularTotales();
+            this.registrarCambio(p);
+            event.api.refreshCells({ rowNodes: [event.node], force: true });
+            this.cerrarModal();
+          };
+
+          this.modalCancelarCb = () => {
+            if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
+              p.importeRefactura = p.total;
+            }
+            this.calcularTotales();
+            this.registrarCambio(p);
+            event.api.refreshCells({ rowNodes: [event.node], force: true });
+            this.cerrarModal();
+          };
+
+          this.modalVisible = true;
+          this.cdr.detectChanges();
+          return;
+        } else {
+          p.importeDebitado = undefined;
+          if (p.motivoRefactura && p.motivoRefactura.trim() !== '') {
+            p.importeRefactura = p.total;
+          }
         }
       } else {
         // Si cambió a "SI" o "Borrar", limpiamos los comentarios para no enviar basura al backend

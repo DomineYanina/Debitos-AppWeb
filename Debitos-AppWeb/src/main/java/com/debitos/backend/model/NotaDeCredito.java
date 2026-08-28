@@ -2,7 +2,6 @@ package com.debitos.backend.model;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.ZonedDateTime;
 
 @Entity
@@ -13,6 +12,10 @@ public class NotaDeCredito {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idcabecera")
+    private Cabecera cabecera;
+
     // Relación con la prestación original
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_prestacion")
@@ -22,15 +25,6 @@ public class NotaDeCredito {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_notadedebito")
     private NotaDeDebito notaDeDebitoPadre;
-
-    private String tipo;
-
-    @Column(length = 1)
-    private String letra;
-
-    private Integer ptovta;
-    private Integer numero;
-    private LocalDate fecha;
 
     private Boolean debitoaceptado;
 
@@ -50,15 +44,12 @@ public class NotaDeCredito {
     private String comentariosDebito;
 
     private String usuario;
-    private String tiporegistro;
     private Boolean cargadocompletamente;
 
     @Column(name = "fecha_registro")
     private ZonedDateTime fechaRegistro;
 
-    // ==========================================
-    // GETTERS Y SETTERS
-    // ==========================================
+    public NotaDeCredito() {}
 
     public Integer getId() {
         return id;
@@ -66,6 +57,14 @@ public class NotaDeCredito {
 
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public Cabecera getCabecera() {
+        return cabecera;
+    }
+
+    public void setCabecera(Cabecera cabecera) {
+        this.cabecera = cabecera;
     }
 
     public AmbLiquidado getPrestacion() {
@@ -82,46 +81,6 @@ public class NotaDeCredito {
 
     public void setNotaDeDebitoPadre(NotaDeDebito notaDeDebitoPadre) {
         this.notaDeDebitoPadre = notaDeDebitoPadre;
-    }
-
-    public String getTipo() {
-        return tipo;
-    }
-
-    public void setTipo(String tipo) {
-        this.tipo = tipo;
-    }
-
-    public String getLetra() {
-        return letra;
-    }
-
-    public void setLetra(String letra) {
-        this.letra = letra;
-    }
-
-    public Integer getPtovta() {
-        return ptovta;
-    }
-
-    public void setPtovta(Integer ptovta) {
-        this.ptovta = ptovta;
-    }
-
-    public Integer getNumero() {
-        return numero;
-    }
-
-    public void setNumero(Integer numero) {
-        this.numero = numero;
-    }
-
-    public LocalDate getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(LocalDate fecha) {
-        this.fecha = fecha;
     }
 
     public Boolean getDebitoaceptado() {
@@ -204,14 +163,6 @@ public class NotaDeCredito {
         this.usuario = usuario;
     }
 
-    public String getTiporegistro() {
-        return tiporegistro;
-    }
-
-    public void setTiporegistro(String tiporegistro) {
-        this.tiporegistro = tiporegistro;
-    }
-
     public Boolean getCargadocompletamente() {
         return cargadocompletamente;
     }
@@ -226,7 +177,6 @@ public class NotaDeCredito {
         this.fechaRegistro = ZonedDateTime.now();
     }
 
-    // ... tus getters y setters habituales ...
     public ZonedDateTime getFechaRegistro() {
         return fechaRegistro;
     }

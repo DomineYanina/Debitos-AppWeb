@@ -150,9 +150,9 @@
         <span class="contador-valor">{{ cantAceptados }}</span>
       </div>
       <div class="contador-box contador-debitado has-tooltip"
-        data-tooltip="Suma del importe neto de los débitos aplicados">
+        data-tooltip="Suma del importe neto de todos los débitos cargados">
         <span class="contador-label">Total Debitado:</span>
-        <span class="contador-valor text-danger">{{ totalDebitadoAceptado | currency }}</span>
+        <span class="contador-valor text-danger">{{ totalDebitado | currency }}</span>
       </div>
       <div class="contador-box contador-refacturar has-tooltip"
         data-tooltip="Monto total habilitado para una nueva refacturación">
@@ -291,7 +291,7 @@
         <ag-grid-angular style="width: 100%; height: 500px;" [theme]="theme" [rowData]="prestacionesFiltradas"
           [columnDefs]="columnDefs" [defaultColDef]="defaultColDef" [overlayNoRowsTemplate]="overlayNoRowsTemplate"
           [localeText]="localeText" [rowSelection]="rowSelection" [alwaysShowHorizontalScroll]="true"
-          [autoSizeStrategy]="autoSizeStrategy" (gridReady)="onGridReady($event)"
+          [autoSizeStrategy]="autoSizeStrategy" [tooltipShowDelay]="100" (gridReady)="onGridReady($event)"
           (selectionChanged)="onSelectionChanged($event)" (cellValueChanged)="onCellValueChanged($event)">
         </ag-grid-angular>
       </div>
