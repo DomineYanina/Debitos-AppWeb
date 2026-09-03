@@ -17,8 +17,26 @@ public class NuevaNotaDebitoAjusteIvaRequest {
     private Object porcIva;
     private Object fecha;
     private String usuario;
+    private Long idCabeceraSeleccionada;
+    private boolean creadoManualmente;
 
     public NuevaNotaDebitoAjusteIvaRequest() {}
+
+    public Long getIdCabeceraSeleccionada() {
+        return idCabeceraSeleccionada;
+    }
+
+    public void setIdCabeceraSeleccionada(Long idCabeceraSeleccionada) {
+        this.idCabeceraSeleccionada = idCabeceraSeleccionada;
+    }
+
+    public boolean isCreadoManualmente() {
+        return creadoManualmente;
+    }
+
+    public void setCreadoManualmente(boolean creadoManualmente) {
+        this.creadoManualmente = creadoManualmente;
+    }
 
     public String getTipoNc() {
         return tipoNc;

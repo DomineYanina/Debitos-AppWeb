@@ -1,6 +1,7 @@
 package com.debitos.backend.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -30,6 +31,21 @@ public class Cabecera {
 
     @Column(name = "origen")
     private String origen = "APP";
+
+    @Column(name = "grupo")
+    private Long grupo;
+
+    @Column(name = "asociado")
+    private Long asociado;
+
+    @Column(name = "asociadogrupo")
+    private Long asociadogrupo;
+
+    @Column(name = "debe")
+    private BigDecimal debe;
+
+    @Column(name = "haber")
+    private BigDecimal haber;
 
     @PrePersist
     @PreUpdate
@@ -167,5 +183,45 @@ public class Cabecera {
 
     public void setOrigen(String origen) {
         this.origen = (origen != null && !origen.trim().isEmpty()) ? origen : "APP";
+    }
+
+    public Long getGrupo() {
+        return grupo;
+    }
+
+    public void setGrupo(Long grupo) {
+        this.grupo = grupo;
+    }
+
+    public Long getAsociado() {
+        return asociado;
+    }
+
+    public void setAsociado(Long asociado) {
+        this.asociado = asociado;
+    }
+
+    public Long getAsociadogrupo() {
+        return asociadogrupo;
+    }
+
+    public void setAsociadogrupo(Long asociadogrupo) {
+        this.asociadogrupo = asociadogrupo;
+    }
+
+    public BigDecimal getDebe() {
+        return debe;
+    }
+
+    public void setDebe(BigDecimal debe) {
+        this.debe = debe;
+    }
+
+    public BigDecimal getHaber() {
+        return haber;
+    }
+
+    public void setHaber(BigDecimal haber) {
+        this.haber = haber;
     }
 }

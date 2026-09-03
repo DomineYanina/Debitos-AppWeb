@@ -325,7 +325,7 @@ export class ExcelExportService {
   private obtenerTipoDisplay(tipo: string): string {
     if (!tipo) return 'FC';
     const t = tipo.trim();
-    if (t === 'Internados' || t === 'Ambulatorios') return 'FC';
+    if (t === 'Internados' || t === 'Ambulatorios' || t === 'FAC' || t === 'FCE') return 'FC';
     return t;
   }
 
@@ -347,9 +347,9 @@ export class ExcelExportService {
       return false;
     }
 
-    if (tipo === 'FC' && filaTipo === 'FC') return true;
-    if (tipo === 'NC' && (filaTipo === 'NC' || filaTipo === 'NCE')) return true;
-    if (tipo === 'ND' && (filaTipo === 'ND' || filaTipo === 'NDE')) return true;
+    if ((tipo === 'FC' || tipo === 'FAC' || tipo === 'FCE') && (filaTipo === 'FC' || filaTipo === 'FAC' || filaTipo === 'FCE')) return true;
+    if ((tipo === 'NC' || tipo === 'NCE') && (filaTipo === 'NC' || filaTipo === 'NCE')) return true;
+    if ((tipo === 'ND' || tipo === 'NDE') && (filaTipo === 'ND' || filaTipo === 'NDE')) return true;
 
     return tipo === filaTipo;
   }

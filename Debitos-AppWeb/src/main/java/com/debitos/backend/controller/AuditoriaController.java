@@ -75,6 +75,17 @@ public class AuditoriaController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/cabeceras-disponibles")
+    public ResponseEntity<List<com.debitos.backend.dto.CabeceraCandidataDTO>> obtenerCabecerasDisponibles(
+            @RequestParam String tipo,
+            @RequestParam(required = false) String origen,
+            @RequestParam(required = false) String letra,
+            @RequestParam(required = false, name = "puntoVenta") Integer ptovta,
+            @RequestParam(required = false) Integer numero) {
+        List<com.debitos.backend.dto.CabeceraCandidataDTO> lista = auditoriaService.obtenerCabecerasDisponibles(tipo, origen, letra, ptovta, numero);
+        return ResponseEntity.ok(lista);
+    }
+
     @GetMapping("/historial-comprobantes")
     public ResponseEntity<List<com.debitos.backend.dto.FilaHistorialDTO>> obtenerHistorialComprobantes(
             @RequestParam String tipo,

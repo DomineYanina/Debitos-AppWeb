@@ -15,6 +15,24 @@ public class DatosNotaDTO {
     private Object porcIva;
     private Object netoNc;
     private Object ivaNc;
+    private Long idCabeceraSeleccionada;
+    private boolean creadoManualmente;
+
+    public Long getIdCabeceraSeleccionada() {
+        return idCabeceraSeleccionada;
+    }
+
+    public void setIdCabeceraSeleccionada(Long idCabeceraSeleccionada) {
+        this.idCabeceraSeleccionada = idCabeceraSeleccionada;
+    }
+
+    public boolean isCreadoManualmente() {
+        return creadoManualmente;
+    }
+
+    public void setCreadoManualmente(boolean creadoManualmente) {
+        this.creadoManualmente = creadoManualmente;
+    }
 
     public Object getPuntoVenta() {
         return puntoVenta;

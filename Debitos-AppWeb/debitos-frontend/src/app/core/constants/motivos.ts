@@ -2,7 +2,7 @@ export const LISTA_MOTIVOS_DEBITO = [
   {
     categoria: '1. ADMINISTRATIVOS',
     motivos: [
-      'Afiliado dado de baja', 'Afiliado capitado', 'Coseguro no cobrado', 'Diferencia de coseguro',
+      'Afiliado dado de baja', 'Afiliado capitado', 'Coseguro no cobrado', 'Débito sin motivo', 'Diferencia de coseguro',
       'Error de carga (códigos-inclusiones)', 'Error en el cálculo de porcentaje de códigos múltiples',
       'Facturación duplicada', 'Facturado a financiador incorrecto', 'Falta de autorización',
       'Honorarios profesionales pagados en forma directa', 'Iva mal facturado', 'Prestación fuera de término',

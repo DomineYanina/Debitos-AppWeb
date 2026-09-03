@@ -68,6 +68,15 @@ export class AuditoriaService {
     });
   }
 
+  obtenerCabecerasDisponibles(tipo: string, origen?: string, letra?: string, puntoVenta?: string | number, numero?: string | number): Observable<any[]> {
+    const params: any = { tipo };
+    if (origen) params.origen = origen;
+    if (letra) params.letra = letra;
+    if (puntoVenta != null && puntoVenta !== '') params.puntoVenta = String(puntoVenta);
+    if (numero != null && numero !== '') params.numero = String(numero);
+    return this.http.get<any[]>(`${this.apiUrl}/cabeceras-disponibles`, { params });
+  }
+
   obtenerHistorialComprobantes(tipo: string, letra: string, puntoVenta: string | number, numero: string | number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/historial-comprobantes`, {
       params: { tipo, letra: String(letra).toUpperCase(), puntoVenta: String(puntoVenta), numero: String(numero) }

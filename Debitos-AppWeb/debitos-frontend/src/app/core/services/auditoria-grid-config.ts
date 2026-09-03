@@ -63,6 +63,14 @@ export class AuditoriaGridConfigService {
       headerTooltip: 'Observaciones específicas sobre el débito aplicado a esta prestación',
       tooltipValueGetter: params => params.value || '',
       editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+      cellEditor: 'agLargeTextCellEditor',
+      cellEditorPopup: true,
+      cellEditorPopupPosition: 'under',
+      cellEditorParams: {
+        maxLength: 2000,
+        rows: 4,
+        cols: 30
+      },
       cellClassRules: {
         'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
         'bg-naranja': params => esSoloLectura || (!params.data.motivoDebito || params.data.motivoDebito === '')
@@ -70,14 +78,47 @@ export class AuditoriaGridConfigService {
     });
 
     columnas.push(
-      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: editorComponent, cellEditorParams: { grupos: motivosRefactura } },
-      { headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
-        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+      {
+        headerName: 'Motivo\nRefactura',
+        field: 'motivoRefactura',
+        editable: params => !esSoloLectura && params.data.debitoAceptado !== 'SI',
+        cellClass: 'bg-gris',
+        headerClass: 'bg-gris',
+        cellEditor: editorComponent,
+        cellEditorParams: { grupos: motivosRefactura },
+        cellClassRules: {
+          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado === 'SI',
+          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado !== 'SI'
+        }
       },
-      { headerName: 'Comentarios\nRefactura', field: 'comentarios', headerClass: 'bg-naranja',
+      {
+        headerName: 'Imp.\nRefactura',
+        field: 'importeRefactura',
+        editable: params => !esSoloLectura && params.data.debitoAceptado !== 'SI',
+        cellClass: 'bg-gris',
+        headerClass: 'bg-gris',
+        width: 94,
+        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
+        cellClassRules: {
+          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado === 'SI',
+          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado !== 'SI'
+        }
+      },
+      {
+        headerName: 'Comentarios\nRefactura',
+        field: 'comentarios',
+        headerClass: 'bg-naranja',
         headerTooltip: 'Notas y aclaraciones sobre el proceso de refacturación',
         tooltipValueGetter: params => params.value || '',
         editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
+        cellEditor: 'agLargeTextCellEditor',
+        cellEditorPopup: true,
+        cellEditorPopupPosition: 'under',
+        cellEditorParams: {
+          maxLength: 2000,
+          rows: 4,
+          cols: 30
+        },
         cellClassRules: {
           'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
           'bg-naranja': params => esSoloLectura || params.data.debitoAceptado !== 'NO'

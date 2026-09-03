@@ -338,6 +338,24 @@ describe('AuditoriaComponent', () => {
       expect(p2.motivoRefactura).toBe('Falta documentación');
       expect(p2.importeRefactura).toBeUndefined();
     });
+
+    it('no debería trasladar el importe a importeRefactura cuando motivoRefactura sea "No aplica"', () => {
+      const p = { id: 14, total: 1500, totalNeto: 1500, debitoAceptado: 'NO', motivoRefactura: '', importeRefactura: 1500 } as Prestacion;
+      component.ejecutarIndividualRefactura(p, 'No aplica');
+      expect(p.motivoRefactura).toBe('No aplica');
+      expect(p.importeRefactura).toBeUndefined();
+
+      // Prueba masiva
+      component.registrosSeleccionados = [{ id: 15, total: 2000, debitoAceptado: 'NO', motivoRefactura: '', importeRefactura: 2000 } as Prestacion];
+      component.ejecutarMasivoRefactura('No aplica', true);
+      expect(component.registrosSeleccionados[0].motivoRefactura).toBe('No aplica');
+      expect(component.registrosSeleccionados[0].importeRefactura).toBeUndefined();
+
+      // Prueba al cambiar debitoAceptado masivo con motivoRefactura "No aplica"
+      component.registrosSeleccionados = [{ id: 16, total: 2000, debitoAceptado: '', motivoRefactura: 'No aplica' } as Prestacion];
+      component.ejecutarMasivoDebitoAceptado('NO', true);
+      expect(component.registrosSeleccionados[0].importeRefactura).toBeUndefined();
+    });
   });
 
   describe('Lógica de Guardado Parcial', () => {

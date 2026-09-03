@@ -31,6 +31,9 @@ public class AmbLiquidado {
     @Column(name = "total_neto")
     private BigDecimal totalNeto;
 
+    @Column(name = "iva")
+    private BigDecimal iva;
+
     private BigDecimal coseguro;
     private BigDecimal total;
 
@@ -146,6 +149,14 @@ public class AmbLiquidado {
 
     public void setTotalNeto(BigDecimal totalNeto) {
         this.totalNeto = totalNeto;
+    }
+
+    public BigDecimal getIva() {
+        return iva;
+    }
+
+    public void setIva(BigDecimal iva) {
+        this.iva = iva;
     }
 
     public BigDecimal getCoseguro() {

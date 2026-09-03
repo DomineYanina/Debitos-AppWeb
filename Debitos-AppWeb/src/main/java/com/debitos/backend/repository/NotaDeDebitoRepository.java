@@ -94,6 +94,7 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         """, nativeQuery = true)
     List<PrestacionAuditoriaDTO> findPrestacionesPorNotaDebito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    @Deprecated
     @Query(value = """
         SELECT DISTINCT c_fc.letra, c_fc.ptovta, c_fc.numero
         FROM notadedebito nd
@@ -104,6 +105,7 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         """, nativeQuery = true)
     List<Object[]> findFacturaMadreDeNd(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    @Deprecated
     @Query(value = """
         SELECT c_nd.tipo AS tipo, c_nd.letra AS letra, c_nd.ptovta AS ptovta, c_nd.numero AS numero, 
                CAST(MIN(c_nd.fecha) AS VARCHAR) AS fecha, SUM(COALESCE(nd.importerefactura, 0)) AS montoNeto,

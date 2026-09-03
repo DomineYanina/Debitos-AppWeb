@@ -1,5 +1,6 @@
 package com.debitos.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 
 public class FilaHistorialDTO {
@@ -27,6 +28,14 @@ public class FilaHistorialDTO {
      * Cuando es true, el frontend debe mostrar "Crear Nota de Débito" en vez de "Ver prestaciones".
      */
     private boolean placeholderNdAjusteIva;
+
+    /**
+     * Indica si el documento tiene prestaciones asociadas en las tablas
+     * (amb_liquidado para FC, notadecredito / nc_ajustedeiva para NC, notadedebito / nd_ajustedeiva para ND).
+     * Si es false, la acción "Ver prestaciones" se muestra deshabilitada como "Sin prestaciones vinculadas".
+     */
+    @JsonProperty("tienePrestaciones")
+    private boolean tienePrestaciones = true;
 
     public FilaHistorialDTO() {}
 
@@ -72,4 +81,8 @@ public class FilaHistorialDTO {
 
     public boolean isPlaceholderNdAjusteIva() { return placeholderNdAjusteIva; }
     public void setPlaceholderNdAjusteIva(boolean placeholderNdAjusteIva) { this.placeholderNdAjusteIva = placeholderNdAjusteIva; }
+
+    public boolean isTienePrestaciones() { return tienePrestaciones; }
+    public boolean getTienePrestaciones() { return tienePrestaciones; }
+    public void setTienePrestaciones(boolean tienePrestaciones) { this.tienePrestaciones = tienePrestaciones; }
 }

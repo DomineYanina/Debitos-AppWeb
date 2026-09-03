@@ -1414,6 +1414,24 @@ tr.row-selected {
   border-left: 1px solid #cbd5e1 !important;
 }
 
+/* 4. Estilo moderno para el popup de comentarios multilínea (agLargeTextCellEditor) */
+::ng-deep .ag-large-text-input,
+::ng-deep .ag-popup-editor textarea {
+  border: 1.5px solid #0284c7 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18) !important;
+  font-family: inherit !important;
+  font-size: 0.85rem !important;
+  padding: 8px !important;
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  line-height: 1.4 !important;
+  resize: vertical !important;
+  min-width: 260px !important;
+  min-height: 90px !important;
+  outline: none !important;
+}
+
 /* Badges informativos de documentos ya creados */
 .nc-ya-creada-badge,
 .nd-ya-creada-badge {

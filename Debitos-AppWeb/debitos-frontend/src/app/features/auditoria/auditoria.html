@@ -352,39 +352,103 @@
           </div>
           <div class="modal-body">
             <form [formGroup]="nuevaNotaForm" class="form-modal">
-              <div class="form-grupo-fila">
-                <div class="form-grupo-input">
-                  <label>Tipo</label>
-                  <select formControlName="tipo" class="input-grilla">
-                    <ng-container *ngIf="tipoNuevaNota === 'NC'">
-                      <option value="NC">NC</option>
-                      <option value="NCE">NCE</option>
-                    </ng-container>
-                    <ng-container *ngIf="tipoNuevaNota === 'ND'">
-                      <option value="ND">ND</option>
-                      <option value="NDE">NDE</option>
-                    </ng-container>
+
+              <!-- PANTALLA 1: SELECCIÓN DESDE CABECERA -->
+              <div *ngIf="!modoIngresoManual" class="vista-seleccion-cabecera">
+                <div class="form-grupo-modal full-width"
+                  style="margin-bottom: 14px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-weight: 700; color: #1e293b; font-size: 0.9rem; margin: 0;">
+                      Comprobante en Cabecera
+                    </label>
+                    <button type="button" class="btn-link" (click)="alternarModoIngresoManual(true)"
+                      style="font-size: 0.8rem; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                      ¿No figura? Ingresar manualmente →
+                    </button>
+                  </div>
+
+                  <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
+                    (change)="onSeleccionarCabecera($event)" [disabled]="cargandoCabeceras">
+                    <option value="">-- Seleccionar comprobante disponible en Cabecera --</option>
+                    <option *ngFor="let cab of cabecerasDisponibles" [value]="cab.id"
+                      [selected]="cab.id === cabeceraSeleccionadaId">
+                      {{ cab.label }} {{ cab.haber ? ' - Haber: ' + (cab.haber | currency:'USD':'symbol':'1.2-2') : (cab.debe ? ' - Debe: ' + (cab.debe | currency:'USD':'symbol':'1.2-2') : '') }}
+                    </option>
                   </select>
-                </div>
-                <div class="form-grupo-input">
-                  <label>Letra</label>
-                  <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
-                    style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNota')">
+
+                  <div *ngIf="cargandoCabeceras" style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
+                    Buscando comprobantes en cabecera...
+                  </div>
+
+                  <div *ngIf="!cargandoCabeceras && cabecerasDisponibles.length === 0"
+                    style="font-size: 0.82rem; color: #d97706; margin-top: 6px;">
+                    No se encontraron comprobantes sugeridos en cabecera. Puedes cargarlo manualmente haciendo clic en el enlace superior.
+                  </div>
+
+                  <!-- TARJETA INFORMATIVA DEL DOCUMENTO SELECCIONADO -->
+                  <div *ngIf="cabeceraSeleccionadaObjeto"
+                    style="margin-top: 12px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
+                    <div style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                      <span>✔</span> Comprobante Seleccionado:
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px; color: #1e3a8a;">
+                      <div><strong>Documento:</strong> {{ cabeceraSeleccionadaObjeto.tipo }} {{ cabeceraSeleccionadaObjeto.letra }}-{{ ('0000' + cabeceraSeleccionadaObjeto.ptovta).slice(-4) }}-{{ ('00000000' + cabeceraSeleccionadaObjeto.numero).slice(-8) }}</div>
+                      <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaObjeto.haber"><strong>Monto Haber:</strong> {{ cabeceraSeleccionadaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaObjeto.debe"><strong>Monto Debe:</strong> {{ cabeceraSeleccionadaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaObjeto.cobertura"><strong>Cobertura:</strong> {{ cabeceraSeleccionadaObjeto.cobertura }}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="form-grupo-fila">
-                <div class="form-grupo-input">
-                  <label>Punto Venta</label>
-                  <input type="number" formControlName="puntoVenta" class="input-grilla">
+
+              <!-- PANTALLA 2: INGRESO MANUAL -->
+              <div *ngIf="modoIngresoManual" class="vista-ingreso-manual">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
+                  <span style="font-weight: 700; color: #0369a1; font-size: 0.85rem;">
+                    ✍ Ingreso Manual de Comprobante
+                  </span>
+                  <button type="button" class="btn-link" (click)="alternarModoIngresoManual(false)"
+                    *ngIf="cabecerasDisponibles.length > 0"
+                    style="font-size: 0.8rem; color: #0284c7; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    ← Volver a lista de Cabecera
+                  </button>
                 </div>
-                <div class="form-grupo-input">
-                  <label>Número</label>
-                  <input type="number" formControlName="numero" class="input-grilla">
+
+                <div class="form-grupo-fila">
+                  <div class="form-grupo-input">
+                    <label>Tipo</label>
+                    <select formControlName="tipo" class="input-grilla">
+                      <ng-container *ngIf="tipoNuevaNota === 'NC'">
+                        <option value="NC">NC</option>
+                        <option value="NCE">NCE</option>
+                      </ng-container>
+                      <ng-container *ngIf="tipoNuevaNota === 'ND'">
+                        <option value="ND">ND</option>
+                        <option value="NDE">NDE</option>
+                      </ng-container>
+                    </select>
+                  </div>
+                  <div class="form-grupo-input">
+                    <label>Letra</label>
+                    <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
+                      style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNota')">
+                  </div>
                 </div>
-              </div>
-              <div class="form-grupo-input full-width">
-                <label>Fecha</label>
-                <input type="date" formControlName="fecha" class="input-grilla">
+                <div class="form-grupo-fila">
+                  <div class="form-grupo-input">
+                    <label>Punto Venta</label>
+                    <input type="number" formControlName="puntoVenta" class="input-grilla">
+                  </div>
+                  <div class="form-grupo-input">
+                    <label>Número</label>
+                    <input type="number" formControlName="numero" class="input-grilla">
+                  </div>
+                </div>
+                <div class="form-grupo-input full-width">
+                  <label>Fecha</label>
+                  <input type="date" formControlName="fecha" class="input-grilla">
+                </div>
               </div>
               <!-- SECTOR EXCLUSIVO PARA NOTA DE CRÉDITO (NC) -->
               <ng-container *ngIf="tipoNuevaNota === 'NC'">
@@ -550,33 +614,97 @@
           </div>
           <div class="modal-body">
             <form [formGroup]="nuevaNotaDebitoIvaForm" class="form-modal">
-              <div class="form-grupo-fila">
-                <div class="form-grupo-input">
-                  <label>Tipo</label>
-                  <select formControlName="tipo" class="input-grilla">
-                    <option value="ND">ND</option>
-                    <option value="NDE">NDE</option>
+
+              <!-- PANTALLA 1: SELECCIÓN DESDE CABECERA (ND) -->
+              <div *ngIf="!modoIngresoManualNdIva" class="vista-seleccion-cabecera">
+                <div class="form-grupo-modal full-width"
+                  style="margin-bottom: 14px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-weight: 700; color: #1e293b; font-size: 0.9rem; margin: 0;">
+                      Comprobante en Cabecera (ND)
+                    </label>
+                    <button type="button" class="btn-link" (click)="alternarModoIngresoManualNdIva(true)"
+                      style="font-size: 0.8rem; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                      ¿No figura? Ingresar manualmente →
+                    </button>
+                  </div>
+
+                  <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
+                    (change)="onSeleccionarCabeceraNdIva($event)" [disabled]="cargandoCabecerasNdIva">
+                    <option value="">-- Seleccionar comprobante disponible en Cabecera --</option>
+                    <option *ngFor="let cab of cabecerasDisponiblesNdIva" [value]="cab.id"
+                      [selected]="cab.id === cabeceraSeleccionadaIdNdIva">
+                      {{ cab.label }} {{ cab.debe ? ' - Debe: ' + (cab.debe | currency:'USD':'symbol':'1.2-2') : (cab.haber ? ' - Haber: ' + (cab.haber | currency:'USD':'symbol':'1.2-2') : '') }}
+                    </option>
                   </select>
-                </div>
-                <div class="form-grupo-input">
-                  <label>Letra</label>
-                  <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
-                    style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNotaDebitoIva')">
+
+                  <div *ngIf="cargandoCabecerasNdIva" style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
+                    Buscando comprobantes en cabecera...
+                  </div>
+
+                  <div *ngIf="!cargandoCabecerasNdIva && cabecerasDisponiblesNdIva.length === 0"
+                    style="font-size: 0.82rem; color: #d97706; margin-top: 6px;">
+                    No se encontraron comprobantes sugeridos en cabecera. Puedes cargarlo manualmente haciendo clic en el enlace superior.
+                  </div>
+
+                  <!-- TARJETA INFORMATIVA DEL DOCUMENTO SELECCIONADO -->
+                  <div *ngIf="cabeceraSeleccionadaNdIvaObjeto"
+                    style="margin-top: 12px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
+                    <div style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                      <span>✔</span> Comprobante Seleccionado:
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px; color: #1e3a8a;">
+                      <div><strong>Documento:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.tipo }} {{ cabeceraSeleccionadaNdIvaObjeto.letra }}-{{ ('0000' + cabeceraSeleccionadaNdIvaObjeto.ptovta).slice(-4) }}-{{ ('00000000' + cabeceraSeleccionadaNdIvaObjeto.numero).slice(-8) }}</div>
+                      <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.debe"><strong>Monto Debe:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.haber"><strong>Monto Haber:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.cobertura"><strong>Cobertura:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.cobertura }}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="form-grupo-fila">
-                <div class="form-grupo-input">
-                  <label>Punto Venta</label>
-                  <input type="number" formControlName="puntoVenta" class="input-grilla">
+
+              <!-- PANTALLA 2: INGRESO MANUAL (ND) -->
+              <div *ngIf="modoIngresoManualNdIva" class="vista-ingreso-manual">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
+                  <span style="font-weight: 700; color: #0369a1; font-size: 0.85rem;">
+                    ✍ Ingreso Manual de Comprobante (ND)
+                  </span>
+                  <button type="button" class="btn-link" (click)="alternarModoIngresoManualNdIva(false)"
+                    *ngIf="cabecerasDisponiblesNdIva.length > 0"
+                    style="font-size: 0.8rem; color: #0284c7; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    ← Volver a lista de Cabecera
+                  </button>
                 </div>
-                <div class="form-grupo-input">
-                  <label>Número</label>
-                  <input type="number" formControlName="numero" class="input-grilla">
+
+                <div class="form-grupo-fila">
+                  <div class="form-grupo-input">
+                    <label>Tipo</label>
+                    <select formControlName="tipo" class="input-grilla">
+                      <option value="ND">ND</option>
+                      <option value="NDE">NDE</option>
+                    </select>
+                  </div>
+                  <div class="form-grupo-input">
+                    <label>Letra</label>
+                    <input type="text" formControlName="letra" class="input-grilla" maxlength="1"
+                      style="text-transform: uppercase;" (input)="validarLetraInput($event, 'nuevaNotaDebitoIva')">
+                  </div>
                 </div>
-              </div>
-              <div class="form-grupo-input full-width">
-                <label>Fecha</label>
-                <input type="date" formControlName="fecha" class="input-grilla">
+                <div class="form-grupo-fila">
+                  <div class="form-grupo-input">
+                    <label>Punto Venta</label>
+                    <input type="number" formControlName="puntoVenta" class="input-grilla">
+                  </div>
+                  <div class="form-grupo-input">
+                    <label>Número</label>
+                    <input type="number" formControlName="numero" class="input-grilla">
+                  </div>
+                </div>
+                <div class="form-grupo-input full-width">
+                  <label>Fecha</label>
+                  <input type="date" formControlName="fecha" class="input-grilla">
+                </div>
               </div>
 
               <!-- BLOQUE DE MONTO NETO Y PORCENTAJES DE IVA DE ND -->
@@ -731,10 +859,15 @@
                   </ng-container>
                   <!-- FC o documentos de refactura: ver prestaciones -->
                   <ng-container *ngIf="!fila.origenTipo || fila.origenTipo === 'REF'">
-                    <a href="javascript:void(0)" (click)="cargarDocumentoDesdeHistorial(fila)"
+                    <a *ngIf="fila.tienePrestaciones !== false" href="javascript:void(0)" (click)="cargarDocumentoDesdeHistorial(fila)"
                       style="color: #2563eb; text-decoration: underline; font-weight: 600; cursor: pointer; font-size: 0.88rem;">
                       Ver prestaciones
                     </a>
+                    <span *ngIf="fila.tienePrestaciones === false"
+                      style="color: #94a3b8; font-style: italic; font-size: 0.85rem; cursor: not-allowed;"
+                      title="Este documento no tiene prestaciones asociadas">
+                      Sin prestaciones vinculadas
+                    </span>
                   </ng-container>
                 </td>
               </tr>

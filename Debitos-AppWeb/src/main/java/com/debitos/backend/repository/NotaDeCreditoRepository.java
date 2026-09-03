@@ -167,6 +167,7 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         """, nativeQuery = true)
     List<Object[]> findDocumentoAsociadoPadreRaw(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    @Deprecated
     @Query(value = """
         SELECT DISTINCT c_fc.letra, c_fc.ptovta, c_fc.numero
         FROM notadecredito nc
@@ -177,6 +178,7 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         """, nativeQuery = true)
     List<Object[]> findFacturaMadreDeNc(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    @Deprecated
     @Query(value = """
         SELECT c_nc.tipo AS tipo, c_nc.letra AS letra, c_nc.ptovta AS ptovta, c_nc.numero AS numero, 
                CAST(MIN(c_nc.fecha) AS VARCHAR) AS fecha, SUM(COALESCE(nc.importedebitado, 0)) AS montoNeto,
@@ -195,6 +197,7 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         """, nativeQuery = true)
     List<Object[]> findNcsResumenParaFacturaMadre(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
+    @Deprecated
     @Query(value = """
         SELECT c_nc.tipo AS tipo, c_nc.letra AS letra, c_nc.ptovta AS ptovta, c_nc.numero AS numero, 
                CAST(MIN(c_nc.fecha) AS VARCHAR) AS fecha, SUM(COALESCE(nc.importedebitado, 0)) AS montoNeto,
