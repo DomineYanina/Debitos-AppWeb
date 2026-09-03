@@ -1389,6 +1389,20 @@ public class AuditoriaService {
         }
 
         return candidatos.stream()
+                .filter(c -> {
+                    if (c.getId() == null) return false;
+                    String tipoDoc = c.getTipo() != null ? c.getTipo().trim().toUpperCase() : "";
+                    boolean esNc = "NC".equals(tipoDoc) || "NCE".equals(tipoDoc) || "NC".equalsIgnoreCase(tipoRequerido);
+                    if (esNc) {
+                        boolean enNotadecredito = !notaDeCreditoRepository.findByCabecera_Id(c.getId()).isEmpty();
+                        boolean enNcIva = ncAjusteDeIvaRepository.findByCabecera_Id(c.getId()).isPresent();
+                        return !enNotadecredito && !enNcIva;
+                    } else {
+                        boolean enNotadedebito = !notaDeDebitoRepository.findByCabecera_Id(c.getId()).isEmpty();
+                        boolean enNdIva = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId()).isPresent();
+                        return !enNotadedebito && !enNdIva;
+                    }
+                })
                 .map(c -> new CabeceraCandidataDTO(
                         c.getId(),
                         c.getTipo(),

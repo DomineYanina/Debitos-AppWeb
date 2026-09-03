@@ -74,14 +74,10 @@ public class CabeceraCandidataDTO {
     public void setCodigoCobertura(String codigoCobertura) { this.codigoCobertura = codigoCobertura; }
 
     public String getLabel() {
-        String base = String.format("%s %s-%04d-%08d",
+        return String.format("%s %s-%04d-%08d",
                 tipo != null ? tipo : "",
                 letra != null ? letra : "",
                 ptovta != null ? ptovta : 0,
                 numero != null ? numero : 0);
-        if (fecha != null) {
-            base += " (" + fecha + ")";
-        }
-        return base;
     }
 }

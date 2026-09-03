@@ -1889,20 +1889,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       next: (res) => {
         this.cabecerasDisponibles = res || [];
         this.cargandoCabeceras = false;
-        if (this.cabecerasDisponibles.length === 0) {
-          this.modoIngresoManual = true;
-        } else {
-          this.modoIngresoManual = false;
-          if (this.cabecerasDisponibles.length === 1) {
-            this.onSeleccionarCabecera(this.cabecerasDisponibles[0].id);
-          }
+        this.modoIngresoManual = false;
+        if (this.cabecerasDisponibles.length === 1) {
+          this.onSeleccionarCabecera(this.cabecerasDisponibles[0].id);
         }
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.warn('Error al obtener cabeceras disponibles:', err);
         this.cargandoCabeceras = false;
-        this.modoIngresoManual = true;
+        this.modoIngresoManual = false;
         this.cdr.detectChanges();
       }
     });
@@ -1992,19 +1988,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       next: (res) => {
         this.cabecerasDisponiblesNdIva = res || [];
         this.cargandoCabecerasNdIva = false;
-        if (this.cabecerasDisponiblesNdIva.length === 0) {
-          this.modoIngresoManualNdIva = true;
-        } else {
-          this.modoIngresoManualNdIva = false;
-          if (this.cabecerasDisponiblesNdIva.length === 1) {
-            this.onSeleccionarCabeceraNdIva(this.cabecerasDisponiblesNdIva[0].id);
-          }
+        this.modoIngresoManualNdIva = false;
+        if (this.cabecerasDisponiblesNdIva.length === 1) {
+          this.onSeleccionarCabeceraNdIva(this.cabecerasDisponiblesNdIva[0].id);
         }
         this.cdr.detectChanges();
       },
       error: () => {
         this.cargandoCabecerasNdIva = false;
-        this.modoIngresoManualNdIva = true;
+        this.modoIngresoManualNdIva = false;
         this.cdr.detectChanges();
       }
     });

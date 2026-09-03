@@ -359,7 +359,7 @@
                   style="margin-bottom: 14px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <label style="font-weight: 700; color: #1e293b; font-size: 0.9rem; margin: 0;">
-                      Comprobante en Cabecera
+                      Comprobante
                     </label>
                     <button type="button" class="btn-link" (click)="alternarModoIngresoManual(true)"
                       style="font-size: 0.8rem; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
@@ -368,35 +368,50 @@
                   </div>
 
                   <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
-                    (change)="onSeleccionarCabecera($event)" [disabled]="cargandoCabeceras">
-                    <option value="">-- Seleccionar comprobante disponible en Cabecera --</option>
+                    [style.background]="cabecerasDisponibles.length === 0 ? '#f1f5f9' : ''"
+                    [style.cursor]="cabecerasDisponibles.length === 0 ? 'not-allowed' : ''"
+                    (change)="onSeleccionarCabecera($event)" [disabled]="cargandoCabeceras || cabecerasDisponibles.length === 0">
+                    <option value="">-- Seleccionar comprobante --</option>
                     <option *ngFor="let cab of cabecerasDisponibles" [value]="cab.id"
                       [selected]="cab.id === cabeceraSeleccionadaId">
-                      {{ cab.label }} {{ cab.haber ? ' - Haber: ' + (cab.haber | currency:'USD':'symbol':'1.2-2') : (cab.debe ? ' - Debe: ' + (cab.debe | currency:'USD':'symbol':'1.2-2') : '') }}
+                      {{ cab.label }}
                     </option>
                   </select>
 
                   <div *ngIf="cargandoCabeceras" style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
-                    Buscando comprobantes en cabecera...
+                    Buscando comprobantes...
                   </div>
 
                   <div *ngIf="!cargandoCabeceras && cabecerasDisponibles.length === 0"
-                    style="font-size: 0.82rem; color: #d97706; margin-top: 6px;">
-                    No se encontraron comprobantes sugeridos en cabecera. Puedes cargarlo manualmente haciendo clic en el enlace superior.
+                    style="font-size: 0.83rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 6px; margin-top: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 3px;">No hay comprobantes disponibles</div>
+                    <div>Todos los comprobantes vinculados a este documento ya fueron asociados previamente.</div>
+                    <div style="margin-top: 6px;">
+                      <a href="javascript:void(0)" (click)="alternarModoIngresoManual(true)"
+                        style="color: #2563eb; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                        Ingresar manualmente la información del nuevo documento →
+                      </a>
+                    </div>
                   </div>
 
                   <!-- TARJETA INFORMATIVA DEL DOCUMENTO SELECCIONADO -->
                   <div *ngIf="cabeceraSeleccionadaObjeto"
                     style="margin-top: 12px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
-                    <div style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                    <div
+                      style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                       <span>✔</span> Comprobante Seleccionado:
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 5px; color: #1e3a8a;">
-                      <div><strong>Documento:</strong> {{ cabeceraSeleccionadaObjeto.tipo }} {{ cabeceraSeleccionadaObjeto.letra }}-{{ ('0000' + cabeceraSeleccionadaObjeto.ptovta).slice(-4) }}-{{ ('00000000' + cabeceraSeleccionadaObjeto.numero).slice(-8) }}</div>
+                      <div><strong>Documento:</strong> {{ cabeceraSeleccionadaObjeto.tipo }} {{
+                        cabeceraSeleccionadaObjeto.letra }}-{{ ('0000' + cabeceraSeleccionadaObjeto.ptovta).slice(-4)
+                        }}-{{ ('00000000' + cabeceraSeleccionadaObjeto.numero).slice(-8) }}</div>
                       <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaObjeto.haber"><strong>Monto Haber:</strong> {{ cabeceraSeleccionadaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaObjeto.debe"><strong>Monto Debe:</strong> {{ cabeceraSeleccionadaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaObjeto.cobertura"><strong>Cobertura:</strong> {{ cabeceraSeleccionadaObjeto.cobertura }}</div>
+                      <div *ngIf="cabeceraSeleccionadaObjeto.haber"><strong>Monto Haber:</strong> {{
+                        cabeceraSeleccionadaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaObjeto.debe"><strong>Monto Debe:</strong> {{
+                        cabeceraSeleccionadaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaObjeto.cobertura"><strong>Cobertura:</strong> {{
+                        cabeceraSeleccionadaObjeto.cobertura }}</div>
                     </div>
                   </div>
                 </div>
@@ -404,14 +419,14 @@
 
               <!-- PANTALLA 2: INGRESO MANUAL -->
               <div *ngIf="modoIngresoManual" class="vista-ingreso-manual">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
                   <span style="font-weight: 700; color: #0369a1; font-size: 0.85rem;">
-                    ✍ Ingreso Manual de Comprobante
+                    Ingreso Manual de Comprobante
                   </span>
                   <button type="button" class="btn-link" (click)="alternarModoIngresoManual(false)"
-                    *ngIf="cabecerasDisponibles.length > 0"
                     style="font-size: 0.8rem; color: #0284c7; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
-                    ← Volver a lista de Cabecera
+                    ← Volver a lista
                   </button>
                 </div>
 
@@ -489,8 +504,7 @@
                   </div>
 
                   <!-- OPCIÓN 1: NO PRESTACIONAL -->
-                  <div *ngIf="nuevaNotaForm.get('subtipoIva')?.value === 'No prestacional'"
-                    class="card-ajuste-iva">
+                  <div *ngIf="nuevaNotaForm.get('subtipoIva')?.value === 'No prestacional'" class="card-ajuste-iva">
                     <div class="form-grupo-modal full-width">
                       <label
                         style="font-weight: 600; color: #1e293b; font-size: 0.88rem; margin-bottom: 4px; display: block;">Monto
@@ -589,12 +603,14 @@
             <ng-container *ngIf="ncGuardadaExitosamente">
               <ng-container *ngIf="!editandoNcAjusteIva">
                 <button type="button" class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
-                <button type="button" class="btn-modal-editar" (click)="iniciarEdicionNcAjusteIva()" [disabled]="cargando">
+                <button type="button" class="btn-modal-editar" (click)="iniciarEdicionNcAjusteIva()"
+                  [disabled]="cargando">
                   ✏️ Editar
                 </button>
               </ng-container>
               <ng-container *ngIf="editandoNcAjusteIva">
-                <button type="button" class="btn-modal-cancelar" (click)="cancelarEdicionNcAjusteIva()" [disabled]="cargando">
+                <button type="button" class="btn-modal-cancelar" (click)="cancelarEdicionNcAjusteIva()"
+                  [disabled]="cargando">
                   Cancelar
                 </button>
                 <button type="button" class="btn-modal-aceptar" (click)="guardarEdicionNcAjusteIva()"
@@ -621,7 +637,7 @@
                   style="margin-bottom: 14px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <label style="font-weight: 700; color: #1e293b; font-size: 0.9rem; margin: 0;">
-                      Comprobante en Cabecera (ND)
+                      Comprobante(ND)
                     </label>
                     <button type="button" class="btn-link" (click)="alternarModoIngresoManualNdIva(true)"
                       style="font-size: 0.8rem; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
@@ -630,35 +646,51 @@
                   </div>
 
                   <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
-                    (change)="onSeleccionarCabeceraNdIva($event)" [disabled]="cargandoCabecerasNdIva">
-                    <option value="">-- Seleccionar comprobante disponible en Cabecera --</option>
+                    [style.background]="cabecerasDisponiblesNdIva.length === 0 ? '#f1f5f9' : ''"
+                    [style.cursor]="cabecerasDisponiblesNdIva.length === 0 ? 'not-allowed' : ''"
+                    (change)="onSeleccionarCabeceraNdIva($event)" [disabled]="cargandoCabecerasNdIva || cabecerasDisponiblesNdIva.length === 0">
+                    <option value="">-- Seleccionar comprobante --</option>
                     <option *ngFor="let cab of cabecerasDisponiblesNdIva" [value]="cab.id"
                       [selected]="cab.id === cabeceraSeleccionadaIdNdIva">
-                      {{ cab.label }} {{ cab.debe ? ' - Debe: ' + (cab.debe | currency:'USD':'symbol':'1.2-2') : (cab.haber ? ' - Haber: ' + (cab.haber | currency:'USD':'symbol':'1.2-2') : '') }}
+                      {{ cab.label }}
                     </option>
                   </select>
 
                   <div *ngIf="cargandoCabecerasNdIva" style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
-                    Buscando comprobantes en cabecera...
+                    Buscando comprobantes...
                   </div>
 
                   <div *ngIf="!cargandoCabecerasNdIva && cabecerasDisponiblesNdIva.length === 0"
-                    style="font-size: 0.82rem; color: #d97706; margin-top: 6px;">
-                    No se encontraron comprobantes sugeridos en cabecera. Puedes cargarlo manualmente haciendo clic en el enlace superior.
+                    style="font-size: 0.83rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 6px; margin-top: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 3px;">ℹ️ </div>
+                    <div>Todos los comprobantes vinculados a este documento ya fueron asociados previamente.</div>
+                    <div style="margin-top: 6px;">
+                      <a href="javascript:void(0)" (click)="alternarModoIngresoManualNdIva(true)"
+                        style="color: #2563eb; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                        Ingresar manualmente la información del nuevo documento →
+                      </a>
+                    </div>
                   </div>
 
                   <!-- TARJETA INFORMATIVA DEL DOCUMENTO SELECCIONADO -->
                   <div *ngIf="cabeceraSeleccionadaNdIvaObjeto"
                     style="margin-top: 12px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
-                    <div style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                    <div
+                      style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                       <span>✔</span> Comprobante Seleccionado:
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 5px; color: #1e3a8a;">
-                      <div><strong>Documento:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.tipo }} {{ cabeceraSeleccionadaNdIvaObjeto.letra }}-{{ ('0000' + cabeceraSeleccionadaNdIvaObjeto.ptovta).slice(-4) }}-{{ ('00000000' + cabeceraSeleccionadaNdIvaObjeto.numero).slice(-8) }}</div>
+                      <div><strong>Documento:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.tipo }} {{
+                        cabeceraSeleccionadaNdIvaObjeto.letra }}-{{ ('0000' +
+                        cabeceraSeleccionadaNdIvaObjeto.ptovta).slice(-4) }}-{{ ('00000000' +
+                        cabeceraSeleccionadaNdIvaObjeto.numero).slice(-8) }}</div>
                       <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.debe"><strong>Monto Debe:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.haber"><strong>Monto Haber:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.cobertura"><strong>Cobertura:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.cobertura }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.debe"><strong>Monto Debe:</strong> {{
+                        cabeceraSeleccionadaNdIvaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.haber"><strong>Monto Haber:</strong> {{
+                        cabeceraSeleccionadaNdIvaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.cobertura"><strong>Cobertura:</strong> {{
+                        cabeceraSeleccionadaNdIvaObjeto.cobertura }}</div>
                     </div>
                   </div>
                 </div>
@@ -666,14 +698,14 @@
 
               <!-- PANTALLA 2: INGRESO MANUAL (ND) -->
               <div *ngIf="modoIngresoManualNdIva" class="vista-ingreso-manual">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
+                <div
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
                   <span style="font-weight: 700; color: #0369a1; font-size: 0.85rem;">
-                    ✍ Ingreso Manual de Comprobante (ND)
+                    Ingreso Manual de Comprobante (ND)
                   </span>
                   <button type="button" class="btn-link" (click)="alternarModoIngresoManualNdIva(false)"
-                    *ngIf="cabecerasDisponiblesNdIva.length > 0"
                     style="font-size: 0.8rem; color: #0284c7; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
-                    ← Volver a lista de Cabecera
+                    ← Volver a lista
                   </button>
                 </div>
 
@@ -859,7 +891,8 @@
                   </ng-container>
                   <!-- FC o documentos de refactura: ver prestaciones -->
                   <ng-container *ngIf="!fila.origenTipo || fila.origenTipo === 'REF'">
-                    <a *ngIf="fila.tienePrestaciones !== false" href="javascript:void(0)" (click)="cargarDocumentoDesdeHistorial(fila)"
+                    <a *ngIf="fila.tienePrestaciones !== false" href="javascript:void(0)"
+                      (click)="cargarDocumentoDesdeHistorial(fila)"
                       style="color: #2563eb; text-decoration: underline; font-weight: 600; cursor: pointer; font-size: 0.88rem;">
                       Ver prestaciones
                     </a>
