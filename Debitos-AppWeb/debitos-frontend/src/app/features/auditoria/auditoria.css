@@ -2227,6 +2227,18 @@ tr.row-selected {
   vertical-align: middle;
 }
 
+.badge-deb {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.badge-cob {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
 .badge-ref {
   background: #dbeafe;
   color: #1e40af;

@@ -6,7 +6,7 @@ export const LISTA_MOTIVOS_DEBITO = [
       'Error de carga (códigos-inclusiones)', 'Error en el cálculo de porcentaje de códigos múltiples',
       'Facturación duplicada', 'Facturado a financiador incorrecto', 'Falta de autorización',
       'Honorarios profesionales pagados en forma directa', 'Iva mal facturado', 'Prestación fuera de término',
-      'Prestación incluida en otra liquidación', 'Supera tope'
+      'Prestación incluida en otra liquidación', 'Prestación no realizada', 'Supera tope'
     ]
   },
   {
@@ -68,7 +68,7 @@ export const LISTA_MOTIVOS_REFACTURA = [
     categoria: '2. MÉDICOS / AUDITORÍA',
     motivos: [
       'Ajuste por demora en alta medica por pedido de derivación', 'Aclaración de diagnóstico ilegible (adjunto HC)',
-      'Descripción aclaratoria de procedimiento realizado', 'Medico externo sin HC en Sanatorio',
+      'Descripción aclaratoria de procedimiento realizado', "Justificación Médica", 'Medico externo sin HC en Sanatorio',
       'Normas Medico Sanatoriales', 'Norma para tratamiento de infecciones', 'Normas post operatorias/antibioticoterapia',
       'Prestación de urgencia sin consentimiento', 'Procedimiento quirúrgico ampliado', 'Refactura con HC firmada',
       'Tratamiento Medico justificado en Auditoria'

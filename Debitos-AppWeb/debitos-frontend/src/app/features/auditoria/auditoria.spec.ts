@@ -162,6 +162,25 @@ describe('AuditoriaComponent', () => {
       // El profesional tiene que seguir estando filtrado
       expect(component.filtroProfesional).toBe('Dr. House');
     });
+
+    it('debería filtrar solo prestaciones con débito aceptado (SI o NO)', () => {
+      component.soloConDebitoAceptado = true;
+      component.aplicarFiltros();
+
+      // Deberían quedar solo id 1 ('SI') e id 2 ('NO'), excluyendo id 3 ('')
+      expect(component.prestacionesFiltradas.length).toBe(2);
+      expect(component.prestacionesFiltradas.map(p => p.id)).toEqual([1, 2]);
+    });
+
+    it('debería resetear todos los filtros incluyendo soloConDebitoAceptado', () => {
+      component.soloConDebitoAceptado = true;
+      component.filtroPaciente = 'Perez';
+      component.resetFiltros();
+
+      expect(component.soloConDebitoAceptado).toBe(false);
+      expect(component.filtroPaciente).toBe('');
+      expect(component.prestacionesFiltradas.length).toBe(3);
+    });
   });
 
   describe('Lógica de Acciones Masivas', () => {

@@ -11,7 +11,7 @@ public class FilaHistorialDTO {
     private String fechaDocumento;
     private BigDecimal montoNeto;
 
-    /** "REF" para documentos de refactura, "IVA" para ajuste de IVA, null para la FC raíz. */
+    /** "DEB" para NC de débito, "COB" para RC de cobro, "REF" para ND de refactura, "IVA" para ajuste de IVA, null para la FC raíz. */
     private String origenTipo;
 
     /** Nivel de profundidad en el árbol: 0=FC, 1=NC hija, 2=ND hija de NC. */

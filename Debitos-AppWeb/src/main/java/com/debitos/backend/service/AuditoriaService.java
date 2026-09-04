@@ -576,6 +576,7 @@ public class AuditoriaService {
         BigDecimal porcIva = null;
 
         if ("RC".equalsIgnoreCase(tipoBase)) {
+            origenTipo = "COB";
             if (cab.getHaber() != null && cab.getHaber().compareTo(BigDecimal.ZERO) > 0) {
                 montoNeto = cab.getHaber();
             } else if (cab.getDebe() != null && cab.getDebe().compareTo(BigDecimal.ZERO) > 0) {
@@ -594,7 +595,7 @@ public class AuditoriaService {
                 montoIva = ncIva.getIva() != null ? ncIva.getIva() : BigDecimal.ZERO;
                 porcIva = ncIva.getPorcIva();
             } else {
-                origenTipo = "REF";
+                origenTipo = "DEB";
                 List<NotaDeCredito> ncs = notaDeCreditoRepository.findByCabecera_Id(cab.getId());
                 if (ncs.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
                     ncs = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());

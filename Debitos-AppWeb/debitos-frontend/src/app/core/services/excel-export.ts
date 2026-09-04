@@ -219,7 +219,9 @@ export class ExcelExportService {
 
       // Rama / Origen
       let ramaDisplay = 'Raíz';
-      if (fila.origenTipo === 'REF') ramaDisplay = 'Refactura (REF)';
+      if (fila.origenTipo === 'DEB') ramaDisplay = 'Débito (DEB)';
+      else if (fila.origenTipo === 'COB') ramaDisplay = 'Cobro / Recibo (COB)';
+      else if (fila.origenTipo === 'REF') ramaDisplay = 'Refactura (REF)';
       else if (fila.origenTipo === 'IVA') ramaDisplay = 'Ajuste IVA (IVA)';
 
       const row = worksheet.getRow(currentRowIdx);

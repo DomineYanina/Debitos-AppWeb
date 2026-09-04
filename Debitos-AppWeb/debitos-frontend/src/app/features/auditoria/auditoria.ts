@@ -197,6 +197,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   soloSinMotivoRefactura: boolean = false;
   soloValorizadas: boolean = false;
   soloSinNC: boolean = false;
+  soloConDebitoAceptado: boolean = false;
 
   get hayFiltrosActivos(): boolean {
     return !!(
@@ -208,7 +209,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.soloValorizadas ||
       this.soloSinMotivoDebito ||
       this.soloSinMotivoRefactura ||
-      this.soloSinNC
+      this.soloSinNC ||
+      this.soloConDebitoAceptado
     );
   }
 
@@ -1405,8 +1407,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       const cumpleSinRefactura = !this.soloSinMotivoRefactura || (!p.motivoRefactura || p.motivoRefactura.trim() === '');
       const cumpleValorizadas = !this.soloValorizadas || (p.total > 0);
       const cumpleSinNC = !this.soloSinNC || !p.ncNumero;
+      const cumpleConDebitoAceptado = !this.soloConDebitoAceptado || (!!p.debitoAceptado && p.debitoAceptado.trim() !== '');
 
-      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas && cumpleSinNC;
+      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas && cumpleSinNC && cumpleConDebitoAceptado;
     });
 
     this.prepararFiltros(this.prestacionesFiltradas);
@@ -1445,6 +1448,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.soloSinMotivoRefactura = false;
     this.soloValorizadas = false;
     this.soloSinNC = false;
+    this.soloConDebitoAceptado = false;
     this.prepararFiltros(this.prestaciones);
     this.aplicarFiltros();
   }
