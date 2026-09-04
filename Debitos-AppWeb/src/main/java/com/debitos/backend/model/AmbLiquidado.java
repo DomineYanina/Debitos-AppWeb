@@ -1,6 +1,8 @@
 package com.debitos.backend.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -14,6 +16,7 @@ public class AmbLiquidado {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idcabecera")
+    @NotFound(action = NotFoundAction.IGNORE)
     private Cabecera cabecera;
 
     private String carnet;

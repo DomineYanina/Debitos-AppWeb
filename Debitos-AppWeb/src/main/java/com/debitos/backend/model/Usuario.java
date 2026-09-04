@@ -16,6 +16,9 @@ public class Usuario {
     @Column(nullable = false)
     private String clave;
 
+    @Column(name = "rol")
+    private String rol;
+
     public Long getId() {
         return id;
     }
@@ -35,5 +38,12 @@ public class Usuario {
     }
     public void setClave(String clave) {
         this.clave = clave;
+    }
+
+    public String getRol() {
+        return rol;
+    }
+    public void setRol(String rol) {
+        this.rol = rol;
     }
 }

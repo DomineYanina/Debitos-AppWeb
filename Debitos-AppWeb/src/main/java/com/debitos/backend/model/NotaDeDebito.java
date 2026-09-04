@@ -1,6 +1,8 @@
 package com.debitos.backend.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 
@@ -14,16 +16,19 @@ public class NotaDeDebito {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idcabecera")
+    @NotFound(action = NotFoundAction.IGNORE)
     private Cabecera cabecera;
 
     // Relación con la prestación original
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_prestacion")
+    @NotFound(action = NotFoundAction.IGNORE)
     private AmbLiquidado prestacion;
 
     // Relación: La NC original que originó este rechazo/refacturación
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_notadecredito")
+    @NotFound(action = NotFoundAction.IGNORE)
     private NotaDeCredito notaDeCreditoPadre;
 
     @Column(name = "tipo_nd")

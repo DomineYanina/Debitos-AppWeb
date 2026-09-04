@@ -1,6 +1,8 @@
 package com.debitos.backend.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 
@@ -14,6 +16,7 @@ public class NcAjusteDeIva {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idcabecera")
+    @NotFound(action = NotFoundAction.IGNORE)
     private Cabecera cabecera;
 
     @Column(name = "letra_fc", length = 1, nullable = false)

@@ -152,7 +152,7 @@ export class LoginComponent {
           this.cargando = false;
           this.cdr.detectChanges();
           // 1. Guardamos los datos
-          this.authService.guardarToken(respuesta.token, respuesta.usuario);
+          this.authService.guardarToken(respuesta.token, respuesta.usuario, respuesta.rol);
 
           // 2. Redirigimos automáticamente a auditoría
           this.router.navigate(['/auditoria']);

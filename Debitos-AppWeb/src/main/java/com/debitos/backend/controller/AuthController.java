@@ -50,9 +50,11 @@ public class AuthController {
 
             // Comparamos clave en texto plano
             if (usuarioOpt.isPresent() && usuarioOpt.get().getClave().equals(request.getPassword())) {
-                log.info("Autenticación exitosa para el usuario: {}", request.getUsuario());
-                String token = jwtService.generateToken(usuarioOpt.get().getUsuario());
-                return ResponseEntity.ok(new LoginResponse(token, usuarioOpt.get().getUsuario()));
+                Usuario usuario = usuarioOpt.get();
+                String rol = usuario.getRol() != null ? usuario.getRol() : "OPERADOR";
+                log.info("Autenticación exitosa para el usuario: {} con rol: {}", usuario.getUsuario(), rol);
+                String token = jwtService.generateToken(usuario.getUsuario(), rol);
+                return ResponseEntity.ok(new LoginResponse(token, usuario.getUsuario(), rol));
             } else {
                 log.warn("Fallo de autenticación para el usuario '{}': contraseña incorrecta o usuario no encontrado", request.getUsuario());
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario o contraseña incorrectos");

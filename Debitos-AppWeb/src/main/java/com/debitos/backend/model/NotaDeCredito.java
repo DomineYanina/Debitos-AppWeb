@@ -1,6 +1,8 @@
 package com.debitos.backend.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 
@@ -14,16 +16,19 @@ public class NotaDeCredito {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idcabecera")
+    @NotFound(action = NotFoundAction.IGNORE)
     private Cabecera cabecera;
 
     // Relación con la prestación original
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_prestacion")
+    @NotFound(action = NotFoundAction.IGNORE)
     private AmbLiquidado prestacion;
 
     // Relación: La ND original que originó esta NC (Caso 3)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_notadedebito")
+    @NotFound(action = NotFoundAction.IGNORE)
     private NotaDeDebito notaDeDebitoPadre;
 
     private Boolean debitoaceptado;
