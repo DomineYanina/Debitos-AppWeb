@@ -25,8 +25,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: Debitos-AppWeb/debitos-frontend/package-lock.json
 
-      - name: Instalar dependencias limpias
-        run: npm ci
+      - name: Instalar dependencias
+        run: npm ci || npm install
 
       - name: Compilar Frontend (Angular Production Build)
         run: npm run build -- --configuration production

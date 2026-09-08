@@ -23,7 +23,7 @@ jobs:
 
       - name: Instalar dependencias del Frontend
         working-directory: Debitos-AppWeb/debitos-frontend
-        run: npm ci
+        run: npm ci || npm install
 
       - name: Compilar Frontend Angular
         working-directory: Debitos-AppWeb/debitos-frontend
