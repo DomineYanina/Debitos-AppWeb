@@ -34,7 +34,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,7 +60,11 @@ public class AuditoriaService {
     private NotaDeDebitoRepository notaDeDebitoRepository;
 
     @Autowired
+    private NotificacionService notificacionService;
+
+    @Autowired
     private NcAjusteDeIvaRepository ncAjusteDeIvaRepository;
+
 
     @Autowired
     private NdAjusteDeIvaRepository ndAjusteDeIvaRepository;
@@ -99,17 +105,27 @@ public class AuditoriaService {
         };
     }
 
-    public ResultadoBusquedaDTO buscarUnificado(String tipo, String letra, int ptovta, int numero) {
+    public ResultadoBusquedaDTO buscarUnificado(String tipo, String letra, Integer ptovta, int numero) {
         ResultadoBusquedaDTO resultado = null;
         String tipoUpper = tipo != null ? tipo.trim().toUpperCase() : "";
         List<String> tiposEquivalentes = resolverTiposEquivalentes(tipoUpper);
+        int puntoVentaInt = ptovta != null ? ptovta : 0;
+        String letraStr = letra != null ? letra.trim().toUpperCase() : "";
 
-        if ("NC".equals(tipoUpper) || "NCE".equals(tipoUpper)) {
+        if ("RC".equals(tipoUpper)) {
+            Optional<Cabecera> rcOpt = cabeceraRepository.findByTipoRcAndNumero(numero).stream().findFirst();
+            if (rcOpt.isEmpty()) {
+                return null;
+            }
+            resultado = new ResultadoBusquedaDTO();
+            resultado.setTipoVista("ESTANDAR");
+            resultado.setPrestaciones(Collections.emptyList());
+        } else if ("NC".equals(tipoUpper) || "NCE".equals(tipoUpper)) {
             // 1. Primero busca en notadecredito
             try {
-                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letra, ptovta, numero).stream().findFirst();
+                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
                 if (cabOpt.isPresent()) {
-                    List<PrestacionAuditoriaDTO> resultadosNc = obtenerPrestaciones(tipoUpper, letra, ptovta, numero);
+                    List<PrestacionAuditoriaDTO> resultadosNc = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
                     if (resultadosNc != null && !resultadosNc.isEmpty()) {
                         resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNc);
                     }
@@ -118,7 +134,7 @@ public class AuditoriaService {
 
             // 2. Si no se encontró en notadecredito, busca en nc_ajustedeiva
             if (resultado == null) {
-                Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(letra, ptovta, numero);
+                Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(letraStr, puntoVentaInt, numero);
                 if (ncIvaOpt.isPresent()) {
                     NcAjusteDeIva ncIva = ncIvaOpt.get();
                     List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenAjusteIva(ncIva);
@@ -128,9 +144,9 @@ public class AuditoriaService {
         } else if ("ND".equals(tipoUpper) || "NDE".equals(tipoUpper)) {
             // 1. Primero busca en notadedebito
             try {
-                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letra, ptovta, numero).stream().findFirst();
+                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
                 if (cabOpt.isPresent()) {
-                    List<PrestacionAuditoriaDTO> resultadosNd = obtenerPrestaciones(tipoUpper, letra, ptovta, numero);
+                    List<PrestacionAuditoriaDTO> resultadosNd = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
                     if (resultadosNd != null && !resultadosNd.isEmpty()) {
                         resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNd);
                     }
@@ -139,7 +155,7 @@ public class AuditoriaService {
 
             // 2. Si no se encontró en notadedebito, busca en nd_ajustedeiva
             if (resultado == null) {
-                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(letra, ptovta, numero);
+                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(letraStr, puntoVentaInt, numero);
                 if (ndIvaOpt.isPresent()) {
                     NdAjusteDeIva ndIva = ndIvaOpt.get();
                     Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(
@@ -158,16 +174,16 @@ public class AuditoriaService {
 
         // Búsqueda para FC (FAC, FCE) u otros comprobantes
         if (resultado == null) {
-            Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letra, ptovta, numero).stream().findFirst();
+            Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
             if (cabOpt.isPresent()) {
-                List<PrestacionAuditoriaDTO> resultados = obtenerPrestaciones(tipoUpper, letra, ptovta, numero);
+                List<PrestacionAuditoriaDTO> resultados = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
                 if (resultados != null && !resultados.isEmpty()) {
                     resultado = ResultadoBusquedaDTO.dePrestaciones(resultados);
                 }
             }
         }
 
-        return adjuntarVerificacionesEHistorial(resultado, tipoUpper, letra, ptovta, numero);
+        return adjuntarVerificacionesEHistorial(resultado, tipoUpper, letraStr, puntoVentaInt, numero);
     }
 
     private ResultadoBusquedaDTO adjuntarVerificacionesEHistorial(ResultadoBusquedaDTO dto, String tipo, String letra, int ptovta, int numero) {
@@ -312,12 +328,20 @@ public class AuditoriaService {
         return filas;
     }
 
-    public List<FilaHistorialDTO> obtenerHistorialComprobantes(String tipo, String letra, int ptovta, int numero) {
+    public List<FilaHistorialDTO> obtenerHistorialComprobantes(String tipo, String letra, Integer ptovta, int numero) {
         List<FilaHistorialDTO> historial = new ArrayList<>();
+        String tipoUpper = tipo != null ? tipo.trim().toUpperCase() : "";
 
-        List<String> tiposEquivalentes = resolverTiposEquivalentes(tipo);
-        Optional<Cabecera> cabeceraActualOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letra, ptovta, numero)
-                .stream().findFirst();
+        Optional<Cabecera> cabeceraActualOpt;
+        if ("RC".equalsIgnoreCase(tipoUpper)) {
+            cabeceraActualOpt = cabeceraRepository.findByTipoRcAndNumero(numero).stream().findFirst();
+        } else {
+            List<String> tiposEquivalentes = resolverTiposEquivalentes(tipoUpper);
+            String letraStr = letra != null ? letra.trim().toUpperCase() : "";
+            int puntoVentaInt = ptovta != null ? ptovta : 0;
+            cabeceraActualOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero)
+                    .stream().findFirst();
+        }
 
         if (cabeceraActualOpt.isEmpty()) {
             return historial;
@@ -1382,12 +1406,12 @@ public class AuditoriaService {
         List<Cabecera> candidatos;
         if (!grupos.isEmpty()) {
             candidatos = cabeceraRepository.findCandidatosPorTipoYGrupos(tipos, grupos);
-            if (candidatos.isEmpty()) {
-                candidatos = cabeceraRepository.findTop50ByTipoInOrderByFechaDescNumeroDesc(tipos);
-            }
-        } else {
+        } else if (origen == null && letraOriginal == null && ptovtaOriginal == null && numeroOriginal == null) {
             candidatos = cabeceraRepository.findTop50ByTipoInOrderByFechaDescNumeroDesc(tipos);
+        } else {
+            candidatos = Collections.emptyList();
         }
+
 
         return candidatos.stream()
                 .filter(c -> {
@@ -1509,8 +1533,12 @@ public class AuditoriaService {
             ru.setEvento("COMPROBANTE_CREADO_MANUALMENTE_FALTANTE_EN_CABECERA");
             ru.setCantidadRegistrosPendientes(0);
             registroUsabilidadRepository.save(ru);
+
+            // Guardar en la tabla dedicada de notificaciones para el Administrador
+            notificacionService.registrarNotificacionIngresoManual(usuario, tipoDoc, letraDoc, puntoVenta, numero, "Ingreso manual de comprobante faltante en cabecera");
         } catch (Exception ignored) {}
     }
+
 
     public boolean tieneNcAjusteIva(String tipoFc, String letraFc, int ptovtaFc, int numeroFc) {
         if (letraFc == null || letraFc.trim().isEmpty()) {

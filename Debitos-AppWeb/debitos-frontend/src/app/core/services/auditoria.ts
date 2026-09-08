@@ -77,10 +77,11 @@ export class AuditoriaService {
     return this.http.get<any[]>(`${this.apiUrl}/cabeceras-disponibles`, { params });
   }
 
-  obtenerHistorialComprobantes(tipo: string, letra: string, puntoVenta: string | number, numero: string | number): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/historial-comprobantes`, {
-      params: { tipo, letra: String(letra).toUpperCase(), puntoVenta: String(puntoVenta), numero: String(numero) }
-    });
+  obtenerHistorialComprobantes(tipo: string, letra?: string, puntoVenta?: string | number, numero?: string | number): Observable<any[]> {
+    const params: any = { tipo: tipo || 'FC', numero: String(numero) };
+    if (letra) params.letra = String(letra).toUpperCase();
+    if (puntoVenta != null && puntoVenta !== '') params.puntoVenta = String(puntoVenta);
+    return this.http.get<any[]>(`${this.apiUrl}/historial-comprobantes`, { params });
   }
 
   registrarMetricaUsabilidad(payload: any) {

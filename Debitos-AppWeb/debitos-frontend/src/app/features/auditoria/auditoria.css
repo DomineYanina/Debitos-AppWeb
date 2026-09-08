@@ -62,42 +62,56 @@
 
     .fila-filtros {
       display: flex;
-      flex-wrap: wrap;
-      gap: 1.5rem;
+      flex-wrap: nowrap;
+      gap: 1.25rem;
       align-items: flex-end;
 
       .form-group {
         display: flex;
         flex-direction: column;
-        flex: 1;
-        min-width: 150px;
+        flex: 1 1 0px;
+        min-width: 0;
 
         label {
           font-size: 0.85rem;
           font-weight: 600;
           color: #4a5568;
           margin-bottom: 0.5rem;
+          white-space: nowrap;
         }
 
         input,
         select {
-          padding: 0.6rem;
+          padding: 0.6rem 0.75rem;
           border: 1px solid #cbd5e0;
           border-radius: 4px;
           font-size: 0.95rem;
+          width: 100%;
+          box-sizing: border-box;
 
           &:focus {
             outline: none;
             border-color: #3182ce;
           }
+
+          &:disabled {
+            background-color: #f1f5f9;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
+          }
         }
       }
 
       .btn-container {
-        flex: 0;
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.65rem;
 
         .btn-buscar {
-          padding: 0.65rem 1.5rem;
+          padding: 0.65rem 1.4rem;
           background-color: #3182ce;
           color: white;
           border: none;
@@ -105,6 +119,7 @@
           font-weight: bold;
           cursor: pointer;
           transition: background-color 0.2s;
+          white-space: nowrap;
 
           &:hover:not(:disabled) {
             background-color: #2b6cb0;
@@ -115,8 +130,44 @@
             cursor: not-allowed;
           }
         }
+
+        .btn-limpiar {
+          padding: 0.65rem 1.15rem;
+          background-color: #ffffff;
+          color: #4a5568;
+          border: 1px solid #cbd5e0;
+          border-radius: 4px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+
+          &:hover:not(:disabled) {
+            background-color: #f7fafc;
+            border-color: #a0aec0;
+            color: #2d3748;
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            background-color: #edf2f7;
+            border-color: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+          }
+        }
+      }
+
+      @media (max-width: 1024px) {
+        flex-wrap: wrap;
+
+        .form-group {
+          flex: 1 1 140px;
+        }
       }
     }
+
+
   }
 
   .grilla-section {
@@ -1066,6 +1117,7 @@ tr.row-selected {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background-color: rgba(15, 23, 42, 0.6);
   /* Fondo oscurecido */
   backdrop-filter: blur(2px);
@@ -1076,6 +1128,10 @@ tr.row-selected {
   z-index: 9999;
   /* Asegura que esté por encima de la tabla congelada */
   animation: fadeInModal 0.2s ease-out;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem 1rem;
+  box-sizing: border-box;
 }
 
 @keyframes fadeInModal {
@@ -1091,7 +1147,9 @@ tr.row-selected {
 .modal-box {
   background-color: white;
   width: 450px;
-  max-width: 90%;
+  max-width: 95vw;
+  max-height: calc(100vh - 3rem);
+  max-height: calc(100dvh - 3rem);
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   overflow: hidden;
@@ -1099,10 +1157,12 @@ tr.row-selected {
   flex-direction: column;
   animation: slideUpModal 0.3s ease-out;
   transition: width 0.3s ease, max-width 0.3s ease;
+  margin: auto;
+  box-sizing: border-box;
 }
 
 .modal-box.modal-box-doble {
-  width: 900px;
+  width: 960px;
   max-width: 95vw;
 }
 
@@ -1110,25 +1170,33 @@ tr.row-selected {
   display: flex;
   flex-direction: row;
   width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-modal {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .panel-modal .modal-body {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 1.25rem 1.5rem;
 }
 
 .panel-modal .form-modal {
-  flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .panel-modal.panel-izquierdo {
@@ -1158,6 +1226,7 @@ tr.row-selected {
 }
 
 .modal-header {
+  flex-shrink: 0;
   background-color: #f8fafc;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #e2e8f0;
@@ -1170,7 +1239,32 @@ tr.row-selected {
 }
 
 .modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
   padding: 1.5rem;
+}
+
+.modal-body::-webkit-scrollbar,
+.panel-modal .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track,
+.panel-modal .modal-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb,
+.panel-modal .modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover,
+.panel-modal .modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .texto-modal {
@@ -1183,6 +1277,7 @@ tr.row-selected {
 }
 
 .modal-footer {
+  flex-shrink: 0;
   padding: 1rem 1.5rem;
   background-color: #f8fafc;
   border-top: 1px solid #e2e8f0;
@@ -1202,9 +1297,17 @@ tr.row-selected {
   transition: all 0.2s;
 }
 
-.btn-modal-cancelar:hover {
+.btn-modal-cancelar:hover:not(:disabled) {
   background-color: #f1f5f9;
   border-color: #94a3b8;
+}
+
+.btn-modal-cancelar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
 }
 
 .btn-modal-aceptar {
@@ -1246,6 +1349,101 @@ tr.row-selected {
 .btn-modal-editar:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Botón Notificar a Administradores (Documento no encontrado) */
+.btn-notificar-admin {
+  padding: 0.5rem 1.15rem;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: white;
+  border: 1px solid #0284c7;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.25);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-notificar-admin:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  border-color: #0369a1;
+  box-shadow: 0 4px 8px rgba(2, 132, 199, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-notificar-admin:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alerta-notif-enviada {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  color: #166534;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fadeInModal 0.25s ease-out;
+}
+
+.alerta-notif-enviada .icono-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: #22c55e;
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* Tarjeta informativa de Documento Ausente */
+.card-doc-ausente {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fila-dato-ausente {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.fila-dato-ausente .label-dato {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.fila-dato-ausente .valor-dato {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.fila-dato-ausente .valor-destacado {
+  font-weight: 700;
+  color: #0f172a;
+  background: #e2e8f0;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-family: monospace;
+  font-size: 0.95rem;
 }
 
 .btn-accion-doc {
@@ -2271,5 +2469,35 @@ tr.row-selected {
   font-size: 0.82rem;
   font-style: italic;
   white-space: nowrap;
+}
+
+/* ==========================================================================
+   RESPONSIVIDAD DE MODALES
+   ========================================================================== */
+@media (max-width: 860px) {
+  .modal-box.modal-box-doble {
+    width: 95vw;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+  }
+
+  .modal-paneles-container {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .panel-modal.panel-izquierdo {
+    border-right: none;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .panel-modal {
+    flex: none;
+    max-height: none;
+  }
+
+  .panel-modal .modal-body {
+    overflow-y: visible;
+  }
 }
 

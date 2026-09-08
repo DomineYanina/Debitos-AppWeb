@@ -22,12 +22,14 @@ import { AuditoriaGridConfigService } from '../../core/services/auditoria-grid-c
 import { InactividadService } from '../../core/services/InactividadService';
 import { TourService } from '../../core/services/tour.service';
 import { HelpDrawerComponent } from '../../core/components/help-drawer/help-drawer.component';
+import { NotificacionService } from '../../core/services/notificacion.service';
 
 @Component({
   selector: 'app-auditoria',
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule, HelpDrawerComponent],
   templateUrl: './auditoria.html',
+
   styleUrl: './auditoria.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -97,7 +99,78 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     this.inactividadService.iniciarSeguimiento();
+
+    this.notifSub = this.notificacionService.notificacionSeleccionada$.subscribe(notif => {
+      if (notif) {
+        const tipo = notif.tipoDoc || 'FC';
+        const letra = notif.letra || 'A';
+        const puntoVenta = notif.puntoVenta ? String(notif.puntoVenta) : '';
+        const numero = notif.numero ? String(notif.numero) : '';
+
+        this.busquedaForm.patchValue({
+          tipo,
+          letra,
+          puntoVenta,
+          numero
+        });
+        this.actualizarValidadoresTipo(tipo);
+
+        if (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') {
+          const docRef = `${tipo} ${letra}-${('0000' + puntoVenta).slice(-4)}-${('00000000' + numero).slice(-8)}`;
+          this.docAusenteDetalle = {
+            documentoCompleto: notif.documentoReferencia || docRef,
+            tipo,
+            letra,
+            puntoVenta,
+            numero,
+            usuario: notif.usuario || 'Operador',
+            fechaHora: notif.fechaHora,
+            mensaje: notif.mensaje
+          };
+          this.textoCopiadoFeedback = false;
+          this.modalReporteDocAusenteVisible = true;
+          this.cdr.detectChanges();
+        } else {
+          this.onBuscar();
+        }
+      }
+    });
+
+    this.busquedaForm.get('tipo')?.valueChanges.subscribe(tipo => {
+      this.actualizarValidadoresTipo(tipo);
+    });
   }
+
+  actualizarValidadoresTipo(tipo: string | null) {
+    const letraControl = this.busquedaForm.get('letra');
+    const ptoVtaControl = this.busquedaForm.get('puntoVenta');
+
+    if (tipo === 'RC') {
+      letraControl?.disable({ emitEvent: false });
+      letraControl?.setValue('', { emitEvent: false });
+      letraControl?.clearValidators();
+      letraControl?.updateValueAndValidity({ emitEvent: false });
+
+      ptoVtaControl?.disable({ emitEvent: false });
+      ptoVtaControl?.setValue('', { emitEvent: false });
+      ptoVtaControl?.clearValidators();
+      ptoVtaControl?.updateValueAndValidity({ emitEvent: false });
+    } else {
+      if (letraControl?.disabled) {
+        letraControl.enable({ emitEvent: false });
+      }
+      letraControl?.setValidators([Validators.required, Validators.maxLength(1)]);
+      letraControl?.updateValueAndValidity({ emitEvent: false });
+
+      if (ptoVtaControl?.disabled) {
+        ptoVtaControl.enable({ emitEvent: false });
+      }
+      ptoVtaControl?.setValidators([Validators.required, Validators.min(1)]);
+      ptoVtaControl?.updateValueAndValidity({ emitEvent: false });
+    }
+    this.cdr.detectChanges();
+  }
+
 
   /**
    * Se ejecuta UNA VEZ, después de que Angular renderizó el HTML del componente.
@@ -130,11 +203,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy() {
     if (this.autoguardadoSub) this.autoguardadoSub.unsubscribe();
+    if (this.notifSub) this.notifSub.unsubscribe();
     this.inactividadService.pararSeguimiento();
   }
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
   private excelService = inject(ExcelExportService);
+  private notificacionService = inject(NotificacionService);
+  private notifSub?: Subscription;
+
 
   listaMotivosAgrupados = LISTA_MOTIVOS_DEBITO;
   listaMotivosRefacturaAgrupados = LISTA_MOTIVOS_REFACTURA;
@@ -153,8 +230,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   cargando: boolean = false;
   private fb = inject(FormBuilder);
   cdr = inject(ChangeDetectorRef);
-  private authService = inject(AuthService);
+  public authService = inject(AuthService);
   private router = inject(Router);
+
+  get esAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
   prestaciones: Prestacion[] = [];
   prestacionesFiltradas: Prestacion[] = [];
   columnaOrden: string = '';
@@ -171,6 +252,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   modalAlertaMensaje: string = '';
   modalAlertaCallback: any = null;
   modalAlertaTipo: 'exito' | 'error' | 'peligro' | 'normal' = 'normal';
+  esDocumentoNoEncontrado: boolean = false;
+  enviandoNotificacionAdmin: boolean = false;
+  notificacionAdminEnviada: boolean = false;
+  documentoBuscadoNoEncontrado: { tipo: string; letra: string; puntoVenta: number; numero: number } | null = null;
+
+  modalReporteDocAusenteVisible: boolean = false;
+  docAusenteDetalle: any = null;
+  textoCopiadoFeedback: boolean = false;
 
   modalDocumentosAsociadosVisible: boolean = false;
 
@@ -213,6 +302,92 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.soloConDebitoAceptado
     );
   }
+
+  get haRealizadoBusqueda(): boolean {
+    return !!(
+      this.tipoBusquedaRealizada ||
+      this.prestaciones.length > 0 ||
+      this.filasHistorialComprobantes.length > 0 ||
+      this.busquedaForm.get('tipo')?.value ||
+      this.busquedaForm.get('letra')?.value ||
+      this.busquedaForm.get('puntoVenta')?.value ||
+      this.busquedaForm.get('numero')?.value
+    );
+  }
+
+  onLimpiarBusqueda(): void {
+    if (this.modificadosSinGuardar.size > 0) {
+      this.mostrarAlerta(
+        'Tenés registros sin guardar del documento actual. Por favor, guardá los cambios antes de limpiar la búsqueda.',
+        undefined,
+        'peligro'
+      );
+      return;
+    }
+
+    // 1. Limpiar campos del formulario
+    this.busquedaForm.reset({
+      tipo: '',
+      letra: '',
+      puntoVenta: '',
+      numero: ''
+    });
+    this.actualizarValidadoresTipo('');
+
+    // 2. Limpiar datos del documento y resultados
+    this.prestaciones = [];
+    this.prestacionesFiltradas = [];
+    this.prestacionesPaginadas = [];
+    this.tipoBusquedaRealizada = '';
+    this.documentosCreadosInfo = [];
+    this.documentoCreadoInfo = null;
+    this.notaDeCreditoYaCreada = false;
+    this.notaDeDebitoYaCreada = false;
+    this.ndsCreadasDesdeNc = [];
+    this.ncEsHijaDeND = false;
+    this.filasHistorialComprobantes = [];
+    this.cantidadHistorial = 1;
+    this.esTablaAjusteIva = false;
+    this.filasResumenAjusteIva = [];
+    this.registrosSeleccionados = [];
+    this.todasSeleccionadas = false;
+
+    // 3. Limpiar filtros dinámicos
+    this.filtroPaciente = '';
+    this.filtroProfesional = '';
+    this.filtroPrestacion = '';
+    this.filtroGrupo = '';
+    this.filtroFecha = '';
+    this.soloSinMotivoDebito = false;
+    this.soloSinMotivoRefactura = false;
+    this.soloValorizadas = false;
+    this.soloSinNC = false;
+    this.soloConDebitoAceptado = false;
+    this.pacientesList = [];
+    this.profesionalesList = [];
+    this.prestacionesList = [];
+    this.gruposList = [];
+    this.fechasList = [];
+
+    // 4. Limpiar totales
+    this.totalFacturado = 0;
+    this.totalDebitado = 0;
+    this.totalCantidad = 0;
+    this.totalNetoGlobal = 0;
+    this.totalCoseguroGlobal = 0;
+    this.totalRefacturadoGlobal = 0;
+    this.cantAceptados = 0;
+    this.totalDebitadoAceptado = 0;
+    this.totalRefacturarRechazado = 0;
+
+    // 5. Limpiar paginación y candados
+    this.paginaActual = 1;
+    this.totalPaginas = 1;
+    this.modificadosSinGuardar.clear();
+
+    this.cdr.detectChanges();
+  }
+
 
   // Formatea una fecha ISO 'YYYY-MM-DD' a 'DD/MM/YYYY' sin usar el constructor Date,
   // evitando el desplazamiento de un día causado por la conversión UTC → local.
@@ -1034,12 +1209,19 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     // 3. SI PASÓ LOS DOS CANDADOS, SE EJECUTA LA BÚSQUEDA
     this.cargando = true; // Bloqueamos la UI
 
-    const filtros = { ...this.busquedaForm.value };
-    filtros.letra = filtros.letra ? filtros.letra.toUpperCase() : '';
+    const rawVal = this.busquedaForm.getRawValue();
+    const filtros: any = {
+      tipo: rawVal.tipo || '',
+      numero: rawVal.numero || ''
+    };
+    if (rawVal.tipo !== 'RC') {
+      filtros.letra = rawVal.letra ? rawVal.letra.toUpperCase() : '';
+      filtros.puntoVenta = rawVal.puntoVenta;
+    }
 
     this.auditoriaService.buscarPrestaciones(filtros).subscribe({
       next: (res: any) => {
-        this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
+        this.tipoBusquedaRealizada = rawVal.tipo || '';
 
         // Asignación directa de datos consolidados recibidos en la respuesta única de /buscar
         this.documentosCreadosInfo = (res && res.documentosCreadosInfo) ? res.documentosCreadosInfo : [];
@@ -1048,6 +1230,17 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
         this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
+
+        if (this.tipoBusquedaRealizada === 'RC') {
+          this.esTablaAjusteIva = false;
+          this.filasResumenAjusteIva = [];
+          this.prestaciones = [];
+          this.prestacionesFiltradas = [];
+          this.cargando = false;
+          this.modalHistorialVisible = true;
+          this.cdr.detectChanges();
+          return;
+        }
 
         if (res && res.tipoVista === 'TABLA_AJUSTE_IVA') {
           // Los documentos de ajuste de IVA ya vienen integrados en filasHistorialComprobantes
@@ -1091,10 +1284,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         console.error(err);
         this.cargando = false;
 
+        const tipoDoc = (rawVal.tipo || '').toUpperCase();
+        const docRef = tipoDoc === 'RC'
+          ? `RC-${rawVal.numero || ''}`
+          : `${tipoDoc}-${rawVal.letra || ''}-${rawVal.puntoVenta || ''}-${rawVal.numero || ''}`;
+
         if (err.status === 0) {
           this.guardarMetricaEnLocal({
             usuario: this.authService.obtenerUsuario(),
-            documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            documentoReferencia: docRef,
             evento: 'ERROR_CONEXION_0_AL_BUSCAR',
             cantidadRegistrosPendientes: this.modificadosSinGuardar.size
           });
@@ -1106,14 +1304,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.auditoriaService.registrarMetricaUsabilidad({
           usuario: this.authService.obtenerUsuario(),
-          documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          documentoReferencia: docRef,
           evento: `ERROR_HTTP_${err.status}_AL_BUSCAR`,
           cantidadRegistrosPendientes: this.modificadosSinGuardar.size
         }).subscribe({ error: () => { } });
 
         if (err.status === 404) {
+          this.documentoBuscadoNoEncontrado = {
+            tipo: tipoDoc || 'FC',
+            letra: (rawVal.letra || '').toUpperCase(),
+            puntoVenta: Number(rawVal.puntoVenta) || 0,
+            numero: Number(rawVal.numero) || 0
+          };
+          this.esDocumentoNoEncontrado = true;
+          this.notificacionAdminEnviada = false;
           this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.', undefined, 'error');
         } else {
+          this.esDocumentoNoEncontrado = false;
           this.mostrarAlerta(`Ocurrió un error (Código ${err.status}) al intentar comunicarse con el servidor.`, undefined, 'error');
         }
         this.cdr.detectChanges();
@@ -1720,6 +1927,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   cerrarModalAlerta() {
     this.modalAlertaVisible = false;
+    this.esDocumentoNoEncontrado = false;
+    this.notificacionAdminEnviada = false;
+    this.documentoBuscadoNoEncontrado = null;
 
     // Si había una orden pendiente (como borrar un campo), la ejecutamos al cerrar
     if (this.modalAlertaCallback) {
@@ -1727,6 +1937,64 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.modalAlertaCallback = null; // Limpiamos
     }
     this.cdr.detectChanges();
+  }
+
+  notificarAdminDocumentoNoEncontrado() {
+    if (!this.documentoBuscadoNoEncontrado || this.enviandoNotificacionAdmin) return;
+    this.enviandoNotificacionAdmin = true;
+    this.cdr.detectChanges();
+
+    this.notificacionService.reportarDocumentoNoEncontrado(this.documentoBuscadoNoEncontrado).subscribe({
+      next: () => {
+        this.enviandoNotificacionAdmin = false;
+        this.notificacionAdminEnviada = true;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error al notificar al administrador:', err);
+        this.enviandoNotificacionAdmin = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  cerrarModalReporteDocAusente() {
+    this.modalReporteDocAusenteVisible = false;
+    this.docAusenteDetalle = null;
+    this.textoCopiadoFeedback = false;
+    this.cdr.detectChanges();
+  }
+
+  copiarDatosDocAusente() {
+    if (!this.docAusenteDetalle) return;
+    const info = `Comprobante Ausente: ${this.docAusenteDetalle.documentoCompleto} | Reportado por: ${this.docAusenteDetalle.usuario} | Fecha: ${this.formatearFechaHora(this.docAusenteDetalle.fechaHora)}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(info).then(() => {
+        this.textoCopiadoFeedback = true;
+        this.cdr.detectChanges();
+        setTimeout(() => {
+          this.textoCopiadoFeedback = false;
+          this.cdr.detectChanges();
+        }, 3000);
+      }).catch(() => {});
+    }
+  }
+
+  formatearFechaHora(fechaStr?: string): string {
+    if (!fechaStr) return '';
+    try {
+      const fecha = new Date(fechaStr);
+      if (isNaN(fecha.getTime())) return fechaStr;
+      return fecha.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return fechaStr;
+    }
   }
 
   validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota' | 'nuevaNotaDebitoIva') {
@@ -2158,7 +2426,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cerrarModalHistorialComprobantes();
   }
 
-  cargarHistorialComprobantes(tipo: string, letra: string, puntoVenta: string | number, numero: string | number) {
+  cargarHistorialComprobantes(tipo: string, letra?: string, puntoVenta?: string | number, numero?: string | number) {
     this.auditoriaService.obtenerHistorialComprobantes(tipo, letra, puntoVenta, numero).subscribe({
       next: (res) => {
         this.filasHistorialComprobantes = res || [];
@@ -2173,8 +2441,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   abrirModalHistorialComprobantes() {
     if (this.filasHistorialComprobantes.length === 0 && this.busquedaForm.valid) {
-      const filtros = this.busquedaForm.value;
-      this.cargarHistorialComprobantes(filtros.tipo || 'FC', filtros.letra || '', filtros.puntoVenta || '', filtros.numero || '');
+      const rawVal = this.busquedaForm.getRawValue();
+      this.cargarHistorialComprobantes(rawVal.tipo || 'FC', rawVal.letra || '', rawVal.puntoVenta || '', rawVal.numero || '');
     }
     this.modalHistorialVisible = true;
     this.cdr.detectChanges();
@@ -2191,13 +2459,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const tipo = (this.busquedaForm?.value?.tipo || 'FC').toUpperCase();
-    const letra = (this.busquedaForm?.value?.letra || '').toUpperCase();
-    const ptovta = this.busquedaForm?.value?.puntoVenta || '';
-    const numero = this.busquedaForm?.value?.numero || '';
+    const rawVal = this.busquedaForm?.getRawValue() || {};
+    const tipo = (rawVal.tipo || 'FC').toUpperCase();
+    const letra = (rawVal.letra || '').toUpperCase();
+    const ptovta = rawVal.puntoVenta || '';
+    const numero = rawVal.numero || '';
     const fechaHoy = new Date().toISOString().split('T')[0];
 
-    const filename = `Historial_Comprobantes_${tipo}_${letra}_${ptovta}_${numero}_${fechaHoy}.xlsx`;
+    const filename = tipo === 'RC'
+      ? `Historial_Comprobantes_${tipo}_${numero}_${fechaHoy}.xlsx`
+      : `Historial_Comprobantes_${tipo}_${letra}_${ptovta}_${numero}_${fechaHoy}.xlsx`;
 
     const infoBuscado = {
       tipo,
@@ -2209,7 +2480,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     // Telemetría / Usabilidad
     this.auditoriaService.registrarMetricaUsabilidad({
       usuario: this.authService.obtenerUsuario(),
-      documentoReferencia: `${tipo}-${letra}-${ptovta}-${numero}`,
+      documentoReferencia: tipo === 'RC' ? `RC-${numero}` : `${tipo}-${letra}-${ptovta}-${numero}`,
       evento: 'EXPORTACION_EXCEL_HISTORIAL',
       fechaHora: new Date().toISOString(),
       cantidadRegistrosPendientes: this.filasHistorialComprobantes.length
@@ -2226,19 +2497,24 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   esDocumentoBuscado(fila: any): boolean {
-    if (!fila || !this.busquedaForm || !this.busquedaForm.value) return false;
+    if (!fila || !this.busquedaForm) return false;
     // Los placeholders de ND de ajuste IVA nunca se resaltan
     if (fila.placeholderNdAjusteIva) return false;
 
-    const tipo = (this.busquedaForm.value.tipo || '').toUpperCase();
-    const letra = (this.busquedaForm.value.letra || '').toUpperCase();
-    const ptovta = Number(this.busquedaForm.value.puntoVenta);
-    const numero = Number(this.busquedaForm.value.numero);
-
+    const rawVal = this.busquedaForm.getRawValue();
+    const tipo = (rawVal.tipo || '').toUpperCase();
+    const numero = Number(rawVal.numero);
     const filaTipo = this.obtenerTipoDisplay(fila.tipoDocumento).toUpperCase();
+    const filaNumero = Number(fila.numero);
+
+    if (tipo === 'RC') {
+      return (filaTipo === 'RC' || (fila.tipoDocumento || '').toUpperCase() === 'RC') && filaNumero === numero;
+    }
+
+    const letra = (rawVal.letra || '').toUpperCase();
+    const ptovta = Number(rawVal.puntoVenta);
     const filaLetra = (fila.letra || '').toUpperCase();
     const filaPtovta = Number(fila.puntoVenta);
-    const filaNumero = Number(fila.numero);
 
     if (filaLetra !== letra || filaPtovta !== ptovta || filaNumero !== numero) {
       return false;

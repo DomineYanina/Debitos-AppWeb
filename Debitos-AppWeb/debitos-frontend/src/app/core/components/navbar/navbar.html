@@ -1,0 +1,145 @@
+<header class="app-navbar" *ngIf="mostrarNavbar">
+  <div class="navbar-container">
+
+    <!-- Lado Izquierdo: Branding & Rol -->
+    <div class="navbar-left">
+      <a routerLink="/auditoria" class="navbar-brand">
+        <span class="brand-title">Débitos</span>
+      </a>
+
+      <div class="role-badge" [class.badge-admin]="rolActual === 'ADMIN'" [class.badge-simulated]="rolSimulado">
+        <span *ngIf="rolActual === 'ADMIN' && !rolSimulado">ADMIN</span>
+        <span *ngIf="rolSimulado">VISTA: {{ rolSimulado }}</span>
+        <span *ngIf="rolActual !== 'ADMIN' && !rolSimulado">{{ rolActual }}</span>
+      </div>
+    </div>
+
+    <!-- Centro: Navegación & Selector de Simulación (para Admin) -->
+    <div class="navbar-center">
+      <nav class="nav-links">
+        <a routerLink="/auditoria" routerLinkActive="active-link" class="nav-item">
+          <span class="nav-label">Buscador de Documentos</span>
+        </a>
+      </nav>
+
+      <!-- Selector exclusivo para Administrador: Ver como otro rol -->
+      <div class="role-switcher-container" *ngIf="esAdminReal">
+        <span class="switcher-label">Ver como:</span>
+        <select class="role-select" [ngModel]="rolSimulado ? rolSimulado : 'REAL'"
+          (ngModelChange)="cambiarRolSimulado($event)">
+          <option value="REAL">Administrador (Actual)</option>
+          <option *ngFor="let rol of rolesDisponibles" [value]="rol">
+            {{ formatearNombreRol(rol) }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Lado Derecho: Tour Guiado, Notificaciones & Menú de Perfil -->
+    <div class="navbar-right">
+
+      <!-- Botón Ver Tour Guiado -->
+      <button type="button" class="btn-navbar-tour" (click)="iniciarTourGuiado()"
+        title="Iniciar Tour Guiado interactivo">
+        <span class="tour-label">Ver Tour Guiado</span>
+      </button>
+
+      <!-- Campana de Notificaciones (para Admin) -->
+      <div class="notification-wrapper" *ngIf="esAdminReal || rolActual === 'ADMIN'">
+        <button class="btn-icon-bell" (click)="toggleNotificaciones($event)"
+          title="Notificaciones de ingresos de comprobantes">
+          <span class="bell-icon">🔔</span>
+          <span class="notification-badge" *ngIf="noLeidasCount > 0">
+            {{ noLeidasCount > 99 ? '99+' : noLeidasCount }}
+          </span>
+        </button>
+
+        <!-- Dropdown de Notificaciones -->
+        <div class="dropdown-panel notification-dropdown" *ngIf="notificacionesAbiertas"
+          (click)="$event.stopPropagation()">
+          <div class="dropdown-header">
+            <div class="dropdown-header-title">
+              <span class="header-icon">🔔</span>
+              <h4>Notificaciones</h4>
+            </div>
+            <button class="btn-mark-all" (click)="marcarTodasComoLeidas($event)">
+              ✓ Ver todas
+            </button>
+          </div>
+
+          <div class="notification-list">
+            <div *ngIf="notificaciones.length === 0" class="empty-notifications">
+              <span class="empty-icon">📭</span>
+              <p>No hay notificaciones registradas</p>
+            </div>
+
+            <div *ngFor="let notif of notificaciones" class="notification-item" [class.unread]="!notif.leida"
+              [class.read]="notif.leida" (click)="abrirComprobante(notif)">
+
+              <div class="notif-doc-badge"
+                [class.badge-nc]="notif.tipoDoc === 'NC' && notif.tipoNotificacion !== 'DOC_NO_ENCONTRADO'"
+                [class.badge-nd]="notif.tipoDoc === 'ND' && notif.tipoNotificacion !== 'DOC_NO_ENCONTRADO'"
+                [class.badge-faltante]="notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO'">
+                {{ (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') ? 'AUSENTE'
+                : (notif.tipoDoc || 'DOC') }}
+              </div>
+
+              <div class="notif-content">
+                <div class="notif-header-line">
+                  <span class="notif-user">
+                    {{ notif.usuario }}
+                    <span class="new-dot-pill" *ngIf="!notif.leida">● NUEVA</span>
+                  </span>
+                  <span class="notif-time">{{ formatearFecha(notif.fechaHora) }}</span>
+                </div>
+                <p class="notif-msg">{{ notif.mensaje }}</p>
+                <div class="notif-actions">
+                  <button class="btn-view-doc">
+                    {{ (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') ? 'Ver
+                    Reporte ➔' : 'Ver en Auditoría ➔' }}
+                  </button>
+                  <button class="btn-mark-read" *ngIf="!notif.leida" (click)="marcarComoLeida(notif, $event)">
+                    ✓ Marcar vista
+                  </button>
+                  <span class="label-already-read" *ngIf="notif.leida">
+                    ✓ Vista
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Menú de Usuario -->
+      <div class="user-menu-wrapper">
+        <button class="btn-user-profile" (click)="toggleMenuUsuario($event)">
+          <div class="user-avatar">{{ usuarioLogueado.charAt(0).toUpperCase() }}</div>
+          <span class="user-name">{{ usuarioLogueado }}</span>
+          <span class="dropdown-chevron">▼</span>
+        </button>
+
+        <!-- Dropdown de Usuario -->
+        <div class="dropdown-panel user-dropdown" *ngIf="menuUsuarioAbierto" (click)="$event.stopPropagation()">
+          <div class="user-info-card">
+            <div class="avatar-large">{{ usuarioLogueado.charAt(0).toUpperCase() }}</div>
+            <div class="user-info-text">
+              <strong>{{ usuarioLogueado }}</strong>
+              <small *ngIf="mostrarSubtituloRol">{{ formatearNombreRol(rolActual) }}</small>
+            </div>
+          </div>
+
+          <div class="dropdown-divider"></div>
+
+          <button class="dropdown-item logout-item" (click)="onLogout()">
+            <span class="item-icon">🚪</span>
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</header>

@@ -117,4 +117,15 @@ public class AuthController {
                     .body("Error interno al modificar la contraseña: " + e.getMessage());
         }
     }
+
+    @GetMapping("/roles")
+    public ResponseEntity<java.util.List<String>> obtenerRoles() {
+        try {
+            java.util.List<String> roles = usuarioRepository.findDistinctRolesNoAdmin();
+            return ResponseEntity.ok(roles);
+        } catch (Exception e) {
+            log.error("Error al obtener la lista de roles: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

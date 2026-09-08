@@ -89,8 +89,8 @@ public class AuditoriaController {
     @GetMapping("/historial-comprobantes")
     public ResponseEntity<List<com.debitos.backend.dto.FilaHistorialDTO>> obtenerHistorialComprobantes(
             @RequestParam String tipo,
-            @RequestParam String letra,
-            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam(required = false) String letra,
+            @RequestParam(name = "puntoVenta", required = false) Integer ptovta,
             @RequestParam int numero) {
         List<com.debitos.backend.dto.FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes(tipo, letra, ptovta, numero);
         return ResponseEntity.ok(historial);
@@ -99,8 +99,8 @@ public class AuditoriaController {
     @GetMapping("/buscar")
     public ResponseEntity<?> buscar(
             @RequestParam String tipo,
-            @RequestParam String letra,
-            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam(required = false) String letra,
+            @RequestParam(name = "puntoVenta", required = false) Integer ptovta,
             @RequestParam int numero) {
 
         com.debitos.backend.dto.ResultadoBusquedaDTO resultado = auditoriaService.buscarUnificado(tipo, letra, ptovta, numero);

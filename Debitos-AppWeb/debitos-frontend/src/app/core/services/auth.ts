@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -9,6 +9,15 @@ import { environment } from '../../../environments/environment';
 export class AuthService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/api/auth`;
+
+  private autenticadoSubject = new BehaviorSubject<boolean>(this.isLoggedIn());
+  public autenticado$ = this.autenticadoSubject.asObservable();
+
+  private rolSimuladoSubject = new BehaviorSubject<string | null>(null);
+  public rolSimulado$ = this.rolSimuladoSubject.asObservable();
+
+  private rolActualSubject = new BehaviorSubject<string>(this.obtenerRol());
+  public rolActual$ = this.rolActualSubject.asObservable();
 
   login(credenciales: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/login`, credenciales);
@@ -28,6 +37,9 @@ export class AuthService {
     if (rol) {
       localStorage.setItem('rol', rol);
     }
+    this.rolSimuladoSubject.next(null);
+    this.rolActualSubject.next(this.obtenerRol());
+    this.autenticadoSubject.next(true);
   }
 
   isLoggedIn(): boolean {
@@ -38,14 +50,37 @@ export class AuthService {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('rol');
+    this.rolSimuladoSubject.next(null);
+    this.rolActualSubject.next('');
+    this.autenticadoSubject.next(false);
   }
 
   obtenerUsuario(): string {
-    return localStorage.getItem('usuario') || 'Desconocido';
+    if (!this.isLoggedIn()) return '';
+    return localStorage.getItem('usuario') || '';
+  }
+
+  obtenerRolReal(): string {
+    if (!this.isLoggedIn()) return '';
+    return (localStorage.getItem('rol') || '').toUpperCase();
   }
 
   obtenerRol(): string {
-    return (localStorage.getItem('rol') || 'OPERADOR').toUpperCase();
+    if (!this.isLoggedIn()) return '';
+    const simulado = this.rolSimuladoSubject.value;
+    if (simulado && simulado.trim().length > 0) {
+      return simulado.toUpperCase();
+    }
+    return this.obtenerRolReal();
+  }
+
+  simularRol(rol: string | null) {
+    this.rolSimuladoSubject.next(rol);
+    this.rolActualSubject.next(this.obtenerRol());
+  }
+
+  esAdminReal(): boolean {
+    return this.obtenerRolReal() === 'ADMIN';
   }
 
   hasRole(rol: string): boolean {
@@ -62,4 +97,9 @@ export class AuthService {
   isAdmin(): boolean {
     return this.hasRole('ADMIN');
   }
+
+  obtenerRolesDisponibles(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}/roles`);
+  }
 }
+

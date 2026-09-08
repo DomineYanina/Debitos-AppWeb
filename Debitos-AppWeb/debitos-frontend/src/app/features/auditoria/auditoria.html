@@ -1,47 +1,46 @@
 <div class="auditoria-container">
-  <header class="page-header">
-    <h2>Buscador de Documentos</h2>
-    <div class="header-actions">
-      <button class="btn-tour-help" (click)="reproducirTourCompleto()">Ver Tour Guiado</button>
-      <button class="btn-logout" (click)="onLogout()">Cerrar Sesión</button>
-    </div>
-  </header>
-
   <section class="busqueda-section">
     <form [formGroup]="busquedaForm" (ngSubmit)="onBuscar()" class="fila-filtros">
-      <div class="form-group">
+      <div class="form-group col-tipo">
         <label for="tipo">Tipo</label>
         <select id="tipo" formControlName="tipo">
           <option value="">Seleccionar...</option>
           <option value="FC">Factura (FC)</option>
           <option value="NC">Nota de Crédito (NC)</option>
           <option value="ND">Nota de Débito (ND)</option>
+          <option value="RC">Recibo (RC)</option>
         </select>
       </div>
 
-      <div class="form-group">
+      <div class="form-group col-letra">
         <label for="letra">Letra</label>
         <input id="letra" type="text" formControlName="letra" placeholder="A, B, C..." maxlength="1"
           style="text-transform: uppercase;" (input)="validarLetraInput($event, 'busqueda')">
       </div>
 
-      <div class="form-group">
+      <div class="form-group col-ptovta">
         <label for="puntoVenta">Pto. Venta</label>
         <input id="puntoVenta" type="number" formControlName="puntoVenta" placeholder="Ej: 10">
       </div>
 
-      <div class="form-group">
+      <div class="form-group col-numero">
         <label for="numero">Número</label>
         <input id="numero" type="number" formControlName="numero" placeholder="Ej: 12345678">
       </div>
+
 
       <div class="form-group btn-container">
         <button type="submit" [disabled]="cargando" class="btn-buscar">
           {{ cargando ? 'Buscando...' : 'Buscar' }}
         </button>
+        <button type="button" class="btn-limpiar" [disabled]="!haRealizadoBusqueda || cargando"
+          (click)="onLimpiarBusqueda()" title="Limpiar búsqueda y restablecer vista">
+          Limpiar búsqueda
+        </button>
       </div>
     </form>
   </section>
+
 
   <section class="filtros-dinamicos-section" *ngIf="prestaciones.length > 0">
     <div class="filtros-grid">
@@ -198,9 +197,9 @@
           Nota de Débito</button>
       </ng-container>
 
-      <!-- Botón para abrir el modal de Historial de Comprobantes (visible para búsquedas FC, NC, ND) -->
+      <!-- Botón para abrir el modal de Historial de Comprobantes (visible para búsquedas FC, NC, ND, RC) -->
       <button class="btn-accion-doc btn-ver-docs"
-        *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'NC' || tipoBusquedaRealizada === 'ND'"
+        *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'NC' || tipoBusquedaRealizada === 'ND' || tipoBusquedaRealizada === 'RC'"
         (click)="abrirModalHistorialComprobantes()">
         📋 Ver historial ({{ cantidadHistorial }})
       </button>
@@ -325,7 +324,16 @@
     </div>
 
     <ng-template #sinDatos>
-      <div class="grilla-placeholder" *ngIf="busquedaForm.dirty">
+      <div class="grilla-placeholder" *ngIf="haRealizadoBusqueda && tipoBusquedaRealizada === 'RC'">
+        <div style="text-align: center; padding: 25px 20px;">
+          <h3 style="color: #1e293b; margin-bottom: 8px; font-size: 1.15rem; font-weight: 600;">Recibo (RC) consultado</h3>
+          <p style="color: #64748b; margin-bottom: 16px; font-size: 0.95rem;">Se cargó el comprobante y su árbol de documentos asociados.</p>
+          <button type="button" class="btn-accion-doc btn-ver-docs" (click)="abrirModalHistorialComprobantes()" style="font-size: 0.95rem; padding: 8px 18px; margin: 0 auto; display: inline-flex; align-items: center; gap: 6px;">
+            📋 Ver historial de comprobantes asociados ({{ cantidadHistorial }})
+          </button>
+        </div>
+      </div>
+      <div class="grilla-placeholder" *ngIf="busquedaForm.dirty && tipoBusquedaRealizada !== 'RC'">
         <p>No se encontraron prestaciones para este documento.</p>
       </div>
     </ng-template>
@@ -609,7 +617,10 @@
             </ng-container>
             <ng-container *ngIf="ncGuardadaExitosamente">
               <ng-container *ngIf="!editandoNcAjusteIva">
-                <button type="button" class="btn-modal-cancelar" (click)="cerrarModalNuevaNota()">Cancelar</button>
+                <button type="button" class="btn-modal-cancelar" [disabled]="true"
+                  title="La Nota de Crédito ya fue guardada. Haga clic en Editar para modificarla o cancelar edición.">
+                  Cancelar
+                </button>
                 <button type="button" class="btn-modal-editar" (click)="iniciarEdicionNcAjusteIva()"
                   [disabled]="cargando">
                   ✏️ Editar
@@ -812,9 +823,73 @@
       </div>
       <div class="modal-body">
         <p class="texto-modal">{{ modalAlertaMensaje }}</p>
+
+        <!-- Mensaje de éxito tras notificar al Administrador -->
+        <div *ngIf="notificacionAdminEnviada" class="alerta-notif-enviada">
+          <span class="icono-check">✓</span>
+          <div>
+            <strong>¡Notificación enviada!</strong> Se ha avisado a los Administradores sobre la ausencia de este
+            documento.
+          </div>
+        </div>
       </div>
-      <div class="modal-footer" style="justify-content: center;">
+      <div class="modal-footer" style="justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button *ngIf="esDocumentoNoEncontrado && !notificacionAdminEnviada && !esAdmin" type="button" class="btn-notificar-admin"
+          (click)="notificarAdminDocumentoNoEncontrado()" [disabled]="enviandoNotificacionAdmin"
+          title="Enviar una notificación al panel de los Administradores reportando este comprobante">
+          <span *ngIf="!enviandoNotificacionAdmin">Notificar a Administradores</span>
+          <span *ngIf="enviandoNotificacionAdmin">Enviando notificación...</span>
+        </button>
         <button class="btn-modal-aceptar" (click)="cerrarModalAlerta()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal dedicado para Administradores: Reporte de Documento Ausente -->
+  <div class="modal-overlay" *ngIf="modalReporteDocAusenteVisible">
+    <div class="modal-box" style="width: 540px;">
+      <div class="modal-header"
+        style="display: flex; align-items: center; gap: 10px; background: #fef2f2; border-bottom: 1px solid #fecaca;">
+        <h3 style="color: #991b1b; margin: 0; font-size: 1.1rem; font-weight: 700;">Reporte de Documento Ausente</h3>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem;">
+        <p style="margin: 0 0 1.25rem 0; color: #475569; font-size: 0.93rem; line-height: 1.5;">
+          Un operador ha reportado que el siguiente comprobante no se encuentra registrado en la base de datos:
+        </p>
+
+        <div class="card-doc-ausente">
+          <div class="fila-dato-ausente">
+            <span class="label-dato">Comprobante Reportado:</span>
+            <span class="valor-dato valor-destacado">{{ docAusenteDetalle?.documentoCompleto }}</span>
+          </div>
+          <div class="fila-dato-ausente">
+            <span class="label-dato">Operador que Reportó:</span>
+            <span class="valor-dato" style="font-weight: 600; color: #0284c7;">{{ docAusenteDetalle?.usuario }}</span>
+          </div>
+          <div class="fila-dato-ausente">
+            <span class="label-dato">Fecha y Hora:</span>
+            <span class="valor-dato">{{ formatearFechaHora(docAusenteDetalle?.fechaHora) }}</span>
+          </div>
+          <div class="fila-dato-ausente" *ngIf="docAusenteDetalle?.mensaje">
+            <span class="label-dato">Detalle:</span>
+            <span class="valor-dato" style="font-size: 0.85rem; color: #64748b; max-width: 65%; text-align: right;">{{
+              docAusenteDetalle?.mensaje }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="textoCopiadoFeedback"
+          style="margin-top: 12px; padding: 6px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 0.84rem; color: #15803d; font-weight: 600; text-align: center; animation: fadeInModal 0.2s ease-out;">
+          Información del comprobante copiada al portapapeles
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-modal-cancelar" (click)="copiarDatosDocAusente()"
+          title="Copiar detalles del reporte">
+          📋 Copiar datos
+        </button>
+        <button type="button" class="btn-modal-aceptar" (click)="cerrarModalReporteDocAusente()">
+          Cerrar
+        </button>
       </div>
     </div>
   </div>
