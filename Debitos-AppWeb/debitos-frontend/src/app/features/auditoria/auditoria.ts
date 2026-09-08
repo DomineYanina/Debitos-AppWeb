@@ -2564,6 +2564,55 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.onBuscar();
   }
 
+  get filaFacturaRaiz(): any {
+    if (!this.filasHistorialComprobantes || this.filasHistorialComprobantes.length === 0) return null;
+    return this.filasHistorialComprobantes.find(f => f.nivel === 0) || this.filasHistorialComprobantes[0] || null;
+  }
+
+  get idGrupoActual(): number | string | null {
+    return this.filaFacturaRaiz?.idGrupo || null;
+  }
+
+  get idEstadoActual(): number {
+    return this.filaFacturaRaiz?.idEstado ?? 1;
+  }
+
+  cambiarEstadoGrupo(idGrupo: number | string, nuevoEstado: number, forzar: boolean = false) {
+    if (!idGrupo) {
+      this.mostrarAlerta('No se identificó el ID de grupo para este comprobante.', undefined, 'error');
+      return;
+    }
+
+    this.auditoriaService.cambiarEstadoGrupo(idGrupo, nuevoEstado, forzar).subscribe({
+      next: (res) => {
+        if (res.requiereConfirmacion) {
+          this.modalMensaje = res.mensajeAlerta || 'Los débitos no aceptados no coinciden con los importes refacturados. ¿Desea forzar el cierre del trámite de todas formas?';
+          this.modalAceptarCb = () => {
+            this.cerrarModal();
+            this.cambiarEstadoGrupo(idGrupo, nuevoEstado, true);
+          };
+          this.modalCancelarCb = () => this.cerrarModal();
+          this.modalVisible = true;
+          this.cdr.detectChanges();
+        } else if (res.exito) {
+          const accion = nuevoEstado === 2 ? 'finalizado' : 'reabierto';
+          this.mostrarAlerta(`El trámite fue ${accion} exitosamente.`, undefined, 'exito');
+          if (this.filaFacturaRaiz) {
+            this.filaFacturaRaiz.idEstado = nuevoEstado;
+          }
+          const rawVal = this.busquedaForm.getRawValue();
+          this.cargarHistorialComprobantes(rawVal.tipo || 'FC', rawVal.letra || '', rawVal.puntoVenta || '', rawVal.numero || '');
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        const errorMsg = err?.error?.mensaje || err?.message || 'Ocurrió un error al cambiar el estado del trámite.';
+        this.mostrarAlerta(errorMsg, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   guardarNuevaNotaBD() {
     if (this.nuevaNotaForm.invalid) {
       this.auditoriaService.registrarMetricaUsabilidad({

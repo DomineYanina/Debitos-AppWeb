@@ -37,6 +37,9 @@ public class FilaHistorialDTO {
     @JsonProperty("tienePrestaciones")
     private boolean tienePrestaciones = true;
 
+    private Long idGrupo;
+    private Integer idEstado;
+
     public FilaHistorialDTO() {}
 
     public FilaHistorialDTO(String tipoDocumento, String letra, Integer puntoVenta, Integer numero,
@@ -85,4 +88,10 @@ public class FilaHistorialDTO {
     public boolean isTienePrestaciones() { return tienePrestaciones; }
     public boolean getTienePrestaciones() { return tienePrestaciones; }
     public void setTienePrestaciones(boolean tienePrestaciones) { this.tienePrestaciones = tienePrestaciones; }
+
+    public Long getIdGrupo() { return idGrupo; }
+    public void setIdGrupo(Long idGrupo) { this.idGrupo = idGrupo; }
+
+    public Integer getIdEstado() { return idEstado; }
+    public void setIdEstado(Integer idEstado) { this.idEstado = idEstado; }
 }

@@ -30,6 +30,9 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
 
     List<Cabecera> findByAsociadogrupo(Long asociadogrupo);
 
+    @Query("SELECT c FROM Cabecera c WHERE c.asociadogrupo = :idGrupo OR c.grupo = :idGrupo OR c.id = :idGrupo")
+    List<Cabecera> findByGrupoOrAsociadogrupoOrId(@Param("idGrupo") Long idGrupo);
+
     @Query("SELECT c FROM Cabecera c WHERE UPPER(TRIM(c.tipo)) IN :tipos AND (c.asociadogrupo IN :grupos OR c.grupo IN :grupos OR c.asociado IN :grupos OR c.id IN :grupos) ORDER BY c.fecha DESC, c.numero DESC")
     List<Cabecera> findCandidatosPorTipoYGrupos(@Param("tipos") Collection<String> tipos, @Param("grupos") Collection<Long> grupos);
 

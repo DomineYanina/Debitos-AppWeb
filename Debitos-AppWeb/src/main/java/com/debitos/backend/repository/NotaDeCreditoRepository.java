@@ -27,6 +27,8 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     List<NotaDeCredito> findByCabecera_Id(Long idCabecera);
 
+    List<NotaDeCredito> findByCabecera_IdIn(java.util.Collection<Long> idCabeceras);
+
     Optional<NotaDeCredito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(String letra, Integer ptovta, Integer numero, Integer idPrestacion);
 
     Optional<NotaDeCredito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionIdAndDebitoaceptadoFalse(String letra, Integer ptovta, Integer numero, Integer idPrestacion);

@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Prestacion } from '../models/prestacion';
 import { DocumentoAsociado } from '../models/documento-asociado';
+import { CambioEstadoResponse } from '../models/cambio-estado-response';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -90,5 +91,11 @@ export class AuditoriaService {
 
   registrarMetricasLote(payloads: any[]) {
     return this.http.post(`${this.apiUrl}/telemetria/usabilidad/lote`, payloads);
+  }
+
+  cambiarEstadoGrupo(idGrupo: number | string, nuevoEstado: number, forzarCierre: boolean = false): Observable<CambioEstadoResponse> {
+    return this.http.put<CambioEstadoResponse>(`${this.apiUrl}/grupo/${idGrupo}/estado/${nuevoEstado}`, null, {
+      params: { forzarCierre }
+    });
   }
 }

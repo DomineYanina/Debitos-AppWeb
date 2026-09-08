@@ -47,6 +47,9 @@ public class Cabecera {
     @Column(name = "haber")
     private BigDecimal haber;
 
+    @Column(name = "id_estado")
+    private Integer idEstado = 1;
+
     @PrePersist
     @PreUpdate
     public void prePersist() {
@@ -223,5 +226,13 @@ public class Cabecera {
 
     public void setHaber(BigDecimal haber) {
         this.haber = haber;
+    }
+
+    public Integer getIdEstado() {
+        return idEstado;
+    }
+
+    public void setIdEstado(Integer idEstado) {
+        this.idEstado = idEstado;
     }
 }

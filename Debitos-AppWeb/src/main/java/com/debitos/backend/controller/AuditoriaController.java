@@ -1,5 +1,6 @@
 package com.debitos.backend.controller;
 
+import com.debitos.backend.dto.CambioEstadoResponse;
 import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.GuardarParcialRequest;
 import com.debitos.backend.dto.NuevaNotaCreditoRequest;
@@ -11,6 +12,7 @@ import com.debitos.backend.repository.RegistroUsabilidadRepository;
 import com.debitos.backend.service.AuditoriaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -153,5 +155,15 @@ public class AuditoriaController {
         // saveAll es muchísimo más rápido y eficiente para guardar muchos registros a la vez
         registroUsabilidadRepository.saveAll(metricas);
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/grupo/{idGrupo}/estado/{nuevoEstado}")
+    @PreAuthorize("hasAnyRole('OPERADOR', 'AUDITOR')")
+    public ResponseEntity<CambioEstadoResponse> cambiarEstadoGrupo(
+            @PathVariable Long idGrupo,
+            @PathVariable int nuevoEstado,
+            @RequestParam(defaultValue = "false") boolean forzarCierre) {
+        CambioEstadoResponse response = auditoriaService.cambiarEstadoGrupo(idGrupo, nuevoEstado, forzarCierre);
+        return ResponseEntity.ok(response);
     }
 }

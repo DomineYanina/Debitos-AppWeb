@@ -1,6 +1,7 @@
 package com.debitos.backend.service;
 
 import com.debitos.backend.dto.CabeceraCandidataDTO;
+import com.debitos.backend.dto.CambioEstadoResponse;
 import com.debitos.backend.dto.DatosNotaDTO;
 import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.FilaAjusteIvaResumenDTO;
@@ -421,6 +422,8 @@ public class AuditoriaService {
         );
         filaFc.setNivel(0);
         filaFc.setMontoIva(ivaFc);
+        filaFc.setIdGrupo(grupoId != null && grupoId != 0L ? grupoId : (raiz.getAsociadogrupo() != null ? raiz.getAsociadogrupo() : (raiz.getGrupo() != null ? raiz.getGrupo() : raiz.getId())));
+        filaFc.setIdEstado(raiz.getIdEstado() != null ? raiz.getIdEstado() : 1);
         boolean tienePrestacionesFc = raiz.getId() != null && !ambLiquidadoRepository.findByCabecera_Id(raiz.getId()).isEmpty();
         if (!tienePrestacionesFc && raiz.getLetra() != null && raiz.getPtovta() != null && raiz.getNumero() != null) {
             tienePrestacionesFc = !ambLiquidadoRepository.findPrestacionesPorFactura(raiz.getLetra(), raiz.getPtovta(), raiz.getNumero()).isEmpty();
@@ -695,6 +698,8 @@ public class AuditoriaService {
         fila.setPorcentajeIva(porcIva);
         fila.setMontoIva(montoIva);
         fila.setTienePrestaciones(tienePrestaciones);
+        fila.setIdGrupo(cab.getAsociadogrupo() != null ? cab.getAsociadogrupo() : (cab.getGrupo() != null ? cab.getGrupo() : cab.getId()));
+        fila.setIdEstado(cab.getIdEstado() != null ? cab.getIdEstado() : 1);
         return fila;
     }
 
@@ -1550,5 +1555,75 @@ public class AuditoriaService {
         boolean existeEnNcAjusteIva = ncAjusteDeIvaRepository.existsByTipoFcAndLetraFcAndPtovtaFcAndNumeroFc(tipoUpper, letraUpper, ptovtaFc, numeroFc);
         boolean existeEnNotaCredito = notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado(letraUpper, ptovtaFc, numeroFc);
         return existeEnNcAjusteIva || existeEnNotaCredito;
+    }
+
+    @Transactional
+    public CambioEstadoResponse cambiarEstadoGrupo(Long idGrupo, int nuevoEstado, boolean forzarCierre) {
+        if (idGrupo == null) {
+            throw new IllegalArgumentException("El ID de grupo no puede ser nulo.");
+        }
+
+        List<Cabecera> cabeceras = cabeceraRepository.findByGrupoOrAsociadogrupoOrId(idGrupo);
+        if (cabeceras.isEmpty()) {
+            Optional<Cabecera> cabOpt = cabeceraRepository.findById(idGrupo);
+            if (cabOpt.isPresent()) {
+                Cabecera c = cabOpt.get();
+                Long gId = c.getAsociadogrupo() != null ? c.getAsociadogrupo() : c.getGrupo();
+                if (gId != null && gId != 0L) {
+                    cabeceras = cabeceraRepository.findByGrupoOrAsociadogrupoOrId(gId);
+                }
+                if (cabeceras.isEmpty()) {
+                    cabeceras = List.of(c);
+                }
+            }
+        }
+
+        if (nuevoEstado == 1) {
+            // Reabrir: Actualiza a 1 sin validaciones
+            for (Cabecera c : cabeceras) {
+                c.setIdEstado(1);
+            }
+            cabeceraRepository.saveAll(cabeceras);
+            return new CambioEstadoResponse(false, null, true);
+        } else if (nuevoEstado == 2) {
+            // Finalizar:
+            // Regla de Negocio: Los débitos "No Aceptados" se identifican en la tabla notadecredito cuando la columna debitoaceptado es NULL.
+            // Validación: Calculá si hay diferencias entre la suma total de los débitos no aceptados (debitoaceptado IS NULL) y el total refacturado en la ND2 vinculada.
+            List<Long> cabeceraIds = cabeceras.stream()
+                    .map(Cabecera::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            List<NotaDeCredito> ncs = cabeceraIds.isEmpty() ? List.of() : notaDeCreditoRepository.findByCabecera_IdIn(cabeceraIds);
+            List<NotaDeDebito> nds = cabeceraIds.isEmpty() ? List.of() : notaDeDebitoRepository.findByCabecera_IdIn(cabeceraIds);
+
+            BigDecimal totalDebitosNoAceptados = ncs.stream()
+                    .filter(nc -> nc.getDebitoaceptado() == null)
+                    .map(nc -> nc.getImporteDebitado() != null ? nc.getImporteDebitado() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalRefacturado = nds.stream()
+                    .map(nd -> nd.getImporterefactura() != null ? nd.getImporterefactura() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal diferencia = totalDebitosNoAceptados.subtract(totalRefacturado).abs();
+            boolean montosCuadran = totalDebitosNoAceptados.compareTo(totalRefacturado) == 0;
+
+            if (!forzarCierre && !montosCuadran) {
+                String mensaje = String.format(
+                        "El total de débitos no aceptados ($ %.2f) no coincide con el total refacturado en la Nota de Débito ($ %.2f). Diferencia de saldo: $ %.2f. ¿Desea forzar el cierre del trámite?",
+                        totalDebitosNoAceptados, totalRefacturado, diferencia
+                );
+                return new CambioEstadoResponse(true, mensaje, false);
+            }
+
+            for (Cabecera c : cabeceras) {
+                c.setIdEstado(2);
+            }
+            cabeceraRepository.saveAll(cabeceras);
+            return new CambioEstadoResponse(false, null, true);
+        } else {
+            throw new IllegalArgumentException("Estado no reconocido: " + nuevoEstado);
+        }
     }
 }

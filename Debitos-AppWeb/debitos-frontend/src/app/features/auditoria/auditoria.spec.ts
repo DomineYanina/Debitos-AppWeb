@@ -30,9 +30,17 @@ describe('AuditoriaComponent', () => {
       verificarTieneNC: () => of([]),
       verificarTieneND: () => of([]),
       verificarTieneNCParaND: () => of(null),
-      obtenerDocumentoAsociadoParaNC: () => of(null)
+      obtenerDocumentoAsociadoParaNC: () => of(null),
+      obtenerHistorialComprobantes: () => of([]),
+      cambiarEstadoGrupo: () => of({ requiereConfirmacion: false, exito: true })
     };
-    authServiceSpy = { obtenerUsuario: () => 'tester', logout: () => {} };
+    authServiceSpy = {
+      obtenerUsuario: () => 'tester',
+      logout: () => {},
+      hasAnyRole: (roles: string[]) => true,
+      hasRole: (rol: string) => true,
+      isAdmin: () => false
+    };
     excelServiceSpy = { exportarPrestaciones: () => {}, exportarHistorialComprobantes: () => {} };
     routerSpy = { navigate: () => {} };
 
@@ -568,6 +576,93 @@ describe('AuditoriaComponent', () => {
       expect(colComentariosRefactura).toBeDefined();
       expect(typeof colComentariosRefactura?.tooltipValueGetter).toBe('function');
       expect((colComentariosRefactura?.tooltipValueGetter as any)({ value: 'Observación refactura' })).toBe('Observación refactura');
+    });
+  });
+
+  describe('Gestión de Estado de Conciliación (cambiarEstadoGrupo)', () => {
+    it('debería mostrar alerta de error si idGrupo no está presente', () => {
+      let alerta = '';
+      component.mostrarAlerta = (msg: string) => { alerta = msg; };
+
+      component.cambiarEstadoGrupo(0 as any, 2);
+
+      expect(alerta).toContain('No se identificó el ID de grupo');
+    });
+
+    it('debería abrir modal de confirmación si requiereConfirmacion es true', () => {
+      auditoriaServiceSpy.cambiarEstadoGrupo = (idGrupo: any, estado: any, forzar: boolean) => {
+        if (!forzar) {
+          return of({
+            requiereConfirmacion: true,
+            mensajeAlerta: 'Diferencia detectada: $ 500.00. ¿Desea forzar el cierre?',
+            exito: false
+          });
+        }
+        return of({
+          requiereConfirmacion: false,
+          mensajeAlerta: null,
+          exito: true
+        });
+      };
+
+      component.cambiarEstadoGrupo(10, 2, false);
+
+      expect(component.modalVisible).toBe(true);
+      expect(component.modalMensaje).toContain('Diferencia detectada');
+
+      // Al confirmar en el modal, debe ejecutar llamada recursiva con forzar = true
+      let alertaExito = '';
+      component.mostrarAlerta = (msg: string) => { alertaExito = msg; };
+
+      component.modalAceptarCb();
+
+      expect(component.modalVisible).toBe(false);
+      expect(alertaExito).toContain('finalizado exitosamente');
+    });
+
+    it('debería finalizar el trámite directamente si exito es true', () => {
+      auditoriaServiceSpy.cambiarEstadoGrupo = () => of({
+        requiereConfirmacion: false,
+        exito: true
+      });
+
+      let alertaExito = '';
+      component.mostrarAlerta = (msg: string) => { alertaExito = msg; };
+
+      component.cambiarEstadoGrupo(10, 2, false);
+
+      expect(alertaExito).toContain('finalizado exitosamente');
+    });
+
+    it('debería reabrir el trámite directamente cuando nuevoEstado es 1', () => {
+      auditoriaServiceSpy.cambiarEstadoGrupo = () => of({
+        requiereConfirmacion: false,
+        exito: true
+      });
+
+      let alertaExito = '';
+      component.mostrarAlerta = (msg: string) => { alertaExito = msg; };
+
+      component.cambiarEstadoGrupo(10, 1, false);
+
+      expect(alertaExito).toContain('reabierto exitosamente');
+    });
+
+    it('debería calcular correctamente filaFacturaRaiz, idGrupoActual e idEstadoActual', () => {
+      component.filasHistorialComprobantes = [
+        { tipoDocumento: 'FC', nivel: 0, idGrupo: 105, idEstado: 1 },
+        { tipoDocumento: 'NC', nivel: 1, idGrupo: 105, idEstado: 1 }
+      ];
+
+      expect(component.filaFacturaRaiz).toEqual({ tipoDocumento: 'FC', nivel: 0, idGrupo: 105, idEstado: 1 });
+      expect(component.idGrupoActual).toBe(105);
+      expect(component.idEstadoActual).toBe(1);
+    });
+
+    it('debería identificar roles sin permisos de cambio de estado (DIRECTORIO, CONSULTA, ADMIN)', () => {
+      authServiceSpy.hasAnyRole = (roles: string[]) => false;
+
+      expect(component.authService.hasAnyRole(['OPERADOR', 'AUDITOR'])).toBe(false);
     });
   });
 

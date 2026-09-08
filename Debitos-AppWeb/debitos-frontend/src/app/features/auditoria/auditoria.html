@@ -203,6 +203,34 @@
         (click)="abrirModalHistorialComprobantes()">
         📋 Ver historial ({{ cantidadHistorial }})
       </button>
+
+      <!-- Botón de Estado de Conciliación (Manejo del trámite) para roles OPERADOR / AUDITOR -->
+      <ng-container *ngIf="authService.hasAnyRole(['OPERADOR', 'AUDITOR']) && idGrupoActual">
+        <button *ngIf="(idEstadoActual ?? 1) === 1"
+          type="button"
+          class="btn-accion-doc btn-finalizar-tramite-main"
+          (click)="cambiarEstadoGrupo(idGrupoActual!, 2)"
+          title="Finalizar el trámite de conciliación para este grupo">
+          Finalizar Trámite
+        </button>
+        <button *ngIf="idEstadoActual === 2"
+          type="button"
+          class="btn-accion-doc btn-reabrir-tramite-main"
+          (click)="cambiarEstadoGrupo(idGrupoActual!, 1)"
+          title="Reabrir el trámite de conciliación para este grupo">
+          Reabrir Trámite
+        </button>
+      </ng-container>
+
+      <!-- Indicador visual del Estado de Conciliación para roles de solo lectura/consulta (DIRECTORIO, CONSULTA, ADMIN, etc.) -->
+      <ng-container *ngIf="!authService.hasAnyRole(['OPERADOR', 'AUDITOR']) && idGrupoActual">
+        <div class="estado-tramite-indicador-container"
+          [ngClass]="idEstadoActual === 2 ? 'estado-indicador-finalizado' : 'estado-indicador-pendiente'"
+          [title]="'Estado actual del trámite: ' + (idEstadoActual === 2 ? 'Trámite Finalizado' : 'Pendiente de conciliación')">
+          <span class="punto-estado"></span>
+          <span class="texto-estado">{{ idEstadoActual === 2 ? 'Trámite Finalizado' : 'Pendiente de conciliación' }}</span>
+        </div>
+      </ng-container>
     </div>
   </section>
 
@@ -946,6 +974,8 @@
                     <span *ngIf="fila.origenTipo === 'COB'" class="badge-origen badge-cob">COB</span>
                     <span *ngIf="fila.origenTipo === 'REF'" class="badge-origen badge-ref">REF</span>
                     <span *ngIf="fila.origenTipo === 'IVA'" class="badge-origen badge-iva">IVA</span>
+                    <span *ngIf="fila.nivel === 0 && (fila.idEstado ?? 1) === 1" class="badge-estado badge-estado-pendiente">Pendiente</span>
+                    <span *ngIf="fila.nivel === 0 && fila.idEstado === 2" class="badge-estado badge-estado-finalizado">Finalizado</span>
                   </div>
                 </td>
                 <td>{{ fila.letra }}</td>

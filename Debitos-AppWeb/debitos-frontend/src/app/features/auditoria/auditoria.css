@@ -2500,4 +2500,182 @@ tr.row-selected {
     overflow-y: visible;
   }
 }
+
+/* ==========================================================================
+   ESTADO DE CONCILIACIÓN (Botones y Badges)
+   ========================================================================== */
+.btn-estado-tramite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.btn-estado-tramite.btn-finalizar {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #ffffff;
+}
+
+.btn-estado-tramite.btn-finalizar:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  box-shadow: 0 3px 6px rgba(5, 150, 105, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-estado-tramite.btn-finalizar:active {
+  transform: translateY(0);
+}
+
+.btn-estado-tramite.btn-reabrir {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: #ffffff;
+}
+
+.btn-estado-tramite.btn-reabrir:hover {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+  box-shadow: 0 3px 6px rgba(217, 119, 6, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-estado-tramite.btn-reabrir:active {
+  transform: translateY(0);
+}
+
+.badge-estado {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.badge-estado-pendiente {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-estado-finalizado {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-finalizar-tramite-main {
+  width: 100%;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border: 1px solid #047857;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-finalizar-tramite-main:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  border-color: #065f46;
+  box-shadow: 0 3px 6px rgba(5, 150, 105, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-finalizar-tramite-main:active {
+  transform: translateY(0);
+}
+
+.btn-reabrir-tramite-main {
+  width: 100%;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  border: 1px solid #b45309;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-reabrir-tramite-main:hover {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+  border-color: #92400e;
+  box-shadow: 0 3px 6px rgba(217, 119, 6, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-reabrir-tramite-main:active {
+  transform: translateY(0);
+}
+
+.estado-tramite-indicador-container {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-align: center;
+  box-sizing: border-box;
+  user-select: none;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.estado-indicador-pendiente {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.estado-indicador-pendiente .punto-estado {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.25);
+  flex-shrink: 0;
+}
+
+.estado-indicador-finalizado {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.estado-indicador-finalizado .punto-estado {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+  flex-shrink: 0;
+}
+
+.texto-estado {
+  white-space: nowrap;
+}
+
+
+
 
