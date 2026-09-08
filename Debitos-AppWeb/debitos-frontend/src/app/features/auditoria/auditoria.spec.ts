@@ -3,9 +3,10 @@ import { AuditoriaComponent } from './auditoria';
 import { AuditoriaService } from '../../core/services/auditoria';
 import { AuthService } from '../../core/services/auth';
 import { ExcelExportService } from '../../core/services/excel-export';
+import { NotificacionService } from '../../core/services/notificacion.service';
 import { Router } from '@angular/router';
 import { ReactiveFormsModule } from '@angular/forms';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { Prestacion } from '../../core/models/prestacion';
 
 describe('AuditoriaComponent', () => {
@@ -15,6 +16,7 @@ describe('AuditoriaComponent', () => {
   // Usamos 'any' para hacer Mocks en JavaScript puro
   let auditoriaServiceSpy: any;
   let authServiceSpy: any;
+  let notificacionServiceSpy: any;
   let excelServiceSpy: any;
   let routerSpy: any;
 
@@ -30,8 +32,11 @@ describe('AuditoriaComponent', () => {
       verificarTieneNC: () => of([]),
       verificarTieneND: () => of([]),
       verificarTieneNCParaND: () => of(null),
+      verificarTieneNcAjusteIva: () => of(null),
+      verificarTieneNdAjusteIva: () => of(null),
       obtenerDocumentoAsociadoParaNC: () => of(null),
       obtenerHistorialComprobantes: () => of([]),
+      obtenerCabecerasDisponibles: () => of([]),
       cambiarEstadoGrupo: () => of({ requiereConfirmacion: false, exito: true })
     };
     authServiceSpy = {
@@ -39,7 +44,19 @@ describe('AuditoriaComponent', () => {
       logout: () => {},
       hasAnyRole: (roles: string[]) => true,
       hasRole: (rol: string) => true,
-      isAdmin: () => false
+      isAdmin: () => false,
+      isLoggedIn: () => false,
+      esAdminReal: () => false,
+      autenticado$: of(false)
+    };
+    notificacionServiceSpy = {
+      notificacionSeleccionada$: new Subject(),
+      notificaciones$: of([]),
+      noLeidasCount$: of(0),
+      reportarDocumentoNoEncontrado: () => of({}),
+      cargarNotificaciones: () => {},
+      iniciarPolling: () => {},
+      detenerPolling: () => {}
     };
     excelServiceSpy = { exportarPrestaciones: () => {}, exportarHistorialComprobantes: () => {} };
     routerSpy = { navigate: () => {} };
@@ -49,6 +66,7 @@ describe('AuditoriaComponent', () => {
       providers: [
         { provide: AuditoriaService, useValue: auditoriaServiceSpy },
         { provide: AuthService, useValue: authServiceSpy },
+        { provide: NotificacionService, useValue: notificacionServiceSpy },
         { provide: ExcelExportService, useValue: excelServiceSpy },
         { provide: Router, useValue: routerSpy }
       ]
@@ -269,8 +287,8 @@ describe('AuditoriaComponent', () => {
         colDef: { field: 'motivoDebito' },
         newValue: 'Falta firma',
         oldValue: '',
-        api: { refreshCells: jasmine.createSpy('refreshCells') },
-        node: { setDataValue: jasmine.createSpy('setDataValue') }
+        api: { refreshCells: () => {} },
+        node: { setDataValue: () => {} }
       };
 
       component.onCellValueChanged(eventMock);
@@ -291,8 +309,8 @@ describe('AuditoriaComponent', () => {
         colDef: { field: 'motivoDebito' },
         newValue: 'Falta firma',
         oldValue: '',
-        api: { refreshCells: jasmine.createSpy('refreshCells') },
-        node: { setDataValue: jasmine.createSpy('setDataValue') }
+        api: { refreshCells: () => {} },
+        node: { setDataValue: () => {} }
       };
 
       component.onCellValueChanged(eventMock);
@@ -311,8 +329,8 @@ describe('AuditoriaComponent', () => {
         colDef: { field: 'debitoAceptado' },
         newValue: 'NO',
         oldValue: '',
-        api: { refreshCells: jasmine.createSpy('refreshCells') },
-        node: { setDataValue: jasmine.createSpy('setDataValue') }
+        api: { refreshCells: () => {} },
+        node: { setDataValue: () => {} }
       };
 
       component.onCellValueChanged(eventMock);
@@ -456,8 +474,9 @@ describe('AuditoriaComponent', () => {
       component.tipoBusquedaRealizada = 'FC';
     });
 
-    it('debería impedir abrir el modal de NC si no hay motivos de débito cargados (Camino de Error)', () => {
-      component.prestaciones = [{ id: 1, motivoDebito: '' }] as any;
+    it('debería impedir abrir el modal de NC a partir de una ND con ajuste de IVA (Camino de Error)', () => {
+      component.tipoBusquedaRealizada = 'ND';
+      component.prestaciones = [{ id: 1, motivoRefactura: 'Por ajuste de IVA' }] as any;
       let alerta = '';
       component.mostrarAlerta = (msg: string) => alerta = msg;
 
@@ -465,7 +484,7 @@ describe('AuditoriaComponent', () => {
       component.abrirModalNuevaNota('NC');
 
       // VERIFICACIÓN
-      expect(alerta).toContain('No hay registros con Motivo de Débito cargado');
+      expect(alerta).toContain('No se puede generar una Nota de Crédito a partir de una Nota de Débito');
       expect(component.modalNuevaNotaVisible).toBe(false);
     });
 

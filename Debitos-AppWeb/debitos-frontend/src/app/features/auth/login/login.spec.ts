@@ -24,7 +24,8 @@ describe('LoginComponent', () => {
       cambiarClave: function(usuario: string, nuevaClave: string) {
         return this.cambiarClaveResult || of({ mensaje: 'ok' });
       },
-      guardarToken: function(token: string, usuario: string) {}
+      guardarToken: function(token: string, usuario: string) {},
+      logout: function() {}
     };
 
     await TestBed.configureTestingModule({

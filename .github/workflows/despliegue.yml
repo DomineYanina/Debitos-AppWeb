@@ -1,31 +1,48 @@
-name: Despliegue a Produccion
+﻿name: Despliegue a Produccion
 
 on:
   push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar el codigo del repositorio
-        uses: actions/checkout@v3
+      - name: Descargar codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: Debitos-AppWeb/debitos-frontend/package-lock.json
+
+      - name: Instalar dependencias del Frontend
+        working-directory: Debitos-AppWeb/debitos-frontend
+        run: npm ci
+
+      - name: Compilar Frontend Angular
+        working-directory: Debitos-AppWeb/debitos-frontend
+        run: npm run build -- --configuration production
 
       - name: Configurar Java 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
           cache-dependency-path: Debitos-AppWeb/pom.xml
 
-      - name: Compilar el proyecto con Maven
-        run: mvn clean package -DskipTests
+      - name: Compilar y empaquetar .jar (con Frontend integrado)
         working-directory: Debitos-AppWeb
+        run: mvn clean package -DskipTests
 
       - name: Subir el .jar al servidor por SFTP
-        if: github.ref == 'refs/heads/main'
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USERNAME }}
@@ -36,7 +53,6 @@ jobs:
           strip_components: 2
 
       - name: Reiniciar la aplicacion por SSH
-        if: github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.PROD_HOST }}
