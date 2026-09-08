@@ -1,10 +1,8 @@
 ﻿name: CI - Integracion Continua y Validacion
 
 on:
-  pull_request:
-    branches: [ main, develop, Despliegue ]
   push:
-    branches: [ develop, 'feature/**', 'fix/**', 'refactor/**' ]
+  pull_request:
 
 jobs:
   # ==========================================
@@ -57,5 +55,5 @@ jobs:
           cache: 'maven'
           cache-dependency-path: Debitos-AppWeb/pom.xml
 
-      - name: Compilar y ejecutar Tests con Maven
+      - name: Compilar y ejecutar Tests con Maven (H2 in-memory)
         run: mvn clean test
