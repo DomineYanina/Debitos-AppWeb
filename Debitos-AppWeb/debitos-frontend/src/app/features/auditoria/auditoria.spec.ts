@@ -6,8 +6,9 @@ import { ExcelExportService } from '../../core/services/excel-export';
 import { NotificacionService } from '../../core/services/notificacion.service';
 import { Router } from '@angular/router';
 import { ReactiveFormsModule } from '@angular/forms';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { Prestacion } from '../../core/models/prestacion';
+import { vi } from 'vitest';
 
 describe('AuditoriaComponent', () => {
   let component: AuditoriaComponent;
@@ -29,6 +30,7 @@ describe('AuditoriaComponent', () => {
       editarNcAjusteIva: () => of({}),
       guardarNuevaNotaDebito: () => of({}),
       registrarMetricaUsabilidad: () => of({}),
+      registrarMetricasLote: () => of({}),
       verificarTieneNC: () => of([]),
       verificarTieneND: () => of([]),
       verificarTieneNCParaND: () => of(null),
@@ -41,7 +43,7 @@ describe('AuditoriaComponent', () => {
     };
     authServiceSpy = {
       obtenerUsuario: () => 'tester',
-      logout: () => {},
+      logout: vi.fn(),
       hasAnyRole: (roles: string[]) => true,
       hasRole: (rol: string) => true,
       isAdmin: () => false,
@@ -58,7 +60,10 @@ describe('AuditoriaComponent', () => {
       iniciarPolling: () => {},
       detenerPolling: () => {}
     };
-    excelServiceSpy = { exportarPrestaciones: () => {}, exportarHistorialComprobantes: () => {} };
+    excelServiceSpy = {
+      exportarPrestaciones: vi.fn(),
+      exportarHistorialComprobantes: vi.fn(),
+    };
     routerSpy = { navigate: () => {} };
 
     await TestBed.configureTestingModule({
@@ -75,6 +80,10 @@ describe('AuditoriaComponent', () => {
     fixture = TestBed.createComponent(AuditoriaComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('debería crear el componente', () => {
@@ -685,5 +694,555 @@ describe('AuditoriaComponent', () => {
     });
   });
 
+  describe('Lógica de Historial de Comprobantes y Navegación', () => {
+    it('abrirModalHistorialComprobantes y cerrarModalHistorialComprobantes deberían alternar visibilidad', () => {
+      component.modalHistorialVisible = false;
+      component.abrirModalHistorialComprobantes();
+      expect(component.modalHistorialVisible).toBe(true);
+
+      component.cerrarModalHistorialComprobantes();
+      expect(component.modalHistorialVisible).toBe(false);
+    });
+
+    it('exportarHistorialAExcel debería validar filas y llamar a excelService', () => {
+      component.filasHistorialComprobantes = [];
+      let alerta = '';
+      component.mostrarAlerta = (msg: string) => { alerta = msg; };
+      component.exportarHistorialAExcel();
+      expect(alerta).toContain('No hay comprobantes en el historial');
+
+      component.filasHistorialComprobantes = [{ tipoDocumento: 'FC', letra: 'A', numero: 100 }];
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.exportarHistorialAExcel();
+      expect(excelServiceSpy.exportarHistorialComprobantes).toHaveBeenCalled();
+    });
+
+    it('esDocumentoBuscado debería comparar tipo, letra, ptovta y numero', () => {
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+
+      expect(component.esDocumentoBuscado({ tipoDocumento: 'FC', letra: 'A', puntoVenta: 1, numero: 100 })).toBe(true);
+      expect(component.esDocumentoBuscado({ tipoDocumento: 'FC', letra: 'B', puntoVenta: 1, numero: 100 })).toBe(false);
+      expect(component.esDocumentoBuscado({ placeholderNdAjusteIva: true })).toBe(false);
+
+      // Para tipo RC
+      component.busquedaForm.patchValue({ tipo: 'RC', numero: '50' });
+      expect(component.esDocumentoBuscado({ tipoDocumento: 'RC', numero: 50 })).toBe(true);
+      expect(component.esDocumentoBuscado({ tipoDocumento: 'RC', numero: 60 })).toBe(false);
+    });
+
+    it('cargarDocumentoDesdeHistorial debería cargar parámetros en busquedaForm y ejecutar búsqueda', () => {
+      const filaFC = { tipoDocumento: 'FC', letra: 'A', puntoVenta: 2, numero: 200, tienePrestaciones: true };
+      let busquedaEjecutada = false;
+      component.onBuscar = () => { busquedaEjecutada = true; };
+
+      component.cargarDocumentoDesdeHistorial(filaFC);
+      expect(component.busquedaForm.value.tipo).toBe('FC');
+      expect(Number(component.busquedaForm.value.numero)).toBe(200);
+      expect(busquedaEjecutada).toBe(true);
+
+      // Placeholder de ND
+      const filaPlaceholder = { placeholderNdAjusteIva: true };
+      let modalNdAbierto = false;
+      component.abrirModalCrearNdAjusteIvaDesdeTabla = () => { modalNdAbierto = true; };
+      component.cargarDocumentoDesdeHistorial(filaPlaceholder);
+      expect(modalNdAbierto).toBe(true);
+
+      // Fila de IVA ya existente
+      const filaIva = { origenTipo: 'IVA' };
+      busquedaEjecutada = false;
+      component.cargarDocumentoDesdeHistorial(filaIva);
+      expect(busquedaEjecutada).toBe(false);
+    });
+  });
+
+  describe('Lógica de Ajuste de IVA y Subtipos', () => {
+    it('onTipoNcChange debería reconfigurar validadores para ajuste de IVA y Refactura', () => {
+      component.nuevaNotaForm.patchValue({ tipoNc: 'Por ajuste de IVA' });
+      component.onTipoNcChange();
+      expect(component.nuevaNotaForm.get('subtipoIva')?.validator).toBeDefined();
+
+      component.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
+      component.onTipoNcChange();
+      expect(component.nuevaNotaForm.get('subtipoIva')?.validator).toBeNull();
+    });
+
+    it('onSubtipoIvaChange y calcularTotalesIvaPrestacional deberían calcular IVA según prestaciones', () => {
+      component.prestaciones = [
+        {
+          id: 1,
+          totalNeto: 1000,
+          coseguro: 0,
+          total: 1000,
+          motivoDebito: 'IVA mal facturado'
+        } as any
+      ];
+
+      component.nuevaNotaForm.patchValue({ subtipoIva: 'Prestacional', porcIva: 21 });
+      component.onSubtipoIvaChange();
+
+      expect(component.hasPrestacionesIvaMalFacturado).toBe(true);
+      expect(component.montoNetoPrestacional).toBe(1000);
+      expect(component.montoIvaCalculado).toBe(210);
+    });
+
+    it('onRadioOptionClick debería prevenir selección si está deshabilitado por ajuste IVA', () => {
+      component.deshabilitarPorAjusteIva = true;
+      const ev = new MouseEvent('click');
+      const preventSpy = vi.spyOn(ev, 'preventDefault');
+
+      component.onRadioOptionClick(ev, 'Por ajuste de IVA');
+      expect(preventSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('Lógica de Filtros, Limpieza y Exportación', () => {
+    it('limpiarFiltro debería reiniciar controles y aplicar filtros', () => {
+      component.filtroPaciente = 'Juan';
+      component.filtroFecha = '2025-01-01';
+
+      component.limpiarFiltro('paciente');
+      expect(component.filtroPaciente).toBe('');
+
+      component.limpiarFiltro('fecha');
+      expect(component.filtroFecha).toBe('');
+    });
+
+    it('exportarAExcel debería validar prestaciones y llamar a ExcelExportService', () => {
+      component.prestacionesFiltradas = [];
+      let alerta = '';
+      component.mostrarAlerta = (msg: string) => { alerta = msg; };
+
+      component.exportarAExcel();
+      expect(alerta).toContain('No hay datos');
+
+      component.prestacionesFiltradas = [{ id: 1, total: 100, debitoAceptado: 'SI' } as any];
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.exportarAExcel();
+      expect(excelServiceSpy.exportarPrestaciones).toHaveBeenCalled();
+    });
+  });
+
+  describe('Acciones Masivas Adicionales', () => {
+    it('aplicarImporteDebitadoMasivo debería asignar importe a las filas seleccionadas', () => {
+      const p1 = { id: 1, importeDebitado: undefined } as any;
+      component.registrosSeleccionados = [p1];
+      component.importeDebitadoMasivo = 250;
+
+      component.aplicarImporteDebitadoMasivo();
+      expect(p1.importeDebitado).toBe(250);
+      expect(component.importeDebitadoMasivo).toBeUndefined();
+    });
+
+    it('aplicarImporteRefacturaMasivo debería ignorar filas con débito aceptado SI', () => {
+      const p1 = { id: 1, debitoAceptado: 'SI', importeRefactura: undefined } as any;
+      const p2 = { id: 2, debitoAceptado: 'NO', importeRefactura: undefined } as any;
+      component.registrosSeleccionados = [p1, p2];
+      component.importeRefacturaMasivo = 500;
+
+      component.aplicarImporteRefacturaMasivo();
+      expect(p1.importeRefactura).toBeUndefined();
+      expect(p2.importeRefactura).toBe(500);
+    });
+
+    it('aplicarImporteRefacturaMasivo debería alertar si todas las filas tienen débito SI', () => {
+      const p1 = { id: 1, debitoAceptado: 'SI' } as any;
+      component.registrosSeleccionados = [p1];
+      component.importeRefacturaMasivo = 500;
+
+      let alerta = '';
+      component.mostrarAlerta = (msg: string) => { alerta = msg; };
+
+      component.aplicarImporteRefacturaMasivo();
+      expect(alerta).toContain('No se puede asignar un Importe de Refactura');
+    });
+
+    it('aplicarComentariosMasivo y aplicarComentariosDebitoMasivo deberían asignar comentarios a filas seleccionadas', () => {
+      const p1 = { id: 1, debitoAceptado: 'NO', motivoDebito: 'Motivo Test', comentarios: '', comentariosDebito: '' } as any;
+      component.registrosSeleccionados = [p1];
+
+      component.comentariosMasivo = 'Comentario refactura test';
+      component.aplicarComentariosMasivo();
+      expect(p1.comentarios).toBe('Comentario refactura test');
+
+      component.comentariosDebitoMasivo = 'Comentario debito test';
+      component.aplicarComentariosDebitoMasivo();
+      expect(p1.comentariosDebito).toBe('Comentario debito test');
+    });
+  });
+
+  describe('Cabeceras y Modo Manual para Notas de Ajuste IVA', () => {
+    it('cargarCabecerasDisponiblesNdIva debería solicitar cabeceras al backend', () => {
+      auditoriaServiceSpy.obtenerCabecerasDisponibles = vi.fn().mockReturnValue(of([
+        { id: 10, tipo: 'ND', letra: 'A', ptovta: 1, numero: 50, fecha: '2025-01-01' }
+      ]));
+
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.cargarCabecerasDisponiblesNdIva();
+
+      expect(auditoriaServiceSpy.obtenerCabecerasDisponibles).toHaveBeenCalledWith('ND', 'NC', 'A', '1', '100');
+      expect(component.cabecerasDisponiblesNdIva.length).toBe(1);
+      expect(component.cabeceraSeleccionadaIdNdIva).toBe(10);
+    });
+
+    it('alternarModoIngresoManual y alternarModoIngresoManualNdIva deberían limpiar selecciones', () => {
+      component.alternarModoIngresoManual(true);
+      expect(component.modoIngresoManual).toBe(true);
+      expect(component.cabeceraSeleccionadaId).toBeNull();
+
+      component.alternarModoIngresoManualNdIva(true);
+      expect(component.modoIngresoManualNdIva).toBe(true);
+      expect(component.cabeceraSeleccionadaIdNdIva).toBeNull();
+    });
+
+    it('abrirModalCrearNdAjusteIvaDesdeTabla debería pre-cargar datos desde filasResumenAjusteIva', () => {
+      component.filasResumenAjusteIva = [
+        { tipoDocumento: 'FC' },
+        { tipoDocumento: 'NC', letra: 'A', puntoVenta: 1, numero: 50, fechaDocumento: '2025-01-01', montoNeto: 1000, porcentajeIva: 21, montoIva: 210 }
+      ];
+
+      component.abrirModalCrearNdAjusteIvaDesdeTabla();
+      expect(component.soloCrearNdAjusteIva).toBe(true);
+      expect(component.modalNuevaNotaVisible).toBe(true);
+      expect(component.nuevaNotaForm.get('tipoNc')?.value).toBe('Por ajuste de IVA');
+    });
+  });
+
+  describe('Ordenamiento, Selección y Paginación', () => {
+    it('onSort debería alternar dirección y ordenar prestaciones', () => {
+      component.prestacionesFiltradas = [
+        { id: 1, total: 200 } as any,
+        { id: 2, total: 100 } as any
+      ];
+
+      component.onSort('total');
+      expect(component.columnaOrden).toBe('total');
+      expect(component.direccionOrden).toBe('asc');
+      expect(component.prestacionesFiltradas[0].total).toBe(100);
+
+      component.onSort('total');
+      expect(component.direccionOrden).toBe('desc');
+      expect(component.prestacionesFiltradas[0].total).toBe(200);
+
+      expect(component.getIcono('total')).toBe('▼');
+      expect(component.getIcono('otro')).toBe('');
+    });
+
+    it('toggleSelectAll y toggleRow deberían actualizar seleccionados', () => {
+      const p1 = { id: 1, seleccionada: false } as any;
+      component.prestacionesFiltradas = [p1];
+
+      const eventAll = { target: { checked: true } } as any;
+      component.toggleSelectAll(eventAll);
+      expect(p1.seleccionada).toBe(true);
+
+      const eventRow = { target: { checked: false } } as any;
+      component.toggleRow(p1, eventRow);
+      expect(p1.seleccionada).toBe(false);
+    });
+
+    it('actualizarPaginacion debería calcular páginas y recortar prestaciones', () => {
+      component.itemsPorPagina = 2;
+      component.prestacionesFiltradas = [
+        { id: 1 } as any,
+        { id: 2 } as any,
+        { id: 3 } as any
+      ];
+
+      component.paginaActual = 1;
+      component.actualizarPaginacion();
+      expect(component.totalPaginas).toBe(2);
+      expect(component.prestacionesPaginadas.length).toBe(2);
+    });
+  });
+
+  describe('Eventos de Ciclo de Vida, Cierre y Logout', () => {
+    it('alIntentarCerrar debería prevenir BeforeUnloadEvent si hay cambios pendientes', () => {
+      component.modificadosSinGuardar.add(1);
+      const fakeEvent = { preventDefault: vi.fn(), returnValue: '' } as any;
+
+      component.alIntentarCerrar(fakeEvent);
+      expect(fakeEvent.preventDefault).toHaveBeenCalled();
+      expect(fakeEvent.returnValue).toContain('Tenés cambios sin guardar');
+    });
+
+    it('onLogout debería bloquear salida si hay cambios sin guardar', () => {
+      component.modificadosSinGuardar.add(1);
+      let alerta = '';
+      component.mostrarAlerta = (msg: string) => { alerta = msg; };
+
+      component.onLogout();
+      expect(alerta).toContain('Tenés registros sin guardar');
+
+      component.modificadosSinGuardar.clear();
+      component.onLogout();
+      expect(authServiceSpy.logout).toHaveBeenCalled();
+    });
+
+    it('reproducirTourCompleto y reproducirTourDesdeAyuda deberían invocar TourService', () => {
+      const tourSpy = vi.spyOn((component as any).tourService, 'startFullTour');
+      component.prestaciones = [{ id: 1 } as any];
+
+      component.reproducirTourCompleto();
+      expect(tourSpy).toHaveBeenCalledWith(true);
+
+      component.isHelpDrawerOpen = true;
+      component.reproducirTourDesdeAyuda();
+      expect(component.isHelpDrawerOpen).toBe(false);
+      expect(tourSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('Edición y Guardado de NC/ND Ajuste de IVA', () => {
+    it('esPorcIvaDeshabilitadoEnNd y prevenirClickSiDeshabilitado deberían controlar interacciones', () => {
+      component.nuevaNotaForm.patchValue({
+        tipoNc: 'Por ajuste de IVA',
+        subtipoIva: 'No prestacional',
+        porcIva: 21
+      });
+
+      expect(component.esPorcIvaDeshabilitadoEnNd(21)).toBe(true);
+      expect(component.esPorcIvaDeshabilitadoEnNd(10.5)).toBe(false);
+
+      const ev = new MouseEvent('click');
+      const preventSpy = vi.spyOn(ev, 'preventDefault');
+      component.prevenirClickSiDeshabilitado(ev, true);
+      expect(preventSpy).toHaveBeenCalled();
+    });
+
+    it('iniciarEdicionNcAjusteIva y cancelarEdicionNcAjusteIva deberían alternar estados del formulario', () => {
+      component.datosNcCreada = {
+        tipo: 'NC',
+        letra: 'A',
+        puntoVenta: 1,
+        numero: 10,
+        fecha: '2025-01-01',
+        tipoNc: 'Por ajuste de IVA',
+        subtipoIva: 'No prestacional',
+        netoNc: 1000,
+        porcIva: 21,
+        ivaNc: 210
+      };
+
+      component.iniciarEdicionNcAjusteIva();
+      expect(component.editandoNcAjusteIva).toBe(true);
+      expect(component.nuevaNotaForm.enabled).toBe(true);
+
+      component.cancelarEdicionNcAjusteIva();
+      expect(component.editandoNcAjusteIva).toBe(false);
+      expect(component.nuevaNotaForm.disabled).toBe(true);
+    });
+
+    it('guardarEdicionNcAjusteIva debería validar formulario y enviar payload', () => {
+      auditoriaServiceSpy.editarNcAjusteIva = vi.fn().mockReturnValue(of({}));
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.nuevaNotaForm.patchValue({
+        tipo: 'NC',
+        letra: 'A',
+        puntoVenta: '1',
+        numero: '10',
+        fecha: '2025-01-01',
+        tipoNc: 'Por ajuste de IVA',
+        subtipoIva: 'No prestacional',
+        netoNc: 1000,
+        porcIva: 21,
+        ivaNc: 210
+      });
+
+      component.guardarEdicionNcAjusteIva();
+      expect(auditoriaServiceSpy.editarNcAjusteIva).toHaveBeenCalled();
+      expect(component.editandoNcAjusteIva).toBe(false);
+    });
+
+    it('guardarNotaDebitoAjusteIva debería enviar payload completo de ND', () => {
+      auditoriaServiceSpy.guardarNuevaNotaDebitoAjusteIva = vi.fn().mockReturnValue(of({}));
+      component.datosNcCreada = {
+        tipo: 'NC',
+        letra: 'A',
+        puntoVenta: '1',
+        numero: '10'
+      };
+      component.netoAjusteIva = 1000;
+      component.montoIvaNdCalculado = 105;
+      component.nuevaNotaDebitoIvaForm.patchValue({
+        tipo: 'ND',
+        letra: 'A',
+        puntoVenta: '1',
+        numero: '11',
+        fecha: '2025-01-01',
+        porcIva: 10.5,
+        ivaNd: 105
+      });
+
+      component.guardarNotaDebitoAjusteIva();
+      expect(auditoriaServiceSpy.guardarNuevaNotaDebitoAjusteIva).toHaveBeenCalled();
+      expect(component.modalNuevaNotaVisible).toBe(false);
+    });
+  });
+
+  describe('Documento Ausente y Copiado', () => {
+    it('copiarDatosDocAusente debería usar clipboard API y mostrar feedback', async () => {
+      const writeTextSpy = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: writeTextSpy
+        }
+      });
+
+      component.docAusenteDetalle = {
+        documentoCompleto: 'FC A-0001-00000100',
+        tipo: 'FC',
+        letra: 'A',
+        puntoVenta: 1,
+        numero: 100,
+        usuario: 'tester',
+        fechaHora: '2025-01-01T10:00:00Z',
+        mensaje: 'Falta comprobante'
+      };
+
+      component.copiarDatosDocAusente();
+      await Promise.resolve();
+      expect(writeTextSpy).toHaveBeenCalled();
+      expect(component.textoCopiadoFeedback).toBe(true);
+
+      component.cerrarModalReporteDocAusente();
+      expect(component.modalReporteDocAusenteVisible).toBe(false);
+    });
+  });
+
+  describe('Guardado Parcial y Telemetría Store-and-Forward', () => {
+    it('guardarParcialmente debería enviar cambios pendientes al backend', () => {
+      auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(of({ exito: true }));
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      const p1 = { id: 1, motivoDebito: 'Motivo 1', debitoAceptado: 'SI' } as any;
+      component.prestaciones = [p1];
+      component.modificadosSinGuardar.add(1);
+
+      component.guardarParcialmente(false);
+      expect(auditoriaServiceSpy.guardarParcialmente).toHaveBeenCalled();
+      expect(component.modificadosSinGuardar.size).toBe(0);
+    });
+
+    it('guardarParcialmente con error status 0 debería almacenar en localStorage', () => {
+      const errorResponse = { status: 0 };
+      auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(throwError(() => errorResponse));
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      const p1 = { id: 1, motivoDebito: 'Motivo 1', debitoAceptado: 'SI' } as any;
+      component.prestaciones = [p1];
+      component.modificadosSinGuardar.add(1);
+
+      component.guardarParcialmente(false);
+      const pendientes = localStorage.getItem('telemetria_pendientes');
+      expect(pendientes).toBeDefined();
+    });
+
+    it('actualizarValidadoresTipo para RC debería deshabilitar letra y punto de venta', () => {
+      component.actualizarValidadoresTipo('RC');
+      expect(component.busquedaForm.get('letra')?.disabled).toBe(true);
+      expect(component.busquedaForm.get('puntoVenta')?.disabled).toBe(true);
+
+      component.actualizarValidadoresTipo('FC');
+      expect(component.busquedaForm.get('letra')?.enabled).toBe(true);
+      expect(component.busquedaForm.get('puntoVenta')?.enabled).toBe(true);
+    });
+
+    it('onCellValueChanged para importes con coma debería convertirlo a número decimal', () => {
+      const p: any = { id: 1 };
+      const event: any = {
+        data: p,
+        colDef: { field: 'importeDebitado' },
+        newValue: '123,45',
+        oldValue: ''
+      };
+
+      component.onCellValueChanged(event);
+      expect(p.importeDebitado).toBe(123.45);
+    });
+
+    it('onCellValueChanged para motivoRefactura en fila con debito SI debería bloquearse', () => {
+      const p: any = { id: 1, debitoAceptado: 'SI' };
+      let alerta = '';
+      component.mostrarAlerta = (msg: string) => { alerta = msg; };
+      const event: any = {
+        data: p,
+        colDef: { field: 'motivoRefactura' },
+        newValue: 'Refactura 1',
+        oldValue: '',
+        node: { setDataValue: vi.fn() },
+        api: { refreshCells: vi.fn() }
+      };
+
+      component.onCellValueChanged(event);
+      expect(alerta).toContain('No se puede asignar Motivo');
+      expect(p.motivoRefactura).toBe('');
+    });
+
+    it('onCellValueChanged para motivoRefactura con previo debería abrir modal y permitir aceptar/cancelar', () => {
+      const p: any = { id: 1, debitoAceptado: 'NO', motivoRefactura: 'Previo' };
+      const event: any = {
+        data: p,
+        colDef: { field: 'motivoRefactura' },
+        newValue: 'Nuevo',
+        oldValue: 'Previo',
+        node: { setDataValue: vi.fn() },
+        api: { refreshCells: vi.fn() }
+      };
+
+      component.onCellValueChanged(event);
+      expect(component.modalVisible).toBe(true);
+
+      component.modalAceptarCb();
+      expect(p.motivoRefactura).toBe('Nuevo');
+
+      component.onCellValueChanged(event);
+      component.modalCancelarCb();
+      expect(p.motivoRefactura).toBe('Previo');
+    });
+
+    it('guardarNuevaNotaBD con ND por ajuste de IVA debería enviar datos correspondientes', () => {
+      auditoriaServiceSpy.guardarNuevaNotaDebito = vi.fn().mockReturnValue(of({}));
+      component.tipoNuevaNota = 'ND';
+      component.tipoBusquedaRealizada = 'NC';
+      component.busquedaForm.patchValue({ tipo: 'NC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.nuevaNotaForm.patchValue({
+        tipo: 'ND',
+        letra: 'A',
+        puntoVenta: '1',
+        numero: '50',
+        fecha: '2025-01-01',
+        tipoNd: 'Por ajuste de IVA',
+        importeNd: 500
+      });
+
+      component.guardarNuevaNotaBD();
+      expect(auditoriaServiceSpy.guardarNuevaNotaDebito).toHaveBeenCalled();
+    });
+
+    it('guardarNuevaNotaBD con NC por ajuste de IVA no prestacional debería enviar datos', () => {
+      auditoriaServiceSpy.guardarNuevaNotaCredito = vi.fn().mockReturnValue(of({}));
+      component.tipoNuevaNota = 'NC';
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.nuevaNotaForm.patchValue({
+        tipo: 'NC',
+        letra: 'A',
+        puntoVenta: '1',
+        numero: '60',
+        fecha: '2025-01-01',
+        tipoNc: 'Por ajuste de IVA',
+        subtipoIva: 'No prestacional',
+        netoNc: 1000,
+        porcIva: 21,
+        ivaNc: 210
+      });
+
+      component.guardarNuevaNotaBD();
+      expect(auditoriaServiceSpy.guardarNuevaNotaCredito).toHaveBeenCalled();
+    });
+  });
 });
+
+
 
