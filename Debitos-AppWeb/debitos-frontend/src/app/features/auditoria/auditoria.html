@@ -6,6 +6,7 @@
         <select id="tipo" formControlName="tipo">
           <option value="">Seleccionar...</option>
           <option value="FC">Factura (FC)</option>
+          <option value="FAC">Factura (FAC)</option>
           <option value="FCE">Factura Electrónica (FCE)</option>
           <option value="NC">Nota de Crédito (NC)</option>
           <option value="NCE">Nota de Crédito Electrónica (NCE)</option>
@@ -207,8 +208,8 @@
         📋 Ver historial ({{ cantidadHistorial }})
       </button>
 
-      <!-- Botón de Estado de Conciliación (Manejo del trámite) para roles OPERADOR / AUDITOR -->
-      <ng-container *ngIf="authService.hasAnyRole(['OPERADOR', 'AUDITOR']) && idGrupoActual">
+      <!-- Botón de Estado de Conciliación (Manejo del trámite) - En desarrollo: solo visible para ADMIN por ahora -->
+      <ng-container *ngIf="puedeOperarConciliacion && idGrupoActual">
         <button *ngIf="(idEstadoActual ?? 1) === 1"
           type="button"
           class="btn-accion-doc btn-finalizar-tramite-main"
@@ -225,8 +226,8 @@
         </button>
       </ng-container>
 
-      <!-- Indicador visual del Estado de Conciliación para roles de solo lectura/consulta (DIRECTORIO, CONSULTA, ADMIN, etc.) -->
-      <ng-container *ngIf="!authService.hasAnyRole(['OPERADOR', 'AUDITOR']) && idGrupoActual">
+      <!-- Indicador visual del Estado de Conciliación — oculto para OPERADOR por ahora -->
+      <ng-container *ngIf="!puedeOperarConciliacion && idGrupoActual && !authService.hasAnyRole(['OPERADOR'])">
         <div class="estado-tramite-indicador-container"
           [ngClass]="idEstadoActual === 2 ? 'estado-indicador-finalizado' : 'estado-indicador-pendiente'"
           [title]="'Estado actual del trámite: ' + (idEstadoActual === 2 ? 'Trámite Finalizado' : 'Pendiente de conciliación')">
@@ -333,6 +334,9 @@
       </div>
 
       <div class="totales-footer">
+        <span class="total-prestaciones-item has-tooltip"
+          data-tooltip="Cantidad de prestaciones visibles en la tabla">Cantidad Prestaciones: {{ prestacionesFiltradas.length
+          }}</span>
         <span class="total-cantidad-item has-tooltip"
           data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad
           }}</span>
@@ -968,8 +972,8 @@
                     <span *ngIf="fila.origenTipo === 'COB'" class="badge-origen badge-cob">COB</span>
                     <span *ngIf="fila.origenTipo === 'REF'" class="badge-origen badge-ref">REF</span>
                     <span *ngIf="fila.origenTipo === 'IVA'" class="badge-origen badge-iva">IVA</span>
-                    <span *ngIf="fila.nivel === 0 && (fila.idEstado ?? 1) === 1" class="badge-estado badge-estado-pendiente">Pendiente</span>
-                    <span *ngIf="fila.nivel === 0 && fila.idEstado === 2" class="badge-estado badge-estado-finalizado">Finalizado</span>
+                    <span *ngIf="fila.nivel === 0 && (fila.idEstado ?? 1) === 1 && !authService.hasAnyRole(['OPERADOR'])" class="badge-estado badge-estado-pendiente">Pendiente</span>
+                    <span *ngIf="fila.nivel === 0 && fila.idEstado === 2 && !authService.hasAnyRole(['OPERADOR'])" class="badge-estado badge-estado-finalizado">Finalizado</span>
                   </div>
                 </td>
                 <td>{{ fila.letra }}</td>

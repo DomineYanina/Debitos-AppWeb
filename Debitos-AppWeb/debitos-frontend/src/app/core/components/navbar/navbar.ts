@@ -232,6 +232,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
   }
 
+  trackByNotifId(_index: number, notif: Notificacion): number {
+    return notif.id;
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;

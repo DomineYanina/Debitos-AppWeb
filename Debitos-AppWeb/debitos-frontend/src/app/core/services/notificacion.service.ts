@@ -59,15 +59,40 @@ export class NotificacionService {
           ...n,
           leida: n.leida === true
         }));
+        const ordenadas = this.ordenarNotificaciones(procesadas);
 
-        this.notificacionesSubject.next(procesadas);
-        const countNoLeidas = procesadas.filter(n => !n.leida).length;
+        this.notificacionesSubject.next(ordenadas);
+        const countNoLeidas = ordenadas.filter(n => !n.leida).length;
         this.noLeidasCountSubject.next(countNoLeidas);
       },
       error: () => {
         // Silencioso para no saturar consola
       }
     });
+  }
+
+  public ordenarNotificaciones(lista: Notificacion[]): Notificacion[] {
+    return [...lista].sort((a, b) => {
+      const aLeida = a.leida === true ? 1 : 0;
+      const bLeida = b.leida === true ? 1 : 0;
+      if (aLeida !== bLeida) {
+        return aLeida - bLeida; // No leídas (0) van arriba, leídas (1) van al fondo
+      }
+      const timeA = this.obtenerTimestamp(a.fechaHora);
+      const timeB = this.obtenerTimestamp(b.fechaHora);
+      if (timeA !== timeB) {
+        // No leídas: más recientes primero (descendente)
+        // Leídas: orden cronológico, más antiguas primero (ascendente)
+        return aLeida === 0 ? timeB - timeA : timeA - timeB;
+      }
+      return aLeida === 0 ? (b.id ?? 0) - (a.id ?? 0) : (a.id ?? 0) - (b.id ?? 0);
+    });
+  }
+
+  private obtenerTimestamp(fecha?: string): number {
+    if (!fecha) return 0;
+    const time = new Date(fecha).getTime();
+    return isNaN(time) ? 0 : time;
   }
 
   public marcarComoLeida(id: number) {
@@ -78,9 +103,10 @@ export class NotificacionService {
       }
       return n;
     });
+    const ordenadas = this.ordenarNotificaciones(listaActual);
 
-    this.notificacionesSubject.next(listaActual);
-    this.noLeidasCountSubject.next(listaActual.filter(n => !n.leida).length);
+    this.notificacionesSubject.next(ordenadas);
+    this.noLeidasCountSubject.next(ordenadas.filter(n => !n.leida).length);
 
     // Persistir en backend
     this.http.put(`${this.apiUrl}/${id}/leer`, {}).subscribe({
@@ -91,7 +117,8 @@ export class NotificacionService {
   public marcarTodasComoLeidas() {
     // Actualización optimista en UI
     const actualizadas = this.notificacionesSubject.value.map(n => ({ ...n, leida: true }));
-    this.notificacionesSubject.next(actualizadas);
+    const ordenadas = this.ordenarNotificaciones(actualizadas);
+    this.notificacionesSubject.next(ordenadas);
     this.noLeidasCountSubject.next(0);
 
     // Persistir en backend

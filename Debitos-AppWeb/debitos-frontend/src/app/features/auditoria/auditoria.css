@@ -1756,6 +1756,7 @@ tr.row-selected {
   flex-wrap: wrap;
 }
 
+
 /* Pantallas medianas a grandes (Monitores y Laptops entre 1025px y 1600px) */
 @media (max-width: 1600px) {
   .auditoria-container {

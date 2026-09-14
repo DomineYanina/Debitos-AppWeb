@@ -158,7 +158,7 @@ public class AuditoriaController {
     }
 
     @PutMapping("/grupo/{idGrupo}/estado/{nuevoEstado}")
-    @PreAuthorize("hasAnyRole('OPERADOR', 'AUDITOR')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CambioEstadoResponse> cambiarEstadoGrupo(
             @PathVariable Long idGrupo,
             @PathVariable int nuevoEstado,

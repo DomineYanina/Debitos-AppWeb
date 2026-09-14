@@ -2654,22 +2654,17 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.cerrarModalHistorialComprobantes();
 
-    let tipoMapeado = 'FC';
-    const tipoRaw = this.obtenerTipoDisplay(fila.tipoDocumento).toUpperCase();
-    if (tipoRaw.includes('NC')) {
-      tipoMapeado = 'NC';
-    } else if (tipoRaw.includes('ND')) {
-      tipoMapeado = 'ND';
-    } else {
-      tipoMapeado = 'FC';
-    }
+    // Usar el tipo original del documento (sin normalizar a través de obtenerTipoDisplay),
+    // para no perder variantes como FAC, FCE, NDE, NCE que sí existen en la BD.
+    const tipoOriginal = (fila.tipoDocumento || 'FC').trim().toUpperCase();
 
     this.busquedaForm.patchValue({
-      tipo: tipoMapeado,
+      tipo: tipoOriginal,
       letra: fila.letra || '',
       puntoVenta: fila.puntoVenta || '',
       numero: fila.numero || ''
     });
+    this.actualizarValidadoresTipo(tipoOriginal);
 
     this.onBuscar();
   }
@@ -2685,6 +2680,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   get idEstadoActual(): number {
     return this.filaFacturaRaiz?.idEstado ?? 1;
+  }
+
+  get puedeOperarConciliacion(): boolean {
+    return this.authService.hasAnyRole(['ADMIN']);
   }
 
   cambiarEstadoGrupo(idGrupo: number | string, nuevoEstado: number, forzar: boolean = false) {

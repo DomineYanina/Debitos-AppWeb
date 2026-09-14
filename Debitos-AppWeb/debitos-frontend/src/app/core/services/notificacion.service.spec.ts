@@ -90,6 +90,27 @@ describe('NotificacionService', () => {
     expect(noLeidasCount).toBe(1);
   });
 
+  it('ordenarNotificaciones debería poner no leídas arriba (más recientes primero) y leídas abajo (cronológico ascendente)', () => {
+    const reqInit = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
+    reqInit.flush([]);
+
+    const lista: Partial<Notificacion>[] = [
+      { id: 1, leida: true,  fechaHora: '2026-09-10T10:00:00Z' },  // leída, más antigua
+      { id: 2, leida: false, fechaHora: '2026-09-12T08:00:00Z' },  // no leída, más antigua
+      { id: 3, leida: true,  fechaHora: '2026-09-11T12:00:00Z' },  // leída, intermedia
+      { id: 4, leida: false, fechaHora: '2026-09-13T09:00:00Z' },  // no leída, más reciente
+    ];
+
+    const resultado = service.ordenarNotificaciones(lista as Notificacion[]);
+
+    // Primero las no leídas, más reciente primero
+    expect(resultado[0].id).toBe(4); // no leída más reciente
+    expect(resultado[1].id).toBe(2); // no leída más antigua
+    // Luego las leídas, cronológico ascendente (más antigua primero)
+    expect(resultado[2].id).toBe(1); // leída más antigua
+    expect(resultado[3].id).toBe(3); // leída más reciente
+  });
+
   it('no debería cargar notificaciones si el usuario no está logueado', () => {
     const reqInit = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
     reqInit.flush([]);
