@@ -10,6 +10,8 @@ public class SpaController {
         "/",
         "/login",
         "/auditoria",
+        "/directorio",
+        "/directorio/**",
         "/{path:[^\\.]*}"
     })
     public String forwardSpa() {

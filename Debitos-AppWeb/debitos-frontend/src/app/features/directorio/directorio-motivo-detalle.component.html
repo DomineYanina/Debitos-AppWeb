@@ -1,0 +1,151 @@
+<div class="drilldown-container">
+
+  <!-- Header de Navegación & Título -->
+  <header class="drilldown-header">
+    <div class="breadcrumb-bar">
+      <button type="button" class="btn-back" (click)="volverAlTablero()" title="Regresar al Tablero de Control">
+        ← Volver al Tablero Principal
+      </button>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-current">Detalle por Motivo</span>
+    </div>
+
+    <div class="header-main-card">
+      <div class="header-info">
+        <h1 class="motivo-title">{{ motivo }}</h1>
+        <div class="context-filters">
+          <span class="filter-pill">🏥 Cobertura: <strong>{{ codigoCobertura === 'TODAS' ? 'Todas las Instituciones' :
+              codigoCobertura }}</strong></span>
+          <span class="filter-pill" *ngIf="tipoDoc && tipoDoc !== 'TODOS'">📄 Comprobante: <strong>{{ tipoDoc
+              }}</strong></span>
+          <span class="filter-pill" *ngIf="fechaDesde || fechaHasta">📅 Período: <strong>{{ (fechaDesde |
+              date:'dd/MM/yyyy') || 'Inicio' }} - {{ (fechaHasta | date:'dd/MM/yyyy') || 'Hoy' }}</strong></span>
+        </div>
+      </div>
+
+      <div class="header-stats">
+        <div class="stat-box">
+          <span class="stat-label">Total Debitado en este Motivo</span>
+          <span class="stat-value text-danger">{{ formatearMoneda(totalMontoDebitado) }}</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Cantidad de Prestaciones</span>
+          <span class="stat-value">{{ totalCasos }}</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra de Búsqueda Rápida -->
+  <div class="search-bar-card">
+    <div class="search-input-wrapper">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="form-control-search" [(ngModel)]="filtroBusqueda"
+        placeholder="Buscar por paciente, carnet, código de prestación, médico o texto del comentario...">
+    </div>
+    <div class="results-count">
+      Mostrando <strong>{{ prestacionesFiltradas.length }}</strong> de {{ prestaciones.length }} prestaciones
+    </div>
+  </div>
+
+  <!-- Contenedor de Tabla de Prestaciones -->
+  <section class="table-card">
+    <div *ngIf="cargando" class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando detalle de prestaciones debitadas...</p>
+    </div>
+
+    <div *ngIf="!cargando && prestaciones.length === 0" class="empty-state">
+      <span class="empty-icon">📂</span>
+      <p>No se encontraron prestaciones debitadas para el motivo y filtros seleccionados.</p>
+    </div>
+
+    <div *ngIf="!cargando && prestacionesFiltradas.length > 0" class="table-responsive">
+      <table class="table-drilldown">
+        <thead>
+          <tr>
+            <th>Comprobante NC</th>
+            <th>Fecha</th>
+            <th>Paciente / Carnet</th>
+            <th>Plan & Médico</th>
+            <th>Prestación Médica</th>
+            <th>Motivo de Débito</th>
+            <th>Comentarios del Operador (Texto Libre)</th>
+            <th class="text-right">Importe Debitado</th>
+            <th class="text-center">Aceptado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of prestacionesFiltradas">
+
+            <!-- Comprobante NC -->
+            <td>
+              <div class="doc-badge-wrapper">
+                <span class="badge-nc">{{ p.tipoDoc || 'NC' }}</span>
+                <strong>{{ formatearComprobante(p.letraDoc, p.ptovtaDoc, p.numeroDoc) }}</strong>
+              </div>
+            </td>
+
+            <!-- Fecha -->
+            <td class="text-nowrap">{{ p.fechaDoc | date:'dd/MM/yyyy' }}</td>
+
+            <!-- Paciente & Carnet -->
+            <td>
+              <div class="patient-info">
+                <strong class="patient-name">{{ p.paciente || 'S/D' }}</strong>
+                <span class="patient-carnet">{{ p.carnet || 'Sin Carnet' }}</span>
+              </div>
+            </td>
+
+            <!-- Plan & Médico -->
+            <td>
+              <div class="medical-info">
+                <span class="plan-badge">{{ p.plan || 'General' }}</span>
+                <span class="medico-name">{{ p.medico || p.efector || 'Efector S/D' }}</span>
+              </div>
+            </td>
+
+            <!-- Prestación -->
+            <td>
+              <div class="prestation-info">
+                <code class="code-pill">{{ p.codigo }}</code>
+                <span class="desc-text">{{ p.descripcion }}</span>
+              </div>
+            </td>
+
+            <!-- Motivo de Débito -->
+            <td>
+              <span class="motivo-highlight">{{ p.motivoDebito }}</span>
+            </td>
+
+            <!-- Comentarios del Operador (Texto libre) -->
+            <td>
+              <div class="operator-comment-box"
+                [class.no-comment]="!p.comentariosDebito || p.comentariosDebito.trim() === ''">
+                <span class="comment-icon" *ngIf="p.comentariosDebito">💬</span>
+                <span class="comment-text">{{ p.comentariosDebito || 'Sin observaciones registradas' }}</span>
+              </div>
+            </td>
+
+            <!-- Importe Debitado -->
+            <td class="text-right font-weight-bold color-debito text-nowrap">
+              {{ formatearMoneda(p.importeDebitado) }}
+            </td>
+
+            <!-- Estado Débito Aceptado -->
+            <td class="text-center">
+              <span class="status-badge" [class.badge-aceptado]="p.debitoAceptado === true"
+                [class.badge-rechazado]="p.debitoAceptado === false"
+                [class.badge-pendiente]="p.debitoAceptado === null">
+                {{ p.debitoAceptado === true ? 'SÍ (Pérdida)' : p.debitoAceptado === false ? 'NO (Refacturable)' :
+                'Pendiente' }}
+              </span>
+            </td>
+
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>

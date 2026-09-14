@@ -1134,6 +1134,24 @@ tr.row-selected {
   box-sizing: border-box;
 }
 
+.modal-overlay-top {
+  z-index: 10050 !important;
+}
+
+.modal-overlay-top .modal-box {
+  z-index: 10051 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.modal-overlay-alerta {
+  z-index: 10060 !important;
+}
+
+.modal-overlay-alerta .modal-box {
+  z-index: 10061 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
 @keyframes fadeInModal {
   from {
     opacity: 0;

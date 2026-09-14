@@ -168,4 +168,50 @@ describe('NotificacionService', () => {
     });
     req.flush({ exito: true });
   });
+
+  it('debería manejar errores en cargarNotificaciones, marcarComoLeida y marcarTodasComoLeidas', () => {
+    const reqInit = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
+    reqInit.flush([]);
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Error en cargarNotificaciones
+    service.cargarNotificaciones();
+    const reqGet = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
+    reqGet.error(new ProgressEvent('Network error'));
+
+    // Error en marcarComoLeida
+    service.marcarComoLeida(42);
+    const reqPut1 = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/42/leer`);
+    reqPut1.error(new ProgressEvent('Network error'));
+    expect(warnSpy).toHaveBeenCalled();
+
+    // Error en marcarTodasComoLeidas
+    service.marcarTodasComoLeidas();
+    const reqPut2 = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/leer-todas`);
+    reqPut2.error(new ProgressEvent('Network error'));
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('iniciarPolling debería ejecutar polling periódico', () => {
+    vi.useFakeTimers();
+    const reqInit = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
+    reqInit.flush([]);
+
+    (service as any).pollingSub?.unsubscribe();
+    (service as any).pollingSub = undefined;
+    service.iniciarPolling();
+
+    const reqInmediata = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
+    reqInmediata.flush([]);
+
+    vi.advanceTimersByTime(25000);
+    const reqPolling = httpMock.expectOne(`${environment.apiUrl}/api/notificaciones/recientes`);
+    reqPolling.flush([]);
+
+    (service as any).pollingSub?.unsubscribe();
+    vi.useRealTimers();
+  });
 });

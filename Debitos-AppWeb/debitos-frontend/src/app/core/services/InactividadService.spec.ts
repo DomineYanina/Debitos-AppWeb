@@ -63,4 +63,19 @@ describe('InactividadService', () => {
 
     alertSpy.mockRestore();
   });
+
+  it('debería disparar cerrarSesionPorInactividad tras cumplirse el tiempo de inactividad luego de un evento', () => {
+    vi.useFakeTimers();
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+    service.iniciarSeguimiento();
+    document.dispatchEvent(new Event('mousemove'));
+
+    vi.advanceTimersByTime(30 * 60 * 1000 + 100);
+
+    expect(authServiceMock.logout).toHaveBeenCalled();
+    service.pararSeguimiento();
+    alertSpy.mockRestore();
+    vi.useRealTimers();
+  });
 });

@@ -282,6 +282,26 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   // Mantener por compatibilidad con /tiene-nc-para-nd (relación 1:1 ND→NC)
   documentoCreadoInfo: DocumentoAsociado | null = null;
 
+  esTipoFactura(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'FC' || t === 'FAC' || t === 'FCE';
+  }
+
+  esTipoNotaCredito(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'NC' || t === 'NCE';
+  }
+
+  esTipoNotaDebito(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'ND' || t === 'NDE';
+  }
+
+  esTipoRecibo(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'RC' || t === 'REC';
+  }
+
   soloSinMotivoDebito: boolean = false;
   soloSinMotivoRefactura: boolean = false;
   soloValorizadas: boolean = false;
@@ -428,6 +448,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   configurarColumnas() {
     const englobante = this.debeMostrarEnglobante();
     const tieneComentariosPrevios = this.prestacionesFiltradas.some(p => p.comentarioPrevio && p.comentarioPrevio.trim() !== '');
+    const tramiteFinalizado = this.idEstadoActual === 2;
 
     // Delegamos la configuración de AG-Grid al servicio
     this.columnDefs = this.gridConfigService.getConfiguracionColumnas(
@@ -436,7 +457,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       tieneComentariosPrevios,
       this.listaMotivosAgrupados,
       this.listaMotivosRefacturaAgrupados,
-      GroupedSelectEditor // Pasamos el componente editor para que el servicio pueda inyectarlo
+      GroupedSelectEditor, // Pasamos el componente editor para que el servicio pueda inyectarlo
+      tramiteFinalizado
     );
   }
 
@@ -703,6 +725,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   guardarEdicionNcAjusteIva() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder modificar un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     if (this.nuevaNotaForm.invalid) {
       this.nuevaNotaForm.markAllAsTouched();
       this.mostrarAlerta('Por favor, completá todos los campos requeridos de la Nota de Crédito.', undefined, 'error');
@@ -759,6 +786,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   guardarNotaDebitoAjusteIva() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     if (this.soloCrearNdAjusteIva) {
       this.guardarNdAjusteIvaSolo();
       return;
@@ -1231,7 +1263,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
         this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
 
-        if (this.tipoBusquedaRealizada === 'RC') {
+        if (this.esTipoRecibo()) {
           this.esTablaAjusteIva = false;
           this.filasResumenAjusteIva = [];
           this.prestaciones = [];
@@ -1782,7 +1814,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     let datosAExportar = this.prestacionesFiltradas;
-    if (this.tipoBusquedaRealizada !== 'NC') {
+    if (!this.esTipoNotaCredito()) {
       datosAExportar = this.prestacionesFiltradas.filter(p => {
         const deb = p.debitoAceptado ? p.debitoAceptado.trim().toUpperCase() : '';
         return deb === 'SI' || deb === 'NO';
@@ -1822,9 +1854,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   guardarParcialmente(silencioso: boolean = false) {
+    if (this.idEstadoActual === 2) {
+      if (!silencioso) {
+        this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder guardar modificaciones.', undefined, 'peligro');
+      }
+      return;
+    }
 
     const registrosParaGuardar = this.prestaciones.filter(p => {
-      if (this.tipoBusquedaRealizada === 'NC') return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      if (this.esTipoNotaCredito()) return p.motivoRefactura && p.motivoRefactura.trim() !== '';
       return p.motivoDebito && p.motivoDebito.trim() !== '';
     });
 
@@ -2033,11 +2071,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   abrirModalNuevaNota(tipo: 'NC' | 'ND') {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     this.tipoNuevaNota = tipo;
 
     // Validación según el tipo de nota
     if (tipo === 'NC') {
-      if (this.tipoBusquedaRealizada === 'ND') {
+      if (this.esTipoNotaDebito()) {
         const motivosND = this.prestaciones.map(p => p.motivoRefactura?.trim()).filter(Boolean);
         const esAjusteIVA = motivosND.some(m => m === 'Por ajuste de IVA');
         if (esAjusteIVA) {
@@ -2087,7 +2130,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
       this.deshabilitarPorAjusteIva = false;
 
-      if (this.tipoBusquedaRealizada === 'FC') {
+      if (this.esTipoFactura()) {
         const letra = this.busquedaForm.value.letra ?? '';
         const ptoVta = this.busquedaForm.value.puntoVenta ?? 0;
         const numero = this.busquedaForm.value.numero ?? 0;
@@ -2162,7 +2205,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cabecerasDisponibles = res || [];
         this.cargandoCabeceras = false;
         this.modoIngresoManual = false;
-        if (this.cabecerasDisponibles.length === 1) {
+        if (this.cabecerasDisponibles.length === 1 && !this.cabecerasDisponibles[0].tienePrestacionesImputadas) {
           this.onSeleccionarCabecera(this.cabecerasDisponibles[0].id);
         }
         this.cdr.detectChanges();
@@ -2186,19 +2229,50 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const cab = this.cabecerasDisponibles.find(c => String(c.id) === String(id));
     if (cab) {
-      this.cabeceraSeleccionadaId = cab.id;
-      this.cabeceraSeleccionadaObjeto = cab;
-      this.nuevaNotaForm.patchValue({
-        tipo: cab.tipo || (this.tipoNuevaNota === 'NC' ? 'NC' : 'ND'),
-        letra: cab.letra || '',
-        puntoVenta: cab.ptovta || '',
-        numero: cab.numero || '',
-        fecha: cab.fecha || this.obtenerFechaHoy()
-      });
-      this.cdr.detectChanges();
+      if (cab.tienePrestacionesImputadas) {
+        const docLabel = cab.label || `${cab.tipo || ''} ${cab.letra || ''}-${cab.ptovta || ''}-${cab.numero || ''}`;
+        this.modalMensaje = `El documento ${docLabel} ya tiene prestaciones imputadas.\n¿Desea imputar nuevas prestaciones en este documento?`;
+        this.modalAceptarCb = () => {
+          this.modalVisible = false;
+          this.aplicarSeleccionCabecera(cab);
+        };
+        this.modalCancelarCb = () => {
+          this.modalVisible = false;
+          this.cabeceraSeleccionadaId = null;
+          this.cabeceraSeleccionadaObjeto = null;
+          this.nuevaNotaForm.patchValue({
+            tipo: this.tipoNuevaNota === 'NC' ? 'NC' : 'ND',
+            letra: '',
+            puntoVenta: null,
+            numero: null,
+            fecha: this.obtenerFechaHoy()
+          });
+          if (event && event.target) {
+            event.target.value = '';
+          }
+          this.cdr.detectChanges();
+        };
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+        return;
+      }
+      this.aplicarSeleccionCabecera(cab);
     } else {
       this.cabeceraSeleccionadaObjeto = null;
     }
+  }
+
+  aplicarSeleccionCabecera(cab: any) {
+    this.cabeceraSeleccionadaId = cab.id;
+    this.cabeceraSeleccionadaObjeto = cab;
+    this.nuevaNotaForm.patchValue({
+      tipo: cab.tipo || (this.tipoNuevaNota === 'NC' ? 'NC' : 'ND'),
+      letra: cab.letra || '',
+      puntoVenta: cab.ptovta || '',
+      numero: cab.numero || '',
+      fecha: cab.fecha || this.obtenerFechaHoy()
+    });
+    this.cdr.detectChanges();
   }
 
   alternarModoIngresoManual(manual: boolean) {
@@ -2261,7 +2335,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cabecerasDisponiblesNdIva = res || [];
         this.cargandoCabecerasNdIva = false;
         this.modoIngresoManualNdIva = false;
-        if (this.cabecerasDisponiblesNdIva.length === 1) {
+        if (this.cabecerasDisponiblesNdIva.length === 1 && !this.cabecerasDisponiblesNdIva[0].tienePrestacionesImputadas) {
           this.onSeleccionarCabeceraNdIva(this.cabecerasDisponiblesNdIva[0].id);
         }
         this.cdr.detectChanges();
@@ -2284,19 +2358,50 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const cab = this.cabecerasDisponiblesNdIva.find(c => String(c.id) === String(id));
     if (cab) {
-      this.cabeceraSeleccionadaIdNdIva = cab.id;
-      this.cabeceraSeleccionadaNdIvaObjeto = cab;
-      this.nuevaNotaDebitoIvaForm.patchValue({
-        tipo: cab.tipo || 'ND',
-        letra: cab.letra || '',
-        puntoVenta: cab.ptovta || '',
-        numero: cab.numero || '',
-        fecha: cab.fecha || this.obtenerFechaHoy()
-      });
-      this.cdr.detectChanges();
+      if (cab.tienePrestacionesImputadas) {
+        const docLabel = cab.label || `${cab.tipo || ''} ${cab.letra || ''}-${cab.ptovta || ''}-${cab.numero || ''}`;
+        this.modalMensaje = `El documento ${docLabel} ya tiene prestaciones imputadas.\n¿Desea imputar nuevas prestaciones en este documento?`;
+        this.modalAceptarCb = () => {
+          this.modalVisible = false;
+          this.aplicarSeleccionCabeceraNdIva(cab);
+        };
+        this.modalCancelarCb = () => {
+          this.modalVisible = false;
+          this.cabeceraSeleccionadaIdNdIva = null;
+          this.cabeceraSeleccionadaNdIvaObjeto = null;
+          this.nuevaNotaDebitoIvaForm.patchValue({
+            tipo: 'ND',
+            letra: '',
+            puntoVenta: null,
+            numero: null,
+            fecha: this.obtenerFechaHoy()
+          });
+          if (event && event.target) {
+            event.target.value = '';
+          }
+          this.cdr.detectChanges();
+        };
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+        return;
+      }
+      this.aplicarSeleccionCabeceraNdIva(cab);
     } else {
       this.cabeceraSeleccionadaNdIvaObjeto = null;
     }
+  }
+
+  aplicarSeleccionCabeceraNdIva(cab: any) {
+    this.cabeceraSeleccionadaIdNdIva = cab.id;
+    this.cabeceraSeleccionadaNdIvaObjeto = cab;
+    this.nuevaNotaDebitoIvaForm.patchValue({
+      tipo: cab.tipo || 'ND',
+      letra: cab.letra || '',
+      puntoVenta: cab.ptovta || '',
+      numero: cab.numero || '',
+      fecha: cab.fecha || this.obtenerFechaHoy()
+    });
+    this.cdr.detectChanges();
   }
 
   alternarModoIngresoManualNdIva(manual: boolean) {
@@ -2323,6 +2428,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   abrirModalCrearNdAjusteIvaDesdeTabla() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     if (!this.filasResumenAjusteIva || this.filasResumenAjusteIva.length < 2) return;
 
     const filaNc = this.filasResumenAjusteIva[1];
@@ -2600,6 +2710,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
           if (this.filaFacturaRaiz) {
             this.filaFacturaRaiz.idEstado = nuevoEstado;
           }
+          this.configurarColumnas();
           const rawVal = this.busquedaForm.getRawValue();
           this.cargarHistorialComprobantes(rawVal.tipo || 'FC', rawVal.letra || '', rawVal.puntoVenta || '', rawVal.numero || '');
           this.cdr.detectChanges();
@@ -2614,6 +2725,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   guardarNuevaNotaBD() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     if (this.nuevaNotaForm.invalid) {
       this.auditoriaService.registrarMetricaUsabilidad({
         usuario: this.authService.obtenerUsuario(),
@@ -2627,7 +2743,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    if (this.tipoBusquedaRealizada === 'FC' && this.tipoNuevaNota === 'NC') {
+    if (this.esTipoFactura() && this.tipoNuevaNota === 'NC') {
       const modificadosConNcPrevia = this.prestaciones.filter(p => p.ncNumero && this.modificadosSinGuardar.has(p.id!));
       if (modificadosConNcPrevia.length > 0) {
         this.guardarParcialmente(true);
@@ -2647,7 +2763,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         } else {
           // Prestacional
           registrosParaGuardar = this.prestaciones.filter(p => {
-            if (this.tipoBusquedaRealizada === 'FC' && p.ncNumero) {
+            if (this.esTipoFactura() && p.ncNumero) {
               return false;
             }
             return p.motivoDebito && p.motivoDebito.trim().toLowerCase() === 'iva mal facturado';
@@ -2661,7 +2777,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       } else {
         // Refactura
         registrosParaGuardar = this.prestaciones.filter(p => {
-          if (this.tipoBusquedaRealizada === 'FC' && p.ncNumero) {
+          if (this.esTipoFactura() && p.ncNumero) {
             return false;
           }
           return p.motivoDebito && p.motivoDebito.trim() !== '';
@@ -2753,7 +2869,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
           // Regla 1: agregamos al historial sin reemplazar (puede haber varias NC)
           this.documentosCreadosInfo = [...this.documentosCreadosInfo, nuevaEntrada];
           // Para FC el botón nunca se bloquea; para ND sí (relación 1:1)
-          if (this.tipoBusquedaRealizada === 'ND') {
+          if (this.esTipoNotaDebito()) {
             this.notaDeCreditoYaCreada = true;
             this.documentoCreadoInfo = nuevaEntrada;
           }

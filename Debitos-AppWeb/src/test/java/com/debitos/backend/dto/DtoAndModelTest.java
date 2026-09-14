@@ -89,6 +89,24 @@ class DtoAndModelTest {
         a.setTotal(new BigDecimal("655.00"));
         a.setCabecera(new Cabecera());
 
+        // 15 nuevos campos internos
+        a.setOperador("OP01");
+        a.setOpeRecepcion("REC01");
+        a.setVo("VO_OK");
+        a.setEspecialidad("CARDIOLOGIA");
+        a.setServEspe("SERV_CARDIO");
+        a.setDerivador("DR_DERIVADOR");
+        a.setGrupo("GRUPO_A");
+        a.setCentrocosto("CC01");
+        LocalDate egreso = LocalDate.of(2026, 9, 14);
+        a.setFechaEgreso(egreso);
+        a.setTipoInternacion("URGENCIA");
+        a.setProgUrg("URG");
+        a.setPatologia("PAT_01");
+        a.setMedicoResponsableMatricula(123456L);
+        a.setDiagnosticoI("DIAG_PRINCIPAL");
+        a.setOperadorLiquida("LIQ01");
+
         assertEquals(100, a.getId());
         assertEquals("420101", a.getCodigo());
         assertEquals("Consulta médica", a.getDescripcion());
@@ -106,6 +124,30 @@ class DtoAndModelTest {
         assertEquals(new BigDecimal("50.00"), a.getCoseguro());
         assertEquals(new BigDecimal("655.00"), a.getTotal());
         assertNotNull(a.getCabecera());
+
+        // Verificaciones de los 15 nuevos campos
+        assertEquals("OP01", a.getOperador());
+        assertEquals("REC01", a.getOpeRecepcion());
+        assertEquals("VO_OK", a.getVo());
+        assertEquals("CARDIOLOGIA", a.getEspecialidad());
+        assertEquals("SERV_CARDIO", a.getServEspe());
+        assertEquals("DR_DERIVADOR", a.getDerivador());
+        assertEquals("GRUPO_A", a.getGrupo());
+        assertEquals("CC01", a.getCentrocosto());
+        assertEquals(egreso, a.getFechaEgreso());
+        assertEquals("URGENCIA", a.getTipoInternacion());
+        assertEquals("URG", a.getProgUrg());
+        assertEquals("PAT_01", a.getPatologia());
+        assertEquals(123456L, a.getMedicoResponsableMatricula());
+        assertEquals("DIAG_PRINCIPAL", a.getDiagnosticoI());
+        assertEquals("LIQ01", a.getOperadorLiquida());
+
+        // Verificación de constructor sobrecargado
+        AmbLiquidado a2 = new AmbLiquidado("OP01", "REC01", "VO_OK", "CARDIOLOGIA", "SERV_CARDIO",
+                "DR_DERIVADOR", "GRUPO_A", "CC01", egreso, "URGENCIA", "URG", "PAT_01", 123456L,
+                "DIAG_PRINCIPAL", "LIQ01");
+        assertEquals("OP01", a2.getOperador());
+        assertEquals("LIQ01", a2.getOperadorLiquida());
     }
 
     @Test

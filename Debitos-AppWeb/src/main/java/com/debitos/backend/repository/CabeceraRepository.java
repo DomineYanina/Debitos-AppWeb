@@ -16,7 +16,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     @Query("SELECT c FROM Cabecera c WHERE UPPER(c.tipo) = UPPER(:tipo) AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero")
     Optional<Cabecera> findByTipoAndLetraAndPtovtaAndNumero(@Param("tipo") String tipo, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
-    @Query("SELECT c FROM Cabecera c WHERE c.tipo IN :tipos AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero")
+    @Query("SELECT c FROM Cabecera c WHERE c.tipo IN :tipos AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero ORDER BY c.fecha DESC, c.id DESC")
     List<Cabecera> findByTipoInAndLetraAndPtovtaAndNumero(@Param("tipos") Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
     @Query("SELECT COUNT(c) > 0 FROM Cabecera c WHERE UPPER(c.tipo) = UPPER(:tipo) AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero")

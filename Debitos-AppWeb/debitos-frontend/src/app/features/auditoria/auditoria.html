@@ -6,8 +6,11 @@
         <select id="tipo" formControlName="tipo">
           <option value="">Seleccionar...</option>
           <option value="FC">Factura (FC)</option>
+          <option value="FCE">Factura Electrónica (FCE)</option>
           <option value="NC">Nota de Crédito (NC)</option>
+          <option value="NCE">Nota de Crédito Electrónica (NCE)</option>
           <option value="ND">Nota de Débito (ND)</option>
+          <option value="NDE">Nota de Débito Electrónica (NDE)</option>
           <option value="RC">Recibo (RC)</option>
         </select>
       </div>
@@ -123,7 +126,7 @@
             data-tooltip="Muestra únicamente las prestaciones con Débito cargado (SI o NO)">Ver solo
             prestaciones debitadas</label>
         </div>
-        <ng-container *ngIf="tipoBusquedaRealizada === 'FC'">
+        <ng-container *ngIf="esTipoFactura()">
           <div class="check-item">
             <input type="checkbox" id="checkSinNC" [(ngModel)]="soloSinNC" (change)="aplicarFiltros()">
             <label for="checkSinNC" class="has-tooltip"
@@ -131,7 +134,7 @@
               prestaciones sin NC</label>
           </div>
         </ng-container>
-        <ng-container *ngIf="tipoBusquedaRealizada !== 'NC'">
+        <ng-container *ngIf="!esTipoNotaCredito()">
           <div class="check-item">
             <input type="checkbox" id="checkDebito" [(ngModel)]="soloSinMotivoDebito" (change)="aplicarFiltros()">
             <label for="checkDebito" class="has-tooltip"
@@ -178,28 +181,28 @@
         Excel</button>
 
       <!-- Se oculta si es NC o si la Nota de Crédito ya fue creada -->
-      <button class="btn-accion-doc btn-guardar" *ngIf="tipoBusquedaRealizada !== 'NC' && !notaDeCreditoYaCreada"
+      <button class="btn-accion-doc btn-guardar" *ngIf="!esTipoNotaCredito() && !notaDeCreditoYaCreada"
         (click)="guardarParcialmente()">Guardar parcialmente</button>
 
       <!-- Botón NC: visible si es FC o ND -->
       <!-- Regla 1: en FC, siempre visible (múltiples NC permitidas).
            En ND, se oculta si ya existe una NC hija (relación 1:1). -->
-      <ng-container *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'ND'">
+      <ng-container *ngIf="esTipoFactura() || esTipoNotaDebito()">
         <!-- Para FC: siempre visible; para ND: visible solo si aún no hay NC hija -->
         <button class="btn-accion-doc btn-nueva-nota"
-          *ngIf="tipoBusquedaRealizada === 'FC' || (tipoBusquedaRealizada === 'ND' && !notaDeCreditoYaCreada)"
+          *ngIf="esTipoFactura() || (esTipoNotaDebito() && !notaDeCreditoYaCreada)"
           (click)="abrirModalNuevaNota('NC')">Nueva Nota de Crédito</button>
       </ng-container>
 
       <!-- Botón ND: visible para cualquier NC -->
-      <ng-container *ngIf="tipoBusquedaRealizada === 'NC'">
+      <ng-container *ngIf="esTipoNotaCredito()">
         <button class="btn-accion-doc btn-nueva-nota" (click)="abrirModalNuevaNota('ND')">Nueva
           Nota de Débito</button>
       </ng-container>
 
       <!-- Botón para abrir el modal de Historial de Comprobantes (visible para búsquedas FC, NC, ND, RC) -->
       <button class="btn-accion-doc btn-ver-docs"
-        *ngIf="tipoBusquedaRealizada === 'FC' || tipoBusquedaRealizada === 'NC' || tipoBusquedaRealizada === 'ND' || tipoBusquedaRealizada === 'RC'"
+        *ngIf="esTipoFactura() || esTipoNotaCredito() || esTipoNotaDebito() || esTipoRecibo()"
         (click)="abrirModalHistorialComprobantes()">
         📋 Ver historial ({{ cantidadHistorial }})
       </button>
@@ -352,7 +355,7 @@
     </div>
 
     <ng-template #sinDatos>
-      <div class="grilla-placeholder" *ngIf="haRealizadoBusqueda && tipoBusquedaRealizada === 'RC'">
+      <div class="grilla-placeholder" *ngIf="haRealizadoBusqueda && esTipoRecibo()">
         <div style="text-align: center; padding: 25px 20px;">
           <h3 style="color: #1e293b; margin-bottom: 8px; font-size: 1.15rem; font-weight: 600;">Recibo (RC) consultado</h3>
           <p style="color: #64748b; margin-bottom: 16px; font-size: 0.95rem;">Se cargó el comprobante y su árbol de documentos asociados.</p>
@@ -366,21 +369,6 @@
       </div>
     </ng-template>
   </section>
-
-  <div class="modal-overlay" *ngIf="modalVisible">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3>Atención</h3>
-      </div>
-      <div class="modal-body">
-        <p class="texto-modal">{{ modalMensaje }}</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-modal-cancelar" (click)="modalCancelarCb()">Cancelar</button>
-        <button class="btn-modal-aceptar" (click)="modalAceptarCb()">Confirmar</button>
-      </div>
-    </div>
-  </div>
 
   <div class="modal-overlay" *ngIf="modalNuevaNotaVisible">
     <div class="modal-box"
@@ -412,12 +400,15 @@
                   <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
                     [style.background]="cabecerasDisponibles.length === 0 ? '#f1f5f9' : ''"
                     [style.cursor]="cabecerasDisponibles.length === 0 ? 'not-allowed' : ''"
+                    [value]="cabeceraSeleccionadaId || ''"
                     (change)="onSeleccionarCabecera($event)"
                     [disabled]="cargandoCabeceras || cabecerasDisponibles.length === 0">
                     <option value="">-- Seleccionar comprobante --</option>
                     <option *ngFor="let cab of cabecerasDisponibles" [value]="cab.id"
-                      [selected]="cab.id === cabeceraSeleccionadaId">
-                      {{ cab.label }}
+                      [selected]="cab.id === cabeceraSeleccionadaId"
+                      [style.background]="cab.tienePrestacionesImputadas ? '#f1f5f9' : ''"
+                      [style.color]="cab.tienePrestacionesImputadas ? '#dc2626' : ''">
+                      {{ cab.label }}{{ cab.tienePrestacionesImputadas ? ' (Prestaciones ya imputadas)' : '' }}
                     </option>
                   </select>
 
@@ -694,12 +685,15 @@
                   <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
                     [style.background]="cabecerasDisponiblesNdIva.length === 0 ? '#f1f5f9' : ''"
                     [style.cursor]="cabecerasDisponiblesNdIva.length === 0 ? 'not-allowed' : ''"
+                    [value]="cabeceraSeleccionadaIdNdIva || ''"
                     (change)="onSeleccionarCabeceraNdIva($event)"
                     [disabled]="cargandoCabecerasNdIva || cabecerasDisponiblesNdIva.length === 0">
                     <option value="">-- Seleccionar comprobante --</option>
                     <option *ngFor="let cab of cabecerasDisponiblesNdIva" [value]="cab.id"
-                      [selected]="cab.id === cabeceraSeleccionadaIdNdIva">
-                      {{ cab.label }}
+                      [selected]="cab.id === cabeceraSeleccionadaIdNdIva"
+                      [style.background]="cab.tienePrestacionesImputadas ? '#f1f5f9' : ''"
+                      [style.color]="cab.tienePrestacionesImputadas ? '#dc2626' : ''">
+                      {{ cab.label }}{{ cab.tienePrestacionesImputadas ? ' (Prestaciones ya imputadas)' : '' }}
                     </option>
                   </select>
 
@@ -842,7 +836,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" *ngIf="modalAlertaVisible"
+  <div class="modal-overlay modal-overlay-alerta" *ngIf="modalAlertaVisible"
     [style.background-color]="modalAlertaTipo === 'peligro' ? 'rgb(185 0 0 / 60%)' : ''">
     <div class="modal-box"
       [style.border]="modalAlertaTipo === 'exito' ? '3px solid #28a745' : (modalAlertaTipo === 'error' ? '3px solid #dc3545' : '')">
@@ -1025,6 +1019,22 @@
       </div>
       <div class="modal-footer" style="justify-content: center;">
         <button class="btn-modal-cancelar" (click)="cerrarModalHistorialComprobantes()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GENÉRICO DE CONFIRMACIÓN (NIVEL SUPERIOR) -->
+  <div class="modal-overlay modal-overlay-top" *ngIf="modalVisible">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Atención</h3>
+      </div>
+      <div class="modal-body">
+        <p class="texto-modal">{{ modalMensaje }}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" (click)="modalCancelarCb()">Cancelar</button>
+        <button class="btn-modal-aceptar" (click)="modalAceptarCb()">Confirmar</button>
       </div>
     </div>
   </div>

@@ -12,9 +12,10 @@ export class AuditoriaGridConfigService {
     tieneComentariosPrevios: boolean,
     motivosDebito: any[],
     motivosRefactura: any[],
-    editorComponent: any // Recibe el GroupedSelectEditor por parámetro
+    editorComponent: any, // Recibe el GroupedSelectEditor por parámetro
+    tramiteFinalizado: boolean = false
   ): ColDef[] {
-    const esSoloLectura = tipo === 'NC';
+    const esSoloLectura = tipo === 'NC' || tipo === 'NCE' || tramiteFinalizado;
 
     let columnas: ColDef[] = [
       { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, headerTooltip: 'Seleccionar o deseleccionar todas las filas cargadas', width: 50, pinned: 'left' },
@@ -31,7 +32,9 @@ export class AuditoriaGridConfigService {
       { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
     ];
 
-    if (tipo === 'ND' || (tipo === 'NC' && tieneComentariosPrevios)) {
+    const esNd = tipo === 'ND' || tipo === 'NDE';
+    const esNc = tipo === 'NC' || tipo === 'NCE';
+    if (esNd || (esNc && tieneComentariosPrevios)) {
       columnas.push({
         headerName: 'Comentarios\nPrevios',
         field: 'comentarioPrevio',

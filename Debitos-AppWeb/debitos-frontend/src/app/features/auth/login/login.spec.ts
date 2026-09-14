@@ -175,4 +175,39 @@ describe('LoginComponent', () => {
     component.onSubmitCambiarClave();
     expect(component.mensajeExitoModal).toContain('¡Contraseña modificada con éxito!');
   });
+
+  it('debería renderizar todos los estados visuales del template login.html', () => {
+    // 1. Estado cargando y verificando
+    const f1 = TestBed.createComponent(LoginComponent);
+    const c1 = f1.componentInstance;
+    c1.cargando = true;
+    c1.verificandoUsuario = true;
+    c1.mostrarPassword = true;
+    c1.mensajeError = 'Error visible';
+    f1.detectChanges();
+    expect(f1.nativeElement).toBeTruthy();
+
+    // 2. Estado modal abierto con mensajes y spinners
+    const f2 = TestBed.createComponent(LoginComponent);
+    const c2 = f2.componentInstance;
+    c2.mostrarModalOlvideClave = true;
+    c2.usuarioVerificado = 'juan';
+    c2.mensajeErrorModal = 'Error modal';
+    c2.mensajeExitoModal = 'Exito modal';
+    c2.mostrarNuevaPassword = true;
+    c2.mostrarConfirmarPassword = true;
+    c2.cargandoCambioClave = true;
+    f2.detectChanges();
+    expect(f2.nativeElement).toBeTruthy();
+
+    // 3. Alternar passwords ocultas en modal
+    const f3 = TestBed.createComponent(LoginComponent);
+    const c3 = f3.componentInstance;
+    c3.mostrarModalOlvideClave = true;
+    c3.mostrarNuevaPassword = false;
+    c3.mostrarConfirmarPassword = false;
+    c3.cargandoCambioClave = false;
+    f3.detectChanges();
+    expect(f3.nativeElement).toBeTruthy();
+  });
 });

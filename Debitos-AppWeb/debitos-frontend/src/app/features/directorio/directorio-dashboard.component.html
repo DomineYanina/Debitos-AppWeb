@@ -1,0 +1,389 @@
+<div class="directorio-container">
+
+  <!-- Header Superior & Contexto -->
+  <header class="directorio-header">
+    <div class="header-titles">
+      <h1 class="main-title">Tablero de Control Financiero</h1>
+      <p class="subtitle">Monitoreo de facturación, cobranza efectiva, débitos aplicados y cadena de
+        refacturaciones por institución médica.</p>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="filter-card">
+      <div class="filter-group">
+        <label for="select-cobertura">Institución / Cobertura</label>
+        <select id="select-cobertura" class="form-control select-custom" [(ngModel)]="codigoCoberturaSeleccionada"
+          (change)="aplicarFiltros()">
+          <option value="TODAS">-- Todas las Instituciones --</option>
+          <option *ngFor="let cob of coberturas" [value]="cob.codigo">
+            {{ cob.nombre }} ({{ cob.codigo }})
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="select-tipo-doc">Tipo de Comprobante</label>
+        <select id="select-tipo-doc" class="form-control select-custom" [(ngModel)]="tipoDocSeleccionado"
+          (change)="aplicarFiltros()">
+          <option value="TODOS">-- Todos los Tipos --</option>
+          <option *ngFor="let tipo of tiposDocumento" [value]="tipo">
+            {{ tipo }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="fecha-desde">Fecha Desde</label>
+        <input type="date" id="fecha-desde" class="form-control" [(ngModel)]="fechaDesde" (change)="aplicarFiltros()">
+      </div>
+
+      <div class="filter-group">
+        <label for="fecha-hasta">Fecha Hasta</label>
+        <input type="date" id="fecha-hasta" class="form-control" [(ngModel)]="fechaHasta" (change)="aplicarFiltros()">
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="btn btn-primary" (click)="aplicarFiltros()" title="Aplicar filtros de búsqueda">
+          <span class="icon">🔍</span> Filtrar
+        </button>
+        <button type="button" class="btn btn-secondary" (click)="irAlMesAnterior()"
+          title="Ver mes anterior manteniendo filtros">
+          <span class="icon">↺</span> Mes Anterior
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Panel Macro: 4 Tarjetas de Totales Globales (KPIs) -->
+  <section class="kpi-grid">
+    <!-- 1. Total Facturado -->
+    <div class="kpi-card card-facturado">
+      <div class="kpi-header">
+        <span class="kpi-title">TOTAL FACTURADO</span>
+        <span class="kpi-icon">📄</span>
+      </div>
+      <div class="kpi-value">
+        <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalFacturado) }}</span>
+        <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
+      </div>
+      <div class="kpi-footer">
+        <span class="kpi-count">{{ totales.cantidadFacturas }} comprobantes FC</span>
+        <span class="kpi-desc">Facturación bruta emitida</span>
+      </div>
+    </div>
+
+    <!-- 2. Cobranza Efectiva -->
+    <div class="kpi-card card-cobranza">
+      <div class="kpi-header">
+        <span class="kpi-title">COBRANZA EFECTIVA</span>
+        <span class="kpi-icon">💰</span>
+      </div>
+      <div class="kpi-value">
+        <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.cobranzaEfectiva) }}</span>
+        <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
+      </div>
+      <div class="kpi-footer">
+        <span class="kpi-badge-positive">✓ Recibos Aplicados</span>
+        <span class="kpi-desc">Ingresos percibidos</span>
+      </div>
+    </div>
+
+    <!-- 3. Pérdida Asumida -->
+    <div class="kpi-card card-perdida">
+      <div class="kpi-header">
+        <span class="kpi-title">PÉRDIDA ASUMIDA</span>
+        <span class="kpi-icon">📉</span>
+      </div>
+      <div class="kpi-value">
+        <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.perdidaAsumida) }}</span>
+        <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
+      </div>
+      <div class="kpi-footer">
+        <span class="kpi-badge-negative">NC Débitos Aceptados</span>
+        <span class="kpi-desc">Importe no recuperable</span>
+      </div>
+    </div>
+
+    <!-- 4. Deuda Neta -->
+    <div class="kpi-card card-deuda">
+      <div class="kpi-header">
+        <span class="kpi-title">DEUDA NETA</span>
+        <span class="kpi-icon">⚖️</span>
+      </div>
+      <div class="kpi-value">
+        <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.deudaNeta) }}</span>
+        <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
+      </div>
+      <div class="kpi-footer">
+        <span class="kpi-formula">FC + ND - Cobranza - Pérdida</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sección Intermedia: Gráfico de Distribución de Débitos por Motivo (Opción B & C) -->
+  <section class="analytics-section">
+    <div class="section-card">
+      <div class="section-card-header">
+        <div>
+          <h2 class="section-title">Distribución de Débitos por Causa / Motivo</h2>
+          <p class="section-subtitle">Haga clic en cualquier porción del anillo o motivo de la lista para acceder al
+            detalle con los comentarios de los operadores.
+          </p>
+        </div>
+        <div class="total-debitado-badge" *ngIf="motivosDebito.length > 0">
+          Total Debitado: <strong>{{ formatearMoneda(obtenerTotalDebitadoGeneral()) }}</strong>
+        </div>
+      </div>
+
+      <div *ngIf="cargandoMotivos" class="loading-state">
+        <div class="spinner"></div>
+        <p>Analizando motivos de débito...</p>
+      </div>
+
+      <div *ngIf="!cargandoMotivos && motivosDebito.length === 0" class="empty-state">
+        <span class="empty-icon">📊</span>
+        <p>No se registran débitos para el período y cobertura seleccionados.</p>
+      </div>
+
+      <div *ngIf="!cargandoMotivos && motivosDebito.length > 0" class="chart-layout">
+
+        <!-- Gráfico Donut SVG Interactivo -->
+        <div class="donut-container">
+          <svg viewBox="0 0 200 200" class="donut-svg">
+            <g>
+              <path *ngFor="let slice of slicesDonut" [attr.d]="slice.pathData" [attr.fill]="slice.color"
+                class="donut-slice" [class.slice-active]="sectorHover?.motivo === slice.motivo"
+                (mouseenter)="onHoverSector(slice)" (mouseleave)="onHoverSector(null)"
+                (click)="navegarADetalleMotivo(slice.motivo)">
+              </path>
+            </g>
+            <!-- Centro del Donut -->
+            <circle cx="100" cy="100" r="50" class="donut-center-circle"></circle>
+            <!-- Texto Central Dinámico -->
+            <text x="100" y="93" text-anchor="middle" class="donut-center-title">
+              {{ sectorHover ? sectorHover.porcentaje + '%' : (motivosDebito.length + ' Motivos') }}
+            </text>
+            <text x="100" y="112" text-anchor="middle" class="donut-center-subtitle">
+              {{ sectorHover ? formatearMoneda(sectorHover.montoTotal) : 'Total Débitos' }}
+            </text>
+          </svg>
+          <div class="donut-hint">💡 Clic en un sector para ver prestaciones</div>
+        </div>
+
+        <!-- Leyenda y Ranking de Motivos con Clic para Drill-Down -->
+        <div class="legend-container">
+          <div class="legend-header">
+            <span>Motivo / Causa de Rechazo</span>
+            <span>Monto ($)</span>
+            <span>% Part.</span>
+            <span>Acción</span>
+          </div>
+
+          <div class="legend-list">
+            <div *ngFor="let item of motivosDebito" class="legend-item"
+              [class.legend-hover]="sectorHover?.motivo === item.motivo"
+              (mouseenter)="onHoverSector({ motivo: item.motivo, montoTotal: item.montoTotal, porcentaje: item.porcentaje, cantidadCasos: item.cantidadCasos, color: item.color || '#38bdf8', pathData: '', middleAngle: 0 })"
+              (mouseleave)="onHoverSector(null)" (click)="navegarADetalleMotivo(item.motivo)"
+              title="Ver detalle de prestaciones para: {{ item.motivo }}">
+
+              <div class="legend-col-motivo">
+                <span class="color-dot" [style.background-color]="item.color"></span>
+                <span class="motivo-nombre">{{ item.motivo }}</span>
+                <span class="casos-badge">{{ item.cantidadCasos }} casos</span>
+              </div>
+
+              <div class="legend-col-monto">
+                {{ formatearMoneda(item.montoTotal) }}
+              </div>
+
+              <div class="legend-col-porc">
+                <div class="mini-bar-wrapper">
+                  <div class="mini-bar-fill" [style.width.%]="item.porcentaje" [style.background-color]="item.color">
+                  </div>
+                </div>
+                <span class="porc-text">{{ item.porcentaje }}%</span>
+              </div>
+
+              <div class="legend-col-action">
+                <button type="button" class="btn-drilldown"
+                  (click)="$event.stopPropagation(); navegarADetalleMotivo(item.motivo)">
+                  Ver Detalle ➔
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Grilla Principal: Facturas y Comprobantes Derivados por Grupo (Opción A) -->
+  <section class="grid-section">
+    <div class="section-card">
+      <div class="section-card-header">
+        <div>
+          <h2 class="section-title">Historial de Facturas y Cadena de Refacturaciones</h2>
+          <p class="section-subtitle">Agrupación por comprobante raíz con desglose
+            cronológico de Notas de Crédito, Notas de Débito y Cobranzas vinculadas.</p>
+        </div>
+        <div class="grid-tools">
+          <button type="button" class="btn btn-outline-sm" (click)="expandirTodos(true)">
+            [+] Expandir Todo
+          </button>
+          <button type="button" class="btn btn-outline-sm" (click)="expandirTodos(false)">
+            [-] Contraer Todo
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="cargandoGrupos" class="loading-state">
+        <div class="spinner"></div>
+        <p>Cargando facturas y relaciones cronológicas...</p>
+      </div>
+
+      <div *ngIf="!cargandoGrupos && gruposFacturas.length === 0" class="empty-state">
+        <span class="empty-icon">📁</span>
+        <p>No se encontraron facturas registradas para los filtros aplicados.</p>
+      </div>
+
+      <div *ngIf="!cargandoGrupos && gruposFacturas.length > 0" class="table-responsive">
+        <table class="table-facturas">
+          <thead>
+            <tr>
+              <th class="th-expander"></th>
+              <th>Factura Principal</th>
+              <th>Fecha Emisión</th>
+              <th>Institución / Cobertura</th>
+              <th class="text-right">Total Facturado</th>
+              <th class="text-right">Débito Aceptado</th>
+              <th class="text-right">Débito Rechazado</th>
+              <th class="text-right">Cobranza</th>
+              <th class="text-center">Refacturaciones</th>
+              <th class="text-center">Cadena</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let grupo of gruposFacturas">
+
+              <!-- Fila Principal: Factura Raíz -->
+              <tr class="row-factura-raiz" [class.row-expanded]="grupo.expandido" (click)="toggleGrupo(grupo)">
+                <td class="td-expander">
+                  <button type="button" class="btn-toggle-expand" [class.is-expanded]="grupo.expandido">
+                    {{ grupo.expandido ? '▼' : '▶' }}
+                  </button>
+                </td>
+                <td class="td-comprobante">
+                  <span class="badge-tipo-doc badge-fc">{{ grupo.tipo || 'FC' }}</span>
+                  <strong>{{ formatearComprobante(grupo.letra, grupo.ptovta, grupo.numero) }}</strong>
+                </td>
+                <td>{{ grupo.fecha | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <span class="cobertura-tag">{{ grupo.cobertura || grupo.codigoCobertura || 'S/D' }}</span>
+                </td>
+                <td class="text-right font-weight-bold color-facturado">
+                  {{ formatearMoneda(grupo.totalFacturado) }}
+                </td>
+                <td class="text-right color-aceptado">
+                  {{ formatearMoneda(grupo.totalDebitadoAceptado) }}
+                </td>
+                <td class="text-right color-no-aceptado">
+                  {{ formatearMoneda(grupo.totalDebitadoNoAceptado) }}
+                </td>
+                <td class="text-right color-cobranza">
+                  {{ formatearMoneda(grupo.totalCobranza) }}
+                </td>
+                <td class="text-center">
+                  <span class="refactura-badge" [class.has-refactura]="grupo.cantidadRefacturaciones > 0">
+                    {{ grupo.cantidadRefacturaciones }} {{ grupo.cantidadRefacturaciones === 1 ? 'ND' : 'NDs' }}
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="badge-derivados-count">
+                    {{ grupo.comprobantesDerivados.length }} derivados
+                  </span>
+                </td>
+              </tr>
+
+              <!-- Fila Acordeón Expandida: Cadena de Comprobantes Derivados -->
+              <tr *ngIf="grupo.expandido" class="row-accordion-detail">
+                <td colspan="10" class="td-accordion-container">
+                  <div class="derived-tree-wrapper">
+
+                    <div class="tree-header">
+                      <span class="tree-title">Cadena de Comprobantes Derivados</span>
+                    </div>
+
+                    <div *ngIf="grupo.comprobantesDerivados.length === 0" class="empty-derived">
+                      <span>Esta factura no posee notas de crédito, notas de débito ni recibos asociados en este
+                        grupo.</span>
+                    </div>
+
+                    <table *ngIf="grupo.comprobantesDerivados.length > 0" class="table-sub-derivados">
+                      <thead>
+                        <tr>
+                          <th>Comprobante Derivado</th>
+                          <th>Fecha</th>
+                          <th>Origen / Rol</th>
+                          <th class="text-right">Monto Total</th>
+                          <th class="text-right">Débito Aceptado</th>
+                          <th class="text-right">Débito No Aceptado</th>
+                          <th class="text-right">Refacturado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let derivado of grupo.comprobantesDerivados" class="sub-row-item">
+                          <td>
+                            <div class="doc-badge-pill">
+                              <span class="badge-sub-doc" [class.badge-nc]="derivado.tipo.startsWith('NC')"
+                                [class.badge-nd]="derivado.tipo.startsWith('ND')"
+                                [class.badge-rc]="derivado.tipo.startsWith('RC')">
+                                {{ derivado.tipo }}
+                              </span>
+                              <span class="sub-doc-number">
+                                {{ formatearComprobante(derivado.letra, derivado.ptovta, derivado.numero) }}
+                              </span>
+                            </div>
+                          </td>
+                          <td>{{ derivado.fecha | date:'dd/MM/yyyy' }}</td>
+                          <td>
+                            <span class="origen-badge" [class.origen-deb]="derivado.origenTipo === 'DEB'"
+                              [class.origen-ref]="derivado.origenTipo === 'REF'"
+                              [class.origen-cob]="derivado.origenTipo === 'COB'"
+                              [class.origen-iva]="derivado.origenTipo === 'IVA'">
+                              {{ derivado.origenTipo === 'DEB' ? 'DÉBITO (NC)' :
+                              derivado.origenTipo === 'REF' ? 'REFACTURACIÓN (ND)' :
+                              derivado.origenTipo === 'COB' ? 'COBRANZA (RC)' :
+                              derivado.origenTipo === 'IVA' ? 'AJUSTE IVA' : derivado.origenTipo }}
+                            </span>
+                          </td>
+                          <td class="text-right font-weight-bold">
+                            {{ formatearMoneda(derivado.total) }}
+                          </td>
+                          <td class="text-right color-aceptado">
+                            {{ derivado.debitoAceptado > 0 ? formatearMoneda(derivado.debitoAceptado) : '-' }}
+                          </td>
+                          <td class="text-right color-no-aceptado">
+                            {{ derivado.debitoNoAceptado > 0 ? formatearMoneda(derivado.debitoNoAceptado) : '-' }}
+                          </td>
+                          <td class="text-right color-refacturado">
+                            {{ derivado.refacturado > 0 ? formatearMoneda(derivado.refacturado) : '-' }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                  </div>
+                </td>
+              </tr>
+
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </section>
+
+</div>

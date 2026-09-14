@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,6 +44,9 @@ class AuditoriaServiceTest {
 
     @Mock
     private RegistroUsabilidadRepository registroUsabilidadRepository;
+
+    @Mock
+    private RegistroImputacionRepository registroImputacionRepository;
 
     @Mock
     private NotificacionService notificacionService;
@@ -101,9 +105,12 @@ class AuditoriaServiceTest {
     void testResolverTiposEquivalentes() {
         assertTrue(AuditoriaService.resolverTiposEquivalentes(null).isEmpty());
         assertTrue(AuditoriaService.resolverTiposEquivalentes("").isEmpty());
-        assertEquals(List.of("FC", "FAC", "FCE"), AuditoriaService.resolverTiposEquivalentes("FC"));
-        assertEquals(List.of("NC", "NCE"), AuditoriaService.resolverTiposEquivalentes("NC"));
-        assertEquals(List.of("ND", "NDE"), AuditoriaService.resolverTiposEquivalentes("ND"));
+        assertEquals(List.of("FC", "FAC"), AuditoriaService.resolverTiposEquivalentes("FC"));
+        assertEquals(List.of("FCE"), AuditoriaService.resolverTiposEquivalentes("FCE"));
+        assertEquals(List.of("NC"), AuditoriaService.resolverTiposEquivalentes("NC"));
+        assertEquals(List.of("NCE"), AuditoriaService.resolverTiposEquivalentes("NCE"));
+        assertEquals(List.of("ND"), AuditoriaService.resolverTiposEquivalentes("ND"));
+        assertEquals(List.of("NDE"), AuditoriaService.resolverTiposEquivalentes("NDE"));
         assertEquals(List.of("RC"), AuditoriaService.resolverTiposEquivalentes("RC"));
     }
 
@@ -123,9 +130,9 @@ class AuditoriaServiceTest {
     @Test
     @DisplayName("Obtener prestaciones según tipo de comprobante")
     void testObtenerPrestacionesSegunTipo() {
-        when(ambLiquidadoRepository.findPrestacionesPorFactura("A", 1, 1000)).thenReturn(List.of(mock(PrestacionAuditoriaDTO.class)));
-        when(notaDeCreditoRepository.findPrestacionesPorNotaCredito("A", 1, 2000)).thenReturn(List.of(mock(PrestacionAuditoriaDTO.class)));
-        when(notaDeDebitoRepository.findPrestacionesPorNotaDebito("A", 1, 3000)).thenReturn(List.of(mock(PrestacionAuditoriaDTO.class)));
+        when(ambLiquidadoRepository.findPrestacionesPorFactura(any(), eq("A"), eq(1), eq(1000))).thenReturn(List.of(mock(PrestacionAuditoriaDTO.class)));
+        when(notaDeCreditoRepository.findPrestacionesPorNotaCredito(any(), eq("A"), eq(1), eq(2000))).thenReturn(List.of(mock(PrestacionAuditoriaDTO.class)));
+        when(notaDeDebitoRepository.findPrestacionesPorNotaDebito(any(), eq("A"), eq(1), eq(3000))).thenReturn(List.of(mock(PrestacionAuditoriaDTO.class)));
 
         assertEquals(1, auditoriaService.obtenerPrestaciones("FC", "A", 1, 1000).size());
         assertEquals(1, auditoriaService.obtenerPrestaciones("NC", "A", 1, 2000).size());
@@ -201,7 +208,7 @@ class AuditoriaServiceTest {
                 .thenReturn(List.of(cabeceraNC));
 
         PrestacionAuditoriaDTO dto = mock(PrestacionAuditoriaDTO.class);
-        when(notaDeCreditoRepository.findPrestacionesPorNotaCredito("A", 1, 2000)).thenReturn(List.of(dto));
+        when(notaDeCreditoRepository.findPrestacionesPorNotaCredito(any(), eq("A"), eq(1), eq(2000))).thenReturn(List.of(dto));
 
         ResultadoBusquedaDTO resultado = auditoriaService.buscarUnificado("NC", "A", 1, 2000);
         assertNotNull(resultado);
@@ -216,7 +223,7 @@ class AuditoriaServiceTest {
                 .thenReturn(List.of(cabeceraND));
 
         PrestacionAuditoriaDTO dto = mock(PrestacionAuditoriaDTO.class);
-        when(notaDeDebitoRepository.findPrestacionesPorNotaDebito("A", 1, 3000)).thenReturn(List.of(dto));
+        when(notaDeDebitoRepository.findPrestacionesPorNotaDebito(any(), eq("A"), eq(1), eq(3000))).thenReturn(List.of(dto));
 
         ResultadoBusquedaDTO resultado = auditoriaService.buscarUnificado("ND", "A", 1, 3000);
         assertNotNull(resultado);
@@ -299,7 +306,7 @@ class AuditoriaServiceTest {
                 .thenReturn(List.of(cabeceraFC));
 
         PrestacionAuditoriaDTO p1 = mock(PrestacionAuditoriaDTO.class);
-        when(ambLiquidadoRepository.findPrestacionesPorFactura("A", 1, 1000))
+        when(ambLiquidadoRepository.findPrestacionesPorFactura(any(), eq("A"), eq(1), eq(1000)))
                 .thenReturn(List.of(p1));
 
         ResultadoBusquedaDTO resultado = auditoriaService.buscarUnificado("FC", "A", 1, 1000);
@@ -1227,7 +1234,7 @@ class AuditoriaServiceTest {
     }
 
     @Test
-    @DisplayName("Cabeceras disponibles - Filtra ND si ya está en notadedebito o nd_ajustedeiva")
+    @DisplayName("Obtener cabeceras disponibles - ND con prestaciones ya imputadas se marca con flag")
     void testObtenerCabecerasDisponiblesFiltroNd() {
         Cabecera cand1 = new Cabecera();
         cand1.setId(501L);
@@ -1244,7 +1251,8 @@ class AuditoriaServiceTest {
 
         List<CabeceraCandidataDTO> lista = auditoriaService.obtenerCabecerasDisponibles("ND", "NC", "A", 1, 2000);
         assertNotNull(lista);
-        assertTrue(lista.isEmpty());
+        assertEquals(1, lista.size());
+        assertTrue(lista.get(0).isTienePrestacionesImputadas());
     }
 
     @Test
@@ -1481,6 +1489,495 @@ class AuditoriaServiceTest {
         List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("ND", "A", 1, 3000);
         assertNotNull(historial);
         assertTrue(historial.size() >= 3);
+    }
+
+    @Test
+    @DisplayName("Historial jerárquico - FC -> NC -> ND con RC no debe duplicar el RC")
+    void testHistorialJerarquicoFcConNcNdYRcSinDuplicarRc() {
+        Cabecera fc = new Cabecera();
+        fc.setId(8510L);
+        fc.setTipo("FAC");
+        fc.setLetra("B");
+        fc.setPtovta(30);
+        fc.setNumero(4332);
+        fc.setGrupo(227712L);
+        fc.setAsociadogrupo(227712L);
+        fc.setFecha(LocalDate.of(2026, 5, 1));
+        fc.setDebe(new BigDecimal("83888973.91"));
+
+        Cabecera nc = new Cabecera();
+        nc.setId(11727L);
+        nc.setTipo("NC");
+        nc.setLetra("B");
+        nc.setPtovta(30);
+        nc.setNumero(1014);
+        nc.setAsociado(8510L);
+        nc.setGrupo(227712L);
+        nc.setAsociadogrupo(227712L);
+        nc.setFecha(LocalDate.of(2026, 6, 30));
+        nc.setHaber(new BigDecimal("9426935.86"));
+
+        Cabecera nd = new Cabecera();
+        nd.setId(30607L);
+        nd.setTipo("NDE");
+        nd.setLetra("A");
+        nd.setPtovta(31);
+        nd.setNumero(3131);
+        nd.setAsociado(11727L);
+        nd.setGrupo(227712L);
+        nd.setAsociadogrupo(227712L);
+        nd.setFecha(LocalDate.of(2026, 9, 17));
+        nd.setDebe(new BigDecimal("8443344.09"));
+
+        Cabecera rc = new Cabecera();
+        rc.setId(11726L);
+        rc.setTipo("RC");
+        rc.setGrupo(227712L);
+        rc.setAsociadogrupo(227712L);
+        rc.setFecha(LocalDate.of(2026, 7, 3));
+        rc.setHaber(new BigDecimal("83270380.31"));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("B"), eq(30), eq(4332)))
+                .thenReturn(List.of(fc));
+        when(cabeceraRepository.findByAsociadogrupo(227712L))
+                .thenReturn(List.of(nd, fc, rc, nc));
+        when(ambLiquidadoRepository.findTotalesFacturaMadre("B", 30, 4332))
+                .thenReturn(new Object[][]{new Object[]{"2026-05", "83888973.91", "8808342.33"}});
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("FC", "B", 30, 4332);
+
+        assertNotNull(historial);
+        assertEquals(4, historial.size(), "El historial debe contener exactamente 4 documentos (FC, NC, NDE, RC)");
+
+        long rcCount = historial.stream()
+                .filter(f -> "RC".equalsIgnoreCase(f.getTipoDocumento()))
+                .count();
+        assertEquals(1, rcCount, "El comprobante RC debe aparecer exactamente una vez");
+
+        // Validar jerarquía y niveles:
+        // 0: FC
+        // 1: NC
+        // 2: NDE (hija de NC)
+        // 1: RC (hijo de FC)
+        assertEquals("FAC", historial.get(0).getTipoDocumento());
+        assertEquals(0, historial.get(0).getNivel());
+
+        assertEquals("NC", historial.get(1).getTipoDocumento());
+        assertEquals(1, historial.get(1).getNivel());
+
+        assertEquals("NDE", historial.get(2).getTipoDocumento());
+        assertEquals(2, historial.get(2).getNivel());
+
+        assertEquals("RC", historial.get(3).getTipoDocumento());
+        assertEquals(1, historial.get(3).getNivel());
+    }
+
+    // ==========================================
+    // 25. REGISTRO Y AUDITORÍA DE IMPUTACIONES
+    // ==========================================
+    @Test
+    @DisplayName("procesarNuevaNotaCredito - Registra auditoría de imputación correctamente")
+    void testProcesarNuevaNotaCreditoRegistraImputacion() {
+        NuevaNotaCreditoRequest req = new NuevaNotaCreditoRequest();
+        req.setOrigen("FC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(1000);
+        req.setUsuario("usuario.auditor");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("NC");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(2000);
+        datos.setFecha("2026-02-15");
+        datos.setTipoNc("Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(10);
+        reg.setMotivoDebito("Falta firma");
+        reg.setImporteDebitado(new BigDecimal("200.00"));
+        reg.setDebitoAceptado("SI");
+        req.setRegistros(List.of(reg));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("NC", "A", 1, 2000))
+                .thenReturn(Optional.of(cabeceraNC));
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(10);
+        amb.setCabecera(cabeceraFC);
+        amb.setTotalNeto(new BigDecimal("1000.00"));
+        amb.setIva(new BigDecimal("210.00"));
+        when(ambLiquidadoRepository.findAllById(List.of(10))).thenReturn(List.of(amb));
+        when(notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(10)).thenReturn(Optional.empty());
+
+        auditoriaService.procesarNuevaNotaCredito(req);
+
+        ArgumentCaptor<RegistroImputacion> captor = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captor.capture());
+
+        RegistroImputacion imp = captor.getValue();
+        assertNotNull(imp);
+        assertEquals("usuario.auditor", imp.getUsuario());
+        assertEquals(100L, imp.getIdCabeceraOrigen());
+        assertEquals(101L, imp.getIdCabeceraDestino());
+        assertEquals("NC", imp.getTipoImputacion());
+        assertNotNull(imp.getFechaHora());
+        assertTrue(imp.getComprobanteOrigen().contains("FC"));
+        assertTrue(imp.getComprobanteDestino().contains("NC"));
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaCredito - Origen FCE guarda prestaciones en notadecredito y registra imputación")
+    void testProcesarNuevaNotaCreditoOrigenFceGuardaPrestacionesYRegistraImputacion() {
+        NuevaNotaCreditoRequest req = new NuevaNotaCreditoRequest();
+        req.setOrigen("FCE");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(30);
+        req.setNumeroOriginal(2081);
+        req.setUsuario("usuario.auditor");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("NC");
+        datos.setLetra("A");
+        datos.setPuntoVenta(555);
+        datos.setNumero(5555);
+        datos.setFecha("2026-09-19");
+        datos.setTipoNc("Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(50);
+        reg.setMotivoDebito("Débito prestacional");
+        reg.setImporteDebitado(new BigDecimal("100.00"));
+        reg.setDebitoAceptado("SI");
+        req.setRegistros(List.of(reg));
+
+        Cabecera cabFCE = new Cabecera("FCE", "A", 30, 2081, LocalDate.of(2026, 5, 8), null, "BDD", "OS", "Obra Social");
+        cabFCE.setId(2L);
+        cabFCE.setGrupo(226181L);
+
+        Cabecera cabNC = new Cabecera("NC", "A", 555, 5555, LocalDate.of(2026, 9, 19), null, "APP_MANUAL", "OS", "Obra Social");
+        cabNC.setId(19789L);
+        cabNC.setGrupo(226181L);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(30), eq(2081)))
+                .thenReturn(List.of(cabFCE));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("NC", "A", 555, 5555))
+                .thenReturn(Optional.of(cabNC));
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(50);
+        amb.setCabecera(cabFCE);
+        amb.setTotalNeto(new BigDecimal("500.00"));
+        amb.setIva(new BigDecimal("105.00"));
+        when(ambLiquidadoRepository.findAllById(List.of(50))).thenReturn(List.of(amb));
+        when(notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(50)).thenReturn(Optional.empty());
+
+        auditoriaService.procesarNuevaNotaCredito(req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<NotaDeCredito>> captorNcList = ArgumentCaptor.forClass(List.class);
+        verify(notaDeCreditoRepository, times(1)).saveAll(captorNcList.capture());
+        List<NotaDeCredito> guardadas = captorNcList.getValue();
+        assertEquals(1, guardadas.size());
+        assertEquals(19789L, guardadas.get(0).getCabecera().getId());
+        assertEquals(50, guardadas.get(0).getPrestacion().getId());
+
+        ArgumentCaptor<RegistroImputacion> captorImp = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captorImp.capture());
+        RegistroImputacion imp = captorImp.getValue();
+        assertNotNull(imp);
+        assertEquals(2L, imp.getIdCabeceraOrigen());
+        assertEquals(19789L, imp.getIdCabeceraDestino());
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaDebito - Registra auditoría de imputación correctamente")
+    void testProcesarNuevaNotaDebitoRegistraImputacion() {
+        NuevaNotaDebitoRequest req = new NuevaNotaDebitoRequest();
+        req.setOrigen("NC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(2000);
+        req.setUsuario("usuario.auditor2");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("ND");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(3000);
+        datos.setFecha("2026-03-10");
+        datos.setTipoNd("Por Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(10);
+        reg.setMotivoRefactura("Rechazo");
+        reg.setImporteRefactura(new BigDecimal("150.00"));
+        req.setRegistros(List.of(reg));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(2000)))
+                .thenReturn(List.of(cabeceraNC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("ND", "A", 1, 3000))
+                .thenReturn(Optional.of(cabeceraND));
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(10);
+        when(ambLiquidadoRepository.findAllById(List.of(10))).thenReturn(List.of(amb));
+
+        NotaDeCredito ncPadre = new NotaDeCredito();
+        ncPadre.setId(88);
+        when(notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId("A", 1, 2000, 10))
+                .thenReturn(Optional.of(ncPadre));
+        when(notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNd(88, "Por Refactura")).thenReturn(false);
+
+        auditoriaService.procesarNuevaNotaDebito(req);
+
+        ArgumentCaptor<RegistroImputacion> captor = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captor.capture());
+
+        RegistroImputacion imp = captor.getValue();
+        assertNotNull(imp);
+        assertEquals("usuario.auditor2", imp.getUsuario());
+        assertEquals(101L, imp.getIdCabeceraOrigen());
+        assertEquals(102L, imp.getIdCabeceraDestino());
+        assertEquals("ND", imp.getTipoImputacion());
+        assertNotNull(imp.getFechaHora());
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaDebitoAjusteIva - Registra auditoría de imputación correctamente")
+    void testProcesarNuevaNotaDebitoAjusteIvaRegistraImputacion() {
+        NuevaNotaDebitoAjusteIvaRequest req = new NuevaNotaDebitoAjusteIvaRequest();
+        req.setTipoNc("NC");
+        req.setLetraNc("A");
+        req.setPtovtaNc(1);
+        req.setNumeroNc(2000);
+        req.setTipoNd("ND");
+        req.setLetraNd("A");
+        req.setPtovtaNd(1);
+        req.setNumeroNd(3000);
+        req.setNeto("500.00");
+        req.setIva("105.00");
+        req.setPorcIva("21.00");
+        req.setUsuario("auditor.iva");
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(2000)))
+                .thenReturn(List.of(cabeceraNC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("ND", "A", 1, 3000))
+                .thenReturn(Optional.of(cabeceraND));
+
+        auditoriaService.procesarNuevaNotaDebitoAjusteIva(req);
+
+        ArgumentCaptor<RegistroImputacion> captor = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captor.capture());
+
+        RegistroImputacion imp = captor.getValue();
+        assertNotNull(imp);
+        assertEquals("auditor.iva", imp.getUsuario());
+        assertEquals(101L, imp.getIdCabeceraOrigen());
+        assertEquals(102L, imp.getIdCabeceraDestino());
+        assertEquals("ND_AJUSTE_IVA", imp.getTipoImputacion());
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaCredito - Ajuste de IVA no prestacional registra auditoría de imputación")
+    void testProcesarNuevaNotaCreditoAjusteIvaRegistraImputacion() {
+        NuevaNotaCreditoRequest req = new NuevaNotaCreditoRequest();
+        req.setOrigen("FC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(1000);
+        req.setUsuario("auditor.nciva");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("NC");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(2000);
+        datos.setFecha("2026-02-15");
+        datos.setTipoNc("Por ajuste de IVA");
+        datos.setSubtipoIva("No prestacional");
+        datos.setNeto(new BigDecimal("1000.00"));
+        datos.setPorcIva(new BigDecimal("21.00"));
+        datos.setIva(new BigDecimal("210.00"));
+        req.setDatosNota(datos);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("NC", "A", 1, 2000))
+                .thenReturn(Optional.of(cabeceraNC));
+
+        auditoriaService.procesarNuevaNotaCredito(req);
+
+        ArgumentCaptor<RegistroImputacion> captor = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captor.capture());
+
+        RegistroImputacion imp = captor.getValue();
+        assertNotNull(imp);
+        assertEquals("auditor.nciva", imp.getUsuario());
+        assertEquals(100L, imp.getIdCabeceraOrigen());
+        assertEquals(101L, imp.getIdCabeceraDestino());
+        assertEquals("NC_AJUSTE_IVA", imp.getTipoImputacion());
+    }
+
+    @Test
+    @DisplayName("obtenerCabecerasDisponibles - Retorna todas las cabeceras marcando tienePrestacionesImputadas")
+    void testObtenerCabecerasDisponiblesConYsinPrestacionesImputadas() {
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+
+        Cabecera cab1 = new Cabecera("NC", "A", 1, 2001, LocalDate.now(), null, "REG1", "OSDE", "OSDE 210");
+        cab1.setId(101L);
+        Cabecera cab2 = new Cabecera("NC", "A", 1, 2002, LocalDate.now(), null, "REG1", "OSDE", "OSDE 210");
+        cab2.setId(102L);
+
+        when(cabeceraRepository.findCandidatosPorTipoYGrupos(anyList(), anySet()))
+                .thenReturn(List.of(cab1, cab2));
+
+        when(notaDeCreditoRepository.findByCabecera_Id(101L)).thenReturn(List.of(new NotaDeCredito()));
+        when(notaDeCreditoRepository.findByCabecera_Id(102L)).thenReturn(Collections.emptyList());
+        when(ncAjusteDeIvaRepository.findByCabecera_Id(anyLong())).thenReturn(Optional.empty());
+
+        List<CabeceraCandidataDTO> candidatos = auditoriaService.obtenerCabecerasDisponibles("NC", "FC", "A", 1, 1000);
+
+        assertNotNull(candidatos);
+        assertEquals(2, candidatos.size());
+        assertTrue(candidatos.get(0).isTienePrestacionesImputadas());
+        assertFalse(candidatos.get(1).isTienePrestacionesImputadas());
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaCredito - Agregado de prestaciones a imputación existente")
+    void testProcesarNuevaNotaCreditoAgregadoDePrestaciones() {
+        NuevaNotaCreditoRequest req = new NuevaNotaCreditoRequest();
+        req.setOrigen("FC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(1000);
+        req.setUsuario("auditor.agregado");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("NC");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(2000);
+        datos.setFecha("2026-02-15");
+        datos.setTipoNc("Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(501);
+        reg.setMotivoDebito("DOCUMENTACION_INCOMPLETA");
+        reg.setImporteDebitado(new BigDecimal("150.00"));
+        reg.setDebitoAceptado("SI");
+        req.setRegistros(List.of(reg));
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(501);
+        amb.setTotalNeto(new BigDecimal("150.00"));
+        amb.setIva(new BigDecimal("31.50"));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("NC", "A", 1, 2000))
+                .thenReturn(Optional.of(cabeceraNC));
+        when(ambLiquidadoRepository.findAllById(anyList())).thenReturn(List.of(amb));
+        when(notaDeCreditoRepository.findByCabecera_Id(101L)).thenReturn(List.of(new NotaDeCredito()));
+
+        auditoriaService.procesarNuevaNotaCredito(req);
+
+        ArgumentCaptor<RegistroImputacion> captor = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captor.capture());
+
+        RegistroImputacion imp = captor.getValue();
+        assertNotNull(imp);
+        assertEquals("auditor.agregado", imp.getUsuario());
+        assertEquals("Agregado de prestaciones a imputación", imp.getTipoImputacion());
+    }
+
+    @Test
+    @DisplayName("procesarGuardadoParcial - Modificación de prestaciones ya imputadas registra auditoría")
+    void testProcesarGuardadoParcialModificacionDePrestacionesYaImputadas() {
+        GuardarParcialRequest req = new GuardarParcialRequest();
+        req.setDocumentoOrigen("FC");
+        req.setLetra("A");
+        req.setPtovta(1);
+        req.setNumero(1000);
+        req.setUsuario("auditor.modifica");
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(502);
+        reg.setMotivoDebito("ERROR_FACTURACION");
+        reg.setImporteDebitado(new BigDecimal("200.00"));
+        reg.setDebitoAceptado("SI");
+        req.setRegistros(List.of(reg));
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(502);
+
+        NotaDeCredito ncExistente = new NotaDeCredito();
+        ncExistente.setId(10);
+        ncExistente.setCabecera(cabeceraNC);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+        when(ambLiquidadoRepository.findAllById(anyList())).thenReturn(List.of(amb));
+        when(notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(502))
+                .thenReturn(Optional.of(ncExistente));
+
+        auditoriaService.procesarGuardadoParcial(req);
+
+        ArgumentCaptor<RegistroImputacion> captor = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captor.capture());
+
+        RegistroImputacion imp = captor.getValue();
+        assertNotNull(imp);
+        assertEquals("auditor.modifica", imp.getUsuario());
+        assertEquals("Modificación de prestaciones ya imputadas", imp.getTipoImputacion());
+    }
+
+    @Test
+    @DisplayName("Operaciones bloqueadas si trámite está finalizado (idEstado == 2)")
+    void testOperacionesBloqueadasSiTramiteFinalizado() {
+        Cabecera cabeceraFinalizada = new Cabecera("FC", "A", 1, 1000, LocalDate.now(), null, "REG1", "OSDE", "OSDE 210");
+        cabeceraFinalizada.setId(100L);
+        cabeceraFinalizada.setIdEstado(2);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFinalizada));
+
+        // 1. Guardar parcial debe lanzar excepción
+        GuardarParcialRequest reqGuardar = new GuardarParcialRequest();
+        reqGuardar.setDocumentoOrigen("FC");
+        reqGuardar.setLetra("A");
+        reqGuardar.setPtovta(1);
+        reqGuardar.setNumero(1000);
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(503);
+        reqGuardar.setRegistros(List.of(reg));
+
+        IllegalStateException ex1 = assertThrows(IllegalStateException.class, () ->
+                auditoriaService.procesarGuardadoParcial(reqGuardar)
+        );
+        assertTrue(ex1.getMessage().contains("El trámite se encuentra finalizado"));
+
+        // 2. Nueva Nota de Crédito debe lanzar excepción
+        NuevaNotaCreditoRequest reqNc = new NuevaNotaCreditoRequest();
+        reqNc.setOrigen("FC");
+        reqNc.setLetraOriginal("A");
+        reqNc.setPtovtaOriginal(1);
+        reqNc.setNumeroOriginal(1000);
+        reqNc.setDatosNota(new DatosNotaDTO());
+
+        IllegalStateException ex2 = assertThrows(IllegalStateException.class, () ->
+                auditoriaService.procesarNuevaNotaCredito(reqNc)
+        );
+        assertTrue(ex2.getMessage().contains("El trámite se encuentra finalizado"));
     }
 }
 

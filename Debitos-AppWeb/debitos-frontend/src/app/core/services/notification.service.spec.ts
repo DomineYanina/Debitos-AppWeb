@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { NotificationService } from './notification.service';
 
 describe('NotificationService (Toasts)', () => {
@@ -42,5 +43,22 @@ describe('NotificationService (Toasts)', () => {
 
     service.dismiss(toastId);
     expect(service.toasts().length).toBe(0);
+  });
+
+  it('debería descartar automáticamente por timeout y respetar duration 0', () => {
+    vi.useFakeTimers();
+    try {
+      service.show({ type: 'info', message: 'Auto dismiss', duration: 1000 });
+      expect(service.toasts().length).toBe(1);
+      vi.advanceTimersByTime(1000);
+      expect(service.toasts().length).toBe(0);
+
+      service.show({ type: 'warning', message: 'No auto dismiss', duration: 0 });
+      expect(service.toasts().length).toBe(1);
+      vi.advanceTimersByTime(5000);
+      expect(service.toasts().length).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

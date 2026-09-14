@@ -35,9 +35,13 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
         INNER JOIN cabecera c ON al.idcabecera = c.id
         LEFT JOIN notadecredito nc ON al.id = nc.id_prestacion AND nc.id_notadedebito IS NULL
         LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
-        WHERE UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero
+        WHERE c.tipo IN :tipos AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero
         """, nativeQuery = true)
-    List<PrestacionAuditoriaDTO> findPrestacionesPorFactura(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+    List<PrestacionAuditoriaDTO> findPrestacionesPorFactura(@Param("tipos") java.util.Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    default List<PrestacionAuditoriaDTO> findPrestacionesPorFactura(String letra, Integer ptovta, Integer numero) {
+        return findPrestacionesPorFactura(java.util.List.of("FC", "FAC", "FCE"), letra, ptovta, numero);
+    }
 
     @Query(value = """
         SELECT c.periodo AS periodo,

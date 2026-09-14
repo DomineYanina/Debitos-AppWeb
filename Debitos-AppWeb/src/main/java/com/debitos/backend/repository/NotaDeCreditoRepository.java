@@ -148,9 +148,13 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         LEFT JOIN notadedebito ndPadre ON nc.id_notadedebito = ndPadre.id
         JOIN amb_liquidado al ON nc.id_prestacion = al.id
         INNER JOIN cabecera c_fc ON al.idcabecera = c_fc.id
-        WHERE UPPER(c_nc.letra) = UPPER(:letra) AND c_nc.ptovta = :ptovta AND c_nc.numero = :numero
+        WHERE c_nc.tipo IN :tipos AND UPPER(c_nc.letra) = UPPER(:letra) AND c_nc.ptovta = :ptovta AND c_nc.numero = :numero
         """, nativeQuery = true)
-    List<PrestacionAuditoriaDTO> findPrestacionesPorNotaCredito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+    List<PrestacionAuditoriaDTO> findPrestacionesPorNotaCredito(@Param("tipos") java.util.Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    default List<PrestacionAuditoriaDTO> findPrestacionesPorNotaCredito(String letra, Integer ptovta, Integer numero) {
+        return findPrestacionesPorNotaCredito(java.util.List.of("NC", "NCE"), letra, ptovta, numero);
+    }
 
     @Query(value = """
         SELECT DISTINCT 

@@ -17,8 +17,11 @@
     <!-- Centro: Navegación & Selector de Simulación (para Admin) -->
     <div class="navbar-center">
       <nav class="nav-links">
-        <a routerLink="/auditoria" routerLinkActive="active-link" class="nav-item">
+        <a routerLink="/auditoria" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual !== 'DIRECTORIO' || esAdminReal">
           <span class="nav-label">Buscador de Documentos</span>
+        </a>
+        <a routerLink="/directorio" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'DIRECTORIO' || esAdminReal || rolActual === 'ADMIN'">
+          <span class="nav-label">Tablero de Control</span>
         </a>
       </nav>
 

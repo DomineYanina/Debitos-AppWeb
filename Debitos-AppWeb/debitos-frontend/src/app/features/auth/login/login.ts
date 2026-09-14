@@ -159,8 +159,13 @@ export class LoginComponent implements OnInit {
           // 1. Guardamos los datos
           this.authService.guardarToken(respuesta.token, respuesta.usuario, respuesta.rol);
 
-          // 2. Redirigimos automáticamente a auditoría
-          this.router.navigate(['/auditoria']);
+          // 2. Redirigimos según el rol
+          const userRole = (respuesta.rol || '').toUpperCase();
+          if (userRole === 'DIRECTORIO') {
+            this.router.navigate(['/directorio']);
+          } else {
+            this.router.navigate(['/auditoria']);
+          }
         },
         error: (err: any) => {
           this.cargando = false;

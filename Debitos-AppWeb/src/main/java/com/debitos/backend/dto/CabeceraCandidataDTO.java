@@ -17,6 +17,7 @@ public class CabeceraCandidataDTO {
     private String cobertura;
     private String codigoCobertura;
     private String label;
+    private boolean tienePrestacionesImputadas;
 
     public CabeceraCandidataDTO() {}
 
@@ -79,5 +80,13 @@ public class CabeceraCandidataDTO {
                 letra != null ? letra : "",
                 ptovta != null ? ptovta : 0,
                 numero != null ? numero : 0);
+    }
+
+    public boolean isTienePrestacionesImputadas() {
+        return tienePrestacionesImputadas;
+    }
+
+    public void setTienePrestacionesImputadas(boolean tienePrestacionesImputadas) {
+        this.tienePrestacionesImputadas = tienePrestacionesImputadas;
     }
 }

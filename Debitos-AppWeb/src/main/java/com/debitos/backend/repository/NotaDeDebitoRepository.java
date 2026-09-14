@@ -92,9 +92,13 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 
         LEFT JOIN amb_liquidado al ON al.id = nc1.id_prestacion 
         LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
-        WHERE UPPER(c_nd.letra) = UPPER(:letra) AND c_nd.ptovta = :ptovta AND c_nd.numero = :numero
+        WHERE c_nd.tipo IN :tipos AND UPPER(c_nd.letra) = UPPER(:letra) AND c_nd.ptovta = :ptovta AND c_nd.numero = :numero
         """, nativeQuery = true)
-    List<PrestacionAuditoriaDTO> findPrestacionesPorNotaDebito(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+    List<PrestacionAuditoriaDTO> findPrestacionesPorNotaDebito(@Param("tipos") java.util.Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    default List<PrestacionAuditoriaDTO> findPrestacionesPorNotaDebito(String letra, Integer ptovta, Integer numero) {
+        return findPrestacionesPorNotaDebito(java.util.List.of("ND", "NDE"), letra, ptovta, numero);
+    }
 
     @Deprecated
     @Query(value = """

@@ -40,7 +40,73 @@ public class AmbLiquidado {
     private BigDecimal coseguro;
     private BigDecimal total;
 
+    @Column(name = "operador")
+    private String operador;
+
+    @Column(name = "ope_recepcion")
+    private String opeRecepcion;
+
+    @Column(name = "vo")
+    private String vo;
+
+    @Column(name = "especialidad")
+    private String especialidad;
+
+    @Column(name = "serv_espe")
+    private String servEspe;
+
+    @Column(name = "derivador")
+    private String derivador;
+
+    @Column(name = "grupo")
+    private String grupo;
+
+    @Column(name = "centrocosto")
+    private String centrocosto;
+
+    @Column(name = "fecha_egreso")
+    private LocalDate fechaEgreso;
+
+    @Column(name = "tipo_internacion")
+    private String tipoInternacion;
+
+    @Column(name = "prog_urg")
+    private String progUrg;
+
+    @Column(name = "patologia")
+    private String patologia;
+
+    @Column(name = "medico_responsable_matricula")
+    private Long medicoResponsableMatricula;
+
+    @Column(name = "diagnostico_i")
+    private String diagnosticoI;
+
+    @Column(name = "operador_liquida")
+    private String operadorLiquida;
+
     public AmbLiquidado() {}
+
+    public AmbLiquidado(String operador, String opeRecepcion, String vo, String especialidad, String servEspe,
+                        String derivador, String grupo, String centrocosto, LocalDate fechaEgreso,
+                        String tipoInternacion, String progUrg, String patologia, Long medicoResponsableMatricula,
+                        String diagnosticoI, String operadorLiquida) {
+        this.operador = operador;
+        this.opeRecepcion = opeRecepcion;
+        this.vo = vo;
+        this.especialidad = especialidad;
+        this.servEspe = servEspe;
+        this.derivador = derivador;
+        this.grupo = grupo;
+        this.centrocosto = centrocosto;
+        this.fechaEgreso = fechaEgreso;
+        this.tipoInternacion = tipoInternacion;
+        this.progUrg = progUrg;
+        this.patologia = patologia;
+        this.medicoResponsableMatricula = medicoResponsableMatricula;
+        this.diagnosticoI = diagnosticoI;
+        this.operadorLiquida = operadorLiquida;
+    }
 
     public Integer getId() {
         return id;
@@ -176,5 +242,125 @@ public class AmbLiquidado {
 
     public void setTotal(BigDecimal total) {
         this.total = total;
+    }
+
+    public String getOperador() {
+        return operador;
+    }
+
+    public void setOperador(String operador) {
+        this.operador = operador;
+    }
+
+    public String getOpeRecepcion() {
+        return opeRecepcion;
+    }
+
+    public void setOpeRecepcion(String opeRecepcion) {
+        this.opeRecepcion = opeRecepcion;
+    }
+
+    public String getVo() {
+        return vo;
+    }
+
+    public void setVo(String vo) {
+        this.vo = vo;
+    }
+
+    public String getEspecialidad() {
+        return especialidad;
+    }
+
+    public void setEspecialidad(String especialidad) {
+        this.especialidad = especialidad;
+    }
+
+    public String getServEspe() {
+        return servEspe;
+    }
+
+    public void setServEspe(String servEspe) {
+        this.servEspe = servEspe;
+    }
+
+    public String getDerivador() {
+        return derivador;
+    }
+
+    public void setDerivador(String derivador) {
+        this.derivador = derivador;
+    }
+
+    public String getGrupo() {
+        return grupo;
+    }
+
+    public void setGrupo(String grupo) {
+        this.grupo = grupo;
+    }
+
+    public String getCentrocosto() {
+        return centrocosto;
+    }
+
+    public void setCentrocosto(String centrocosto) {
+        this.centrocosto = centrocosto;
+    }
+
+    public LocalDate getFechaEgreso() {
+        return fechaEgreso;
+    }
+
+    public void setFechaEgreso(LocalDate fechaEgreso) {
+        this.fechaEgreso = fechaEgreso;
+    }
+
+    public String getTipoInternacion() {
+        return tipoInternacion;
+    }
+
+    public void setTipoInternacion(String tipoInternacion) {
+        this.tipoInternacion = tipoInternacion;
+    }
+
+    public String getProgUrg() {
+        return progUrg;
+    }
+
+    public void setProgUrg(String progUrg) {
+        this.progUrg = progUrg;
+    }
+
+    public String getPatologia() {
+        return patologia;
+    }
+
+    public void setPatologia(String patologia) {
+        this.patologia = patologia;
+    }
+
+    public Long getMedicoResponsableMatricula() {
+        return medicoResponsableMatricula;
+    }
+
+    public void setMedicoResponsableMatricula(Long medicoResponsableMatricula) {
+        this.medicoResponsableMatricula = medicoResponsableMatricula;
+    }
+
+    public String getDiagnosticoI() {
+        return diagnosticoI;
+    }
+
+    public void setDiagnosticoI(String diagnosticoI) {
+        this.diagnosticoI = diagnosticoI;
+    }
+
+    public String getOperadorLiquida() {
+        return operadorLiquida;
+    }
+
+    public void setOperadorLiquida(String operadorLiquida) {
+        this.operadorLiquida = operadorLiquida;
     }
 }

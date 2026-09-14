@@ -223,4 +223,109 @@ describe('NavbarComponent', () => {
 
     document.body.removeChild(fakeOutsideElement);
   });
+
+  it('debería renderizar la lista de notificaciones y sus variantes en el DOM', () => {
+    component.esAdminReal = true;
+    component.rolActual = 'ADMIN';
+    component.noLeidasCount = 105;
+    component.notificaciones = [
+      {
+        id: 1,
+        usuario: 'juan',
+        mensaje: 'Nueva NC generada',
+        tipoDoc: 'NC',
+        tipoNotificacion: 'NC_CREADA',
+        leida: false,
+        fechaHora: new Date().toISOString()
+      },
+      {
+        id: 2,
+        usuario: 'maria',
+        mensaje: 'Nueva ND generada',
+        tipoDoc: 'ND',
+        tipoNotificacion: 'ND_CREADA',
+        leida: true,
+        fechaHora: new Date().toISOString()
+      },
+      {
+        id: 3,
+        usuario: 'pedro',
+        mensaje: 'Doc ausente',
+        tipoDoc: 'FC',
+        tipoNotificacion: 'DOC_NO_ENCONTRADO',
+        leida: false,
+        fechaHora: new Date().toISOString()
+      }
+    ] as any;
+
+    component.notificacionesAbiertas = true;
+    fixture.detectChanges();
+
+    const badge = fixture.nativeElement.querySelector('.notification-badge');
+    expect(badge?.textContent).toContain('99+');
+
+    const notifItems = fixture.nativeElement.querySelectorAll('.notification-item');
+    expect(notifItems.length).toBe(3);
+
+    const markAllBtn = fixture.nativeElement.querySelector('.btn-mark-all');
+    markAllBtn?.click();
+    expect(notificacionServiceSpy.marcarTodasComoLeidas).toHaveBeenCalled();
+
+    const markReadBtn = fixture.nativeElement.querySelector('.btn-mark-read');
+    markReadBtn?.click();
+    expect(notificacionServiceSpy.marcarComoLeida).toHaveBeenCalledWith(1);
+
+    notifItems[0]?.click();
+    expect(notificacionServiceSpy.navegarAComprobante).toHaveBeenCalled();
+  });
+
+  it('debería renderizar estado vacío cuando no hay notificaciones', () => {
+    component.esAdminReal = true;
+    component.notificaciones = [];
+    component.notificacionesAbiertas = true;
+    fixture.detectChanges();
+
+    const empty = fixture.nativeElement.querySelector('.empty-notifications');
+    expect(empty).toBeTruthy();
+    expect(empty.textContent).toContain('No hay notificaciones registradas');
+  });
+
+  it('debería renderizar el menú de usuario abierto con información y permitir logout', () => {
+    component.usuarioLogueado = 'admin_user';
+    component.rolActual = 'ADMIN';
+    component.menuUsuarioAbierto = true;
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector('.user-info-card');
+    expect(card?.textContent).toContain('admin_user');
+    expect(card?.textContent).toContain('Administrador del Sistema');
+
+    const logoutBtn = fixture.nativeElement.querySelector('.logout-item');
+    logoutBtn?.click();
+    expect(authServiceSpy.logout).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/login']);
+  });
+
+  it('debería reaccionar a la emisión de autenticado$ y rolActual$', () => {
+    autenticadoSub.next(false);
+    expect(component.usuarioLogueado).toBe('');
+    expect(component.esAdminReal).toBe(false);
+
+    authServiceSpy.isLoggedIn.mockReturnValue(true);
+    authServiceSpy.obtenerUsuario.mockReturnValue('nuevo_user');
+    authServiceSpy.esAdminReal.mockReturnValue(true);
+    authServiceSpy.obtenerRol.mockReturnValue('OPERADOR');
+
+    autenticadoSub.next(true);
+    expect(component.usuarioLogueado).toBe('nuevo_user');
+
+    rolActualSub.next('OPERADOR');
+    expect(component.rolActual).toBe('OPERADOR');
+
+    notificacionesSub.next([{ id: 99 } as any]);
+    expect(component.notificaciones.length).toBe(1);
+
+    noLeidasCountSub.next(3);
+    expect(component.noLeidasCount).toBe(3);
+  });
 });
