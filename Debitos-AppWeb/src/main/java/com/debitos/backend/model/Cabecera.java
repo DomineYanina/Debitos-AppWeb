@@ -50,12 +50,36 @@ public class Cabecera {
     @Column(name = "id_estado")
     private Integer idEstado = 1;
 
+    @Column(name = "comprobante")
+    private String comprobante;
+
     @PrePersist
     @PreUpdate
     public void prePersist() {
         if (this.origen == null || this.origen.trim().isEmpty()) {
             this.origen = "APP";
         }
+        this.comprobante = calcularComprobante();
+    }
+
+    /**
+     * Calcula el valor de la columna comprobante:
+     * - Si tipo es RC: solo el número.
+     * - En otro caso: "tipo letra XXXX-YYYYYYYY" donde XXXX es ptovta con padding 4 dígitos
+     *   e YYYYYYYY es numero con padding 8 dígitos.
+     */
+    private String calcularComprobante() {
+        if ("RC".equalsIgnoreCase(this.tipo != null ? this.tipo.trim() : "")) {
+            return this.numero != null ? String.valueOf(this.numero) : null;
+        }
+        if (this.tipo == null || this.letra == null || this.ptovta == null || this.numero == null) {
+            return null;
+        }
+        return String.format("%s %s%04d-%08d",
+                this.tipo.trim().toUpperCase(),
+                this.letra.trim().toUpperCase(),
+                this.ptovta,
+                this.numero);
     }
 
     public Cabecera() {
@@ -234,5 +258,13 @@ public class Cabecera {
 
     public void setIdEstado(Integer idEstado) {
         this.idEstado = idEstado;
+    }
+
+    public String getComprobante() {
+        return comprobante;
+    }
+
+    public void setComprobante(String comprobante) {
+        this.comprobante = comprobante;
     }
 }

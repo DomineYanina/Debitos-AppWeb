@@ -66,6 +66,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
           this.rolActual = rol;
           this.usuarioLogueado = this.authService.obtenerUsuario();
           this.esAdminReal = this.authService.esAdminReal();
+          this.validarRutaParaRol(rol);
           this.cdr.markForCheck();
         }
       })
@@ -167,6 +168,19 @@ export class NavbarComponent implements OnInit, OnDestroy {
     } else {
       this.authService.simularRol(nuevoRol);
       this.rolSimulado = nuevoRol;
+    }
+    this.validarRutaParaRol(this.authService.obtenerRol());
+  }
+
+  private validarRutaParaRol(rol: string): void {
+    if (!rol) return;
+    const rolUpper = rol.toUpperCase();
+    const urlActual = this.router.url;
+
+    if (urlActual.includes('/directorio') && rolUpper !== 'ADMIN' && rolUpper !== 'DIRECTORIO') {
+      this.router.navigate(['/auditoria']);
+    } else if (urlActual.includes('/auditoria') && rolUpper === 'DIRECTORIO') {
+      this.router.navigate(['/directorio']);
     }
   }
 

@@ -122,6 +122,22 @@ describe('NavbarComponent', () => {
     expect(component.rolSimulado).toBe('');
   });
 
+  it('cambiarRolSimulado debería redirigir a /auditoria si está en /directorio y simula OPERADOR', () => {
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/directorio');
+    authServiceSpy.obtenerRol.mockReturnValue('OPERADOR');
+
+    component.cambiarRolSimulado('OPERADOR');
+    expect(router.navigate).toHaveBeenCalledWith(['/auditoria']);
+  });
+
+  it('cambiarRolSimulado debería redirigir a /directorio si está en /auditoria y simula DIRECTORIO', () => {
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/auditoria');
+    authServiceSpy.obtenerRol.mockReturnValue('DIRECTORIO');
+
+    component.cambiarRolSimulado('DIRECTORIO');
+    expect(router.navigate).toHaveBeenCalledWith(['/directorio']);
+  });
+
   it('marcarComoLeida y marcarTodasComoLeidas deberían delegar al servicio', () => {
     const notif = { id: 5 } as any;
     const ev = new MouseEvent('click');

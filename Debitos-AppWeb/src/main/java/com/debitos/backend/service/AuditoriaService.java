@@ -84,13 +84,10 @@ public class AuditoriaService {
         if (tipo == null || tipo.trim().isEmpty()) return List.of();
         String t = tipo.trim().toUpperCase();
         return switch (t) {
-            case "FC", "FAC" -> List.of("FC", "FAC");
-            case "FCE" -> List.of("FCE");
-            case "NC" -> List.of("NC");
-            case "NCE" -> List.of("NCE");
-            case "ND" -> List.of("ND");
-            case "NDE" -> List.of("NDE");
-            case "RC" -> List.of("RC");
+            case "FC", "FAC", "FCE", "FCA", "FCB" -> List.of("FC", "FAC", "FCE", "FCA", "FCB");
+            case "NC", "NCE" -> List.of("NC", "NCE");
+            case "ND", "NDE" -> List.of("ND", "NDE");
+            case "RC", "REC" -> List.of("RC", "REC");
             default -> List.of(t);
         };
     }

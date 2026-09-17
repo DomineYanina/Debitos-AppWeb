@@ -21,6 +21,15 @@ public class DatabaseMigrationConfig {
             } catch (Exception e) {
                 log.debug("Aviso migración registro_imputacion (la columna ya tiene el tamaño o la tabla aún no fue creada): {}", e.getMessage());
             }
+
+            try {
+                jdbcTemplate.execute(
+                    "ALTER TABLE cabecera ADD COLUMN IF NOT EXISTS comprobante VARCHAR(50)"
+                );
+                log.info("Migración automática aplicada: cabecera.comprobante creada (si no existía).");
+            } catch (Exception e) {
+                log.debug("Aviso migración cabecera.comprobante: {}", e.getMessage());
+            }
         };
     }
 }

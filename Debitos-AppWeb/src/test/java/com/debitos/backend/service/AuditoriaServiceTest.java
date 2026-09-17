@@ -105,13 +105,13 @@ class AuditoriaServiceTest {
     void testResolverTiposEquivalentes() {
         assertTrue(AuditoriaService.resolverTiposEquivalentes(null).isEmpty());
         assertTrue(AuditoriaService.resolverTiposEquivalentes("").isEmpty());
-        assertEquals(List.of("FC", "FAC"), AuditoriaService.resolverTiposEquivalentes("FC"));
-        assertEquals(List.of("FCE"), AuditoriaService.resolverTiposEquivalentes("FCE"));
-        assertEquals(List.of("NC"), AuditoriaService.resolverTiposEquivalentes("NC"));
-        assertEquals(List.of("NCE"), AuditoriaService.resolverTiposEquivalentes("NCE"));
-        assertEquals(List.of("ND"), AuditoriaService.resolverTiposEquivalentes("ND"));
-        assertEquals(List.of("NDE"), AuditoriaService.resolverTiposEquivalentes("NDE"));
-        assertEquals(List.of("RC"), AuditoriaService.resolverTiposEquivalentes("RC"));
+        assertEquals(List.of("FC", "FAC", "FCE", "FCA", "FCB"), AuditoriaService.resolverTiposEquivalentes("FC"));
+        assertEquals(List.of("FC", "FAC", "FCE", "FCA", "FCB"), AuditoriaService.resolverTiposEquivalentes("FCE"));
+        assertEquals(List.of("NC", "NCE"), AuditoriaService.resolverTiposEquivalentes("NC"));
+        assertEquals(List.of("NC", "NCE"), AuditoriaService.resolverTiposEquivalentes("NCE"));
+        assertEquals(List.of("ND", "NDE"), AuditoriaService.resolverTiposEquivalentes("ND"));
+        assertEquals(List.of("ND", "NDE"), AuditoriaService.resolverTiposEquivalentes("NDE"));
+        assertEquals(List.of("RC", "REC"), AuditoriaService.resolverTiposEquivalentes("RC"));
     }
 
     @Test
