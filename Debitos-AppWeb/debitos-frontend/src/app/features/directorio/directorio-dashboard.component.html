@@ -1097,26 +1097,26 @@
                 <!-- NIVEL 2: Motivos (solo si analista está expandido) -->
                 <ng-container *ngIf="a.expanded">
                   <tr class="tr-sub-header tr-sub-header-motivo">
-                    <th colspan="2" class="td-sub-header-title sortable-sub-col" (click)="ordenarAnalistas('analista')" title="Ordenar por Motivo">
-                      ↳ Motivo de Débito <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'analista'">{{ columnaOrdenAnalista === 'analista' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th colspan="2" class="td-sub-header-title sortable-sub-col" (click)="ordenarMotivosAnalistas('motivo')" title="Ordenar por Motivo">
+                      ↳ Motivo de Débito <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'motivo'">{{ columnaOrdenMotivoAnalista === 'motivo' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarAnalistas('documentos')" title="Ordenar por Casos">
-                      Casos <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{ columnaOrdenAnalista === 'documentos' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('casos')" title="Ordenar por Casos">
+                      Casos <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'casos'">{{ columnaOrdenMotivoAnalista === 'casos' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarAnalistas('ticket')" title="Ordenar por Monto Debitado">
-                      Monto Debitado <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'ticket'">{{ columnaOrdenAnalista === 'ticket' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('montoDebitado')" title="Ordenar por Monto Debitado">
+                      Monto Debitado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'montoDebitado'">{{ columnaOrdenMotivoAnalista === 'montoDebitado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarAnalistas('aceptados')" title="Ordenar por Aceptado">
-                      Aceptado <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'aceptados'">{{ columnaOrdenAnalista === 'aceptados' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('aceptado')" title="Ordenar por Aceptado">
+                      Aceptado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'aceptado'">{{ columnaOrdenMotivoAnalista === 'aceptado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarAnalistas('refacturados')" title="Ordenar por Refacturado">
-                      Refacturado <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'refacturados'">{{ columnaOrdenAnalista === 'refacturados' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('refacturado')" title="Ordenar por Refacturado">
+                      Refacturado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'refacturado'">{{ columnaOrdenMotivoAnalista === 'refacturado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarAnalistas('atencion')" title="Ordenar por Atención">
-                      Atención (AMB / INT) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'atencion'">{{ columnaOrdenAnalista === 'atencion' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('atencion')" title="Ordenar por Atención">
+                      Atención (AMB / INT) <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'atencion'">{{ columnaOrdenMotivoAnalista === 'atencion' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarAnalistas('recupero')" title="Ordenar por % Recupero">
-                      % Rec. <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'recupero'">{{ columnaOrdenAnalista === 'recupero' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('recupero')" title="Ordenar por % Recupero">
+                      % Rec. <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'recupero'">{{ columnaOrdenMotivoAnalista === 'recupero' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
                   </tr>
 

@@ -407,6 +407,51 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.analistasDatos[0].motivos[0].motivo).toBe('B-Motivo'); // B antes que X
     });
 
+    it('ordenarMotivosAnalistas debe ordenar los motivos de forma independiente sin alterar la cabecera principal', () => {
+      component.analistasDatos = [
+        {
+          _originalIndex: 0,
+          analista: 'FernandaCortes',
+          cantidadRegistros: 500,
+          debitosAceptados: 25000,
+          debitosRefacturados: 15000,
+          totalTramitado: 40000,
+          ticketPromedio: 80,
+          tasaRecupero: 60,
+          motivos: [
+            { _originalIndex: 0, motivo: 'X-Motivo', casos: 50, montoDebitado: 5000, aceptado: 2000, refacturado: 3000, financiadores: [] },
+            { _originalIndex: 1, motivo: 'B-Motivo', casos: 450, montoDebitado: 35000, aceptado: 23000, refacturado: 12000, financiadores: [] }
+          ]
+        }
+      ];
+
+      // 1er click en refacturado: desc
+      component.ordenarMotivosAnalistas('refacturado');
+      expect(component.columnaOrdenMotivoAnalista).toBe('refacturado');
+      expect(component.direccionOrdenMotivoAnalista).toBe('desc');
+      // La cabecera principal permanece intacta
+      expect(component.columnaOrdenAnalista).toBe('');
+      expect(component.analistasDatos[0].motivos[0].motivo).toBe('B-Motivo'); // 12000 vs 3000
+
+      // 2do click en refacturado: asc
+      component.ordenarMotivosAnalistas('refacturado');
+      expect(component.direccionOrdenMotivoAnalista).toBe('asc');
+      expect(component.columnaOrdenAnalista).toBe('');
+      expect(component.analistasDatos[0].motivos[0].motivo).toBe('X-Motivo'); // 3000 vs 12000
+
+      // 3er click en refacturado: deshacer orden
+      component.ordenarMotivosAnalistas('refacturado');
+      expect(component.columnaOrdenMotivoAnalista).toBe('');
+      expect(component.pasoOrdenMotivoAnalista).toBe(0);
+      expect(component.analistasDatos[0].motivos[0].motivo).toBe('X-Motivo'); // orden original _originalIndex 0
+
+      // 1er click en aceptado: desc
+      component.ordenarMotivosAnalistas('aceptado');
+      expect(component.columnaOrdenMotivoAnalista).toBe('aceptado');
+      expect(component.columnaOrdenAnalista).toBe('');
+      expect(component.analistasDatos[0].motivos[0].motivo).toBe('B-Motivo'); // 23000 vs 2000
+    });
+
     it('cargarDesempenoOperativo debería enviar fechaDesde y fechaHasta al servicio', () => {
       directorioServiceSpy.getDesempenoGlobal = vi.fn().mockReturnValue(of({ analistas: [], medicos: [], operadores: [] }));
       component.fechaDesde = '2026-08-01';

@@ -203,6 +203,9 @@ export class DirectorioDashboardComponent implements OnInit {
   columnaOrdenAnalista: string = '';
   direccionOrdenAnalista: 'asc' | 'desc' = 'desc';
   pasoOrdenAnalista: number = 0;
+  columnaOrdenMotivoAnalista: string = '';
+  direccionOrdenMotivoAnalista: 'asc' | 'desc' = 'desc';
+  pasoOrdenMotivoAnalista: number = 0;
 
   medicosDatos: MetricaMedicoDTO[] = [];
   columnaOrdenMedico: string = '';
@@ -586,6 +589,8 @@ export class DirectorioDashboardComponent implements OnInit {
     this.filtroAnalistaSeleccionado = 'TODOS';
     this.columnaOrdenAnalista = '';
     this.pasoOrdenAnalista = 0;
+    this.columnaOrdenMotivoAnalista = '';
+    this.pasoOrdenMotivoAnalista = 0;
     this.columnaOrdenMedico = '';
     this.pasoOrdenMedico = 0;
     this.columnaOrdenCc = '';
@@ -1471,6 +1476,9 @@ export class DirectorioDashboardComponent implements OnInit {
         if (this.columnaOrdenAnalista) {
           this.aplicarOrdenAnalistas();
         }
+        if (this.columnaOrdenMotivoAnalista) {
+          this.aplicarOrdenMotivosAnalistas();
+        }
 
         this.medicosDatos = (data?.medicos || []).map((med, idxMed) => ({
           ...med,
@@ -1593,6 +1601,11 @@ export class DirectorioDashboardComponent implements OnInit {
       }
     });
 
+    if (this.columnaOrdenMotivoAnalista) {
+      this.aplicarOrdenMotivosAnalistas();
+      return;
+    }
+
     for (const a of this.analistasDatos) {
       if (a.motivos && a.motivos.length > 0) {
         a.motivos.sort((m1, m2) => {
@@ -1667,6 +1680,120 @@ export class DirectorioDashboardComponent implements OnInit {
 
   restaurarOrdenAnalistas(): void {
     this.analistasDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
+    if (this.columnaOrdenMotivoAnalista) {
+      this.aplicarOrdenMotivosAnalistas();
+      return;
+    }
+    for (const a of this.analistasDatos) {
+      if (a.motivos) {
+        a.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+        for (const m of a.motivos) {
+          if (m.financiadores) {
+            m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+            m.financiadores = [...m.financiadores];
+          }
+        }
+        a.motivos = [...a.motivos];
+      }
+    }
+    this.analistasDatos = [...this.analistasDatos];
+    this.cdr.markForCheck();
+  }
+
+  // ── Ordenamiento Subnivel Motivos Analistas ─────────────────────────────────
+  ordenarMotivosAnalistas(columna: string): void {
+    if (this.columnaOrdenMotivoAnalista === columna) {
+      if (this.pasoOrdenMotivoAnalista === 1) {
+        this.pasoOrdenMotivoAnalista = 2;
+        this.direccionOrdenMotivoAnalista = this.direccionOrdenMotivoAnalista === 'asc' ? 'desc' : 'asc';
+        this.aplicarOrdenMotivosAnalistas();
+      } else {
+        // 3er click: deshacer ordenamiento de motivos
+        this.columnaOrdenMotivoAnalista = '';
+        this.pasoOrdenMotivoAnalista = 0;
+        this.restaurarOrdenMotivosAnalistas();
+      }
+    } else {
+      this.columnaOrdenMotivoAnalista = columna;
+      this.pasoOrdenMotivoAnalista = 1;
+      this.direccionOrdenMotivoAnalista = columna === 'motivo' ? 'asc' : 'desc';
+      this.aplicarOrdenMotivosAnalistas();
+    }
+  }
+
+  aplicarOrdenMotivosAnalistas(): void {
+    if (!this.columnaOrdenMotivoAnalista) return;
+    const factor = this.direccionOrdenMotivoAnalista === 'asc' ? 1 : -1;
+    const columna = this.columnaOrdenMotivoAnalista;
+
+    for (const a of this.analistasDatos) {
+      if (a.motivos && a.motivos.length > 0) {
+        a.motivos.sort((m1, m2) => {
+          switch (columna) {
+            case 'motivo':
+              return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+            case 'casos':
+              return ((m1.casos || 0) - (m2.casos || 0)) * factor;
+            case 'montoDebitado':
+              return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
+            case 'aceptado':
+              return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
+            case 'refacturado':
+              return ((m1.refacturado || 0) - (m2.refacturado || 0)) * factor;
+            case 'atencion': {
+              const amb1 = m1.porcentajeAmb ?? 100;
+              const amb2 = m2.porcentajeAmb ?? 100;
+              return (amb1 - amb2) * factor;
+            }
+            case 'recupero': {
+              const r1 = m1.montoDebitado > 0 ? (m1.refacturado * 100 / m1.montoDebitado) : 0;
+              const r2 = m2.montoDebitado > 0 ? (m2.refacturado * 100 / m2.montoDebitado) : 0;
+              return (r1 - r2) * factor;
+            }
+            default:
+              return 0;
+          }
+        });
+
+        for (const m of a.motivos) {
+          if (m.financiadores && m.financiadores.length > 0) {
+            m.financiadores.sort((f1, f2) => {
+              switch (columna) {
+                case 'motivo':
+                  return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
+                case 'casos':
+                  return ((f1.casos || 0) - (f2.casos || 0)) * factor;
+                case 'montoDebitado': {
+                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+                  return ((mFin1 || 0) - (mFin2 || 0)) * factor;
+                }
+                case 'aceptado':
+                  return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
+                case 'refacturado':
+                  return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+                case 'recupero': {
+                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+                  const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
+                  const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
+                  return (rf1 - rf2) * factor;
+                }
+                default:
+                  return 0;
+              }
+            });
+            m.financiadores = [...m.financiadores];
+          }
+        }
+        a.motivos = [...a.motivos];
+      }
+    }
+    this.analistasDatos = [...this.analistasDatos];
+    this.cdr.markForCheck();
+  }
+
+  restaurarOrdenMotivosAnalistas(): void {
     for (const a of this.analistasDatos) {
       if (a.motivos) {
         a.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
