@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { combineLatest } from 'rxjs';
 import { DirectorioService } from '../../core/services/directorio.service';
 import { DirectorioPrestacionDetalle } from '../../core/models/directorio.model';
 
@@ -32,12 +33,14 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
   totalCasos: number = 0;
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe(params => {
-      const motivoParam = params.get('motivoId');
-      this.motivo = motivoParam ? decodeURIComponent(motivoParam) : '';
-    });
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(([params, queryParams]) => {
+      const motivoParam = params.get('motivoId') || '';
+      try {
+        this.motivo = decodeURIComponent(motivoParam);
+      } catch {
+        this.motivo = motivoParam;
+      }
 
-    this.route.queryParamMap.subscribe(queryParams => {
       this.codigoCobertura = queryParams.get('codigoCobertura') || 'TODAS';
       this.tipoDoc = queryParams.get('tipoDoc') || 'TODOS';
       this.fechaDesde = queryParams.get('fechaDesde') || '';

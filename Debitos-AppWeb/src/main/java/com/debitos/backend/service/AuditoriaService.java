@@ -41,7 +41,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -362,13 +362,23 @@ public class AuditoriaService {
         if (grupoId == null || grupoId == 0L) {
             grupoId = cabeceraActual.getGrupo();
         }
+        if (grupoId == null || grupoId == 0L) {
+            grupoId = cabeceraActual.getAsociado();
+        }
+        if (grupoId == null || grupoId == 0L) {
+            grupoId = cabeceraActual.getId();
+        }
 
         List<Cabecera> familia = (grupoId != null && grupoId != 0L)
-                ? cabeceraRepository.findByAsociadogrupo(grupoId)
+                ? new ArrayList<>(cabeceraRepository.findByAsociadogrupo(grupoId))
                 : new ArrayList<>();
 
-        if (familia.isEmpty()) {
-            familia = List.of(cabeceraActual);
+        if (familia.isEmpty() && grupoId != null && grupoId != 0L) {
+            familia = new ArrayList<>(cabeceraRepository.findByGrupoOrAsociadogrupoOrId(grupoId));
+        }
+
+        if (familia.stream().noneMatch(c -> Objects.equals(c.getId(), cabeceraActual.getId()))) {
+            familia.add(cabeceraActual);
         }
 
         // Buscar la Cabecera Raíz (Factura Madre Nivel 0): FC / FAC / FCE
@@ -440,169 +450,138 @@ public class AuditoriaService {
         filaFc.setTienePrestaciones(tienePrestacionesFc);
         historial.add(filaFc);
 
-        // 2. Construir nodos hijos en memoria recursivamente a partir de la raíz
-        Set<Long> visitados = new HashSet<>();
-        visitados.add(raiz.getId());
-        construirNodosHijosEnMemoria(historial, familia, raiz, 1, visitados, raiz);
+        // 2. Construir mapa de hijos directos en memoria usando la columna asociado
+        Map<Long, List<Cabecera>> hijosPorPadre = new LinkedHashMap<>();
 
-        return historial;
-    }
+        for (Cabecera c : familia) {
+            if (Objects.equals(c.getId(), raiz.getId())) continue;
 
-    private void construirNodosHijosEnMemoria(List<FilaHistorialDTO> historial, List<Cabecera> familia, Cabecera padre, int nivel, Set<Long> visitados, Cabecera raiz) {
-        if (padre == null || padre.getId() == null) return;
+            Long padreId = c.getAsociado();
+            // Si el asociado apunta a sí mismo:
+            if (padreId != null && padreId.equals(c.getId())) {
+                padreId = null;
+            }
 
-        String tipoPadre = resolverTipoBase(padre.getTipo());
-        List<Cabecera> hijos = new ArrayList<>();
-
-        if ("FC".equalsIgnoreCase(tipoPadre)) {
-            // Hijos de FC son NCs y RCs del mismo grupo/asociado
-            for (Cabecera c : familia) {
-                if (visitados.contains(c.getId())) continue;
-                String t = resolverTipoBase(c.getTipo());
-
-                if ("RC".equalsIgnoreCase(t)) {
-                    // Un RC pertenece a la FC si:
-                    // 1) Su asociado apunta explícitamente a la FC
-                    // 2) O su asociado no apunta a otra cabecera de la familia y pertenece al grupo/asociadogrupo
-                    boolean asociadoAOtro = c.getAsociado() != null
-                            && !Objects.equals(c.getAsociado(), padre.getId())
-                            && !Objects.equals(c.getAsociado(), c.getId())
-                            && familia.stream().anyMatch(f -> Objects.equals(f.getId(), c.getAsociado()));
-
-                    if (!asociadoAOtro) {
-                        if ((c.getGrupo() != null && Objects.equals(c.getGrupo(), padre.getGrupo()))
-                                || (c.getAsociado() != null && Objects.equals(c.getAsociado(), padre.getId()))
-                                || (Objects.equals(c.getAsociadogrupo(), padre.getAsociadogrupo()))) {
-                            hijos.add(c);
+            if (padreId != null) {
+                hijosPorPadre.computeIfAbsent(padreId, k -> new ArrayList<>()).add(c);
+            } else {
+                // Si asociado es nulo:
+                // 1) Caso especial por grupo: si comparte grupo con una ND de la familia, su padre es esa ND
+                Long padrePorGrupo = null;
+                if (c.getGrupo() != null && c.getGrupo() != 0L) {
+                    for (Cabecera cand : familia) {
+                        if (!Objects.equals(cand.getId(), c.getId())
+                                && "ND".equalsIgnoreCase(resolverTipoBase(cand.getTipo()))
+                                && Objects.equals(cand.getGrupo(), c.getGrupo())) {
+                            padrePorGrupo = cand.getId();
+                            break;
                         }
                     }
-                    continue;
                 }
-
-                if (!"NC".equalsIgnoreCase(t)) continue;
-
-                // 1. Vinculación directa por asociado en Cabecera
-                if (c.getAsociado() != null && c.getAsociado().equals(padre.getId()) && !c.getId().equals(padre.getId())) {
-                    hijos.add(c);
-                    continue;
-                }
-                // 2. Vinculación por prestacion en notadecredito
-                boolean vinculadoPorNc = notaDeCreditoRepository.findByCabecera_Id(c.getId()).stream()
-                        .anyMatch(nc -> nc.getPrestacion() != null && nc.getPrestacion().getCabecera() != null && nc.getPrestacion().getCabecera().getId().equals(padre.getId()));
-                if (vinculadoPorNc) {
-                    hijos.add(c);
-                    continue;
-                }
-                // 3. Vinculación por nc_ajustedeiva
-                Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByCabecera_Id(c.getId());
-                if (ncIvaOpt.isPresent()) {
-                    NcAjusteDeIva ncIva = ncIvaOpt.get();
-                    if (Objects.equals(ncIva.getLetraFc(), padre.getLetra())
-                            && Objects.equals(ncIva.getPtovtaFc(), padre.getPtovta())
-                            && Objects.equals(ncIva.getNumeroFc(), padre.getNumero())) {
-                        hijos.add(c);
-                        continue;
+                if (padrePorGrupo != null && !Objects.equals(padrePorGrupo, c.getId())) {
+                    hijosPorPadre.computeIfAbsent(padrePorGrupo, k -> new ArrayList<>()).add(c);
+                } else {
+                    // 2) Fallback relacional si asociado es null (para compatibilidad de registros históricos):
+                    Long padreRelacional = null;
+                    if ("ND".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
+                        for (Cabecera candNc : familia) {
+                            if ("NC".equalsIgnoreCase(resolverTipoBase(candNc.getTipo()))) {
+                                boolean vinculadoPorNd = notaDeDebitoRepository.findByCabecera_Id(c.getId()).stream()
+                                        .anyMatch(ndItem -> ndItem.getNotaDeCreditoPadre() != null
+                                                && ndItem.getNotaDeCreditoPadre().getCabecera() != null
+                                                && Objects.equals(ndItem.getNotaDeCreditoPadre().getCabecera().getId(), candNc.getId()));
+                                if (vinculadoPorNd) {
+                                    padreRelacional = candNc.getId();
+                                    break;
+                                }
+                                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                                if (ndIvaOpt.isPresent()) {
+                                    NdAjusteDeIva ndIva = ndIvaOpt.get();
+                                    if (Objects.equals(ndIva.getLetraNc(), candNc.getLetra())
+                                            && Objects.equals(ndIva.getPtovtaNc(), candNc.getPtovta())
+                                            && Objects.equals(ndIva.getNumeroNc(), candNc.getNumero())) {
+                                        padreRelacional = candNc.getId();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else if ("NC".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
+                        for (Cabecera candNd : familia) {
+                            if ("ND".equalsIgnoreCase(resolverTipoBase(candNd.getTipo()))) {
+                                boolean vinculadoPorNcNd = notaDeCreditoRepository.findByCabecera_Id(c.getId()).stream()
+                                        .anyMatch(ncItem -> ncItem.getNotaDeDebitoPadre() != null
+                                                && ncItem.getNotaDeDebitoPadre().getCabecera() != null
+                                                && Objects.equals(ncItem.getNotaDeDebitoPadre().getCabecera().getId(), candNd.getId()));
+                                if (vinculadoPorNcNd) {
+                                    padreRelacional = candNd.getId();
+                                    break;
+                                }
+                            }
+                        }
                     }
-                }
-                // 4. Si pertenece al mismo asociadogrupo y no está vinculado a una ND
-                boolean asociadoAOtro = c.getAsociado() != null
-                        && !Objects.equals(c.getAsociado(), padre.getId())
-                        && !Objects.equals(c.getAsociado(), c.getId())
-                        && familia.stream().anyMatch(f -> Objects.equals(f.getId(), c.getAsociado()));
-                boolean vinculadoPorNotaDebitoPadre = notaDeCreditoRepository.findByCabecera_Id(c.getId()).stream()
-                        .anyMatch(nc -> nc.getNotaDeDebitoPadre() != null);
 
-                if (!asociadoAOtro && !vinculadoPorNotaDebitoPadre && Objects.equals(c.getAsociadogrupo(), padre.getAsociadogrupo())) {
-                    hijos.add(c);
-                }
-            }
-        } else if ("NC".equalsIgnoreCase(tipoPadre)) {
-            // Hijos de NC son NDs
-            for (Cabecera c : familia) {
-                if (visitados.contains(c.getId())) continue;
-                String t = resolverTipoBase(c.getTipo());
-                if (!"ND".equalsIgnoreCase(t)) continue;
-
-                // 1. Vinculación directa por asociado en Cabecera
-                if (c.getAsociado() != null && c.getAsociado().equals(padre.getId()) && !c.getId().equals(padre.getId())) {
-                    hijos.add(c);
-                    continue;
-                }
-                // 2. Vinculación por notadedebito -> notaDeCreditoPadre -> cabecera == padre.getId()
-                boolean vinculadoPorNd = notaDeDebitoRepository.findByCabecera_Id(c.getId()).stream()
-                        .anyMatch(nd -> nd.getNotaDeCreditoPadre() != null && nd.getNotaDeCreditoPadre().getCabecera() != null && nd.getNotaDeCreditoPadre().getCabecera().getId().equals(padre.getId()));
-                if (vinculadoPorNd) {
-                    hijos.add(c);
-                    continue;
-                }
-                // 3. Vinculación por nd_ajustedeiva
-                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
-                if (ndIvaOpt.isPresent()) {
-                    NdAjusteDeIva ndIva = ndIvaOpt.get();
-                    if (Objects.equals(ndIva.getLetraNc(), padre.getLetra())
-                            && Objects.equals(ndIva.getPtovtaNc(), padre.getPtovta())
-                            && Objects.equals(ndIva.getNumeroNc(), padre.getNumero())) {
-                        hijos.add(c);
-                        continue;
+                    if (padreRelacional != null) {
+                        hijosPorPadre.computeIfAbsent(padreRelacional, k -> new ArrayList<>()).add(c);
+                    } else {
+                        // 3) Si no tiene asociado ni grupo específico, es hijo directo de la Factura Madre
+                        hijosPorPadre.computeIfAbsent(raiz.getId(), k -> new ArrayList<>()).add(c);
                     }
-                }
-                // 4. Si pertenece al mismo asociadogrupo y no está asociado a otro comprobante
-                boolean asociadoAOtro = c.getAsociado() != null
-                        && !Objects.equals(c.getAsociado(), padre.getId())
-                        && !Objects.equals(c.getAsociado(), c.getId())
-                        && familia.stream().anyMatch(f -> Objects.equals(f.getId(), c.getAsociado()));
-
-                if (!asociadoAOtro && Objects.equals(c.getAsociadogrupo(), padre.getAsociadogrupo())) {
-                    hijos.add(c);
-                }
-            }
-        } else if ("ND".equalsIgnoreCase(tipoPadre)) {
-            // Hijos de ND son NCs creadas a partir de ND y RCs que pertenezcan a la ND
-            for (Cabecera c : familia) {
-                if (visitados.contains(c.getId())) continue;
-                String t = resolverTipoBase(c.getTipo());
-
-                if ("RC".equalsIgnoreCase(t)) {
-                    // Un RC sólo es hijo de una ND si está explícitamente asociado a ella,
-                    // o si la ND es la raíz de la consulta y el RC pertenece al grupo
-                    boolean esHijoDirectoRc = (c.getAsociado() != null && Objects.equals(c.getAsociado(), padre.getId()));
-                    boolean esNdRaiz = (raiz != null && Objects.equals(padre.getId(), raiz.getId()));
-                    if (esHijoDirectoRc || (esNdRaiz && ((c.getGrupo() != null && Objects.equals(c.getGrupo(), padre.getGrupo())) || Objects.equals(c.getAsociadogrupo(), padre.getAsociadogrupo())))) {
-                        hijos.add(c);
-                    }
-                    continue;
-                }
-
-                if (!"NC".equalsIgnoreCase(t)) continue;
-
-                if (c.getAsociado() != null && c.getAsociado().equals(padre.getId()) && !c.getId().equals(padre.getId())) {
-                    hijos.add(c);
-                    continue;
-                }
-                boolean vinculadoPorNcNd = notaDeCreditoRepository.findByCabecera_Id(c.getId()).stream()
-                        .anyMatch(nc -> nc.getNotaDeDebitoPadre() != null && nc.getNotaDeDebitoPadre().getCabecera() != null && nc.getNotaDeDebitoPadre().getCabecera().getId().equals(padre.getId()));
-                if (vinculadoPorNcNd) {
-                    hijos.add(c);
                 }
             }
         }
 
-        // Ordenar hijos por fecha, número, id
-        hijos.sort((c1, c2) -> {
-            if (c1.getFecha() != null && c2.getFecha() != null) {
-                int comp = c1.getFecha().compareTo(c2.getFecha());
-                if (comp != 0) return comp;
+        // Ordenar hijos por fecha ASC, número ASC, id ASC dentro de cada padre
+        for (List<Cabecera> listaHijos : hijosPorPadre.values()) {
+            listaHijos.sort((c1, c2) -> {
+                if (c1.getFecha() != null && c2.getFecha() != null) {
+                    int comp = c1.getFecha().compareTo(c2.getFecha());
+                    if (comp != 0) return comp;
+                }
+                if (c1.getNumero() != null && c2.getNumero() != null) {
+                    int comp = c1.getNumero().compareTo(c2.getNumero());
+                    if (comp != 0) return comp;
+                }
+                if (c1.getId() != null && c2.getId() != null) {
+                    return c1.getId().compareTo(c2.getId());
+                }
+                return 0;
+            });
+        }
+
+        // 3. Recorrido en profundidad recursivo a partir de la raíz
+        Set<Long> visitados = new HashSet<>();
+        if (raiz.getId() != null) {
+            visitados.add(raiz.getId());
+        }
+
+        recorrerHistorialRecursivo(raiz.getId(), 1, hijosPorPadre, historial, visitados, familia);
+
+        // Seguridad: agregar cualquier miembro de la familia no visitado
+        for (Cabecera c : familia) {
+            if (c.getId() != null && !visitados.contains(c.getId())) {
+                visitados.add(c.getId());
+                FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(c, 1);
+                historial.add(fila);
             }
-            if (c1.getNumero() != null && c2.getNumero() != null) {
-                int comp = c1.getNumero().compareTo(c2.getNumero());
-                if (comp != 0) return comp;
-            }
-            return c1.getId().compareTo(c2.getId());
-        });
+        }
+
+        return historial;
+    }
+
+    private void recorrerHistorialRecursivo(Long padreId, int nivel,
+                                            Map<Long, List<Cabecera>> hijosPorPadre,
+                                            List<FilaHistorialDTO> historial,
+                                            Set<Long> visitados,
+                                            List<Cabecera> familia) {
+        if (padreId == null) return;
+        List<Cabecera> hijos = hijosPorPadre.get(padreId);
+        if (hijos == null || hijos.isEmpty()) return;
 
         for (Cabecera hijo : hijos) {
-            if (visitados.contains(hijo.getId())) continue;
-            visitados.add(hijo.getId());
+            if (hijo.getId() != null && visitados.contains(hijo.getId())) continue;
+            if (hijo.getId() != null) visitados.add(hijo.getId());
+
             FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(hijo, nivel);
             historial.add(fila);
 
@@ -625,7 +604,9 @@ public class AuditoriaService {
             }
 
             // Continuar navegando los hijos de este comprobante
-            construirNodosHijosEnMemoria(historial, familia, hijo, nivel + 1, visitados, raiz);
+            if (hijo.getId() != null) {
+                recorrerHistorialRecursivo(hijo.getId(), nivel + 1, hijosPorPadre, historial, visitados, familia);
+            }
         }
     }
 
@@ -720,11 +701,21 @@ public class AuditoriaService {
             }
         }
 
+        Integer num = cab.getNumero();
+        if (num == null && cab.getComprobante() != null && !cab.getComprobante().trim().isEmpty()) {
+            try {
+                String digits = cab.getComprobante().trim().replaceAll("[^0-9]", "");
+                if (!digits.isEmpty()) {
+                    num = Integer.parseInt(digits);
+                }
+            } catch (Exception ignored) {}
+        }
+
         FilaHistorialDTO fila = new FilaHistorialDTO(
                 cab.getTipo() != null ? cab.getTipo() : tipoBase,
                 cab.getLetra(),
                 cab.getPtovta(),
-                cab.getNumero(),
+                num,
                 fechaStr,
                 montoNeto
         );

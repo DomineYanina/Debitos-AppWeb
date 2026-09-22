@@ -210,7 +210,7 @@
 
       <!-- Botón de Estado de Conciliación (Manejo del trámite) - En desarrollo: solo visible para ADMIN por ahora -->
       <ng-container *ngIf="puedeOperarConciliacion && idGrupoActual">
-        <button *ngIf="(idEstadoActual ?? 1) === 1"
+        <button *ngIf="idEstadoActual === 1"
           type="button"
           class="btn-accion-doc btn-finalizar-tramite-main"
           (click)="cambiarEstadoGrupo(idGrupoActual!, 2)"

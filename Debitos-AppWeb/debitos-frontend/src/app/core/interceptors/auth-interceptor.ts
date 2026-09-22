@@ -23,8 +23,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // CAMINO DE VUELTA: Interceptamos la respuesta para vigilar si hay error 401 (excepto en peticiones de login/auth)
   return next(peticionClonada).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401 && !req.url.includes('/login') && !req.url.includes('/auth')) {
-        // Si el token expiró o es inválido, limpiamos la casa y lo mandamos al login
+      if ((error.status === 401 || error.status === 403) && !req.url.includes('/login') && !req.url.includes('/auth')) {
+        // Si el token expiró o es inválido/rechazado, limpiamos la sesión y redirigimos al login
         authService.logout();
         router.navigate(['/login']);
       }

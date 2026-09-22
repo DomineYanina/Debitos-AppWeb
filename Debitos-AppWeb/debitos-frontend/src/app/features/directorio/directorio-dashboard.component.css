@@ -3,9 +3,10 @@
    ========================================================================== */
 
 .directorio-container {
-  max-width: 1600px;
+  max-width: 1780px;
+  width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 2rem 3rem 2rem;
+  padding: 1.5rem 1.25rem 3rem 1.25rem;
   color: #1e293b;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
@@ -57,6 +58,158 @@
   margin: 0 0 1.25rem 0;
 }
 
+/* ==========================================================================
+   BARRA DE SOLAPAS INDIVIDUALES (ESTILO MINIMALISTA CON INDICADOR ACTIVO)
+   ========================================================================== */
+
+.directorio-tab-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  background: #ffffff;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 0.35rem 0.6rem 0 0.6rem;
+  margin-bottom: 1.5rem;
+  border-radius: 8px 8px 0 0;
+}
+
+.tab-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease-in-out;
+  margin-bottom: -2px;
+  border-radius: 4px 4px 0 0;
+  user-select: none;
+}
+
+.tab-strip-item:hover {
+  color: #1d4ed8;
+  background-color: #f8fafc;
+}
+
+.tab-strip-item.active {
+  color: #2563eb;
+  font-weight: 700;
+  border-bottom: 3px solid #2563eb;
+  background-color: transparent;
+}
+
+.tab-strip-icon {
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.tab-strip-text {
+  letter-spacing: -0.01em;
+}
+
+.grafico-card--fullwidth {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+
+/* ==========================================================================
+   SUB-FILTROS Y SELECTOR RÁPIDO (PILLS)
+   ========================================================================== */
+
+.sub-filter-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.sub-filter-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.sub-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.sub-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.sub-pill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.sub-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.28);
+}
+
+.sub-pill .pill-icon {
+  font-size: 0.95rem;
+}
+
+/* Panel de solapa con animación suave */
+.dashboard-tab-pane {
+  animation: fadeInPane 0.22s ease-out;
+}
+
+@keyframes fadeInPane {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.graficos-grid--single {
+  grid-template-columns: 1fr !important;
+}
+
+.graficos-grid--single .grafico-card {
+  min-height: 420px;
+}
+
 /* Card de Filtros */
 .filter-card {
   background: #ffffff;
@@ -101,6 +254,28 @@
   border-color: #3b82f6;
   background-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.form-control:disabled,
+select.form-control:disabled {
+  background-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+  cursor: not-allowed !important;
+  opacity: 0.65;
+}
+
+.filter-group-disabled label {
+  color: #94a3b8 !important;
+}
+
+.badge-disabled-hint {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-left: 0.25rem;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .filter-actions {
@@ -161,7 +336,7 @@
 }
 
 /* ==========================================================================
-   PANEL MACRO: TARJETAS KPI
+   PANEL MACRO: 6 TARJETAS KPI FINANCIERAS
    ========================================================================== */
 .kpi-grid {
   display: grid;
@@ -170,12 +345,29 @@
   margin-bottom: 2rem;
 }
 
+.kpi-grid--six {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@media (max-width: 1400px) {
+  .kpi-grid--six {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid--six {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
 .kpi-card {
   background: #ffffff;
   border-radius: 12px;
-  padding: 1.35rem 1.5rem;
+  padding: 1.15rem 1.25rem;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
   position: relative;
   overflow: hidden;
   display: flex;
@@ -189,49 +381,68 @@
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07);
 }
 
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 4px;
+/* Bordes coloreados específicos para las 6 tarjetas (según captura de referencia) */
+.card-facturacion-fc {
+  border: 2.5px solid #2563eb !important;
 }
 
-.card-facturado::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-.card-cobranza::before { background: linear-gradient(90deg, #10b981, #34d399); }
-.card-perdida::before { background: linear-gradient(90deg, #ef4444, #f87171); }
-.card-deuda::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.card-incrementos-nd {
+  border: 2.5px solid #f59e0b !important;
+}
+
+.card-debitos-nc {
+  border: 2.5px solid #ef4444 !important;
+}
+
+.card-refacturacion-nd {
+  border: 2.5px solid #06b6d4 !important;
+}
+
+.card-cobranzas-rc {
+  border: 2.5px solid #16a34a !important;
+}
+
+.card-saldo-real {
+  border: 2.5px solid #0f172a !important;
+}
 
 .kpi-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.45rem;
 }
 
 .kpi-title {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #64748b;
-}
-
-.kpi-icon {
-  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  color: #475569;
+  text-transform: uppercase;
 }
 
 .kpi-value {
-  font-size: 1.75rem;
+  font-size: 1.55rem;
   font-weight: 800;
   color: #0f172a;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.45rem;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
-.card-cobranza .kpi-value { color: #059669; }
-.card-perdida .kpi-value { color: #dc2626; }
-.card-deuda .kpi-value { color: #6d28d9; }
+/* Colores de montos acordes a la captura */
+.kpi-val-fc { color: #2563eb; }
+.kpi-val-nd { color: #b45309; }
+.kpi-val-nc { color: #dc2626; }
+.kpi-val-ref { color: #0284c7; }
+.kpi-val-rc { color: #16a34a; }
+.kpi-val-saldo { color: #0f172a; }
+
+.kpi-footer-simple {
+  font-size: 0.74rem;
+  color: #64748b;
+  font-weight: 500;
+}
 
 .kpi-footer {
   display: flex;
@@ -550,6 +761,284 @@
   overflow-x: auto;
 }
 
+/* ==========================================================================
+   TABLA SANATORIAL - CUENTA CORRIENTE A 3 NIVELES
+   ========================================================================== */
+.table-sanatorial {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  background: #ffffff;
+}
+
+.table-sanatorial th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+.table-sanatorial td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nivel 1: Financiador */
+.tr-financiador {
+  background-color: #f1f5f9;
+  font-weight: 700;
+  cursor: pointer;
+  border-left: 4px solid #3b82f6;
+  transition: background-color 0.15s ease;
+}
+
+.tr-financiador:hover {
+  background-color: #e2e8f0;
+}
+
+.tr-financiador.is-expanded {
+  background-color: #e2e8f0;
+  border-left-color: #1d4ed8;
+}
+
+.td-financiador {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.financiador-icon {
+  font-size: 1rem;
+}
+
+.financiador-nombre {
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+/* Nivel 2: Período */
+.tr-periodo {
+  background-color: #f8fafc;
+  font-weight: 600;
+  cursor: pointer;
+  border-left: 4px solid #94a3b8;
+  transition: background-color 0.15s ease;
+}
+
+.tr-periodo:hover {
+  background-color: #f1f5f9;
+}
+
+.tr-periodo.is-expanded {
+  background-color: #f1f5f9;
+  border-left-color: #64748b;
+}
+
+.td-periodo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-left: 2rem !important;
+}
+
+.periodo-icon {
+  font-size: 0.9rem;
+}
+
+.periodo-tag {
+  font-family: monospace;
+  font-size: 0.88rem;
+  color: #334155;
+  background: #e2e8f0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* Nivel 3: Facturas Madres */
+.tr-factura {
+  background-color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-left: 4px solid #3b82f6;
+  transition: background-color 0.12s ease;
+}
+
+.tr-factura:hover {
+  background-color: #f8fafc;
+}
+
+.tr-factura.is-expanded {
+  background-color: #f0f7ff;
+  border-left-color: #2563eb;
+}
+
+.td-factura-node {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-left: 3rem !important;
+}
+
+/* Nivel 4: Comprobantes Hijos (NC, ND, RC) */
+.tr-comprobante-hijo {
+  background-color: #f8fafc;
+  font-size: 0.82rem;
+  transition: background-color 0.12s ease;
+  border-left: 4px solid #e2e8f0;
+}
+
+.tr-comprobante-hijo:hover {
+  background-color: #f1f5f9;
+}
+
+.td-comprobante-hijo-node {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tree-branch {
+  display: inline-block;
+  width: 18px;
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 0.85rem;
+  user-select: none;
+  text-align: left;
+}
+
+.tree-bullet {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.comprobante-numero {
+  color: #0f172a;
+  font-family: monospace;
+}
+
+.text-fecha {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+/* Botones de alternancia */
+.btn-toggle-sm {
+  width: 20px;
+  height: 20px;
+  font-size: 0.62rem;
+}
+
+.btn-toggle-xs {
+  width: 18px;
+  height: 18px;
+  font-size: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+  color: #475569;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle-xs:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-toggle-xs.is-expanded {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Badges de origen semánticos para el árbol */
+.badge-origen {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.badge-deb {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.badge-cob {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+.badge-ref {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-inc {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 0.1rem 0.4rem;
+  border-radius: 12px;
+  margin-left: 0.3rem;
+}
+
+/* Colores de montos y saldos */
+.color-incremento {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.color-saldo-positivo {
+  color: #166534;
+  font-weight: 700;
+}
+
+.color-saldo-negativo {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.color-saldo-cero {
+  color: #64748b;
+}
+
+.text-muted {
+  color: #94a3b8;
+}
+
 .table-facturas {
   width: 100%;
   border-collapse: collapse;
@@ -789,3 +1278,1437 @@
     justify-content: flex-end;
   }
 }
+
+/* ==========================================================================
+   SECCIÓN GRÁFICOS FINANCIEROS
+   ========================================================================== */
+
+.graficos-section {
+  margin-top: 2.5rem;
+  padding-top: 0.5rem;
+}
+
+.graficos-section .section-header {
+  margin-bottom: 1.25rem;
+}
+
+.graficos-section .section-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+}
+
+.graficos-section .section-subtitle {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Grid de dos columnas: línea (1.6fr) + dona (1fr) */
+.graficos-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1.25rem;
+}
+
+/* Card base */
+.grafico-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem 1.5rem 1.5rem;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.grafico-card--wide {
+  /* ocupa la 1ª columna ancha */
+}
+
+/* Cabecera de la card */
+.grafico-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.grafico-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.grafico-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.grafico-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.2rem 0;
+}
+
+.grafico-subtitle {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Badge Cabeceras 100% */
+.header-badge-container {
+  display: flex;
+  align-items: center;
+}
+
+.badge-cabeceras {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.1);
+}
+
+.badge-cabeceras .badge-dot {
+  font-size: 0.65rem;
+  color: #10b981;
+}
+
+/* Sección y Tabla de Balance Financiero */
+.balance-financiero-section {
+  margin-top: 1.5rem;
+}
+
+.table-balance {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-balance th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.table-balance td {
+  padding: 0.7rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-balance .tr-balance-row:hover {
+  background-color: #f8fafc;
+}
+
+.table-balance .td-debito {
+  color: #dc2626;
+}
+
+.table-balance .td-refacturado {
+  color: #0284c7;
+}
+
+.table-balance .td-cobrado {
+  color: #16a34a;
+}
+
+.table-balance .th-saldo,
+.table-balance .td-saldo {
+  background-color: rgba(241, 245, 249, 0.6);
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.table-balance .tr-total-balance {
+  background-color: #f1f5f9;
+  border-top: 2px solid #cbd5e1;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+.table-balance .tr-total-balance td {
+  padding: 0.85rem 1rem;
+  font-size: 0.88rem;
+}
+
+.table-balance .td-saldo-total {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+/* Área del canvas */
+.grafico-body {
+  position: relative;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grafico-body canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Estado de carga */
+.grafico-loading {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.spinner-icon {
+  animation: spin 1.5s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Estado vacío */
+.grafico-empty {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+/* Modificador: canvas más alto para gráficos con muchas etiquetas (ej. Pareto) */
+.grafico-body--tall {
+  height: 380px;
+}
+
+/* Responsivo: apila columnas en pantallas pequeñas */
+@media (max-width: 900px) {
+  .graficos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   TABLA MATRIZ ANUAL DE RECAUDACIÓN
+   ========================================================================== */
+.table-bordered {
+  border: 1px solid #cbd5e1;
+}
+
+.table-bordered th,
+.table-bordered td {
+  border: 1px solid #e2e8f0;
+}
+
+.section-card--matriz {
+  padding: 1.25rem 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.matriz-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.matriz-table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.matriz-table-responsive::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.matriz-table-responsive::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.table-matriz {
+  font-size: 0.78rem;
+  white-space: nowrap;
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+}
+
+.table-matriz th {
+  padding: 0.6rem 0.35rem;
+  font-size: 0.70rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.table-matriz td {
+  padding: 0.55rem 0.35rem;
+  border: 1px solid #e2e8f0;
+  font-size: 0.76rem;
+}
+
+.th-financiador {
+  text-align: left !important;
+  min-width: 160px;
+  max-width: 210px;
+  padding-left: 0.65rem !important;
+}
+
+.th-mes {
+  min-width: 72px;
+  text-align: center !important;
+}
+
+.th-total-anual {
+  background-color: #dcfce7 !important;
+  color: #14532d !important;
+  font-weight: 700 !important;
+  border-left: 2px solid #86efac !important;
+  min-width: 105px;
+  text-align: right !important;
+  padding-right: 0.65rem !important;
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
+}
+
+.th-total-anual.sortable-col:hover {
+  background-color: #bbf7d0 !important;
+}
+
+.th-total-anual.sortable-col.col-sorted {
+  background-color: #86efac !important;
+  color: #14532d !important;
+}
+
+.th-total-anual .sort-indicator.active {
+  color: #166534 !important;
+}
+
+.tr-matriz-fila:hover {
+  background-color: #f8fafc;
+}
+
+.td-matriz-financiador {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #0f172a;
+  white-space: normal;
+  font-weight: 700;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  padding-left: 0.65rem !important;
+}
+
+.td-mes-valor {
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+  font-weight: 600;
+  text-align: right;
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.td-mes-valor.valor-cero {
+  color: #94a3b8;
+  font-weight: 400;
+  text-align: center;
+}
+
+.td-total-anual {
+  background-color: #dcfce7 !important;
+  color: #14532d !important;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-left: 2px solid #86efac !important;
+  text-align: right;
+  font-size: 0.76rem;
+  padding-right: 0.65rem !important;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
+}
+
+.tr-matriz-total {
+  background-color: #f1f5f9;
+  font-weight: 700;
+  border-top: 2px solid #64748b !important;
+}
+
+.td-mes-total {
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  background-color: #f1f5f9;
+  font-weight: 700;
+  text-align: right;
+  font-size: 0.75rem;
+}
+
+.td-mes-total.valor-cero {
+  color: #94a3b8;
+  font-weight: 400;
+  text-align: center;
+}
+
+.td-gran-total {
+  background-color: #bbf7d0 !important;
+  color: #14532d !important;
+  font-weight: 800;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  border-left: 2px solid #86efac !important;
+  text-align: right;
+  padding-right: 0.65rem !important;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
+}
+
+.matriz-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.matriz-select-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.select-anio {
+  width: auto;
+  min-width: 110px;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   MÓDULO DE DETALLE Y TRAZABILIDAD (ÁRBOL ENCADENADO)
+   ========================================================================== */
+.tr-parent-nivel1 {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.tr-parent-nivel1:hover {
+  background-color: #f1f5f9;
+}
+
+.tr-parent-nivel1.is-expanded {
+  background-color: #e2e8f0;
+}
+
+.btn-toggle-expand {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  transition: transform 0.15s ease;
+}
+
+.btn-toggle-expand.is-expanded {
+  transform: rotate(90deg);
+  color: #1e3a8a;
+}
+
+.tr-child-nivel2 {
+  background-color: #f8fafc;
+}
+
+.td-child-container {
+  padding: 1rem 1.5rem !important;
+  background-color: #f8fafc;
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+.chain-wrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chain-header-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.chain-badge-expediente {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+}
+
+.chain-badge-medico {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+
+.chain-total-eventos {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-left: auto;
+}
+
+.chain-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  align-items: stretch;
+  position: relative;
+}
+
+.chain-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.chain-node {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+  margin-bottom: 0.6rem;
+}
+
+.bg-primary {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.bg-danger {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.bg-warning {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.bg-success {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+}
+
+.chain-connector {
+  position: absolute;
+  top: 19px;
+  left: calc(50% + 19px);
+  width: calc(100% - 18px);
+  height: 2px;
+  background: #cbd5e1;
+  z-index: 1;
+}
+
+.chain-step:last-child .chain-connector {
+  display: none;
+}
+
+.chain-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  width: 100%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chain-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chain-comprobante {
+  color: #0f172a;
+  font-family: monospace;
+  font-size: 0.82rem;
+}
+
+.chain-fecha {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.chain-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.chain-desc {
+  font-size: 0.76rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.chain-monto {
+  font-weight: 800;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chain-card-footer {
+  margin-top: 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed #f1f5f9;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+/* ==========================================================================
+   TABLA: DESEMPEÑO POR ANALISTAS DE DÉBITO (3 NIVELES)
+   ========================================================================== */
+.table-analistas {
+  width: 100%;
+}
+
+.table-analistas th.th-btn-col {
+  width: 48px;
+  text-align: center;
+  padding: 0.5rem 0.25rem !important;
+}
+
+.table-analistas th.th-analista {
+  min-width: 280px;
+}
+
+.table-analistas th.th-casos {
+  width: 110px;
+}
+
+.table-analistas th.th-monto {
+  width: 145px;
+}
+
+.table-analistas th.th-atencion {
+  width: 175px;
+  text-align: center;
+}
+
+.table-analistas th.th-tasa {
+  width: 110px;
+}
+
+.sortable-col {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sortable-col:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a;
+}
+
+.sortable-col.col-sorted {
+  background-color: #eff6ff !important;
+  color: #1d4ed8;
+}
+
+.sort-indicator {
+  display: inline-block;
+  font-size: 0.8rem;
+  margin-left: 0.35rem;
+  color: #94a3b8;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+
+.sort-indicator.active {
+  color: #2563eb;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.sortable-sub-col {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.sortable-sub-col:hover {
+  background-color: #e2e8f0 !important;
+}
+
+.td-btn-box {
+  width: 48px;
+  text-align: center;
+}
+
+.btn-toggle-box {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.btn-toggle-box:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-toggle-box.is-expanded {
+  background-color: #e0e7ff;
+  border-color: #818cf8;
+  color: #4338ca;
+}
+
+.badge-docs-analista {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background-color: #475569;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.badge-atencion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.22rem 0.75rem;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.badge-atencion-sm {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.analistas-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.filtro-analista-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  padding: 0.3rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.filtro-analista-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.filtro-analista-label .icon-filter {
+  font-size: 0.85rem;
+}
+
+.select-wrapper-analista {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.select-filtro-analista {
+  min-width: 220px;
+  max-width: 280px;
+  height: 32px;
+  padding: 0.2rem 1.75rem 0.2rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.select-filtro-analista:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  outline: none;
+}
+
+.btn-clear-filtro-analista {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #64748b;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-filtro-analista:hover {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.badge-analistas-activos {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  background-color: #0d6efd;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(13, 110, 253, 0.25);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.badge-analistas-activos.badge-analistas-filtrados {
+  background-color: #4f46e5;
+  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.25);
+}
+
+.color-ticket-promedio {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* Nivel 1: Analista */
+.tr-analista {
+  background-color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  border-left: 4px solid #6366f1;
+  transition: background-color 0.15s ease;
+}
+
+.tr-analista:hover {
+  background-color: #f8fafc;
+}
+
+.tr-analista.is-expanded {
+  background-color: #f5f3ff;
+  border-left-color: #4f46e5;
+}
+
+.td-analista {
+  vertical-align: middle;
+}
+
+.analista-cell-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.analista-icon {
+  font-size: 1.05rem;
+}
+
+.analista-nombre {
+  font-size: 0.94rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.color-ticket {
+  color: #0284c7;
+  font-weight: 700;
+}
+
+/* Badges de Tasa de Recupero */
+.badge-recupero {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  text-align: center;
+}
+
+.badge-recupero-sm {
+  font-size: 0.74rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.recupero-alto {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.recupero-medio {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.recupero-cero {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Subencabezados de nivel */
+.tr-sub-header {
+  background-color: #f8fafc;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tr-sub-header-motivo {
+  background-color: #f1f5f9;
+}
+
+.tr-sub-header-motivo th {
+  padding: 0.4rem 0.75rem !important;
+  font-weight: 700;
+}
+
+.td-sub-header-title {
+  padding-left: 2rem !important;
+  color: #475569;
+}
+
+.tr-sub-header-financiador {
+  background-color: #f8fafc;
+}
+
+.tr-sub-header-financiador th {
+  padding: 0.35rem 0.75rem !important;
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+
+.td-sub-header-sub-title {
+  padding-left: 3.5rem !important;
+  color: #64748b;
+}
+
+.td-sub-header-col {
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+/* Nivel 2: Motivo */
+.tr-motivo {
+  background-color: #f8fafc;
+  font-weight: 500;
+  cursor: pointer;
+  border-left: 4px solid #f59e0b;
+  transition: background-color 0.15s ease;
+}
+
+.tr-motivo:hover {
+  background-color: #f1f5f9;
+}
+
+.tr-motivo.is-expanded {
+  background-color: #fef3c7;
+  border-left-color: #d97706;
+}
+
+.td-motivo {
+  padding-left: 2rem !important;
+  vertical-align: middle;
+}
+
+.motivo-cell-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.motivo-icon {
+  font-size: 0.9rem;
+}
+
+.motivo-tag {
+  font-size: 0.88rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+/* Nivel 3: Financiador */
+.tr-financiador-sub {
+  background-color: #ffffff;
+  font-size: 0.84rem;
+  transition: background-color 0.12s ease;
+  border-left: 4px solid transparent;
+}
+
+.tr-financiador-sub:hover {
+  background-color: #f8fafc;
+}
+
+.td-financiador-sub-item {
+  padding-left: 3.5rem !important;
+  vertical-align: middle;
+}
+
+.financiador-cell-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.financiador-nombre-sub {
+  color: #334155;
+  font-weight: 600;
+}
+
+/* Acentos distintivos para Médicos y Operadores */
+.tr-medico {
+  border-left-color: #0d9488;
+}
+
+.tr-medico.is-expanded {
+  background-color: #f0fdfa;
+  border-left-color: #0f766e;
+}
+
+.tr-operador {
+  border-left-color: #8b5cf6;
+}
+
+.tr-operador.is-expanded {
+  background-color: #f5f3ff;
+  border-left-color: #7c3aed;
+}
+
+
+/* ==========================================================================
+   SOLAPA TIEMPOS DE COBRANZA - DISEÑO ORIGINAL EXACTO
+   ========================================================================== */
+
+.tiempos-cobranza-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.tiempos-top-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .tiempos-top-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tiempos-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 20px 24px;
+  box-sizing: border-box;
+}
+
+/* Tarjeta KPI DSO */
+.kpi-dso-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.kpi-dso-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #475569;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.kpi-dso-main {
+  padding: 12px 0;
+}
+
+.kpi-dso-val {
+  font-size: 3.8rem;
+  font-weight: 800;
+  color: #1e66f5;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.kpi-dso-sub {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.kpi-dso-divider {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 16px 0 14px 0;
+}
+
+.kpi-dso-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.kpi-dso-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+}
+
+.kpi-dso-col-lbl {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.kpi-dso-col-val {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.kpi-dso-col-val.text-green {
+  color: #16a34a;
+}
+
+.kpi-dso-col-val.text-red {
+  color: #dc2626;
+}
+
+/* Tarjeta Gráfico */
+.grafico-aging-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.tiempos-box-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tiempos-box-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.tiempos-box-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.tiempos-box-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.aging-canvas-container {
+  position: relative;
+  height: 250px;
+  width: 100%;
+}
+
+/* Tarjeta Tabla Inferior */
+.tabla-aging-box {
+  padding: 16px 20px;
+}
+
+.tabla-aging-wrap {
+  overflow-x: auto;
+}
+
+.tabla-aging-exact {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.tabla-aging-exact th {
+  padding: 10px 14px;
+  border-bottom: 1px solid #cbd5e1;
+  color: #1e3a8a;
+  font-size: 0.70rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: transparent;
+}
+
+.tabla-aging-exact td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.80rem;
+}
+
+.tabla-aging-exact tr:hover {
+  background-color: #fafafa;
+}
+
+.td-aging-rango {
+  font-weight: 700;
+  color: #000000;
+  text-align: left;
+}
+
+.td-aging-comprobantes {
+  color: #334155;
+  text-align: center;
+}
+
+.td-aging-saldo {
+  font-weight: 700;
+  color: #dc2626;
+  text-align: right;
+}
+
+.td-aging-porcentaje {
+  color: #334155;
+  text-align: right;
+}
+
+/* ==========================================================================
+   SOLAPA MOTIVOS: BANNER INFORMATIVO Y 4 CONTADORES KPI (ESTILO REFERENCIA)
+   ========================================================================== */
+.motivos-info-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  color: #1e40af;
+  border-radius: 6px;
+  padding: 0.7rem 1.15rem;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.motivos-info-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.motivos-info-text {
+  line-height: 1.4;
+}
+
+.motivos-info-text strong {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.contadores-motivos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+
+@media (max-width: 1200px) {
+  .contadores-motivos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .contadores-motivos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-contador-motivo {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 1.2rem 1.35rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 112px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card-contador-motivo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+}
+
+.card-contador-motivo.card-debitado-nc {
+  border: 2px solid #ef4444;
+}
+
+.card-contador-motivo.card-debito-aceptado {
+  border: 2px solid #881337;
+}
+
+.card-contador-motivo.card-total-refacturado {
+  border: 2px solid #2563eb;
+}
+
+.card-contador-motivo.card-motivos-identificados {
+  border: 2px solid #06b6d4;
+}
+
+.card-contador-motivo .contador-header {
+  margin-bottom: 0.25rem;
+}
+
+.card-contador-motivo .contador-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #334155;
+}
+
+.card-contador-motivo .contador-value {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0.35rem 0 0.25rem 0;
+  letter-spacing: -0.02em;
+}
+
+.card-contador-motivo.card-debitado-nc .contador-value {
+  color: #ef4444;
+}
+
+.card-contador-motivo.card-debito-aceptado .contador-value {
+  color: #881337;
+}
+
+.card-contador-motivo.card-total-refacturado .contador-value {
+  color: #2563eb;
+}
+
+.card-contador-motivo.card-motivos-identificados .contador-value {
+  color: #06b6d4;
+}
+
+.card-contador-motivo .contador-footer {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+

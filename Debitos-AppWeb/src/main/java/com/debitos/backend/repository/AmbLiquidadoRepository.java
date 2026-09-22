@@ -19,6 +19,8 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
 
     List<AmbLiquidado> findByCabecera_Id(Long idCabecera);
 
+    List<AmbLiquidado> findByCabecera_IdIn(java.util.Collection<Long> idsCabecera);
+
     @Query(value = """
         SELECT al.id AS id, al.carnet AS carnet, c.codigo_cobertura AS cobertura, al.paciente AS paciente, 
                al.plan AS plan, al.efector AS efector, al.medico AS medico, al.fecha AS fecha, al.codigo AS codigo, 

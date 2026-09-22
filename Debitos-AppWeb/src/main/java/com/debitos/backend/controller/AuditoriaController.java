@@ -166,4 +166,4 @@ public class AuditoriaController {
         CambioEstadoResponse response = auditoriaService.cambiarEstadoGrupo(idGrupo, nuevoEstado, forzarCierre);
         return ResponseEntity.ok(response);
     }
-}
+}

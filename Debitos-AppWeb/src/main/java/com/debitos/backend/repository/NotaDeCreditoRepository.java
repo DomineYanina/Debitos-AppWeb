@@ -29,6 +29,17 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     List<NotaDeCredito> findByCabecera_IdIn(java.util.Collection<Long> idCabeceras);
 
+    @Query(value = """
+        SELECT nc.idcabecera, 
+               COALESCE(NULLIF(TRIM(c_fc.tiporegistro), ''), NULLIF(TRIM(c_nc.tiporegistro), '')) AS tiporegistro
+        FROM notadecredito nc
+        JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
+        LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+        WHERE nc.idcabecera IN :ncIds
+        """, nativeQuery = true)
+    List<Object[]> findTiposRegistroPorCabeceraIds(@Param("ncIds") java.util.Collection<Long> ncIds);
+
     Optional<NotaDeCredito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(String letra, Integer ptovta, Integer numero, Integer idPrestacion);
 
     Optional<NotaDeCredito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionIdAndDebitoaceptadoFalse(String letra, Integer ptovta, Integer numero, Integer idPrestacion);
@@ -221,4 +232,23 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         ORDER BY MIN(c_nc.fecha) ASC, c_nc.numero ASC
         """, nativeQuery = true)
     List<Object[]> findNcsResumenParaNdPadre(@Param("letraNd") String letraNd, @Param("ptovtaNd") Integer ptovtaNd, @Param("numeroNd") Integer numeroNd);
+
+    /**
+     * Pareto de motivos de débito (glosas): top 10 por monto refacturado y pérdida asumida.
+     * Retorna Object[3]:
+     *   [0] = motivo   (String)
+     *   [1] = refacturado (BigDecimal) — sum de importerefactura
+     *   [2] = perdida     (BigDecimal) — sum de importedebitado donde debitoaceptado = true
+     */
+    @Query(value = """
+        SELECT
+          COALESCE(NULLIF(TRIM(nc.motivodedebito), ''), 'Sin motivo especificado') AS motivo,
+          SUM(COALESCE(nc.importederefactura, 0)) AS refacturado,
+          SUM(CASE WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0) ELSE 0 END) AS perdida
+        FROM notadecredito nc
+        GROUP BY 1
+        ORDER BY 2 DESC, 3 DESC
+        LIMIT 10
+        """, nativeQuery = true)
+    List<Object[]> obtenerParetoMotivos();
 }

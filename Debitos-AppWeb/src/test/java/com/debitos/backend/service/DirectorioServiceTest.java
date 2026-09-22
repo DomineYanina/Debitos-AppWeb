@@ -1,6 +1,7 @@
 package com.debitos.backend.service;
 
 import com.debitos.backend.dto.directorio.*;
+import com.debitos.backend.dto.reportes.*;
 import com.debitos.backend.model.Cabecera;
 import com.debitos.backend.model.NotaDeCredito;
 import com.debitos.backend.model.NotaDeDebito;
@@ -49,7 +50,7 @@ class DirectorioServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(entityManager.createNativeQuery(anyString())).thenReturn(mockQuery);
+        lenient().when(entityManager.createNativeQuery(anyString())).thenReturn(mockQuery);
     }
 
     @Test
@@ -72,18 +73,13 @@ class DirectorioServiceTest {
     @Test
     @DisplayName("obtenerTotalesMacro calcula correctamente los 4 totales financieros")
     void testObtenerTotalesMacro() {
-        // Mock query responses:
-        // 1. FC: totalFacturado=100000, cant=10
-        // 2. RC: cobranzaEfectiva=60000
-        // 3. Pérdida: perdidaAsumida=10000
-        // 4. ND: totalNd=5000
-        // 5. TotalComp: cant=25
+        // fc=100000, cant=10, incNd=5000, debNc=10000, refNd=4000, cobRc=60000, dso=429
         when(mockQuery.getSingleResult())
-                .thenReturn(new Object[]{new BigDecimal("100000.00"), 10L})
-                .thenReturn(new BigDecimal("60000.00"))
-                .thenReturn(new BigDecimal("10000.00"))
-                .thenReturn(new BigDecimal("5000.00"))
-                .thenReturn(25L);
+                .thenReturn(new Object[]{
+                        new BigDecimal("100000.00"), 10L, new BigDecimal("5000.00"),
+                        new BigDecimal("10000.00"), new BigDecimal("4000.00"),
+                        new BigDecimal("60000.00"), 429
+                });
 
         DirectorioTotalesDTO totales = directorioService.obtenerTotalesMacro("OSDE", null, LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31));
 
@@ -91,10 +87,10 @@ class DirectorioServiceTest {
         assertEquals(new BigDecimal("100000.00"), totales.getTotalFacturado());
         assertEquals(new BigDecimal("60000.00"), totales.getCobranzaEfectiva());
         assertEquals(new BigDecimal("10000.00"), totales.getPerdidaAsumida());
-        // Deuda Neta = 100000 + 5000 - 60000 - 10000 = 35000
-        assertEquals(new BigDecimal("35000.00"), totales.getDeudaNeta());
+        // Saldo Real = 100000 + 5000 + 4000 - 10000 - 60000 = 39000
+        assertEquals(new BigDecimal("39000.00"), totales.getDeudaNeta());
         assertEquals(10L, totales.getCantidadFacturas());
-        assertEquals(25L, totales.getCantidadComprobantes());
+        assertEquals(10L, totales.getCantidadComprobantes());
     }
 
     @Test
@@ -213,5 +209,96 @@ class DirectorioServiceTest {
         assertEquals("No autorizada en línea", p.getComentariosDebito());
         assertEquals(new BigDecimal("3500.00"), p.getImporteDebitado());
         assertTrue(p.getDebitoAceptado());
+    }
+
+    @Test
+    @DisplayName("getCuentaCorrienteTresNiveles agrupa correctamente Financiador -> Periodo -> Factura Madre -> Hijos")
+    void testCuentaCorrienteTresNiveles() {
+        Cabecera fc = new Cabecera("FC", "A", 1, 1001, LocalDate.of(2025, 10, 10), LocalDate.of(2025, 10, 1), "FAC", "OSDE");
+        fc.setId(1L);
+        fc.setCobertura("OSDE");
+        fc.setDebe(new BigDecimal("10000.00"));
+        fc.setHaber(BigDecimal.ZERO);
+        fc.setAsociadogrupo(100L);
+        fc.setAsociado(1L);
+
+        Cabecera nc = new Cabecera("NC", "A", 1, 2001, LocalDate.of(2025, 10, 15), LocalDate.of(2025, 10, 1), "NCR", "OSDE");
+        nc.setId(2L);
+        nc.setCobertura("OSDE");
+        nc.setDebe(BigDecimal.ZERO);
+        nc.setHaber(new BigDecimal("2000.00"));
+        nc.setAsociadogrupo(100L);
+        nc.setAsociado(1L);
+
+        Cabecera ndRef = new Cabecera("ND", "A", 1, 3001, LocalDate.of(2025, 10, 20), LocalDate.of(2025, 10, 1), "NDB", "OSDE");
+        ndRef.setId(3L);
+        ndRef.setCobertura("OSDE");
+        ndRef.setDebe(new BigDecimal("1500.00"));
+        ndRef.setHaber(BigDecimal.ZERO);
+        ndRef.setAsociadogrupo(100L);
+        ndRef.setAsociado(2L);
+
+        Cabecera rc = new Cabecera("RC", "A", 1, 4001, LocalDate.of(2025, 10, 25), LocalDate.of(2025, 10, 1), "REC", "OSDE");
+        rc.setId(4L);
+        rc.setCobertura("OSDE");
+        rc.setDebe(BigDecimal.ZERO);
+        rc.setHaber(new BigDecimal("5000.00"));
+        rc.setAsociadogrupo(100L);
+        rc.setAsociado(1L);
+
+        when(cabeceraRepository.findCabecerasParaCuentaCorriente()).thenReturn(List.of(fc, nc, ndRef, rc));
+        when(cabeceraRepository.findIdsNdHijosDeNc()).thenReturn(List.of(3L));
+
+        List<CcFinanciadorDTO> resultado = directorioService.getCuentaCorrienteTresNiveles(null, null);
+
+        assertNotNull(resultado);
+        assertEquals(1, resultado.size());
+
+        CcFinanciadorDTO fin = resultado.get(0);
+        assertEquals("OSDE", fin.getFinanciador());
+        assertEquals(new BigDecimal("10000.00"), fin.getFacturacionFc());
+        assertEquals(new BigDecimal("2000.00"), fin.getDebitosNc());
+        assertEquals(new BigDecimal("1500.00"), fin.getRefacturacionNd());
+        assertEquals(new BigDecimal("0.00"), fin.getIncrementosNd());
+        assertEquals(new BigDecimal("5000.00"), fin.getCobranzasRc());
+        // Saldo = 10000 + 1500 - 2000 - 5000 = 4500.00
+        assertEquals(new BigDecimal("4500.00"), fin.getSaldo());
+
+        assertEquals(1, fin.getPeriodos().size());
+        CcPeriodoDTO per = fin.getPeriodos().get(0);
+        assertEquals("2025-10", per.getPeriodo());
+        assertEquals(1, per.getComprobantes().size());
+        assertEquals(new BigDecimal("4500.00"), per.getSaldo());
+
+        CcComprobanteDTO fcDto = per.getComprobantes().get(0);
+        assertEquals("FC", fcDto.getTipo());
+        assertEquals(0, fcDto.getNivel());
+        assertEquals(new BigDecimal("4500.00"), fcDto.getSaldo());
+        assertNotNull(fcDto.getHijos());
+        assertEquals(3, fcDto.getHijos().size());
+    }
+
+    @Test
+    @DisplayName("getMetricasAnalistas agrupa y mapea correctamente analistas desde notadecredito y notadedebito")
+    void testGetMetricasAnalistas() {
+        List<Object[]> rows = new ArrayList<>();
+        // analista, motivo, financiador, monto_debitado, aceptado, refacturado, tipo_registro
+        rows.add(new Object[]{"FernandaCortes", "Falta de autorización", "OSDE", new BigDecimal("10000.00"), new BigDecimal("8000.00"), new BigDecimal("2000.00"), "Ambulatorios"});
+        rows.add(new Object[]{"NataliaMartinez", "Débito recibido", "SWISS MEDICAL", new BigDecimal("5000.00"), new BigDecimal("5000.00"), BigDecimal.ZERO, "Internados"});
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<MetricaAnalistaDTO> analistas = directorioService.getMetricasAnalistas(null);
+
+        assertNotNull(analistas);
+        assertEquals(2, analistas.size());
+        assertEquals("FernandaCortes", analistas.get(0).getAnalista());
+        assertEquals(1, analistas.get(0).getCantidadRegistros());
+        assertEquals(new BigDecimal("8000.00"), analistas.get(0).getDebitosAceptados());
+        assertEquals(new BigDecimal("2000.00"), analistas.get(0).getDebitosRefacturados());
+        assertEquals(new BigDecimal("10000.00"), analistas.get(0).getTotalTramitado());
+        assertEquals(1, analistas.get(0).getCantidadAmb());
+        assertEquals(0, analistas.get(0).getCantidadInt());
+        assertEquals("100% Amb / 0% Int", analistas.get(0).getDistribucionAtencion());
     }
 }
