@@ -466,20 +466,9 @@ public class AuditoriaService {
                 hijosPorPadre.computeIfAbsent(padreId, k -> new ArrayList<>()).add(c);
             } else {
                 // Si asociado es nulo:
-                // 1) Caso especial por grupo: si comparte grupo con una ND de la familia, su padre es esa ND
-                Long padrePorGrupo = null;
-                if (c.getGrupo() != null && c.getGrupo() != 0L) {
-                    for (Cabecera cand : familia) {
-                        if (!Objects.equals(cand.getId(), c.getId())
-                                && "ND".equalsIgnoreCase(resolverTipoBase(cand.getTipo()))
-                                && Objects.equals(cand.getGrupo(), c.getGrupo())) {
-                            padrePorGrupo = cand.getId();
-                            break;
-                        }
-                    }
-                }
-                if (padrePorGrupo != null && !Objects.equals(padrePorGrupo, c.getId())) {
-                    hijosPorPadre.computeIfAbsent(padrePorGrupo, k -> new ArrayList<>()).add(c);
+                // 1) Si es un RC sin asociado explícito, es hijo directo de la raíz (Factura Madre o ND raíz)
+                if ("RC".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
+                    hijosPorPadre.computeIfAbsent(raiz.getId(), k -> new ArrayList<>()).add(c);
                 } else {
                     // 2) Fallback relacional si asociado es null (para compatibilidad de registros históricos):
                     Long padreRelacional = null;
@@ -524,7 +513,7 @@ public class AuditoriaService {
                     if (padreRelacional != null) {
                         hijosPorPadre.computeIfAbsent(padreRelacional, k -> new ArrayList<>()).add(c);
                     } else {
-                        // 3) Si no tiene asociado ni grupo específico, es hijo directo de la Factura Madre
+                        // 3) Si no tiene asociado ni relación específica, es hijo directo de la raíz (Factura Madre / Comprobante Raíz)
                         hijosPorPadre.computeIfAbsent(raiz.getId(), k -> new ArrayList<>()).add(c);
                     }
                 }

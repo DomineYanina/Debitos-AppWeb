@@ -1630,7 +1630,7 @@ public class DirectorioService {
                                 desc = "Emisión inicial";
                                 resp = (amb != null && amb.getOperador() != null && !amb.getOperador().trim().isEmpty())
                                         ? amb.getOperador().trim()
-                                        : (c.getOrigen() != null ? c.getOrigen() : "Facturación");
+                                        : "Sin operador asignado";
                             }
                             case "NC" -> {
                                 monto = (c.getHaber() != null && c.getHaber().compareTo(BigDecimal.ZERO) > 0)

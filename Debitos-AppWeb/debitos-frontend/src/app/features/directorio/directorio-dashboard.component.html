@@ -1395,12 +1395,14 @@
                 <!-- NIVEL 1: Operador -->
                 <tr class="tr-analista tr-operador" (click)="toggleOperador(op)" [class.is-expanded]="op.expanded">
                   <td class="td-tree-node td-analista">
-                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="op.expanded">
-                      {{ op.expanded ? '▼' : '▶' }}
-                    </button>
-                    <span class="analista-icon">💻</span>
-                    <span class="analista-nombre">{{ op.operador }}</span>
-                    <span class="badge-count">{{ op.motivos.length }} motivos</span>
+                    <div class="analista-cell-wrapper">
+                      <button type="button" class="btn-toggle-expand" [class.is-expanded]="op.expanded">
+                        {{ op.expanded ? '▼' : '▶' }}
+                      </button>
+                      <span class="analista-icon">💻</span>
+                      <span class="analista-nombre">{{ op.operador }}</span>
+                      <span class="badge-count">{{ op.motivos.length }} motivos</span>
+                    </div>
                   </td>
                   <td class="text-right font-weight-bold">
                     {{ op.cantidadRegistros }}
@@ -1438,12 +1440,14 @@
                   <ng-container *ngFor="let m of op.motivos; trackBy: trackByMotivo">
                     <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
                       <td class="td-tree-node td-motivo">
-                        <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
-                          {{ m.expanded ? '▼' : '▶' }}
-                        </button>
-                        <span class="motivo-icon">📋</span>
-                        <span class="motivo-tag">{{ m.motivo }}</span>
-                        <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
+                        <div class="motivo-cell-wrapper">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
+                            {{ m.expanded ? '▼' : '▶' }}
+                          </button>
+                          <span class="motivo-icon">📋</span>
+                          <span class="motivo-tag">{{ m.motivo }}</span>
+                          <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
+                        </div>
                       </td>
                       <td class="text-right">{{ m.casos }}</td>
                       <td class="text-right font-weight-bold color-facturado">
@@ -1476,9 +1480,11 @@
 
                       <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista" class="tr-financiador-sub">
                         <td class="td-tree-node td-financiador-sub-item">
-                          <span class="tree-branch">└─</span>
-                          <span class="financiador-icon">🏢</span>
-                          <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
+                          <div class="financiador-cell-wrapper">
+                            <span class="tree-branch">└─</span>
+                            <span class="financiador-icon">🏢</span>
+                            <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
+                          </div>
                         </td>
                         <td class="text-right text-muted">{{ fin.casos }}</td>
                         <td colspan="3" class="text-right font-weight-bold color-facturado">
@@ -1558,12 +1564,14 @@
                 <!-- NIVEL 1: Médico -->
                 <tr class="tr-analista tr-medico" (click)="toggleMedico(med)" [class.is-expanded]="med.expanded">
                   <td class="td-tree-node td-analista">
-                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="med.expanded">
-                      {{ med.expanded ? '▼' : '▶' }}
-                    </button>
-                    <span class="analista-icon">🩺</span>
-                    <span class="analista-nombre">{{ med.medico }}</span>
-                    <span class="badge-count">{{ med.motivos.length }} motivos</span>
+                    <div class="analista-cell-wrapper">
+                      <button type="button" class="btn-toggle-expand" [class.is-expanded]="med.expanded">
+                        {{ med.expanded ? '▼' : '▶' }}
+                      </button>
+                      <span class="analista-icon">🩺</span>
+                      <span class="analista-nombre">{{ med.medico }}</span>
+                      <span class="badge-count">{{ med.motivos.length }} motivos</span>
+                    </div>
                   </td>
                   <td class="text-right font-weight-bold">
                     {{ med.cantidadRegistros }}
@@ -1601,12 +1609,14 @@
                   <ng-container *ngFor="let m of med.motivos; trackBy: trackByMotivo">
                     <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
                       <td class="td-tree-node td-motivo">
-                        <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
-                          {{ m.expanded ? '▼' : '▶' }}
-                        </button>
-                        <span class="motivo-icon">📋</span>
-                        <span class="motivo-tag">{{ m.motivo }}</span>
-                        <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
+                        <div class="motivo-cell-wrapper">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
+                            {{ m.expanded ? '▼' : '▶' }}
+                          </button>
+                          <span class="motivo-icon">📋</span>
+                          <span class="motivo-tag">{{ m.motivo }}</span>
+                          <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
+                        </div>
                       </td>
                       <td class="text-right">{{ m.casos }}</td>
                       <td class="text-right font-weight-bold color-facturado">
@@ -1639,9 +1649,11 @@
 
                       <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista" class="tr-financiador-sub">
                         <td class="td-tree-node td-financiador-sub-item">
-                          <span class="tree-branch">└─</span>
-                          <span class="financiador-icon">🏢</span>
-                          <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
+                          <div class="financiador-cell-wrapper">
+                            <span class="tree-branch">└─</span>
+                            <span class="financiador-icon">🏢</span>
+                            <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
+                          </div>
                         </td>
                         <td class="text-right text-muted">{{ fin.casos }}</td>
                         <td colspan="3" class="text-right font-weight-bold color-facturado">

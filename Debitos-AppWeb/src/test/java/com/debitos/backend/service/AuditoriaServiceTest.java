@@ -1379,6 +1379,7 @@ class AuditoriaServiceTest {
                 .thenReturn(List.of(fc, rc, ncPrest, ncIva));
 
         when(notaDeCreditoRepository.findByCabecera_Id(102L)).thenReturn(List.of(ncItem));
+        when(ncAjusteDeIvaRepository.findByCabecera_Id(102L)).thenReturn(Optional.empty());
         when(ncAjusteDeIvaRepository.findByCabecera_Id(103L)).thenReturn(Optional.of(ajusteIva));
 
         List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("FC", "A", 1, 1000);
@@ -1436,6 +1437,8 @@ class AuditoriaServiceTest {
                 .thenReturn(List.of(nc, ndRefactura, ndIva));
 
         when(notaDeDebitoRepository.findByCabecera_Id(201L)).thenReturn(List.of(ndItem));
+        when(notaDeDebitoRepository.findByCabecera_Id(202L)).thenReturn(Collections.emptyList());
+        when(ndAjusteDeIvaRepository.findByCabecera_Id(201L)).thenReturn(Optional.empty());
         when(ndAjusteDeIvaRepository.findByCabecera_Id(202L)).thenReturn(Optional.of(ndAjuste));
 
         List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("NC", "A", 1, 2000);

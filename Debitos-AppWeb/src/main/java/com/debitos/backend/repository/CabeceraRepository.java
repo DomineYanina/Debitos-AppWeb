@@ -76,30 +76,34 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     @Query(value = """
         SELECT 
             COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
-            COALESCE(SUM(CASE WHEN c.tipo IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
-            COALESCE(SUM(CASE WHEN c.tipo IN ('ND','NDE','NDA','NDB') AND NOT EXISTS (
-                SELECT 1 FROM notadedebito nd WHERE nd.idcabecera = c.id AND nd.id_notadecredito IS NOT NULL
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND NOT (
+                EXISTS (SELECT 1 FROM notadedebito nd WHERE nd.idcabecera = c.id AND nd.id_notadecredito IS NOT NULL)
+                OR EXISTS (SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) IN ('NC','NCE','NCA','NCB'))
+                OR EXISTS (SELECT 1 FROM nd_ajustedeiva iva WHERE iva.idcabecera = c.id)
             ) THEN c.debe ELSE 0 END), 0) AS incrementos_nd,
-            COALESCE(SUM(CASE WHEN c.tipo IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos_nc,
-            COALESCE(SUM(CASE WHEN c.tipo IN ('ND','NDE','NDA','NDB') AND EXISTS (
-                SELECT 1 FROM notadedebito nd WHERE nd.idcabecera = c.id AND nd.id_notadecredito IS NOT NULL
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos_nc,
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND (
+                EXISTS (SELECT 1 FROM notadedebito nd WHERE nd.idcabecera = c.id AND nd.id_notadecredito IS NOT NULL)
+                OR EXISTS (SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) IN ('NC','NCE','NCA','NCB'))
+                OR EXISTS (SELECT 1 FROM nd_ajustedeiva iva WHERE iva.idcabecera = c.id)
             ) THEN c.debe ELSE 0 END), 0) AS refacturado_nd,
-            COALESCE(SUM(CASE WHEN c.tipo IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado_rc,
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado_rc,
             (
-                COALESCE(SUM(CASE WHEN c.tipo IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
-                COALESCE(SUM(CASE WHEN c.tipo IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN c.tipo IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN c.tipo IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
             ) AS saldo_pendiente
         FROM cabecera c
         WHERE c.fecha IS NOT NULL
           AND c.periodo IS NOT NULL AND TRIM(CAST(c.periodo AS text)) <> '' AND UPPER(TRIM(CAST(c.periodo AS text))) <> 'S/P'
         GROUP BY 1
         HAVING (
-            COALESCE(SUM(CASE WHEN c.tipo IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
-            COALESCE(SUM(CASE WHEN c.tipo IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN c.tipo IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN c.tipo IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
         ) > 0
         ORDER BY saldo_pendiente DESC
     """, nativeQuery = true)

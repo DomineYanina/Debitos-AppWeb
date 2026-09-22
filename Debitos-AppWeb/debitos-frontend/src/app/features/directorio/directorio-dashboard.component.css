@@ -1084,23 +1084,27 @@ select.form-control:disabled {
 }
 
 .btn-toggle-expand {
-  background: #e2e8f0;
+  background: none;
   border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  color: #334155;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
+  color: #64748b;
   cursor: pointer;
-  display: flex;
+  padding: 0.15rem 0.35rem;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease, background 0.2s;
+  vertical-align: middle;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.btn-toggle-expand:hover {
+  color: #1e293b;
 }
 
 .btn-toggle-expand.is-expanded {
-  background: #3b82f6;
-  color: #ffffff;
+  color: #2563eb;
 }
 
 .badge-tipo-doc {
@@ -1732,7 +1736,7 @@ select.form-control:disabled {
   background-color: #e2e8f0;
 }
 
-.btn-toggle-expand {
+.tr-parent-nivel1 .btn-toggle-expand {
   background: none;
   border: none;
   font-size: 0.75rem;
@@ -1740,9 +1744,13 @@ select.form-control:disabled {
   cursor: pointer;
   padding: 0.2rem 0.4rem;
   transition: transform 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
 }
 
-.btn-toggle-expand.is-expanded {
+.tr-parent-nivel1 .btn-toggle-expand.is-expanded {
   transform: rotate(90deg);
   color: #1e3a8a;
 }
@@ -2188,6 +2196,10 @@ select.form-control:disabled {
 .tr-analista.is-expanded {
   background-color: #f5f3ff;
   border-left-color: #4f46e5;
+}
+
+.td-tree-node {
+  vertical-align: middle;
 }
 
 .td-analista {
