@@ -72,7 +72,7 @@
         </label>
         <select id="select-cobertura" class="form-control select-custom" [(ngModel)]="codigoCoberturaSeleccionada"
           (change)="aplicarFiltros()"
-          [disabled]="solapaActiva === 'analistas' || solapaActiva === 'medicos'"
+          [attr.disabled]="(solapaActiva === 'analistas' || solapaActiva === 'medicos') ? '' : null"
           [title]="(solapaActiva === 'analistas' || solapaActiva === 'medicos') ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Institución / Cobertura'">
           <option value="TODAS">-- Todas las Instituciones --</option>
           <option *ngFor="let cob of coberturasVisibles" [value]="cob.codigo">
@@ -88,7 +88,7 @@
         </label>
         <select id="select-tipo-doc" class="form-control select-custom" [(ngModel)]="tipoDocSeleccionado"
           (change)="aplicarFiltros()"
-          [disabled]="solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos'"
+          [attr.disabled]="(solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos') ? '' : null"
           [title]="(solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos') ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Tipo de Comprobante'">
           <option value="TODOS">-- Todos los Tipos --</option>
           <option *ngFor="let tipo of tiposDocumento" [value]="tipo">

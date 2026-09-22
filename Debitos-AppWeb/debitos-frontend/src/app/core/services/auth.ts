@@ -47,13 +47,13 @@ export class AuthService {
     if (!token) return true;
     try {
       const parts = token.split('.');
-      if (parts.length < 2) return true;
+      if (parts.length < 2) return false;
       const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
       const decodedJson = JSON.parse(decodeURIComponent(escape(atob(payloadBase64))));
       if (!decodedJson.exp) return false;
       return Date.now() >= decodedJson.exp * 1000;
     } catch {
-      return true;
+      return false;
     }
   }
 

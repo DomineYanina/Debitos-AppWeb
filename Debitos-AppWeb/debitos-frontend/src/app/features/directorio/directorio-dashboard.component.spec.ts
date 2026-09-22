@@ -464,7 +464,7 @@ describe('DirectorioDashboardComponent', () => {
 
     it('los selectores de cobertura y tipo de comprobante deben estar deshabilitados en la solapa analistas', () => {
       component.solapaActiva = 'analistas';
-      fixture.detectChanges();
+      (component as any).cdr.detectChanges();
 
       const selectCobertura = fixture.nativeElement.querySelector('#select-cobertura');
       const selectTipoDoc = fixture.nativeElement.querySelector('#select-tipo-doc');
@@ -474,7 +474,7 @@ describe('DirectorioDashboardComponent', () => {
 
       // En otra solapa deben estar habilitados
       component.solapaActiva = 'tablero';
-      fixture.detectChanges();
+      (component as any).cdr.detectChanges();
       expect(selectCobertura.disabled).toBe(false);
       expect(selectTipoDoc.disabled).toBe(false);
     });
