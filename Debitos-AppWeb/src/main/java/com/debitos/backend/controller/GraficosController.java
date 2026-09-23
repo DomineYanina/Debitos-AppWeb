@@ -40,11 +40,16 @@ public class GraficosController {
     /**
      * GET /api/graficos/balance
      *
-     * Retorna la tabla de Resumen de Cartera y Balance Financiero agrupado por Financiador.
+     * Retorna la tabla de Resumen de Cartera y Balance Financiero agrupado por Financiador,
+     * aplicando los filtros opcionales de cobertura, tipo de comprobante y rango de fechas.
      */
     @GetMapping("/balance")
-    public ResponseEntity<List<BalanceFinanciadorDTO>> getBalanceFinanciero() {
-        List<BalanceFinanciadorDTO> balance = directorioService.obtenerBalanceFinanciero();
+    public ResponseEntity<List<BalanceFinanciadorDTO>> getBalanceFinanciero(
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) String tipoDoc,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        List<BalanceFinanciadorDTO> balance = directorioService.obtenerBalanceFinanciero(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         return ResponseEntity.ok(balance);
     }
 
@@ -52,11 +57,15 @@ public class GraficosController {
      * GET /api/graficos/cartera-donut
      *
      * Retorna los datos para el gráfico circular Donut de Distribución de Cartera
-     * con saldos pendientes positivos.
+     * con saldos pendientes positivos, aplicando filtros de período o cobertura.
      */
     @GetMapping("/cartera-donut")
-    public ResponseEntity<List<PuntoDonutDTO>> getCarteraDonut() {
-        List<PuntoDonutDTO> donut = directorioService.obtenerDistribucionCarteraDonut();
+    public ResponseEntity<List<PuntoDonutDTO>> getCarteraDonut(
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) String tipoDoc,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        List<PuntoDonutDTO> donut = directorioService.obtenerDistribucionCarteraDonut(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         return ResponseEntity.ok(donut);
     }
 
@@ -65,19 +74,14 @@ public class GraficosController {
      *
      * Retorna un DatasetGraficoDTO con el saldo pendiente agrupado por financiador/cobertura.
      * Pensado para renderizar un grafico de dona o torta en el frontend.
-     *
-     * Ejemplo de respuesta:
-     * {
-     *   "tituloDataset": "Saldo por Financiador",
-     *   "puntos": [
-     *     { "etiqueta": "OSDE",  "valor": 1200000.00 },
-     *     { "etiqueta": "IOMA",  "valor":  850000.00 }
-     *   ]
-     * }
      */
     @GetMapping("/distribucion")
-    public ResponseEntity<DatasetGraficoDTO> getDistribucionCartera() {
-        DatasetGraficoDTO dataset = directorioService.getDistribucionCartera();
+    public ResponseEntity<DatasetGraficoDTO> getDistribucionCartera(
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) String tipoDoc,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        DatasetGraficoDTO dataset = directorioService.getDistribucionCartera(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         return ResponseEntity.ok(dataset);
     }
 
@@ -85,19 +89,16 @@ public class GraficosController {
      * GET /api/graficos/evolucion
      *
      * Retorna una lista de 3 DatasetGraficoDTO (Facturacion, Debitos, Cobranzas),
-     * cada uno con un punto por mes (etiqueta = 'YYYY-MM', valor = monto sumado).
-     * Pensado para renderizar un grafico de lineas o barras en el frontend.
-     *
-     * Ejemplo de respuesta:
-     * [
-     *   { "tituloDataset": "Facturacion", "puntos": [{"etiqueta":"2025-08","valor":22116449.17}, ...] },
-     *   { "tituloDataset": "Debitos",     "puntos": [{"etiqueta":"2025-08","valor": 1392431.39}, ...] },
-     *   { "tituloDataset": "Cobranzas",   "puntos": [{"etiqueta":"2025-09","valor":20724017.78}, ...] }
-     * ]
+     * cada uno con un punto por mes (etiqueta = 'YYYY-MM', valor = monto sumado),
+     * aplicando filtros de cobertura y rango de fechas.
      */
     @GetMapping("/evolucion")
-    public ResponseEntity<List<DatasetGraficoDTO>> getEvolucionMensual() {
-        List<DatasetGraficoDTO> datasets = directorioService.getEvolucionMensual();
+    public ResponseEntity<List<DatasetGraficoDTO>> getEvolucionMensual(
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) String tipoDoc,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        List<DatasetGraficoDTO> datasets = directorioService.getEvolucionMensual(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         return ResponseEntity.ok(datasets);
     }
 

@@ -191,4 +191,46 @@ describe('DirectorioService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ analistas: [], medicos: [], operadores: [] });
   });
+
+  it('getBalanceFinanciero debería enviar parámetros de cobertura, tipoDoc y fechas', () => {
+    service.getBalanceFinanciero('443', 'FC', '2026-05-01', '2026-05-31').subscribe();
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/api/graficos/balance') &&
+      r.params.get('codigoCobertura') === '443' &&
+      r.params.get('tipoDoc') === 'FC' &&
+      r.params.get('fechaDesde') === '2026-05-01' &&
+      r.params.get('fechaHasta') === '2026-05-31'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getCarteraDonut debería enviar parámetros de cobertura, tipoDoc y fechas', () => {
+    service.getCarteraDonut('443', 'FC', '2026-05-01', '2026-05-31').subscribe();
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/api/graficos/cartera-donut') &&
+      r.params.get('codigoCobertura') === '443' &&
+      r.params.get('tipoDoc') === 'FC' &&
+      r.params.get('fechaDesde') === '2026-05-01' &&
+      r.params.get('fechaHasta') === '2026-05-31'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
+
+  it('getEvolucionMensual debería enviar parámetros de cobertura, tipoDoc y fechas', () => {
+    service.getEvolucionMensual('443', 'FC', '2026-05-01', '2026-05-31').subscribe();
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/api/graficos/evolucion') &&
+      r.params.get('codigoCobertura') === '443' &&
+      r.params.get('tipoDoc') === 'FC' &&
+      r.params.get('fechaDesde') === '2026-05-01' &&
+      r.params.get('fechaHasta') === '2026-05-31'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 });

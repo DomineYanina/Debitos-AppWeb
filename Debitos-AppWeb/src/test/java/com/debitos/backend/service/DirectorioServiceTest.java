@@ -301,4 +301,86 @@ class DirectorioServiceTest {
         assertEquals(0, analistas.get(0).getCantidadInt());
         assertEquals("100% Amb / 0% Int", analistas.get(0).getDistribucionAtencion());
     }
+
+    @Test
+    @DisplayName("obtenerBalanceFinanciero mapea correctamente las columnas y aplica filtros")
+    void testObtenerBalanceFinancieroConFiltros() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[]{
+            "443 - OSDE",
+            new BigDecimal("500000.00"),
+            new BigDecimal("10000.00"),
+            new BigDecimal("20000.00"),
+            new BigDecimal("15000.00"),
+            new BigDecimal("300000.00"),
+            new BigDecimal("190000.00")
+        });
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<BalanceFinanciadorDTO> result = directorioService.obtenerBalanceFinanciero(
+            "443", "FC", LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)
+        );
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        BalanceFinanciadorDTO dto = result.get(0);
+        assertEquals("443 - OSDE", dto.getFinanciador());
+        assertEquals(new BigDecimal("500000.00"), dto.getFacturacionFc());
+        assertEquals(new BigDecimal("10000.00"), dto.getIncrementosNd());
+        assertEquals(new BigDecimal("20000.00"), dto.getDebitosNc());
+        assertEquals(new BigDecimal("15000.00"), dto.getRefacturadoNd());
+        assertEquals(new BigDecimal("300000.00"), dto.getCobradoRc());
+        assertEquals(new BigDecimal("190000.00"), dto.getSaldoPendiente());
+    }
+
+    @Test
+    @DisplayName("obtenerDistribucionCarteraDonut mapea financiador y saldo pendiente positivo con filtros")
+    void testObtenerDistribucionCarteraDonutConFiltros() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[]{"443 - OSDE", new BigDecimal("150000.00")});
+        rows.add(new Object[]{"502 - PAMI", new BigDecimal("250000.00")});
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<PuntoDonutDTO> result = directorioService.obtenerDistribucionCarteraDonut(
+            null, null, LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)
+        );
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals("443 - OSDE", result.get(0).getEtiqueta());
+        assertEquals(new BigDecimal("150000.00"), result.get(0).getSaldo());
+    }
+
+    @Test
+    @DisplayName("getEvolucionMensual retorna los 3 datasets (Facturación, Débitos, Cobranzas) con filtros")
+    void testGetEvolucionMensualConFiltros() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[]{
+            "2026-05",
+            new BigDecimal("1000000.00"),
+            new BigDecimal("50000.00"),
+            new BigDecimal("600000.00")
+        });
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<DatasetGraficoDTO> datasets = directorioService.getEvolucionMensual(
+            "443", null, LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)
+        );
+
+        assertNotNull(datasets);
+        assertEquals(3, datasets.size());
+        assertEquals("Facturación", datasets.get(0).getTituloDataset());
+        assertEquals(1, datasets.get(0).getPuntos().size());
+        assertEquals("2026-05", datasets.get(0).getPuntos().get(0).getEtiqueta());
+        assertEquals(new BigDecimal("1000000.00"), datasets.get(0).getPuntos().get(0).getValor());
+
+        assertEquals("Débitos", datasets.get(1).getTituloDataset());
+        assertEquals(new BigDecimal("50000.00"), datasets.get(1).getPuntos().get(0).getValor());
+
+        assertEquals("Cobranzas", datasets.get(2).getTituloDataset());
+        assertEquals(new BigDecimal("600000.00"), datasets.get(2).getPuntos().get(0).getValor());
+    }
 }

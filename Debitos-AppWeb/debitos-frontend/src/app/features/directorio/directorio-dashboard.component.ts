@@ -853,7 +853,10 @@ export class DirectorioDashboardComponent implements OnInit {
   private cargarDistribucionCartera(): void {
     if (!this.directorioService.getCarteraDonut) return;
     this.iniciarCargaGrafico();
-    this.directorioService.getCarteraDonut().subscribe({
+    const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
+    const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
+
+    this.directorioService.getCarteraDonut(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
       next: (puntos: PuntoDonutDTO[]) => {
         const labels = (puntos || []).map(p => p.etiqueta);
         const data = (puntos || []).map(p => Number(p.saldo));
@@ -879,7 +882,10 @@ export class DirectorioDashboardComponent implements OnInit {
   cargarBalanceFinanciero(): void {
     if (!this.directorioService.getBalanceFinanciero) return;
     this.cargandoBalance = true;
-    this.directorioService.getBalanceFinanciero().subscribe({
+    const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
+    const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
+
+    this.directorioService.getBalanceFinanciero(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
       next: (data: BalanceFinanciadorDTO[]) => {
         this.balanceFinanciadores = data || [];
         this.calcularTotalesBalance();
@@ -917,7 +923,10 @@ export class DirectorioDashboardComponent implements OnInit {
   private cargarEvolucionMensual(): void {
     if (!this.directorioService.getEvolucionMensual) return;
     this.iniciarCargaGrafico();
-    this.directorioService.getEvolucionMensual().subscribe({
+    const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
+    const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
+
+    this.directorioService.getEvolucionMensual(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
       next: (datasets: DatasetGraficoDTO[]) => {
         if (!datasets || datasets.length < 3) {
           this.finalizarCargaGrafico();

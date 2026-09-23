@@ -34,16 +34,28 @@ export class DirectorioService {
    * GET /api/graficos/balance
    * Retorna la lista de financiadores con su desglose contable y saldo pendiente.
    */
-  getBalanceFinanciero(): Observable<BalanceFinanciadorDTO[]> {
-    return this.http.get<BalanceFinanciadorDTO[]>(`${this.apiGraficosUrl}/balance`);
+  getBalanceFinanciero(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<BalanceFinanciadorDTO[]> {
+    let params = new HttpParams();
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<BalanceFinanciadorDTO[]>(`${this.apiGraficosUrl}/balance`, { params });
   }
 
   /**
    * GET /api/graficos/cartera-donut
    * Retorna la distribución de cartera por financiador (solo saldos positivos) para el Donut.
    */
-  getCarteraDonut(): Observable<PuntoDonutDTO[]> {
-    return this.http.get<PuntoDonutDTO[]>(`${this.apiGraficosUrl}/cartera-donut`);
+  getCarteraDonut(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<PuntoDonutDTO[]> {
+    let params = new HttpParams();
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<PuntoDonutDTO[]>(`${this.apiGraficosUrl}/cartera-donut`, { params });
   }
 
   obtenerCoberturas(): Observable<DirectorioCobertura[]> {
@@ -103,8 +115,14 @@ export class DirectorioService {
    * Retorna un único dataset con el saldo pendiente por financiador/cobertura.
    * Pensado para un gráfico de dona (doughnut).
    */
-  getDistribucionCartera(): Observable<DatasetGraficoDTO> {
-    return this.http.get<DatasetGraficoDTO>(`${this.apiGraficosUrl}/distribucion`);
+  getDistribucionCartera(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DatasetGraficoDTO> {
+    let params = new HttpParams();
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<DatasetGraficoDTO>(`${this.apiGraficosUrl}/distribucion`, { params });
   }
 
   /**
@@ -112,8 +130,14 @@ export class DirectorioService {
    * Retorna 3 datasets (Facturación, Débitos, Cobranzas) con un punto por mes.
    * Pensado para un gráfico de líneas.
    */
-  getEvolucionMensual(): Observable<DatasetGraficoDTO[]> {
-    return this.http.get<DatasetGraficoDTO[]>(`${this.apiGraficosUrl}/evolucion`);
+  getEvolucionMensual(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DatasetGraficoDTO[]> {
+    let params = new HttpParams();
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<DatasetGraficoDTO[]>(`${this.apiGraficosUrl}/evolucion`, { params });
   }
 
   /**

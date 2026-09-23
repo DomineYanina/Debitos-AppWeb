@@ -97,7 +97,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             ) AS saldo_pendiente
         FROM cabecera c
         WHERE c.fecha IS NOT NULL
-          AND c.periodo IS NOT NULL AND TRIM(CAST(c.periodo AS text)) <> '' AND UPPER(TRIM(CAST(c.periodo AS text))) <> 'S/P'
+          AND (c.periodo IS NOT NULL OR c.fecha IS NOT NULL)
         GROUP BY 1
         HAVING (
             COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
@@ -135,26 +135,37 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     List<Object[]> obtenerDistribucionCarteraDonut();
 
     /**
-     * Evolucion mensual imputada por período de factura original (excluye registros sin período 'S/P').
+     * Evolucion mensual agrupada por periodo de la factura original.
      * Retorna Object[4]: [0]=periodo(String 'YYYY-MM'), [1]=facturacion,
      * [2]=debitos, [3]=cobranzas.
      */
     @Query(value = """
+        WITH fc_madre AS (
+            SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                COALESCE(asociadogrupo, grupo) AS gid,
+                periodo,
+                fecha
+            FROM cabecera
+            WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+              AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+            ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+        )
         SELECT 
-            TO_CHAR(COALESCE(fc.fecha, c.fecha), 'YYYY-MM') AS periodo,
+            TO_CHAR(COALESCE(
+                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+                c.periodo,
+                c.fecha
+            ), 'YYYY-MM') AS periodo,
             COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturado,
             COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos,
             COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado
         FROM cabecera c
-        LEFT JOIN cabecera fc ON (
-            (c.asociadogrupo IS NOT NULL AND fc.id = c.asociadogrupo)
-            OR (c.asociadogrupo IS NULL AND c.asociado IS NOT NULL AND fc.id = c.asociado)
-            OR (c.asociadogrupo IS NULL AND c.asociado IS NULL AND c.grupo IS NOT NULL AND fc.id = c.grupo)
-        ) AND UPPER(TRIM(fc.tipo)) IN ('FC','FAC','FCE','FCA')
-        WHERE c.fecha IS NOT NULL
-          AND c.periodo IS NOT NULL 
-          AND TRIM(CAST(c.periodo AS text)) <> '' 
-          AND UPPER(TRIM(CAST(c.periodo AS text))) <> 'S/P'
+        LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
+        WHERE COALESCE(
+            CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+            c.periodo,
+            c.fecha
+        ) IS NOT NULL
         GROUP BY 1
         ORDER BY 1 ASC
         """, nativeQuery = true)

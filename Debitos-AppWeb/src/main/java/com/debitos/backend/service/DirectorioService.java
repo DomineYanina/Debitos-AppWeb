@@ -343,6 +343,19 @@ public class DirectorioService {
         }
 
         StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha,
+                    codigo_cobertura,
+                    cobertura,
+                    tipo
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
             SELECT TRIM(nc.motivodedebito) AS motivo, 
                    SUM(COALESCE(nc.importedebitado, 0)) AS montoTotal,
                    COUNT(nc.id) AS cantidadCasos
@@ -350,25 +363,26 @@ public class DirectorioService {
             LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
             LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
             LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+            LEFT JOIN fc_madre fc ON COALESCE(c_nc.asociadogrupo, c_nc.grupo) = fc.gid
             WHERE nc.motivodedebito IS NOT NULL 
               AND TRIM(nc.motivodedebito) <> ''
         """);
 
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
             if (nombreCobertura != null) {
-                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c_nc.cobertura)) = :nombreCob OR LOWER(TRIM(c_fc.cobertura)) = :nombreCob)");
+                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR fc.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c_nc.cobertura)) = :nombreCob OR LOWER(TRIM(c_fc.cobertura)) = :nombreCob OR LOWER(TRIM(fc.cobertura)) = :nombreCob)");
             } else {
-                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura)");
+                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR fc.codigo_cobertura = :codigoCobertura)");
             }
         }
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
-            sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc)");
+            sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc OR UPPER(TRIM(fc.tipo)) = :tipoDoc)");
         }
         if (fechaDesde != null) {
-            sql.append(" AND (c_nc.fecha >= :fechaDesde OR (c_nc.fecha IS NULL AND c_fc.fecha >= :fechaDesde))");
+            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) >= :fechaDesde");
         }
         if (fechaHasta != null) {
-            sql.append(" AND (c_nc.fecha <= :fechaHasta OR (c_nc.fecha IS NULL AND c_fc.fecha <= :fechaHasta))");
+            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) <= :fechaHasta");
         }
         sql.append(" GROUP BY TRIM(nc.motivodedebito) ORDER BY montoTotal DESC");
 
@@ -426,20 +440,34 @@ public class DirectorioService {
         }
 
         StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha,
+                    codigo_cobertura,
+                    cobertura,
+                    tipo
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
             SELECT COALESCE(al.id, nc.id) AS id, 
                    al.paciente, al.carnet, al.plan, al.efector, al.medico, al.fecha AS fechaPrestacion,
                    al.codigo, al.descripcion, 
-                   COALESCE(c_nc.tipo, c_fc.tipo) AS tipoDoc, 
-                   COALESCE(c_nc.letra, c_fc.letra) AS letraDoc, 
-                   COALESCE(c_nc.ptovta, c_fc.ptovta) AS ptovtaDoc, 
-                   COALESCE(c_nc.numero, c_fc.numero) AS numeroDoc, 
-                   COALESCE(c_nc.fecha, c_fc.fecha) AS fechaDoc, 
+                   COALESCE(c_nc.tipo, c_fc.tipo, fc.tipo) AS tipoDoc, 
+                   COALESCE(c_nc.letra, c_fc.letra, fc.letra) AS letraDoc, 
+                   COALESCE(c_nc.ptovta, c_fc.ptovta, fc.ptovta) AS ptovtaDoc, 
+                   COALESCE(c_nc.numero, c_fc.numero, fc.numero) AS numeroDoc, 
+                   COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) AS fechaDoc, 
                    nc.motivodedebito, nc.comentarios_debito,
                    nc.importedebitado, nc.debitoaceptado
             FROM notadecredito nc
             LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
             LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
             LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+            LEFT JOIN fc_madre fc ON COALESCE(c_nc.asociadogrupo, c_nc.grupo) = fc.gid
         """);
 
         if (motivo == null || motivo.trim().isEmpty() || "Sin Especificar".equalsIgnoreCase(motivo.trim()) || "Sin motivo especificado".equalsIgnoreCase(motivo.trim())) {
@@ -450,21 +478,21 @@ public class DirectorioService {
 
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
             if (nombreCobertura != null) {
-                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c_nc.cobertura)) = :nombreCob OR LOWER(TRIM(c_fc.cobertura)) = :nombreCob)");
+                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR fc.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c_nc.cobertura)) = :nombreCob OR LOWER(TRIM(c_fc.cobertura)) = :nombreCob OR LOWER(TRIM(fc.cobertura)) = :nombreCob)");
             } else {
-                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura)");
+                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR fc.codigo_cobertura = :codigoCobertura)");
             }
         }
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
-            sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc)");
+            sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc OR UPPER(TRIM(fc.tipo)) = :tipoDoc)");
         }
         if (fechaDesde != null) {
-            sql.append(" AND (c_nc.fecha >= :fechaDesde OR (c_nc.fecha IS NULL AND c_fc.fecha >= :fechaDesde))");
+            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) >= :fechaDesde");
         }
         if (fechaHasta != null) {
-            sql.append(" AND (c_nc.fecha <= :fechaHasta OR (c_nc.fecha IS NULL AND c_fc.fecha <= :fechaHasta))");
+            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) <= :fechaHasta");
         }
-        sql.append(" ORDER BY COALESCE(c_nc.fecha, c_fc.fecha) DESC, nc.id DESC LIMIT 500");
+        sql.append(" ORDER BY COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) DESC, nc.id DESC LIMIT 500");
 
         Query q = entityManager.createNativeQuery(sql.toString());
         if (motivo != null && !motivo.trim().isEmpty() && !"Sin Especificar".equalsIgnoreCase(motivo.trim()) && !"Sin motivo especificado".equalsIgnoreCase(motivo.trim())) {
@@ -579,7 +607,54 @@ public class DirectorioService {
      * 1. TABLA: Resumen de Cartera y Balance Financiero por Financiador.
      */
     public List<BalanceFinanciadorDTO> obtenerBalanceFinanciero() {
-        List<Object[]> rows = cabeceraRepository.obtenerBalanceFinancieroPorFinanciador();
+        return obtenerBalanceFinanciero(null, null, null, null);
+    }
+
+    public List<BalanceFinanciadorDTO> obtenerBalanceFinanciero(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
+        StringBuilder sql = new StringBuilder("""
+            SELECT 
+                COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND NOT (
+                    EXISTS (SELECT 1 FROM notadedebito nd WHERE nd.idcabecera = c.id AND nd.id_notadecredito IS NOT NULL)
+                    OR EXISTS (SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) IN ('NC','NCE','NCA','NCB'))
+                    OR EXISTS (SELECT 1 FROM nd_ajustedeiva iva WHERE iva.idcabecera = c.id)
+                ) THEN c.debe ELSE 0 END), 0) AS incrementos_nd,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos_nc,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND (
+                    EXISTS (SELECT 1 FROM notadedebito nd WHERE nd.idcabecera = c.id AND nd.id_notadecredito IS NOT NULL)
+                    OR EXISTS (SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) IN ('NC','NCE','NCA','NCB'))
+                    OR EXISTS (SELECT 1 FROM nd_ajustedeiva iva WHERE iva.idcabecera = c.id)
+                ) THEN c.debe ELSE 0 END), 0) AS refacturado_nd,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado_rc,
+                (
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
+                ) AS saldo_pendiente
+            FROM cabecera c
+            WHERE c.fecha IS NOT NULL
+        """);
+
+        aplicarFiltrosCabecera(sql, "c", codigoCobertura, fechaDesde, fechaHasta);
+        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
+            sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
+        }
+
+        sql.append("""
+            GROUP BY 1
+            HAVING (
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) <> 0
+                OR COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) <> 0
+                OR COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) <> 0
+                OR COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) <> 0
+            )
+            ORDER BY saldo_pendiente DESC, facturacion_fc DESC
+        """);
+
+        Query q = crearQueryConFiltros(sql.toString(), codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
+        List<Object[]> rows = q.getResultList();
         List<BalanceFinanciadorDTO> lista = new ArrayList<>();
         for (Object[] r : rows) {
             String financiador = r[0] != null ? r[0].toString().trim() : "Sin financiador";
@@ -601,7 +676,41 @@ public class DirectorioService {
      * 2. DONUT: Distribución de Cartera por Financiador (solo saldos positivos).
      */
     public List<PuntoDonutDTO> obtenerDistribucionCarteraDonut() {
-        List<Object[]> rows = cabeceraRepository.obtenerDistribucionCarteraDonut();
+        return obtenerDistribucionCarteraDonut(null, null, null, null);
+    }
+
+    public List<PuntoDonutDTO> obtenerDistribucionCarteraDonut(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
+        StringBuilder sql = new StringBuilder("""
+            SELECT 
+                COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
+                (
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
+                ) AS saldo
+            FROM cabecera c
+            WHERE c.fecha IS NOT NULL
+        """);
+
+        aplicarFiltrosCabecera(sql, "c", codigoCobertura, fechaDesde, fechaHasta);
+        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
+            sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
+        }
+
+        sql.append("""
+            GROUP BY 1
+            HAVING (
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) +
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
+            ) > 0
+            ORDER BY saldo DESC
+        """);
+
+        Query q = crearQueryConFiltros(sql.toString(), codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
+        List<Object[]> rows = q.getResultList();
         List<PuntoDonutDTO> lista = new ArrayList<>();
         for (Object[] r : rows) {
             String financiador = r[0] != null ? r[0].toString().trim() : "Sin financiador";
@@ -615,7 +724,11 @@ public class DirectorioService {
      * Distribución de cartera: saldo pendiente por financiador (Dataset tradicional).
      */
     public DatasetGraficoDTO getDistribucionCartera() {
-        List<PuntoDonutDTO> donuts = obtenerDistribucionCarteraDonut();
+        return getDistribucionCartera(null, null, null, null);
+    }
+
+    public DatasetGraficoDTO getDistribucionCartera(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
+        List<PuntoDonutDTO> donuts = obtenerDistribucionCarteraDonut(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         List<PuntoGraficoDTO> puntos = new ArrayList<>();
         for (PuntoDonutDTO p : donuts) {
             puntos.add(new PuntoGraficoDTO(p.getEtiqueta(), p.getSaldo()));
@@ -628,11 +741,84 @@ public class DirectorioService {
      * Cada dataset tiene un PuntoGraficoDTO por mes con etiqueta=período y valor=monto.
      */
     public List<DatasetGraficoDTO> getEvolucionMensual() {
-        List<Object[]> rows = cabeceraRepository.obtenerEvolucionMensual();
+        return getEvolucionMensual(null, null, null, null);
+    }
 
-        List<PuntoGraficoDTO> facturacion = new ArrayList<>();
-        List<PuntoGraficoDTO> debitos     = new ArrayList<>();
-        List<PuntoGraficoDTO> cobranzas   = new ArrayList<>();
+    public List<DatasetGraficoDTO> getEvolucionMensual(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
+        LocalDate fDesdeEfectiva = fechaDesde;
+        LocalDate fHastaEfectiva = fechaHasta;
+
+        if (fDesdeEfectiva != null && fHastaEfectiva != null) {
+            boolean mismoMes = fDesdeEfectiva.getYear() == fHastaEfectiva.getYear() 
+                    && fDesdeEfectiva.getMonthValue() == fHastaEfectiva.getMonthValue();
+            if (mismoMes) {
+                // Si el filtro abarca un único mes (ej. mes anterior por defecto),
+                // se genera una ventana móvil de los 12 meses culminando en fechaHasta.
+                fDesdeEfectiva = fHastaEfectiva.minusMonths(11).withDayOfMonth(1);
+            }
+        }
+
+        StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
+            SELECT 
+                TO_CHAR(COALESCE(
+                    CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+                    c.periodo,
+                    c.fecha
+                ), 'YYYY-MM') AS periodo,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturado,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado
+            FROM cabecera c
+            LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
+            WHERE COALESCE(
+                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+                c.periodo,
+                c.fecha
+            ) IS NOT NULL
+        """);
+
+        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
+            sql.append(" AND c.codigo_cobertura = :codigoCobertura");
+        }
+        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
+            sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
+        }
+        if (fDesdeEfectiva != null) {
+            sql.append(" AND COALESCE(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END, c.periodo, c.fecha) >= :fechaDesde");
+        }
+        if (fHastaEfectiva != null) {
+            sql.append(" AND COALESCE(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END, c.periodo, c.fecha) <= :fechaHasta");
+        }
+
+        sql.append("""
+            GROUP BY 1
+            ORDER BY 1 ASC
+        """);
+
+        Query q = crearQueryConFiltros(sql.toString(), codigoCobertura, tipoDoc, fDesdeEfectiva, fHastaEfectiva);
+
+        List<Object[]> rows = q.getResultList();
+
+        Map<String, BigDecimal[]> mapaMeses = new LinkedHashMap<>();
+        if (fDesdeEfectiva != null && fHastaEfectiva != null) {
+            LocalDate cursor = fDesdeEfectiva.withDayOfMonth(1);
+            LocalDate fin = fHastaEfectiva.withDayOfMonth(1);
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM");
+            while (!cursor.isAfter(fin)) {
+                mapaMeses.put(cursor.format(fmt), new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+                cursor = cursor.plusMonths(1);
+            }
+        }
 
         for (Object[] row : rows) {
             String periodo = row[0] != null ? row[0].toString() : "";
@@ -640,9 +826,19 @@ public class DirectorioService {
             BigDecimal mtoNc = row[2] != null ? new BigDecimal(row[2].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
             BigDecimal mtoRc = row[3] != null ? new BigDecimal(row[3].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
 
-            facturacion.add(new PuntoGraficoDTO(periodo, mtoFc));
-            debitos.add(new PuntoGraficoDTO(periodo, mtoNc));
-            cobranzas.add(new PuntoGraficoDTO(periodo, mtoRc));
+            mapaMeses.put(periodo, new BigDecimal[]{mtoFc, mtoNc, mtoRc});
+        }
+
+        List<PuntoGraficoDTO> facturacion = new ArrayList<>();
+        List<PuntoGraficoDTO> debitos     = new ArrayList<>();
+        List<PuntoGraficoDTO> cobranzas   = new ArrayList<>();
+
+        for (Map.Entry<String, BigDecimal[]> entry : mapaMeses.entrySet()) {
+            String mes = entry.getKey();
+            BigDecimal[] vals = entry.getValue();
+            facturacion.add(new PuntoGraficoDTO(mes, vals[0]));
+            debitos.add(new PuntoGraficoDTO(mes, vals[1]));
+            cobranzas.add(new PuntoGraficoDTO(mes, vals[2]));
         }
 
         return List.of(
@@ -775,6 +971,19 @@ public class DirectorioService {
         }
 
         StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha,
+                    codigo_cobertura,
+                    cobertura,
+                    tipo
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
             SELECT
               COALESCE(NULLIF(TRIM(nc.motivodedebito), ''), 'Sin motivo especificado') AS motivo,
               SUM(COALESCE(nc.importederefactura, 0)) AS refacturado,
@@ -783,24 +992,25 @@ public class DirectorioService {
             LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
             LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
             LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+            LEFT JOIN fc_madre fc ON COALESCE(c_nc.asociadogrupo, c_nc.grupo) = fc.gid
             WHERE nc.motivodedebito IS NOT NULL AND TRIM(nc.motivodedebito) <> ''
         """);
 
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
             if (nombreCobertura != null) {
-                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c_nc.cobertura)) = :nombreCob OR LOWER(TRIM(c_fc.cobertura)) = :nombreCob)");
+                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR fc.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c_nc.cobertura)) = :nombreCob OR LOWER(TRIM(c_fc.cobertura)) = :nombreCob OR LOWER(TRIM(fc.cobertura)) = :nombreCob)");
             } else {
-                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura)");
+                sql.append(" AND (c_nc.codigo_cobertura = :codigoCobertura OR c_fc.codigo_cobertura = :codigoCobertura OR fc.codigo_cobertura = :codigoCobertura)");
             }
         }
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
-            sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc)");
+            sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc OR UPPER(TRIM(fc.tipo)) = :tipoDoc)");
         }
         if (fechaDesde != null) {
-            sql.append(" AND (c_nc.fecha >= :fechaDesde OR (c_nc.fecha IS NULL AND c_fc.fecha >= :fechaDesde))");
+            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) >= :fechaDesde");
         }
         if (fechaHasta != null) {
-            sql.append(" AND (c_nc.fecha <= :fechaHasta OR (c_nc.fecha IS NULL AND c_fc.fecha <= :fechaHasta))");
+            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) <= :fechaHasta");
         }
 
         sql.append("""

@@ -30,6 +30,21 @@ public class DatabaseMigrationConfig {
             } catch (Exception e) {
                 log.debug("Aviso migración cabecera.comprobante: {}", e.getMessage());
             }
+
+            try {
+                int recibosActualizados = jdbcTemplate.update("""
+                    UPDATE cabecera 
+                    SET periodo = DATE_TRUNC('month', fecha)::date 
+                    WHERE UPPER(TRIM(tipo)) IN ('RC', 'RCA', 'RCB', 'REC', 'OP') 
+                      AND fecha IS NOT NULL 
+                      AND (periodo IS NULL OR periodo <> DATE_TRUNC('month', fecha)::date)
+                """);
+                if (recibosActualizados > 0) {
+                    log.info("Migración automática aplicada: asignado período correspondiente a {} comprobantes de cobranza/recibos según su fecha.", recibosActualizados);
+                }
+            } catch (Exception e) {
+                log.debug("Aviso migración período en recibos de cabecera: {}", e.getMessage());
+            }
         };
     }
 }

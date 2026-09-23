@@ -63,6 +63,15 @@ class DtoAndModelTest {
         assertEquals(1, c.getIdEstado());
         assertEquals("APP_MANUAL", c.getOrigen());
 
+        // Comprobación de asignación de período a recibos según fecha
+        Cabecera rc = new Cabecera();
+        rc.setTipo("RC");
+        rc.setFecha(LocalDate.of(2026, 5, 15));
+        assertEquals(LocalDate.of(2026, 5, 1), rc.getPeriodo());
+
+        Cabecera rc2 = new Cabecera("RC", "A", 1, 55, LocalDate.of(2026, 5, 15), null, "AUDITADA", "OSDE");
+        assertEquals(LocalDate.of(2026, 5, 1), rc2.getPeriodo());
+
         Cabecera c2 = new Cabecera("FC", "A", 1, 1000, fecha, periodo, "AUDITADA", "OSDE");
         assertNotNull(c2);
     }

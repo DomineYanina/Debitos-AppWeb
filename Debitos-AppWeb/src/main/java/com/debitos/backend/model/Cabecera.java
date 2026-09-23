@@ -60,6 +60,19 @@ public class Cabecera {
             this.origen = "APP";
         }
         this.comprobante = calcularComprobante();
+        asignarPeriodoRecibo();
+    }
+
+    private void asignarPeriodoRecibo() {
+        if (this.fecha != null && esRecibo(this.tipo)) {
+            this.periodo = this.fecha.withDayOfMonth(1);
+        }
+    }
+
+    public static boolean esRecibo(String tipo) {
+        if (tipo == null) return false;
+        String t = tipo.trim().toUpperCase();
+        return "RC".equals(t) || "RCA".equals(t) || "RCB".equals(t) || "REC".equals(t) || "OP".equals(t);
     }
 
     /**
@@ -92,7 +105,7 @@ public class Cabecera {
         this.ptovta = ptovta;
         this.numero = numero;
         this.fecha = fecha;
-        this.periodo = periodo;
+        this.periodo = (esRecibo(tipo) && fecha != null) ? fecha.withDayOfMonth(1) : periodo;
         this.tiporegistro = tiporegistro;
         this.codigoCobertura = codigoCobertura;
         this.origen = "APP";
@@ -138,6 +151,7 @@ public class Cabecera {
 
     public void setTipo(String tipo) {
         this.tipo = tipo;
+        asignarPeriodoRecibo();
     }
 
     public String getLetra() {
@@ -170,9 +184,13 @@ public class Cabecera {
 
     public void setFecha(LocalDate fecha) {
         this.fecha = fecha;
+        asignarPeriodoRecibo();
     }
 
     public LocalDate getPeriodo() {
+        if (this.periodo == null && this.fecha != null && esRecibo(this.tipo)) {
+            return this.fecha.withDayOfMonth(1);
+        }
         return periodo;
     }
 
