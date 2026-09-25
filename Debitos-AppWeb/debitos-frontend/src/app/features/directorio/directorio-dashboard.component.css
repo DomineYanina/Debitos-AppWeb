@@ -13,7 +13,7 @@
 
 /* Header & Filtros */
 .directorio-header {
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 .header-badge-row {
@@ -59,50 +59,81 @@
 }
 
 /* ==========================================================================
-   BARRA DE SOLAPAS INDIVIDUALES (ESTILO MINIMALISTA CON INDICADOR ACTIVO)
+   BARRA DE SOLAPAS INDIVIDUALES - PROFUNDIDAD PROFUNDA Y FUSIÓN PROFESIONAL
    ========================================================================== */
 
 .directorio-tab-strip {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-  background: #ffffff;
-  border-bottom: 2px solid #e2e8f0;
-  padding: 0.35rem 0.6rem 0 0.6rem;
-  margin-bottom: 1.5rem;
-  border-radius: 8px 8px 0 0;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0.25rem;
+  background: transparent;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0.5rem 0.25rem 0 0.25rem;
+  margin-bottom: 0;
+  position: relative;
+  z-index: 2;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.directorio-tab-strip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.directorio-tab-strip::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
 }
 
 .tab-strip-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.85rem;
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px 8px 0 0;
   color: #475569;
-  font-size: 0.84rem;
+  font-size: 0.81rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease-in-out;
-  margin-bottom: -2px;
-  border-radius: 4px 4px 0 0;
+  flex-shrink: 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
   user-select: none;
+  position: relative;
+  margin-bottom: -1px;
 }
 
-.tab-strip-item:hover {
-  color: #1d4ed8;
+.tab-strip-item:hover:not(.active) {
+  color: #004085;
   background-color: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
 .tab-strip-item.active {
-  color: #2563eb;
+  background-color: #004085;
+  color: #ffffff;
+  border: 1px solid #004085;
+  border-bottom: none !important;
   font-weight: 700;
-  border-bottom: 3px solid #2563eb;
-  background-color: transparent;
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.07);
+  position: relative;
+  z-index: 3;
+  margin-bottom: -1px;
+  padding-bottom: calc(0.65rem + 1px);
+}
+
+.tab-strip-item.active .tab-strip-text,
+.tab-strip-item.active .tab-strip-icon {
+  color: #ffffff;
 }
 
 .tab-strip-icon {
@@ -221,6 +252,7 @@
   align-items: flex-end;
   gap: 1.25rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  margin-bottom: 1.5rem;
 }
 
 .filter-group {
@@ -642,15 +674,30 @@ select.form-control:disabled {
 }
 
 /* ==========================================================================
-   CARDS DE SECCIONES (ANALYTICS & GRILLA)
+   CARDS DE SECCIONES (ANALYTICS & GRILLA / PANEL BLANCO DE TABLA)
    ========================================================================== */
 .section-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e0e0e0;
+  border-top: 1px solid #e0e0e0;
   border-radius: 14px;
   padding: 1.5rem;
   margin-bottom: 2rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  position: relative;
+  z-index: 1;
+}
+
+/* Fusión con el panel de pestañas superior en las solapas de tablas */
+.dashboard-tab-pane > .grid-section > .section-card:first-child {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* Solapa 1 (Tablero): Espacio adecuado para las tarjetas KPI */
+.dashboard-tab-pane .kpi-grid {
+  margin-top: 1.5rem;
 }
 
 .section-card-header {
@@ -908,6 +955,8 @@ select.form-control:disabled {
    ========================================================================== */
 .table-responsive {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh;
 }
 
 /* ==========================================================================
@@ -915,27 +964,38 @@ select.form-control:disabled {
    ========================================================================== */
 .table-sanatorial {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.88rem;
   background: #ffffff;
 }
 
-.table-sanatorial th {
+.table-sanatorial thead th {
   background: #f8fafc;
   color: #475569;
   font-weight: 700;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 0.75rem;
+  white-space: nowrap;
   border-bottom: 2px solid #cbd5e1;
+  /* Cabecera fija al hacer scroll vertical */
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.table-sanatorial tbody {
+  position: relative;
 }
 
 .table-sanatorial td {
-  padding: 0.7rem 1rem;
+  padding: 0.65rem 0.75rem;
   border-bottom: 1px solid #e2e8f0;
   color: #1e293b;
   font-variant-numeric: tabular-nums;
+  background-color: #ffffff;
 }
 
 /* Nivel 1: Financiador */
@@ -954,6 +1014,18 @@ select.form-control:disabled {
 .tr-financiador.is-expanded {
   background-color: #e2e8f0;
   border-left-color: #1d4ed8;
+}
+
+.tr-financiador.is-expanded > td {
+  position: sticky;
+  top: var(--sticky-header-top, 48px);
+  z-index: 25;
+  background-color: #e2e8f0 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.tr-financiador.is-expanded > td:first-child {
+  border-left: 4px solid #1d4ed8;
 }
 
 .td-financiador {
@@ -987,6 +1059,18 @@ select.form-control:disabled {
 .tr-periodo.is-expanded {
   background-color: #f1f5f9;
   border-left-color: #64748b;
+}
+
+.tr-periodo.is-expanded > td {
+  position: sticky;
+  top: calc(var(--sticky-header-top, 48px) + var(--sticky-l1-height, 44px));
+  z-index: 24;
+  background-color: #f1f5f9 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tr-periodo.is-expanded > td:first-child {
+  border-left: 4px solid #64748b;
 }
 
 .td-periodo {
@@ -1026,6 +1110,18 @@ select.form-control:disabled {
 .tr-factura.is-expanded {
   background-color: #f0f7ff;
   border-left-color: #2563eb;
+}
+
+.tr-factura.is-expanded > td {
+  position: sticky;
+  top: calc(var(--sticky-header-top, 48px) + var(--sticky-l1-height, 44px) + var(--sticky-l2-height, 40px));
+  z-index: 23;
+  background-color: #f0f7ff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.tr-factura.is-expanded > td:first-child {
+  border-left: 4px solid #2563eb;
 }
 
 .td-factura-node {
@@ -1269,6 +1365,31 @@ select.form-control:disabled {
   background: #dbeafe;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
+}
+
+/* Fila del hijo FC inyectado (Factura Raíz de Origen) */
+.tr-hijo-fc-origen {
+  background-color: #f0f6ff;
+}
+
+.tr-hijo-fc-origen:hover {
+  background-color: #e8f0fe;
+}
+
+/* Chip "Origen" que identifica al primer hijo FC */
+.badge-hijo-fc-origen {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  margin-left: 0.45rem;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  text-transform: uppercase;
 }
 
 .cobertura-tag {
@@ -1682,6 +1803,8 @@ select.form-control:disabled {
 .matriz-table-responsive {
   width: 100%;
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f8fafc;
@@ -1718,6 +1841,10 @@ select.form-control:disabled {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   text-align: center;
+  /* Cabecera fija al hacer scroll vertical */
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .table-matriz td {
@@ -1747,6 +1874,7 @@ select.form-control:disabled {
   text-align: right !important;
   padding-right: 0.65rem !important;
   position: sticky;
+  top: 0;
   right: 0;
   z-index: 3;
   box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
@@ -1873,6 +2001,7 @@ select.form-control:disabled {
    MÓDULO DE DETALLE Y TRAZABILIDAD (ÁRBOL ENCADENADO)
    ========================================================================== */
 .tr-parent-nivel1 {
+  background-color: #ffffff;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -1882,7 +2011,19 @@ select.form-control:disabled {
 }
 
 .tr-parent-nivel1.is-expanded {
-  background-color: #e2e8f0;
+  background-color: #f1f5f9;
+}
+
+.tr-parent-nivel1.is-expanded > td {
+  position: sticky;
+  top: var(--sticky-header-top, 40px);
+  z-index: 25;
+  background-color: #f1f5f9 !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.07);
+}
+
+.tr-parent-nivel1.is-expanded > td:first-child {
+  border-left: 4px solid #3b82f6;
 }
 
 .tr-parent-nivel1 .btn-toggle-expand {
@@ -2104,7 +2245,7 @@ select.form-control:disabled {
 }
 
 .table-analistas th.th-monto {
-  width: 145px;
+  width: 155px;
 }
 
 .table-analistas th.th-atencion {
@@ -2340,7 +2481,7 @@ select.form-control:disabled {
   font-weight: 700;
 }
 
-/* Nivel 1: Analista */
+/* Nivel 1: Analista / Operador / Médico */
 .tr-analista {
   background-color: #ffffff;
   font-weight: 600;
@@ -2356,6 +2497,34 @@ select.form-control:disabled {
 .tr-analista.is-expanded {
   background-color: #f5f3ff;
   border-left-color: #4f46e5;
+}
+
+.tr-analista.is-expanded > td {
+  position: sticky;
+  top: var(--sticky-header-top, 48px);
+  z-index: 25;
+  background-color: #f5f3ff !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.tr-analista.is-expanded > td:first-child {
+  border-left: 4px solid #4f46e5;
+}
+
+.tr-operador.is-expanded > td {
+  background-color: #f5f3ff !important;
+}
+
+.tr-operador.is-expanded > td:first-child {
+  border-left: 4px solid #7c3aed;
+}
+
+.tr-medico.is-expanded > td {
+  background-color: #f0fdfa !important;
+}
+
+.tr-medico.is-expanded > td:first-child {
+  border-left: 4px solid #0f766e;
 }
 
 .td-tree-node {
@@ -2420,7 +2589,14 @@ select.form-control:disabled {
   border: 1px solid #fecaca;
 }
 
-/* Subencabezados de nivel */
+/* Subencabezados de nivel (se desplazan normalmente sin superponerse) */
+.table-sanatorial .tr-sub-header th,
+.table-sanatorial .tr-sub-header td {
+  position: static !important;
+  top: auto !important;
+  z-index: 1 !important;
+}
+
 .tr-sub-header {
   background-color: #f8fafc;
   font-size: 0.72rem;
@@ -2437,6 +2613,7 @@ select.form-control:disabled {
 .tr-sub-header-motivo th {
   padding: 0.4rem 0.75rem !important;
   font-weight: 700;
+  background-color: #f1f5f9 !important;
 }
 
 .td-sub-header-title {
@@ -2452,6 +2629,7 @@ select.form-control:disabled {
   padding: 0.35rem 0.75rem !important;
   font-weight: 600;
   font-size: 0.68rem;
+  background-color: #f8fafc !important;
 }
 
 .td-sub-header-sub-title {
@@ -2480,6 +2658,18 @@ select.form-control:disabled {
 .tr-motivo.is-expanded {
   background-color: #fef3c7;
   border-left-color: #d97706;
+}
+
+.tr-motivo.is-expanded > td {
+  position: sticky;
+  top: calc(var(--sticky-header-top, 48px) + var(--sticky-l1-height, 44px));
+  z-index: 24;
+  background-color: #fef3c7 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tr-motivo.is-expanded > td:first-child {
+  border-left: 4px solid #d97706;
 }
 
 .td-motivo {

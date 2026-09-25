@@ -8,61 +8,6 @@
         refacturaciones por institución médica.</p>
     </div>
 
-    <!-- =====================================================================
-         BARRA DE SOLAPAS INDIVIDUALES (ESTILO REFERENCIA)
-         ===================================================================== -->
-    <nav class="directorio-tab-strip" aria-label="Sectores del Tablero">
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'tablero'" (click)="seleccionarSolapa('tablero')">
-        <span class="tab-strip-icon">☁️</span>
-        <span class="tab-strip-text">Tablero de Control</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'cuenta-corriente'" (click)="seleccionarSolapa('cuenta-corriente')">
-        <span class="tab-strip-icon">📄</span>
-        <span class="tab-strip-text">Cuenta Corriente (3 Niveles)</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'tiempos-cobranza'" (click)="seleccionarSolapa('tiempos-cobranza')">
-        <span class="tab-strip-icon">⏳</span>
-        <span class="tab-strip-text">Tiempos de Cobranza</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'matriz-cobranzas'" (click)="seleccionarSolapa('matriz-cobranzas')">
-        <span class="tab-strip-icon">📅</span>
-        <span class="tab-strip-text">Matriz de Cobranzas</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'motivos'" (click)="seleccionarSolapa('motivos')">
-        <span class="tab-strip-icon">🛡️</span>
-        <span class="tab-strip-text">Motivos de Débito y Refacturación</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'analistas'" (click)="seleccionarSolapa('analistas')">
-        <span class="tab-strip-icon">👤</span>
-        <span class="tab-strip-text">Analista de Débito (3 Niveles)</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'bucles'" (click)="seleccionarSolapa('bucles')">
-        <span class="tab-strip-icon">⭕</span>
-        <span class="tab-strip-text">Bucles de Insistencia</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'usuarios-carga'" (click)="seleccionarSolapa('usuarios-carga')">
-        <span class="tab-strip-icon">📇</span>
-        <span class="tab-strip-text">Usuario de Carga (3 Niveles)</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'medicos'" (click)="seleccionarSolapa('medicos')">
-        <span class="tab-strip-icon">👨‍⚕️</span>
-        <span class="tab-strip-text">Prestadores / Médicos (3 Niveles)</span>
-      </button>
-
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'trazabilidad'" (click)="seleccionarSolapa('trazabilidad')">
-        <span class="tab-strip-icon">🔗</span>
-        <span class="tab-strip-text">Detalle y Trazabilidad</span>
-      </button>
-    </nav>
-
     <!-- Barra de Filtros -->
     <div class="filter-card">
       <div class="filter-group" [class.filter-group-disabled]="solapaActiva === 'analistas'">
@@ -72,13 +17,13 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-wide">
-              <strong>Filtro de Financiador:</strong> Filtra todas las métricas por Obra Social, Prepaga o Financiador. En la solapa Analistas se deshabilita para contemplar la totalidad de prestaciones.
+              <strong>Filtro de Financiador:</strong> Filtra todas las métricas por Obra Social, Prepaga o Financiador.
+              En la solapa Analistas se deshabilita para contemplar la totalidad de prestaciones.
             </span>
           </span>
         </label>
         <select id="select-cobertura" class="form-control select-custom" [(ngModel)]="codigoCoberturaSeleccionada"
-          (change)="aplicarFiltros()"
-          [attr.disabled]="solapaActiva === 'analistas' ? '' : null"
+          (change)="aplicarFiltros()" [attr.disabled]="solapaActiva === 'analistas' ? '' : null"
           [title]="solapaActiva === 'analistas' ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Institución / Cobertura'">
           <option value="TODAS">-- Todas las Instituciones --</option>
           <option *ngFor="let cob of coberturasVisibles" [value]="cob.codigo">
@@ -94,13 +39,14 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-wide">
-              <strong>Filtro por Tipo:</strong> Permite segmentar por Facturas (FC), Débitos (NC), Refacturaciones/Incrementos (ND) o Cobranzas (RC). En Tiempos de Cobranza y Matriz de Cobranzas está deshabilitado porque procesan tipos específicos (Facturas impagas y Recibos respectivamente).
+              <strong>Filtro por Tipo:</strong> Permite segmentar por Facturas (FC), Débitos (NC),
+              Refacturaciones/Incrementos (ND) o Cobranzas (RC). En Tiempos de Cobranza y Matriz de Cobranzas está
+              deshabilitado porque procesan tipos específicos (Facturas impagas y Recibos respectivamente).
             </span>
           </span>
         </label>
         <select id="select-tipo-doc" class="form-control select-custom" [(ngModel)]="tipoDocSeleccionado"
-          (change)="aplicarFiltros()"
-          [disabled]="esFiltroTipoDocDeshabilitado"
+          (change)="aplicarFiltros()" [disabled]="esFiltroTipoDocDeshabilitado"
           [attr.disabled]="esFiltroTipoDocDeshabilitado ? '' : null"
           [title]="esFiltroTipoDocDeshabilitado ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Tipo de Comprobante'">
           <option value="TODOS">-- Todos los Tipos --</option>
@@ -115,13 +61,14 @@
           <span>{{ etiquetaFechaDesde }}</span>
           <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
           <span class="filtro-info-wrapper">
-            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img" aria-label="Información del filtro">ℹ</span>
+            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img"
+              aria-label="Información del filtro">ℹ</span>
             <span class="filtro-tooltip-popup">{{ tooltipFiltroFecha }}</span>
           </span>
         </label>
-        <input type="date" id="fecha-desde" class="form-control" [(ngModel)]="fechaDesde" (change)="aplicarFiltros()"
-          [disabled]="esFiltroFechaDeshabilitado"
-          [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
+        <input type="date" id="fecha-desde" class="form-control" [(ngModel)]="fechaDesde"
+          (change)="onFechaDesdeChange()" [max]="fechaHasta || null" [attr.max]="fechaHasta || null"
+          [disabled]="esFiltroFechaDeshabilitado" [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
           [title]="tooltipFiltroFecha">
       </div>
 
@@ -130,27 +77,89 @@
           <span>{{ etiquetaFechaHasta }}</span>
           <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
           <span class="filtro-info-wrapper">
-            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img" aria-label="Información del filtro">ℹ</span>
+            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img"
+              aria-label="Información del filtro">ℹ</span>
             <span class="filtro-tooltip-popup">{{ tooltipFiltroFecha }}</span>
           </span>
         </label>
-        <input type="date" id="fecha-hasta" class="form-control" [(ngModel)]="fechaHasta" (change)="aplicarFiltros()"
-          [disabled]="esFiltroFechaDeshabilitado"
-          [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
+        <input type="date" id="fecha-hasta" class="form-control" [(ngModel)]="fechaHasta"
+          (change)="onFechaHastaChange()" [min]="fechaDesde || null" [attr.min]="fechaDesde || null"
+          [disabled]="esFiltroFechaDeshabilitado" [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
           [title]="tooltipFiltroFecha">
       </div>
 
       <div class="filter-actions">
-        <button type="button" class="btn btn-primary" (click)="aplicarFiltros()" title="Aplica los filtros de cobertura, tipo y fechas a todos los componentes del tablero">
-          <span class="icon">🔍</span> Filtrar
+        <button type="button" class="btn btn-primary" (click)="aplicarFiltros()"
+          title="Aplica los filtros de cobertura, tipo y fechas a todos los componentes del tablero">
+          Filtrar
         </button>
         <button type="button" class="btn btn-secondary" (click)="irAlMesAnterior()"
           [disabled]="esFiltroFechaDeshabilitado"
           [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : 'Retrocede un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados'">
           <span class="icon">↺</span> Mes Anterior
         </button>
+        <button type="button" class="btn btn-secondary" (click)="irAlMesSiguiente()"
+          [disabled]="esFiltroFechaDeshabilitado"
+          [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : 'Avanza un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados'">
+          <span class="icon">↻</span> Mes Siguiente
+        </button>
       </div>
     </div>
+
+    <!-- =====================================================================
+         BARRA DE SOLAPAS INDIVIDUALES (NAVBAR SECUNDARIO)
+         ===================================================================== -->
+    <nav class="directorio-tab-strip" aria-label="Sectores del Tablero">
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'tablero'"
+        (click)="seleccionarSolapa('tablero')">
+        <span class="tab-strip-text">Tablero de Control</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'cuenta-corriente'"
+        (click)="seleccionarSolapa('cuenta-corriente')">
+        <span class="tab-strip-text">Cuenta Corriente</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'tiempos-cobranza'"
+        (click)="seleccionarSolapa('tiempos-cobranza')">
+        <span class="tab-strip-text">Tiempos de Cobranza</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'matriz-cobranzas'"
+        (click)="seleccionarSolapa('matriz-cobranzas')">
+        <span class="tab-strip-text">Matriz de Cobranzas</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'motivos'"
+        (click)="seleccionarSolapa('motivos')">
+        <span class="tab-strip-text">Motivos de Débito y Refacturación</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'analistas'"
+        (click)="seleccionarSolapa('analistas')">
+        <span class="tab-strip-text">Analista de Débito</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'bucles'"
+        (click)="seleccionarSolapa('bucles')">
+        <span class="tab-strip-text">Bucles de Insistencia</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'usuarios-carga'"
+        (click)="seleccionarSolapa('usuarios-carga')">
+        <span class="tab-strip-text">Usuario de Carga</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'medicos'"
+        (click)="seleccionarSolapa('medicos')">
+        <span class="tab-strip-text">Prestadores / Médicos</span>
+      </button>
+
+      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'trazabilidad'"
+        (click)="seleccionarSolapa('trazabilidad')">
+        <span class="tab-strip-text">Detalle y Trazabilidad</span>
+      </button>
+    </nav>
   </header>
 
   <!-- =====================================================================
@@ -167,7 +176,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Devengado Bruto Inicial:</strong> Suma total de las Facturas Madre emitidas (debe de FC/FAC/FCE/FCA) antes de la aplicación de débitos y cobranzas.
+              <strong>Devengado Bruto Inicial:</strong> Suma total de las Facturas Madre emitidas (debe de
+              FC/FAC/FCE/FCA) antes de la aplicación de débitos y cobranzas.
             </span>
           </span>
         </div>
@@ -187,7 +197,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Ajustes Positivos Directos:</strong> Notas de Débito directas no originadas por reclamos de débitos (ajustes de aranceles, recargos o intereses). Incrementan el saldo exigible.
+              <strong>Ajustes Positivos Directos:</strong> Notas de Débito directas no originadas por reclamos de
+              débitos (ajustes de aranceles, recargos o intereses). Incrementan el saldo exigible.
             </span>
           </span>
         </div>
@@ -207,7 +218,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Quitas de Auditoría:</strong> Total debitado por los financiadores mediante Notas de Crédito recibidas o aceptadas. Descuenta del saldo de facturación original.
+              <strong>Quitas de Auditoría:</strong> Total debitado por los financiadores mediante Notas de Crédito
+              recibidas o aceptadas. Descuenta del saldo de facturación original.
             </span>
           </span>
         </div>
@@ -227,7 +239,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Recupero de Débitos:</strong> Notas de Débito emitidas en respuesta a débitos recibidos de auditoría médica.<br><br>
+              <strong>Recupero de Débitos:</strong> Notas de Débito emitidas en respuesta a débitos recibidos de
+              auditoría médica.<br><br>
               <strong>Tasa de Recupero:</strong> (Refacturación / Débitos NC) × 100
             </span>
           </span>
@@ -237,7 +250,8 @@
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
         <div class="kpi-footer-simple">
-          <span class="kpi-desc" title="Porcentaje recuperado mediante refacturación sobre el total debitado">Recupero: {{ (totales.tasaRecupero || 0) | number:'1.1-1' }}%</span>
+          <span class="kpi-desc" title="Porcentaje recuperado mediante refacturación sobre el total debitado">Recupero:
+            {{ (totales.tasaRecupero || 0) | number:'1.1-1' }}%</span>
         </div>
       </div>
 
@@ -248,7 +262,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Fondos Ingresados:</strong> Cobranzas efectivamente percibidas mediante Recibos (RC, RCA, RCB, OP).<br><br>
+              <strong>Fondos Ingresados:</strong> Cobranzas efectivamente percibidas mediante Recibos (RC, RCA, RCB,
+              OP).<br><br>
               <strong>Efectividad de Cobro:</strong> (Cobranzas / (Facturación + Incrementos)) × 100
             </span>
           </span>
@@ -258,7 +273,9 @@
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
         <div class="kpi-footer-simple">
-          <span class="kpi-desc" title="Porcentaje de cobranza efectiva sobre el total facturado e incrementado">Efectividad: {{ (totales.efectividadCobro || 0) | number:'1.1-1' }}%</span>
+          <span class="kpi-desc"
+            title="Porcentaje de cobranza efectiva sobre el total facturado e incrementado">Efectividad: {{
+            (totales.efectividadCobro || 0) | number:'1.1-1' }}%</span>
         </div>
       </div>
 
@@ -280,7 +297,8 @@
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
         <div class="kpi-footer-simple">
-          <span class="kpi-desc" title="Días promedio ponderados de cobro en la cartera de facturas pendientes">DSO Ponderado: {{ totales.dsoPonderadoDias }} días</span>
+          <span class="kpi-desc" title="Días promedio ponderados de cobro en la cartera de facturas pendientes">DSO
+            Ponderado: {{ totales.dsoPonderadoDias }} días</span>
         </div>
       </div>
     </section>
@@ -293,14 +311,14 @@
         <div class="grafico-card grafico-card--wide">
           <div class="grafico-card-header">
             <div class="grafico-title-group">
-              <span class="grafico-icon">📈</span>
               <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <h3 class="grafico-title">Evolución Mensual</h3>
                   <span class="filtro-info-wrapper">
                     <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                     <span class="filtro-tooltip-popup tooltip-wide">
-                      <strong>Evolución de Flujos:</strong> Correlación cronológica entre Facturación FC (azul), Débitos Recibidos NC (rojo) y Cobranzas RC (verde) imputados al período de atención de la Factura Madre.
+                      <strong>Evolución de Flujos:</strong> Correlación cronológica entre Facturación FC (azul), Débitos
+                      Recibidos NC (rojo) y Cobranzas RC (verde) imputados al período de atención de la Factura Madre.
                     </span>
                   </span>
                 </div>
@@ -308,7 +326,8 @@
               </div>
             </div>
             <div class="header-badge-container">
-              <span class="badge-cabeceras" title="Validación Contable: El 100% de los comprobantes del período están validados y vinculados en la base de datos sin registros huérfanos.">
+              <span class="badge-cabeceras"
+                title="Validación Contable: El 100% de los comprobantes del período están validados y vinculados en la base de datos sin registros huérfanos.">
                 <span class="badge-dot">●</span> Cabeceras 100%
               </span>
             </div>
@@ -321,12 +340,8 @@
             <div *ngIf="!cargandoGraficos && (evolucionChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de evolución disponibles</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (evolucionChartData.labels?.length ?? 0) > 0"
-              id="chart-evolucion"
-              baseChart
-              [type]="'line'"
-              [data]="evolucionChartData"
-              [options]="evolucionChartOptions">
+            <canvas *ngIf="!cargandoGraficos && (evolucionChartData.labels?.length ?? 0) > 0" id="chart-evolucion"
+              baseChart [type]="'line'" [data]="evolucionChartData" [options]="evolucionChartOptions">
             </canvas>
           </div>
         </div>
@@ -335,14 +350,14 @@
         <div class="grafico-card">
           <div class="grafico-card-header">
             <div class="grafico-title-group">
-              <span class="grafico-icon">🍩</span>
               <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <h3 class="grafico-title">Distribución de Cartera por Financiador</h3>
                   <span class="filtro-info-wrapper">
                     <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                     <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-                      <strong>Participación en Deuda:</strong> Proporción del saldo total pendiente de cobro distribuida por obra social o prepaga (solo financiadores con deuda activa > $0).
+                      <strong>Participación en Deuda:</strong> Proporción del saldo total pendiente de cobro distribuida
+                      por obra social o prepaga (solo financiadores con deuda activa > $0).
                     </span>
                   </span>
                 </div>
@@ -353,17 +368,13 @@
 
           <div class="grafico-body">
             <div *ngIf="cargandoGraficos" class="grafico-loading">
-              <span class="spinner-icon">⏳</span> Cargando datos…
+              Cargando datos…
             </div>
             <div *ngIf="!cargandoGraficos && (distribucionChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de saldo pendiente</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (distribucionChartData.labels?.length ?? 0) > 0"
-              id="chart-distribucion"
-              baseChart
-              [type]="'doughnut'"
-              [data]="distribucionChartData"
-              [options]="distribucionChartOptions">
+            <canvas *ngIf="!cargandoGraficos && (distribucionChartData.labels?.length ?? 0) > 0" id="chart-distribucion"
+              baseChart [type]="'doughnut'" [data]="distribucionChartData" [options]="distribucionChartOptions">
             </canvas>
           </div>
         </div>
@@ -381,11 +392,14 @@
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Consolidado por Financiador:</strong> Desglose aritmético donde Débitos (NC) y Cobranzas (RC) descuentan de la Facturación e Incrementos para determinar el Saldo Pendiente exacto de cada obra social.
+                  <strong>Consolidado por Financiador:</strong> Desglose aritmético donde Débitos (NC) y Cobranzas (RC)
+                  descuentan de la Facturación e Incrementos para determinar el Saldo Pendiente exacto de cada obra
+                  social.
                 </span>
               </span>
             </div>
-            <p class="section-subtitle">Consolidado por financiador: Facturación, Incrementos, Débitos, Refacturaciones y Cobranzas</p>
+            <p class="section-subtitle">Consolidado por financiador: Facturación, Incrementos, Débitos, Refacturaciones
+              y Cobranzas</p>
           </div>
         </div>
 
@@ -395,7 +409,6 @@
         </div>
 
         <div *ngIf="!cargandoBalance && balanceFinanciadores.length === 0" class="empty-state">
-          <span class="empty-icon">📊</span>
           <p>No se encontraron datos de balance financiero.</p>
         </div>
 
@@ -431,7 +444,8 @@
                 <td class="text-right font-bold td-debito">{{ formatearMoneda(totalesBalance.debitosNc) }}</td>
                 <td class="text-right font-bold td-refacturado">{{ formatearMoneda(totalesBalance.refacturadoNd) }}</td>
                 <td class="text-right font-bold td-cobrado">{{ formatearMoneda(totalesBalance.cobradoRc) }}</td>
-                <td class="text-right font-bold td-saldo-total">{{ formatearMoneda(totalesBalance.saldoPendiente) }}</td>
+                <td class="text-right font-bold td-saldo-total">{{ formatearMoneda(totalesBalance.saldoPendiente) }}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -450,21 +464,26 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">Cuenta Corriente a 3 Niveles</h2>
+              <h2 class="section-title">Cuenta Corriente</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Jerarquía Contable:</strong> Desglose en 3 niveles: <em>Nivel 1 (Financiador)</em> ➔ <em>Nivel 2 (Período mensual de atención)</em> ➔ <em>Nivel 3 (Factura Madre y comprobantes asociados: NC, ND, RC)</em>. Permite auditar el saldo vivo línea por línea.
+                  <strong>Jerarquía Contable:</strong> Desglose en 3 niveles: <em>Nivel 1 (Financiador)</em> ➔ <em>Nivel
+                    2 (Período mensual de atención)</em> ➔ <em>Nivel 3 (Factura Madre y comprobantes asociados: NC, ND,
+                    RC)</em>. Permite auditar el saldo vivo línea por línea.
                 </span>
               </span>
             </div>
-            <p class="section-subtitle">Estructura jerárquica: Financiador ➔ Período ➔ Comprobantes detallados con saldos y estados de refacturación.</p>
+            <p class="section-subtitle">Estructura jerárquica: Financiador ➔ Período ➔ Comprobantes detallados con
+              saldos y estados de refacturación.</p>
           </div>
           <div class="grid-tools">
-            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(true)" title="Despliega todos los niveles jerárquicos (Financiadores, Períodos y Comprobantes)">
+            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(true)"
+              title="Despliega todos los niveles jerárquicos (Financiadores, Períodos y Comprobantes)">
               [+] Expandir Todo
             </button>
-            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)" title="Colapsa todos los niveles jerárquicos para una vista resumida">
+            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)"
+              title="Colapsa todos los niveles jerárquicos para una vista resumida">
               [-] Contraer Todo
             </button>
           </div>
@@ -472,11 +491,10 @@
 
         <div *ngIf="cargandoCuentaCorriente" class="loading-state">
           <div class="spinner"></div>
-          <p>Cargando cuenta corriente a 3 niveles...</p>
+          <p>Cargando cuenta corriente...</p>
         </div>
 
         <div *ngIf="!cargandoCuentaCorriente && cuentaCorrienteDatos.length === 0" class="empty-state">
-          <span class="empty-icon">📁</span>
           <p>No se encontraron registros de cuenta corriente para los filtros aplicados.</p>
         </div>
 
@@ -484,34 +502,50 @@
           <table class="table-sanatorial">
             <thead>
               <tr>
-                <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenCc === 'entidad'" (click)="ordenarCuentaCorriente('entidad')" title="Ordenar por Entidad / Período / Comprobante">
-                  Entidad / Período / Comprobante <span class="sort-indicator" [class.active]="columnaOrdenCc === 'entidad'">{{ columnaOrdenCc === 'entidad' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenCc === 'entidad'"
+                  (click)="ordenarCuentaCorriente('entidad')" title="Ordenar por Entidad / Período / Comprobante">
+                  Entidad / Período / Comprobante <span class="sort-indicator"
+                    [class.active]="columnaOrdenCc === 'entidad'">{{ columnaOrdenCc === 'entidad' ? (direccionOrdenCc
+                    === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-center sortable-col" [class.col-sorted]="columnaOrdenCc === 'fecha'" (click)="ordenarCuentaCorriente('fecha')" title="Ordenar por Fecha">
-                  Fecha <span class="sort-indicator" [class.active]="columnaOrdenCc === 'fecha'">{{ columnaOrdenCc === 'fecha' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-center sortable-col" [class.col-sorted]="columnaOrdenCc === 'fecha'"
+                  (click)="ordenarCuentaCorriente('fecha')" title="Ordenar por Fecha">
+                  Fecha <span class="sort-indicator" [class.active]="columnaOrdenCc === 'fecha'">{{ columnaOrdenCc ===
+                    'fecha' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'facturacion'" (click)="ordenarCuentaCorriente('facturacion')" title="Ordenar por Facturación (FC)">
-                  Facturación (FC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'facturacion'">{{ columnaOrdenCc === 'facturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'facturacion'"
+                  (click)="ordenarCuentaCorriente('facturacion')" title="Ordenar por Facturación (FC)">
+                  Facturación (FC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'facturacion'">{{
+                    columnaOrdenCc === 'facturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'incrementos'" (click)="ordenarCuentaCorriente('incrementos')" title="Ordenar por Incrementos (ND)">
-                  Incrementos (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'incrementos'">{{ columnaOrdenCc === 'incrementos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'incrementos'"
+                  (click)="ordenarCuentaCorriente('incrementos')" title="Ordenar por Incrementos (ND)">
+                  Incrementos (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'incrementos'">{{
+                    columnaOrdenCc === 'incrementos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'debitos'" (click)="ordenarCuentaCorriente('debitos')" title="Ordenar por Débitos (NC)">
-                  Débitos (NC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'debitos'">{{ columnaOrdenCc === 'debitos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'debitos'"
+                  (click)="ordenarCuentaCorriente('debitos')" title="Ordenar por Débitos (NC)">
+                  Débitos (NC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'debitos'">{{
+                    columnaOrdenCc === 'debitos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'refacturacion'" (click)="ordenarCuentaCorriente('refacturacion')" title="Ordenar por Refacturación (ND)">
-                  Refacturación (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'refacturacion'">{{ columnaOrdenCc === 'refacturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'refacturacion'"
+                  (click)="ordenarCuentaCorriente('refacturacion')" title="Ordenar por Refacturación (ND)">
+                  Refacturación (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'refacturacion'">{{
+                    columnaOrdenCc === 'refacturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'cobranzas'" (click)="ordenarCuentaCorriente('cobranzas')" title="Ordenar por Cobranzas (RC)">
-                  Cobranzas (RC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'cobranzas'">{{ columnaOrdenCc === 'cobranzas' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'cobranzas'"
+                  (click)="ordenarCuentaCorriente('cobranzas')" title="Ordenar por Cobranzas (RC)">
+                  Cobranzas (RC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'cobranzas'">{{
+                    columnaOrdenCc === 'cobranzas' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'saldo'" (click)="ordenarCuentaCorriente('saldo')" title="Ordenar por Saldo">
-                  Saldo <span class="sort-indicator" [class.active]="columnaOrdenCc === 'saldo'">{{ columnaOrdenCc === 'saldo' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'saldo'"
+                  (click)="ordenarCuentaCorriente('saldo')" title="Ordenar por Saldo">
+                  Saldo <span class="sort-indicator" [class.active]="columnaOrdenCc === 'saldo'">{{ columnaOrdenCc ===
+                    'saldo' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              <ng-container *ngFor="let f of cuentaCorrienteDatos">
+            <tbody *ngFor="let f of cuentaCorrienteDatos; trackBy: trackByFinanciador">
 
                 <!-- NIVEL 1: Financiador -->
                 <tr class="tr-financiador" (click)="toggleFinanciador(f)" [class.is-expanded]="f.expanded">
@@ -519,7 +553,6 @@
                     <button type="button" class="btn-toggle-expand" [class.is-expanded]="f.expanded">
                       {{ f.expanded ? '▼' : '▶' }}
                     </button>
-                    <span class="financiador-icon">🏢</span>
                     <span class="financiador-nombre">{{ f.financiador }}</span>
                   </td>
                   <td class="text-center text-muted">—</td>
@@ -538,7 +571,8 @@
                   <td class="text-right color-cobranza">
                     {{ f.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
-                  <td class="text-right font-weight-bold" [ngClass]="f.saldo > 0 ? 'color-saldo-positivo' : (f.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                  <td class="text-right font-weight-bold"
+                    [ngClass]="f.saldo > 0 ? 'color-saldo-positivo' : (f.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                     {{ f.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
                 </tr>
@@ -552,7 +586,6 @@
                         <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="p.expanded">
                           {{ p.expanded ? '▼' : '▶' }}
                         </button>
-                        <span class="periodo-icon">📅</span>
                         <span class="periodo-tag">{{ p.periodo }}</span>
                       </td>
                       <td class="text-center text-muted">—</td>
@@ -571,7 +604,8 @@
                       <td class="text-right color-cobranza">
                         {{ p.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                       </td>
-                      <td class="text-right font-weight-bold" [ngClass]="p.saldo > 0 ? 'color-saldo-positivo' : (p.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                      <td class="text-right font-weight-bold"
+                        [ngClass]="p.saldo > 0 ? 'color-saldo-positivo' : (p.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                         {{ p.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                       </td>
                     </tr>
@@ -582,63 +616,83 @@
                         <!-- Fila Factura Madre -->
                         <tr class="tr-factura" (click)="toggleFactura(fc)" [class.is-expanded]="fc.expanded">
                           <td class="td-tree-node td-factura-node">
-                            <button *ngIf="fc.hijos && fc.hijos.length > 0" type="button" class="btn-toggle-expand btn-toggle-xs" [class.is-expanded]="fc.expanded" (click)="$event.stopPropagation(); toggleFactura(fc)">
+                            <button *ngIf="fc.hijos && fc.hijos.length > 0" type="button"
+                              class="btn-toggle-expand btn-toggle-xs" [class.is-expanded]="fc.expanded"
+                              (click)="$event.stopPropagation(); toggleFactura(fc)">
                               {{ fc.expanded ? '▼' : '▶' }}
                             </button>
                             <span *ngIf="!fc.hijos || fc.hijos.length === 0" class="tree-bullet">•</span>
-                            <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(fc.tipo)" [title]="'Tipo de comprobante: ' + fc.tipo">{{ fc.tipo }}</span>
+                            <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(fc.tipo)"
+                              [title]="'Tipo de comprobante: ' + fc.tipo">{{ fc.tipo }}</span>
                             <strong class="comprobante-numero">{{ fc.comprobante }}</strong>
                           </td>
                           <td class="text-center text-fecha">
                             {{ fc.fecha | date:'dd/MM/yyyy' }}
                           </td>
                           <td class="text-right color-facturado">
-                            {{ fc.facturacionFc > 0 ? (fc.facturacionFc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            {{ fc.facturacionFc > 0 ? (fc.facturacionFc |
+                            currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                           </td>
                           <td class="text-right color-incremento">
-                            {{ fc.incrementosNd > 0 ? (fc.incrementosNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            {{ fc.incrementosNd > 0 ? (fc.incrementosNd |
+                            currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                           </td>
                           <td class="text-right color-aceptado">
-                            {{ fc.debitosNc > 0 ? (fc.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            {{ fc.debitosNc > 0 ? (fc.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—'
+                            }}
                           </td>
                           <td class="text-right color-refacturado">
-                            {{ fc.refacturacionNd > 0 ? (fc.refacturacionNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            {{ fc.refacturacionNd > 0 ? (fc.refacturacionNd |
+                            currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                           </td>
                           <td class="text-right color-cobranza">
-                            {{ fc.cobranzasRc > 0 ? (fc.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            {{ fc.cobranzasRc > 0 ? (fc.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') :
+                            '—' }}
                           </td>
-                          <td class="text-right font-weight-bold" [ngClass]="fc.saldo > 0 ? 'color-saldo-positivo' : (fc.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                          <td class="text-right font-weight-bold"
+                            [ngClass]="fc.saldo > 0 ? 'color-saldo-positivo' : (fc.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                             {{ fc.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                           </td>
                         </tr>
 
                         <!-- Comprobantes Hijos (solo si la Factura Madre está expandida) -->
                         <ng-container *ngIf="fc.expanded && fc.hijos && fc.hijos.length > 0">
-                          <tr *ngFor="let h of fc.hijos" class="tr-comprobante-hijo">
-                            <td class="td-tree-node td-comprobante-hijo-node" [style.padding-left.px]="74 + ((h.nivel || 1) - 1) * 25">
+                          <tr *ngFor="let h of fc.hijos" class="tr-comprobante-hijo"
+                              [class.tr-hijo-fc-origen]="h.origenTipo === 'FC'">
+                            <td class="td-tree-node td-comprobante-hijo-node"
+                              [style.padding-left.px]="74 + ((h.nivel || 1) - 1) * 25">
                               <span class="tree-branch">└─</span>
-                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)" [title]="'Comprobante hijo asociado: ' + h.tipo">{{ h.tipo }}</span>
+                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)"
+                                [title]="'Comprobante hijo asociado: ' + h.tipo">{{ h.tipo }}</span>
                               <strong class="comprobante-numero">{{ h.comprobante }}</strong>
+                              <span *ngIf="h.origenTipo === 'FC'" class="badge-hijo-fc-origen"
+                                title="Factura de origen — monto bruto original antes de descuentos">Origen</span>
                             </td>
                             <td class="text-center text-fecha">
                               {{ h.fecha | date:'dd/MM/yyyy' }}
                             </td>
                             <td class="text-right color-facturado">
-                              {{ h.facturacionFc > 0 ? (h.facturacionFc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                              {{ h.facturacionFc > 0 ? (h.facturacionFc |
+                              currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                             </td>
                             <td class="text-right color-incremento">
-                              {{ h.incrementosNd > 0 ? (h.incrementosNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                              {{ h.incrementosNd > 0 ? (h.incrementosNd |
+                              currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                             </td>
                             <td class="text-right color-aceptado">
-                              {{ h.debitosNc > 0 ? (h.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                              {{ h.debitosNc > 0 ? (h.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—'
+                              }}
                             </td>
                             <td class="text-right color-refacturado">
-                              {{ h.refacturacionNd > 0 ? (h.refacturacionNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                              {{ h.refacturacionNd > 0 ? (h.refacturacionNd |
+                              currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                             </td>
                             <td class="text-right color-cobranza">
-                              {{ h.cobranzasRc > 0 ? (h.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                              {{ h.cobranzasRc > 0 ? (h.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') :
+                              '—' }}
                             </td>
-                            <td class="text-right font-weight-bold" [ngClass]="h.saldo > 0 ? 'color-saldo-positivo' : (h.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                            <td class="text-right font-weight-bold"
+                              [ngClass]="h.saldo > 0 ? 'color-saldo-positivo' : (h.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                               {{ h.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                             </td>
                           </tr>
@@ -649,7 +703,6 @@
                   </ng-container>
                 </ng-container>
 
-              </ng-container>
             </tbody>
           </table>
         </div>
@@ -674,7 +727,8 @@
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
-                  <strong>Days Sales Outstanding (DSO):</strong> Plazo promedio ponderado por el importe adeudado que transcurre desde la emisión de las facturas hasta la fecha actual para las facturas aún impagas.
+                  <strong>Days Sales Outstanding (DSO):</strong> Plazo promedio ponderado por el importe adeudado que
+                  transcurre desde la emisión de las facturas hasta la fecha actual para las facturas aún impagas.
                 </span>
               </span>
             </div>
@@ -688,28 +742,33 @@
             <hr class="kpi-dso-divider">
             <div class="kpi-dso-footer">
               <div class="kpi-dso-col">
-                <span class="kpi-dso-col-lbl" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                <span class="kpi-dso-col-lbl"
+                  style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                   Cobro Real Promedio:
                   <span class="filtro-info-wrapper">
                     <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                     <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
-                      <strong>Cobro Histórico:</strong> Promedio real de días transcurridos entre la fecha de emisión de las facturas y la fecha de cobro efectivo de sus recibos (RC).
+                      <strong>Cobro Histórico:</strong> Promedio real de días transcurridos entre la fecha de emisión de
+                      las facturas y la fecha de cobro efectivo de sus recibos (RC).
                     </span>
                   </span>
                 </span>
                 <span class="kpi-dso-col-val text-green">{{ tiemposCobranzaDatos?.cobroRealPromedio ?? 0 }} días</span>
               </div>
               <div class="kpi-dso-col">
-                <span class="kpi-dso-col-lbl" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                <span class="kpi-dso-col-lbl"
+                  style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                   Saldo Total en Mora:
                   <span class="filtro-info-wrapper">
                     <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                     <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
-                      <strong>Cartera Vencida:</strong> Suma del saldo impago de comprobantes con antigüedad superior al plazo contractual estándar (> 30 días).
+                      <strong>Cartera Vencida:</strong> Suma del saldo impago de comprobantes con antigüedad superior al
+                      plazo contractual estándar (> 30 días).
                     </span>
                   </span>
                 </span>
-                <span class="kpi-dso-col-val text-red">${{ (tiemposCobranzaDatos?.saldoTotalMora ?? 0) | number:'1.0-0':'es-AR' }}</span>
+                <span class="kpi-dso-col-val text-red">${{ (tiemposCobranzaDatos?.saldoTotalMora ?? 0) |
+                  number:'1.0-0':'es-AR' }}</span>
               </div>
             </div>
           </div>
@@ -720,7 +779,8 @@
           <div class="tiempos-box-header">
             <span class="tiempos-box-icon">
               <svg viewBox="0 0 20 20" fill="currentColor">
-                <path d="M2 10a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6zM8 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1H9a1 1 0 01-1-1V4zM14 8a1 1 0 011-1h2a1 1 0 011 1v8a1 1 0 01-1 1h-2a1 1 0 01-1-1V8z"/>
+                <path
+                  d="M2 10a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6zM8 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1H9a1 1 0 01-1-1V4zM14 8a1 1 0 011-1h2a1 1 0 011 1v8a1 1 0 01-1 1h-2a1 1 0 01-1-1V8z" />
               </svg>
             </span>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -728,7 +788,8 @@
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
-                  <strong>Estratificación de Cartera:</strong> Clasificación de la deuda vencida en tramos (0-30, 31-60, 61-90, 91-120 y >120 días) para identificar riesgos de incobrabilidad.
+                  <strong>Estratificación de Cartera:</strong> Clasificación de la deuda vencida en tramos (0-30, 31-60,
+                  61-90, 91-120 y >120 días) para identificar riesgos de incobrabilidad.
                 </span>
               </span>
             </div>
@@ -741,12 +802,8 @@
             <div *ngIf="!cargandoGraficos && (agingChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin deuda pendiente en los rangos configurados</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (agingChartData.labels?.length ?? 0) > 0"
-              id="chart-aging"
-              baseChart
-              [type]="'bar'"
-              [data]="agingChartData"
-              [options]="agingChartOptions">
+            <canvas *ngIf="!cargandoGraficos && (agingChartData.labels?.length ?? 0) > 0" id="chart-aging" baseChart
+              [type]="'bar'" [data]="agingChartData" [options]="agingChartOptions">
             </canvas>
           </div>
         </div>
@@ -766,7 +823,8 @@
             <span class="filtro-info-wrapper">
               <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
               <span class="filtro-tooltip-popup tooltip-wide">
-                <strong>Cuadro de Maduración:</strong> Cantidad de comprobantes, saldo acumulado y porcentaje que representa cada franja respecto al total adeudado.
+                <strong>Cuadro de Maduración:</strong> Cantidad de comprobantes, saldo acumulado y porcentaje que
+                representa cada franja respecto al total adeudado.
               </span>
             </span>
           </div>
@@ -810,11 +868,13 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">🧾 Matriz Anual de Recaudación por Fecha Real de Recibo (RC)</h2>
+              <h2 class="section-title">Matriz Anual de Recaudación por Fecha Real de Recibo (RC)</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Flujo de Caja Real:</strong> Registra las cobranzas efectivas distribuidas según el mes calendario en que se emitió/cobró el Recibo (RC), independientemente del período de facturación original.
+                  <strong>Flujo de Caja Real:</strong> Registra las cobranzas efectivas distribuidas según el mes
+                  calendario en que se emitió/cobró el Recibo (RC), independientemente del período de facturación
+                  original.
                 </span>
               </span>
             </div>
@@ -823,8 +883,7 @@
           <div class="grid-tools matriz-tools">
             <label for="select-anio-matriz" class="matriz-select-label">Año Calendario:</label>
             <select id="select-anio-matriz" class="form-control select-custom select-anio"
-                    [ngModel]="matrizRecaudacion?.anioSeleccionado"
-                    (ngModelChange)="onAnioMatrizChange($event)">
+              [ngModel]="matrizRecaudacion?.anioSeleccionado" (ngModelChange)="onAnioMatrizChange($event)">
               <option *ngFor="let anio of matrizRecaudacion?.aniosDisponibles" [value]="anio">
                 {{ anio }}
               </option>
@@ -839,18 +898,21 @@
         </div>
 
         <!-- Estado Vacío -->
-        <div *ngIf="!cargandoMatriz && (!matrizRecaudacion?.filas || matrizRecaudacion?.filas?.length === 0)" class="empty-state">
-          <span class="empty-icon">📁</span>
+        <div *ngIf="!cargandoMatriz && (!matrizRecaudacion?.filas || matrizRecaudacion?.filas?.length === 0)"
+          class="empty-state">
           <p>No se encontraron registros de cobros para el año seleccionado.</p>
         </div>
 
         <!-- Tabla Sanatorial Matriz -->
-        <div *ngIf="!cargandoMatriz && matrizRecaudacion?.filas?.length" class="table-responsive matriz-table-responsive">
+        <div *ngIf="!cargandoMatriz && matrizRecaudacion?.filas?.length"
+          class="table-responsive matriz-table-responsive">
           <table class="table-sanatorial table-bordered table-matriz">
             <thead>
               <tr>
-                <th class="th-financiador sortable-col" [class.col-sorted]="columnaOrdenMatriz === 'financiador'" (click)="ordenarMatriz('financiador')" title="Ordenar por Financiador">
-                  FINANCIADOR <span class="sort-indicator" [class.active]="columnaOrdenMatriz === 'financiador'">{{ columnaOrdenMatriz === 'financiador' ? (direccionOrdenMatriz === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="th-financiador sortable-col" [class.col-sorted]="columnaOrdenMatriz === 'financiador'"
+                  (click)="ordenarMatriz('financiador')" title="Ordenar por Financiador">
+                  FINANCIADOR <span class="sort-indicator" [class.active]="columnaOrdenMatriz === 'financiador'">{{
+                    columnaOrdenMatriz === 'financiador' ? (direccionOrdenMatriz === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="th-mes">ENE</th>
                 <th class="th-mes">FEB</th>
@@ -864,18 +926,21 @@
                 <th class="th-mes">OCT</th>
                 <th class="th-mes">NOV</th>
                 <th class="th-mes">DIC</th>
-                <th class="th-total-anual sortable-col" [class.col-sorted]="columnaOrdenMatriz === 'totalAnual'" (click)="ordenarMatriz('totalAnual')" title="Ordenar por Total Anual (Suma de los 12 meses para el financiador)">
-                  TOTAL ANUAL <span class="sort-indicator" [class.active]="columnaOrdenMatriz === 'totalAnual'">{{ columnaOrdenMatriz === 'totalAnual' ? (direccionOrdenMatriz === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="th-total-anual sortable-col" [class.col-sorted]="columnaOrdenMatriz === 'totalAnual'"
+                  (click)="ordenarMatriz('totalAnual')"
+                  title="Ordenar por Total Anual (Suma de los 12 meses para el financiador)">
+                  TOTAL ANUAL <span class="sort-indicator" [class.active]="columnaOrdenMatriz === 'totalAnual'">{{
+                    columnaOrdenMatriz === 'totalAnual' ? (direccionOrdenMatriz === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let fila of matrizRecaudacion?.filas; trackBy: trackByFinanciadorFila" class="tr-matriz-fila">
                 <td class="td-matriz-financiador font-weight-bold">
-                  <span class="financiador-icon">🏢</span>
                   <span>{{ fila.financiador }}</span>
                 </td>
-                <td *ngFor="let mes of fila.meses; trackBy: trackByMes" class="td-mes-valor" [class.valor-cero]="mes === 0">
+                <td *ngFor="let mes of fila.meses; trackBy: trackByMes" class="td-mes-valor"
+                  [class.valor-cero]="mes === 0">
                   {{ mes > 0 ? ('$' + (mes | number:'1.0-0':'es-AR')) : '-' }}
                 </td>
                 <td class="td-total-anual font-weight-bold">
@@ -886,7 +951,8 @@
             <tfoot>
               <tr class="tr-matriz-total">
                 <td class="td-matriz-financiador font-weight-bold">TOTAL GENERAL</td>
-                <td *ngFor="let totalMes of matrizRecaudacion?.totalesMes; trackBy: trackByMes" class="td-mes-total font-weight-bold" [class.valor-cero]="totalMes === 0">
+                <td *ngFor="let totalMes of matrizRecaudacion?.totalesMes; trackBy: trackByMes"
+                  class="td-mes-total font-weight-bold" [class.valor-cero]="totalMes === 0">
                   {{ totalMes > 0 ? ('$' + (totalMes | number:'1.0-0':'es-AR')) : '-' }}
                 </td>
                 <td class="td-gran-total font-weight-bold">
@@ -908,9 +974,9 @@
 
     <!-- Banner informativo de contexto (Estilo Referencia) -->
     <div class="motivos-info-alert">
-      <span class="motivos-info-icon">ℹ️</span>
       <span class="motivos-info-text">
-        <strong>Motivos de Débito y Refacturación (2 Niveles):</strong> Desglose por resolución y refacturación. Todos los filtros aplican.
+        <strong>Motivos de Débito y Refacturación:</strong> Desglose por resolución y refacturación. Todos
+        los filtros aplican.
       </span>
     </div>
 
@@ -923,7 +989,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Glosas Médicas Recibidas:</strong> Suma acumulada de débitos practicados por los financiadores en el período filtrado mediante Notas de Crédito (NC).
+              <strong>Glosas Médicas Recibidas:</strong> Suma acumulada de débitos practicados por los financiadores en
+              el período filtrado mediante Notas de Crédito (NC).
             </span>
           </span>
         </div>
@@ -942,7 +1009,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Pérdida Asumida:</strong> Débitos que no fueron disputados o refacturados (o confirmados), constituyendo pérdida definitiva.<br><br>
+              <strong>Pérdida Asumida:</strong> Débitos que no fueron disputados o refacturados (o confirmados),
+              constituyendo pérdida definitiva.<br><br>
               <strong>Tasa de Pérdida:</strong> (Pérdida / Total Debitado) × 100
             </span>
           </span>
@@ -962,7 +1030,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Recupero en Gestión:</strong> Monto defendido y reemitido mediante Notas de Débito (ND) ante las obras sociales.<br><br>
+              <strong>Recupero en Gestión:</strong> Monto defendido y reemitido mediante Notas de Débito (ND) ante las
+              obras sociales.<br><br>
               <strong>Tasa de Recupero:</strong> (Refacturado / Total Debitado) × 100
             </span>
           </span>
@@ -982,7 +1051,8 @@
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
-              <strong>Tipologías de Glosas:</strong> Cantidad de causales únicas de débito detectadas en las liquidaciones procesadas.
+              <strong>Tipologías de Glosas:</strong> Cantidad de causales únicas de débito detectadas en las
+              liquidaciones procesadas.
             </span>
           </span>
         </div>
@@ -999,21 +1069,23 @@
     <section class="graficos-section">
       <div class="section-header">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <h2 class="section-title">🛡️ Motivos de Débito y Refacturación (Pareto)</h2>
+          <h2 class="section-title">Motivos de Débito y Refacturación (Pareto)</h2>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-wide">
-              <strong>Principio de Pareto 80/20:</strong> Identifica el 20% de los motivos que concentran el 80% del valor debitado, comparando cuánto se refactura (barra azul) vs. cuánto se pierde definitivamente (barra roja).
+              <strong>Principio de Pareto 80/20:</strong> Identifica el 20% de los motivos que concentran el 80% del
+              valor debitado, comparando cuánto se refactura (barra azul) vs. cuánto se pierde definitivamente (barra
+              roja).
             </span>
           </span>
         </div>
-        <p class="section-subtitle">Top 10 motivos de rechazo · Monto refacturado vs. Pérdida asumida definitivamente</p>
+        <p class="section-subtitle">Top 10 motivos de rechazo · Monto refacturado vs. Pérdida asumida definitivamente
+        </p>
       </div>
 
       <div class="graficos-grid graficos-grid--single">
         <div class="grafico-card grafico-card--wide grafico-card--fullwidth">
           <div class="grafico-card-header">
-            <span class="grafico-icon">📋</span>
             <div>
               <h3 class="grafico-title">Pareto de Glosas</h3>
               <p class="grafico-subtitle">Top 10 motivos · Refacturado vs. Pérdida asumida</p>
@@ -1027,12 +1099,8 @@
             <div *ngIf="!cargandoGraficos && (motivosChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de motivos de débito disponibles</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (motivosChartData.labels?.length ?? 0) > 0"
-              id="chart-motivos"
-              baseChart
-              [type]="'bar'"
-              [data]="motivosChartData"
-              [options]="motivosChartOptions">
+            <canvas *ngIf="!cargandoGraficos && (motivosChartData.labels?.length ?? 0) > 0" id="chart-motivos" baseChart
+              [type]="'bar'" [data]="motivosChartData" [options]="motivosChartOptions">
             </canvas>
           </div>
         </div>
@@ -1049,7 +1117,9 @@
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Análisis Causal y Drill-Down:</strong> Muestra la participación porcentual de cada causa. Haga clic en una porción del anillo o en "Ver Detalle" para ver las prestaciones y comentarios de auditoría.
+                  <strong>Análisis Causal y Drill-Down:</strong> Muestra la participación porcentual de cada causa. Haga
+                  clic en una porción del anillo o en "Ver Detalle" para ver las prestaciones y comentarios de
+                  auditoría.
                 </span>
               </span>
             </div>
@@ -1068,7 +1138,6 @@
         </div>
 
         <div *ngIf="!cargandoMotivos && motivosDebito.length === 0" class="empty-state">
-          <span class="empty-icon">📊</span>
           <p>No se registran débitos para el período y cobertura seleccionados.</p>
         </div>
 
@@ -1094,7 +1163,7 @@
                 {{ sectorHover ? formatearMoneda(sectorHover.montoTotal) : 'Total Débitos' }}
               </text>
             </svg>
-            <div class="donut-hint">💡 Clic en un sector para ver prestaciones</div>
+            <div class="donut-hint">Clic en un sector para ver prestaciones</div>
           </div>
 
           <!-- Leyenda y Ranking de Motivos con Clic para Drill-Down -->
@@ -1156,11 +1225,13 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">👤 Desempeño y Gestión por Analista de Débito (3 Niveles)</h2>
+              <h2 class="section-title">Desempeño y Gestión por Analista de Débito</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Auditoría de Gestión:</strong> Monitoreo del volumen de débitos gestionados por cada analista, su efectividad de recupero, ticket promedio de rechazo y distribución entre atención ambulatoria e internación.
+                  <strong>Auditoría de Gestión:</strong> Monitoreo del volumen de débitos gestionados por cada analista,
+                  su efectividad de recupero, ticket promedio de rechazo y distribución entre atención ambulatoria e
+                  internación.
                 </span>
               </span>
             </div>
@@ -1173,29 +1244,26 @@
           <div class="analistas-header-controls" *ngIf="analistasDatos.length > 0">
             <div class="filtro-analista-container">
               <label for="select-filtro-analista" class="filtro-analista-label">
-                <span class="icon-filter">🔍</span> Filtrar Analista:
+                Filtrar Analista:
               </label>
               <div class="select-wrapper-analista">
-                <select id="select-filtro-analista"
-                        class="form-control select-custom select-filtro-analista"
-                        [(ngModel)]="filtroAnalistaSeleccionado">
+                <select id="select-filtro-analista" class="form-control select-custom select-filtro-analista"
+                  [(ngModel)]="filtroAnalistaSeleccionado">
                   <option value="TODOS">-- Todos los Analistas ({{ analistasDatos.length }}) --</option>
                   <option *ngFor="let nombre of listaNombresAnalistas" [value]="nombre">
                     {{ nombre }}
                   </option>
                 </select>
-                <button *ngIf="filtroAnalistaSeleccionado !== 'TODOS'"
-                        type="button"
-                        class="btn-clear-filtro-analista"
-                        (click)="limpiarFiltroAnalista()"
-                        title="Limpiar filtro de analista">
+                <button *ngIf="filtroAnalistaSeleccionado !== 'TODOS'" type="button" class="btn-clear-filtro-analista"
+                  (click)="limpiarFiltroAnalista()" title="Limpiar filtro de analista">
                   ✕
                 </button>
               </div>
             </div>
 
             <!-- Badge de Analistas -->
-            <div class="badge-analistas-activos" [class.badge-analistas-filtrados]="filtroAnalistaSeleccionado !== 'TODOS'">
+            <div class="badge-analistas-activos"
+              [class.badge-analistas-filtrados]="filtroAnalistaSeleccionado !== 'TODOS'">
               <span *ngIf="filtroAnalistaSeleccionado === 'TODOS'">
                 {{ analistasDatos.length }} Analistas Activos
               </span>
@@ -1214,13 +1282,12 @@
 
         <!-- Estado Vacío General -->
         <div *ngIf="!cargandoAnalistas && analistasDatos.length === 0" class="empty-state">
-          <span class="empty-icon">📁</span>
           <p>No se encontraron débitos registrados para los analistas en el período seleccionado.</p>
         </div>
 
         <!-- Estado Vacío por Filtro Específico -->
-        <div *ngIf="!cargandoAnalistas && analistasDatos.length > 0 && analistasFiltrados.length === 0" class="empty-state">
-          <span class="empty-icon">🔍</span>
+        <div *ngIf="!cargandoAnalistas && analistasDatos.length > 0 && analistasFiltrados.length === 0"
+          class="empty-state">
           <p>No se encontraron débitos registrados para el analista seleccionado.</p>
           <button type="button" class="btn btn-sm btn-primary mt-2" (click)="limpiarFiltroAnalista()">
             Ver todos los analistas
@@ -1233,36 +1300,59 @@
             <thead>
               <tr>
                 <th class="th-btn-col">#</th>
-                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'analista'" (click)="ordenarAnalistas('analista')" title="Ordenar por Analista">
-                  ANALISTA / AUDITOR <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'analista'">{{ columnaOrdenAnalista === 'analista' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'analista'"
+                  (click)="ordenarAnalistas('analista')" title="Ordenar por Analista">
+                  ANALISTA / AUDITOR <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'analista'">{{ columnaOrdenAnalista === 'analista' ?
+                    (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-center th-casos sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'documentos'" (click)="ordenarAnalistas('documentos')" title="Ordenar por Documentos">
-                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{ columnaOrdenAnalista === 'documentos' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-center th-casos sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'documentos'"
+                  (click)="ordenarAnalistas('documentos')" title="Ordenar por Documentos">
+                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{
+                    columnaOrdenAnalista === 'documentos' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'aceptados'" (click)="ordenarAnalistas('aceptados')" title="Ordenar por Débitos Aceptados">
-                  DÉBITOS ACEPTADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'aceptados'">{{ columnaOrdenAnalista === 'aceptados' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'aceptados'"
+                  (click)="ordenarAnalistas('aceptados')" title="Ordenar por Débitos Aceptados">
+                  DÉBITOS ACEPTADOS ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'aceptados'">{{ columnaOrdenAnalista === 'aceptados' ?
+                    (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'refacturados'" (click)="ordenarAnalistas('refacturados')" title="Ordenar por Refacturados">
-                  REFACTURADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'refacturados'">{{ columnaOrdenAnalista === 'refacturados' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col"
+                  [class.col-sorted]="columnaOrdenAnalista === 'refacturados'"
+                  (click)="ordenarAnalistas('refacturados')" title="Ordenar por Refacturados">
+                  REFACTURADOS ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'refacturados'">{{ columnaOrdenAnalista === 'refacturados'
+                    ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'ticket'" (click)="ordenarAnalistas('ticket')" title="Ordenar por Ticket Promedio (Débitos Aceptados / Documentos)">
-                  TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'ticket'">{{ columnaOrdenAnalista === 'ticket' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'ticket'"
+                  (click)="ordenarAnalistas('ticket')"
+                  title="Ordenar por Ticket Promedio (Débitos Aceptados / Documentos)">
+                  TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'ticket'">{{
+                    columnaOrdenAnalista === 'ticket' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-center th-atencion sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'atencion'" (click)="ordenarAnalistas('atencion')" title="Ordenar por Atención (Proporción Ambulatorio vs. Internación)">
-                  ATENCIÓN (AMB / INT) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'atencion'">{{ columnaOrdenAnalista === 'atencion' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-center th-atencion sortable-col"
+                  [class.col-sorted]="columnaOrdenAnalista === 'atencion'" (click)="ordenarAnalistas('atencion')"
+                  title="Ordenar por Atención (Proporción Ambulatorio vs. Internación)">
+                  ATENCIÓN (AMB / INT) <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'atencion'">{{ columnaOrdenAnalista === 'atencion' ?
+                    (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'recupero'" (click)="ordenarAnalistas('recupero')" title="Ordenar por % Recupero ((Refacturados / Débitos Aceptados) × 100)">
-                  % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'recupero'">{{ columnaOrdenAnalista === 'recupero' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'recupero'"
+                  (click)="ordenarAnalistas('recupero')"
+                  title="Ordenar por % Recupero ((Refacturados / Débitos Aceptados) × 100)">
+                  % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'recupero'">{{
+                    columnaOrdenAnalista === 'recupero' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              <ng-container *ngFor="let a of analistasFiltrados; trackBy: trackByAnalista">
+            <tbody *ngFor="let a of analistasFiltrados; trackBy: trackByAnalista">
 
                 <!-- NIVEL 1: Analista -->
                 <tr class="tr-analista" (click)="toggleAnalista(a)" [class.is-expanded]="a.expanded">
                   <td class="text-center td-btn-box">
-                    <button type="button" class="btn-toggle-box" [class.is-expanded]="a.expanded" (click)="toggleAnalista(a); $event.stopPropagation()">
+                    <button type="button" class="btn-toggle-box" [class.is-expanded]="a.expanded"
+                      (click)="toggleAnalista(a); $event.stopPropagation()">
                       {{ a.expanded ? '−' : '+' }}
                     </button>
                   </td>
@@ -1289,10 +1379,9 @@
                     </span>
                   </td>
                   <td class="text-right">
-                    <span class="badge-recupero"
-                          [class.recupero-alto]="a.tasaRecupero >= 50"
-                          [class.recupero-medio]="a.tasaRecupero > 0 && a.tasaRecupero < 50"
-                          [class.recupero-cero]="a.tasaRecupero === 0">
+                    <span class="badge-recupero" [class.recupero-alto]="a.tasaRecupero >= 50"
+                      [class.recupero-medio]="a.tasaRecupero > 0 && a.tasaRecupero < 50"
+                      [class.recupero-cero]="a.tasaRecupero === 0">
                       {{ a.tasaRecupero | number:'1.1-1' }}%
                     </span>
                   </td>
@@ -1301,26 +1390,47 @@
                 <!-- NIVEL 2: Motivos (solo si analista está expandido) -->
                 <ng-container *ngIf="a.expanded">
                   <tr class="tr-sub-header tr-sub-header-motivo">
-                    <th colspan="2" class="td-sub-header-title sortable-sub-col" (click)="ordenarMotivosAnalistas('motivo')" title="Ordenar por Motivo">
-                      ↳ Motivo de Débito <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'motivo'">{{ columnaOrdenMotivoAnalista === 'motivo' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th colspan="2" class="td-sub-header-title sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('motivo')" title="Ordenar por Motivo">
+                      ↳ Motivo de Débito <span class="sort-indicator"
+                        [class.active]="columnaOrdenMotivoAnalista === 'motivo'">{{ columnaOrdenMotivoAnalista ===
+                        'motivo' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('casos')" title="Ordenar por Casos">
-                      Casos <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'casos'">{{ columnaOrdenMotivoAnalista === 'casos' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-center td-sub-header-col sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('casos')" title="Ordenar por Casos">
+                      Casos <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'casos'">{{
+                        columnaOrdenMotivoAnalista === 'casos' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') :
+                        '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('montoDebitado')" title="Ordenar por Monto Debitado">
-                      Monto Debitado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'montoDebitado'">{{ columnaOrdenMotivoAnalista === 'montoDebitado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('montoDebitado')" title="Ordenar por Monto Debitado">
+                      Monto Debitado <span class="sort-indicator"
+                        [class.active]="columnaOrdenMotivoAnalista === 'montoDebitado'">{{ columnaOrdenMotivoAnalista
+                        === 'montoDebitado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('aceptado')" title="Ordenar por Aceptado">
-                      Aceptado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'aceptado'">{{ columnaOrdenMotivoAnalista === 'aceptado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('aceptado')" title="Ordenar por Aceptado">
+                      Aceptado <span class="sort-indicator"
+                        [class.active]="columnaOrdenMotivoAnalista === 'aceptado'">{{ columnaOrdenMotivoAnalista ===
+                        'aceptado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('refacturado')" title="Ordenar por Refacturado">
-                      Refacturado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'refacturado'">{{ columnaOrdenMotivoAnalista === 'refacturado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('refacturado')" title="Ordenar por Refacturado">
+                      Refacturado <span class="sort-indicator"
+                        [class.active]="columnaOrdenMotivoAnalista === 'refacturado'">{{ columnaOrdenMotivoAnalista ===
+                        'refacturado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('atencion')" title="Ordenar por Atención">
-                      Atención (AMB / INT) <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'atencion'">{{ columnaOrdenMotivoAnalista === 'atencion' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-center td-sub-header-col sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('atencion')" title="Ordenar por Atención">
+                      Atención (AMB / INT) <span class="sort-indicator"
+                        [class.active]="columnaOrdenMotivoAnalista === 'atencion'">{{ columnaOrdenMotivoAnalista ===
+                        'atencion' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                     </th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('recupero')" title="Ordenar por % Recupero">
-                      % Rec. <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'recupero'">{{ columnaOrdenMotivoAnalista === 'recupero' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                    <th class="text-right td-sub-header-col sortable-sub-col"
+                      (click)="ordenarMotivosAnalistas('recupero')" title="Ordenar por % Recupero">
+                      % Rec. <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'recupero'">{{
+                        columnaOrdenMotivoAnalista === 'recupero' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼')
+                        : '↕' }}</span>
                     </th>
                   </tr>
 
@@ -1328,10 +1438,10 @@
                     <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
                       <td colspan="2" class="td-tree-node td-motivo">
                         <div class="motivo-cell-wrapper">
-                          <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm"
+                            [class.is-expanded]="m.expanded">
                             {{ m.expanded ? '▼' : '▶' }}
                           </button>
-                          <span class="motivo-icon">📋</span>
                           <span class="motivo-tag">{{ m.motivo }}</span>
                           <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                         </div>
@@ -1354,9 +1464,9 @@
                       </td>
                       <td class="text-right">
                         <span class="badge-recupero badge-recupero-sm"
-                              [class.recupero-alto]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) >= 50"
-                              [class.recupero-medio]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) > 0 && (m.refacturado * 100 / m.montoDebitado) < 50"
-                              [class.recupero-cero]="m.refacturado === 0">
+                          [class.recupero-alto]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) >= 50"
+                          [class.recupero-medio]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) > 0 && (m.refacturado * 100 / m.montoDebitado) < 50"
+                          [class.recupero-cero]="m.refacturado === 0">
                           {{ (m.montoDebitado > 0 ? (m.refacturado * 100 / m.montoDebitado) : 0) | number:'1.1-1' }}%
                         </span>
                       </td>
@@ -1374,17 +1484,18 @@
                         <th class="text-right td-sub-header-col">% Rec.</th>
                       </tr>
 
-                      <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista" class="tr-financiador-sub">
+                      <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
+                        class="tr-financiador-sub">
                         <td colspan="2" class="td-tree-node td-financiador-sub-item">
                           <div class="financiador-cell-wrapper">
                             <span class="tree-branch">└─</span>
-                            <span class="financiador-icon">🏢</span>
                             <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                           </div>
                         </td>
                         <td class="text-center text-muted">{{ fin.casos }}</td>
                         <td class="text-right font-weight-bold color-facturado">
-                          {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                          {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) |
+                          currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                         </td>
                         <td class="text-right color-aceptado">
                           {{ (fin.aceptado || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
@@ -1400,10 +1511,11 @@
                         </td>
                         <td class="text-right">
                           <span class="badge-recupero badge-recupero-sm"
-                                [class.recupero-alto]="(fin.montoDebitado || fin.monto) > 0 && ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) >= 50"
-                                [class.recupero-medio]="(fin.montoDebitado || fin.monto) > 0 && ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) > 0 && ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) < 50"
-                                [class.recupero-cero]="!fin.refacturado || fin.refacturado === 0">
-                            {{ ((fin.montoDebitado || fin.monto) > 0 ? ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) : 0) | number:'1.1-1' }}%
+                            [class.recupero-alto]="(fin.montoDebitado || fin.monto) > 0 && ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) >= 50"
+                            [class.recupero-medio]="(fin.montoDebitado || fin.monto) > 0 && ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) > 0 && ((fin.refacturado || 0) * 100 / (fin.montoDebitado || fin.monto)) < 50"
+                            [class.recupero-cero]="!fin.refacturado || fin.refacturado === 0">
+                            {{ ((fin.montoDebitado || fin.monto) > 0 ? ((fin.refacturado || 0) * 100 /
+                            (fin.montoDebitado || fin.monto)) : 0) | number:'1.1-1' }}%
                           </span>
                         </td>
                       </tr>
@@ -1412,7 +1524,6 @@
                   </ng-container>
                 </ng-container>
 
-              </ng-container>
             </tbody>
           </table>
         </div>
@@ -1430,15 +1541,18 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">⭕ Auditoría de Bucles de Insistencia</h2>
+              <h2 class="section-title">Auditoría de Bucles de Insistencia</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Ciclos de Rechazo Recurrente:</strong> Detecta prestaciones que tras ser debitadas (NC) y refacturadas (ND) volvieron a recibir débitos sucesivos (≥ 2 NCs), señalando posibles fallas sistemáticas de facturación o convenios en disputa.
+                  <strong>Ciclos de Rechazo Recurrente:</strong> Detecta prestaciones que tras ser debitadas (NC) y
+                  refacturadas (ND) volvieron a recibir débitos sucesivos (≥ 2 NCs), señalando posibles fallas
+                  sistemáticas de facturación o convenios en disputa.
                 </span>
               </span>
             </div>
-            <p class="section-subtitle">Prestaciones críticas con 2 o más débitos recibidos (NC) tras intentos de refacturación.</p>
+            <p class="section-subtitle">Prestaciones críticas con 2 o más débitos recibidos (NC) tras intentos de
+              refacturación.</p>
           </div>
         </div>
 
@@ -1450,8 +1564,8 @@
 
         <!-- Estado Vacío -->
         <div *ngIf="!cargandoBucles && buclesDatos.length === 0" class="empty-state">
-          <span class="empty-icon">✅</span>
-          <p>No se detectaron bucles de insistencia (expedientes con 2 o más débitos NC) para los filtros seleccionados.</p>
+          <p>No se detectaron bucles de insistencia (expedientes con 2 o más débitos NC) para los filtros seleccionados.
+          </p>
         </div>
 
         <!-- Tabla Principal de Bucles -->
@@ -1460,29 +1574,40 @@
             <thead>
               <tr>
                 <th style="width: 45px;" class="text-center"></th>
-                <th class="sortable-col" [class.col-sorted]="columnaOrdenBucles === 'prestacion'" (click)="ordenarBucles('prestacion')" title="Ordenar por Prestación / Detalle">
-                  Prestación / Detalle <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'prestacion'">{{ columnaOrdenBucles === 'prestacion' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="sortable-col" [class.col-sorted]="columnaOrdenBucles === 'prestacion'"
+                  (click)="ordenarBucles('prestacion')" title="Ordenar por Prestación / Detalle">
+                  Prestación / Detalle <span class="sort-indicator"
+                    [class.active]="columnaOrdenBucles === 'prestacion'">{{ columnaOrdenBucles === 'prestacion' ?
+                    (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="sortable-col" [class.col-sorted]="columnaOrdenBucles === 'financiador'" (click)="ordenarBucles('financiador')" title="Ordenar por Financiador">
-                  Financiador <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'financiador'">{{ columnaOrdenBucles === 'financiador' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="sortable-col" [class.col-sorted]="columnaOrdenBucles === 'financiador'"
+                  (click)="ordenarBucles('financiador')" title="Ordenar por Financiador">
+                  Financiador <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'financiador'">{{
+                    columnaOrdenBucles === 'financiador' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="sortable-col" [class.col-sorted]="columnaOrdenBucles === 'medico'" (click)="ordenarBucles('medico')" title="Ordenar por Médico">
-                  Médico <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'medico'">{{ columnaOrdenBucles === 'medico' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="sortable-col" [class.col-sorted]="columnaOrdenBucles === 'medico'"
+                  (click)="ordenarBucles('medico')" title="Ordenar por Médico">
+                  Médico <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'medico'">{{
+                    columnaOrdenBucles === 'medico' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBucles === 'facturado'" (click)="ordenarBucles('facturado')" title="Ordenar por Facturado">
-                  Facturado <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'facturado'">{{ columnaOrdenBucles === 'facturado' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBucles === 'facturado'"
+                  (click)="ordenarBucles('facturado')" title="Ordenar por Facturado">
+                  Facturado <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'facturado'">{{
+                    columnaOrdenBucles === 'facturado' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBucles === 'debitos'" (click)="ordenarBucles('debitos')" title="Ordenar por Débitos">
-                  Débitos <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'debitos'">{{ columnaOrdenBucles === 'debitos' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBucles === 'debitos'"
+                  (click)="ordenarBucles('debitos')" title="Ordenar por Débitos">
+                  Débitos <span class="sort-indicator" [class.active]="columnaOrdenBucles === 'debitos'">{{
+                    columnaOrdenBucles === 'debitos' ? (direccionOrdenBucles === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              <ng-container *ngFor="let cadena of buclesDatos; trackBy: trackByCadena">
+            <tbody *ngFor="let cadena of buclesDatos; trackBy: trackByCadena">
                 <!-- Fila Principal (Nivel 1) -->
                 <tr class="tr-parent-nivel1" (click)="toggleCadena(cadena)" [class.is-expanded]="cadena.expanded">
                   <td class="text-center">
-                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="cadena.expanded" (click)="$event.stopPropagation(); toggleCadena(cadena)">
+                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="cadena.expanded"
+                      (click)="$event.stopPropagation(); toggleCadena(cadena)">
                       ▶
                     </button>
                   </td>
@@ -1500,7 +1625,8 @@
                     {{ cadena.montoFacturadoOriginal | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
                   <td class="text-right color-aceptado font-weight-bold">
-                    {{ cadena.totalDebitado > 0 ? (cadena.totalDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                    {{ cadena.totalDebitado > 0 ? (cadena.totalDebitado |
+                    currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                   </td>
                 </tr>
 
@@ -1510,8 +1636,11 @@
                     <div class="chain-wrapper">
                       <div class="chain-header-info">
                         <span class="chain-badge-expediente">Expediente: {{ cadena.idPrestacion }}</span>
-                        <span class="chain-badge-medico" *ngIf="cadena.medico && cadena.medico !== 'No especificado'">Médico: {{ cadena.medico }}</span>
-                        <span class="chain-total-eventos">{{ cadena.historialEventos.length }} evento(s) en la cadena</span>
+                        <span class="chain-badge-medico"
+                          *ngIf="cadena.medico && cadena.medico !== 'No especificado'">Médico: {{ cadena.medico
+                          }}</span>
+                        <span class="chain-total-eventos">{{ cadena.historialEventos.length }} evento(s) en la
+                          cadena</span>
                       </div>
 
                       <div class="chain-timeline">
@@ -1540,7 +1669,6 @@
                     </div>
                   </td>
                 </tr>
-              </ng-container>
             </tbody>
           </table>
         </div>
@@ -1558,16 +1686,19 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">📇 Desempeño por Usuarios de Carga (Operadores)</h2>
+              <h2 class="section-title">Desempeño por Usuarios de Carga (Operadores)</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Calidad en Emisión:</strong> Evalúa la calidad de carga original de los operadores que emitieron las facturas que luego sufrieron débitos, permitiendo detectar necesidades de capacitación en carga de órdenes o nomencladores.
+                  <strong>Calidad en Emisión:</strong> Evalúa la calidad de carga original de los operadores que
+                  emitieron las facturas que luego sufrieron débitos, permitiendo detectar necesidades de capacitación
+                  en carga de órdenes o nomencladores.
                 </span>
               </span>
             </div>
             <p class="section-subtitle">
-              Auditoría de emisión original a 3 niveles: Nivel 1 (Operador FC) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3 (Financiador Afectado).
+              Auditoría de emisión original a 3 niveles: Nivel 1 (Operador FC) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3
+              (Financiador Afectado).
             </p>
           </div>
         </div>
@@ -1580,7 +1711,6 @@
 
         <!-- Estado Vacío -->
         <div *ngIf="!cargandoOperadores && operadoresDatos.length === 0" class="empty-state">
-          <span class="empty-icon">📁</span>
           <p>No se encontraron débitos vinculados a operadores de carga en el período seleccionado.</p>
         </div>
 
@@ -1589,28 +1719,44 @@
           <table class="table-sanatorial table-bordered table-analistas">
             <thead>
               <tr>
-                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'" (click)="ordenarOperadores('operador')" title="Ordenar por Operador">
-                  Operador / Motivo / Financiador <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'operador'">{{ columnaOrdenOperador === 'operador' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'"
+                  (click)="ordenarOperadores('operador')" title="Ordenar por Operador">
+                  Operador / Motivo / Financiador <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'operador'">{{ columnaOrdenOperador === 'operador' ?
+                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenOperador === 'documentos'" (click)="ordenarOperadores('documentos')" title="Ordenar por Documentos">
-                  Documentos <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{ columnaOrdenOperador === 'documentos' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenOperador === 'documentos'"
+                  (click)="ordenarOperadores('documentos')" title="Ordenar por Documentos">
+                  Documentos <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{
+                    columnaOrdenOperador === 'documentos' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'aceptados'" (click)="ordenarOperadores('aceptados')" title="Ordenar por Débitos Aceptados">
-                  Aceptados (Pérdida) <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'aceptados'">{{ columnaOrdenOperador === 'aceptados' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'aceptados'"
+                  (click)="ordenarOperadores('aceptados')" title="Ordenar por Débitos Aceptados">
+                  Aceptados (Pérdida) <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'aceptados'">{{ columnaOrdenOperador === 'aceptados' ?
+                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'refacturados'" (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturados">
-                  Refacturados <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{ columnaOrdenOperador === 'refacturados' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col"
+                  [class.col-sorted]="columnaOrdenOperador === 'refacturados'"
+                  (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturados">
+                  Refacturados <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{
+                    columnaOrdenOperador === 'refacturados' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'ticket'" (click)="ordenarOperadores('ticket')" title="Ordenar por Ticket Promedio">
-                  Ticket Promedio <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'ticket'">{{ columnaOrdenOperador === 'ticket' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'ticket'"
+                  (click)="ordenarOperadores('ticket')" title="Ordenar por Ticket Promedio">
+                  Ticket Promedio <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'ticket'">{{
+                    columnaOrdenOperador === 'ticket' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenOperador === 'recupero'" (click)="ordenarOperadores('recupero')" title="Ordenar por % Recupero">
-                  % Recupero <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'recupero'">{{ columnaOrdenOperador === 'recupero' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenOperador === 'recupero'"
+                  (click)="ordenarOperadores('recupero')" title="Ordenar por % Recupero">
+                  % Recupero <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'recupero'">{{
+                    columnaOrdenOperador === 'recupero' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              <ng-container *ngFor="let op of operadoresDatos; trackBy: trackByOperador">
+            <tbody *ngFor="let op of operadoresDatos; trackBy: trackByOperador">
 
                 <!-- NIVEL 1: Operador -->
                 <tr class="tr-analista tr-operador" (click)="toggleOperador(op)" [class.is-expanded]="op.expanded">
@@ -1637,10 +1783,9 @@
                     {{ op.ticketPromedio | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
                   <td class="text-right">
-                    <span class="badge-recupero"
-                          [class.recupero-alto]="op.tasaRecupero >= 50"
-                          [class.recupero-medio]="op.tasaRecupero > 0 && op.tasaRecupero < 50"
-                          [class.recupero-cero]="op.tasaRecupero === 0">
+                    <span class="badge-recupero" [class.recupero-alto]="op.tasaRecupero >= 50"
+                      [class.recupero-medio]="op.tasaRecupero > 0 && op.tasaRecupero < 50"
+                      [class.recupero-cero]="op.tasaRecupero === 0">
                       {{ op.tasaRecupero | number:'1.1-1' }}%
                     </span>
                   </td>
@@ -1649,22 +1794,28 @@
                 <!-- NIVEL 2: Motivos (solo si operador está expandido) -->
                 <ng-container *ngIf="op.expanded">
                   <tr class="tr-sub-header tr-sub-header-motivo">
-                    <th class="td-sub-header-title sortable-sub-col" (click)="ordenarOperadores('operador')" title="Ordenar por Motivo">↳ Motivo de Débito</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('documentos')" title="Ordenar por Casos">Casos</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('ticket')" title="Ordenar por Monto Debitado">Monto Debitado</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('aceptados')" title="Ordenar por Aceptado">Aceptado</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturado">Refacturado</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('recupero')" title="Ordenar por % Recupero">% Rec.</th>
+                    <th class="td-sub-header-title sortable-sub-col" (click)="ordenarOperadores('operador')"
+                      title="Ordenar por Motivo">↳ Motivo de Débito</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('documentos')"
+                      title="Ordenar por Casos">Casos</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('ticket')"
+                      title="Ordenar por Monto Debitado">Monto Debitado</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('aceptados')"
+                      title="Ordenar por Aceptado">Aceptado</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col"
+                      (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturado">Refacturado</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('recupero')"
+                      title="Ordenar por % Recupero">% Rec.</th>
                   </tr>
 
                   <ng-container *ngFor="let m of op.motivos; trackBy: trackByMotivo">
                     <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
                       <td class="td-tree-node td-motivo">
                         <div class="motivo-cell-wrapper">
-                          <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm"
+                            [class.is-expanded]="m.expanded">
                             {{ m.expanded ? '▼' : '▶' }}
                           </button>
-                          <span class="motivo-icon">📋</span>
                           <span class="motivo-tag">{{ m.motivo }}</span>
                           <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                         </div>
@@ -1681,9 +1832,9 @@
                       </td>
                       <td class="text-right">
                         <span class="badge-recupero badge-recupero-sm"
-                              [class.recupero-alto]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) >= 50"
-                              [class.recupero-medio]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) > 0 && (m.refacturado * 100 / m.montoDebitado) < 50"
-                              [class.recupero-cero]="m.refacturado === 0">
+                          [class.recupero-alto]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) >= 50"
+                          [class.recupero-medio]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) > 0 && (m.refacturado * 100 / m.montoDebitado) < 50"
+                          [class.recupero-cero]="m.refacturado === 0">
                           {{ (m.montoDebitado > 0 ? (m.refacturado * 100 / m.montoDebitado) : 0) | number:'1.1-1' }}%
                         </span>
                       </td>
@@ -1692,17 +1843,20 @@
                     <!-- NIVEL 3: Financiadores Afectados (solo si motivo y operador están expandidos) -->
                     <ng-container *ngIf="m.expanded">
                       <tr class="tr-sub-header tr-sub-header-financiador">
-                        <th class="td-sub-header-sub-title sortable-sub-col" (click)="ordenarOperadores('operador')" title="Ordenar por Financiador">└── Financiador Afectado</th>
-                        <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('documentos')" title="Ordenar por Casos">Casos</th>
-                        <th colspan="3" class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('ticket')" title="Ordenar por Monto">Monto</th>
+                        <th class="td-sub-header-sub-title sortable-sub-col" (click)="ordenarOperadores('operador')"
+                          title="Ordenar por Financiador">└── Financiador Afectado</th>
+                        <th class="text-right td-sub-header-col sortable-sub-col"
+                          (click)="ordenarOperadores('documentos')" title="Ordenar por Casos">Casos</th>
+                        <th colspan="3" class="text-right td-sub-header-col sortable-sub-col"
+                          (click)="ordenarOperadores('ticket')" title="Ordenar por Monto">Monto</th>
                         <th class="text-center td-sub-header-col">—</th>
                       </tr>
 
-                      <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista" class="tr-financiador-sub">
+                      <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
+                        class="tr-financiador-sub">
                         <td class="td-tree-node td-financiador-sub-item">
                           <div class="financiador-cell-wrapper">
                             <span class="tree-branch">└─</span>
-                            <span class="financiador-icon">🏢</span>
                             <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                           </div>
                         </td>
@@ -1717,7 +1871,6 @@
                   </ng-container>
                 </ng-container>
 
-              </ng-container>
             </tbody>
           </table>
         </div>
@@ -1735,16 +1888,19 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">👨‍⚕️ Desempeño por Prestadores / Médicos</h2>
+              <h2 class="section-title">Desempeño por Prestadores / Médicos</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Débitos Médicos por Efector:</strong> Identifica a los profesionales médicos cuyos actos o prescripciones generaron débitos de auditoría médica (falta de justificación, protocolos, firmas o códigos erróneos).
+                  <strong>Débitos Médicos por Efector:</strong> Identifica a los profesionales médicos cuyos actos o
+                  prescripciones generaron débitos de auditoría médica (falta de justificación, protocolos, firmas o
+                  códigos erróneos).
                 </span>
               </span>
             </div>
             <p class="section-subtitle">
-              Auditoría médica a 3 niveles: Nivel 1 (Médico) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3 (Financiador Afectado).
+              Auditoría médica a 3 niveles: Nivel 1 (Médico) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3 (Financiador
+              Afectado).
             </p>
           </div>
 
@@ -1752,29 +1908,26 @@
           <div class="analistas-header-controls" *ngIf="medicosDatos.length > 0">
             <div class="filtro-analista-container">
               <label for="select-filtro-medico" class="filtro-analista-label">
-                <span class="icon-filter">🔍</span> Filtrar Médico:
+                Filtrar Médico:
               </label>
               <div class="select-wrapper-analista">
-                <select id="select-filtro-medico"
-                        class="form-control select-custom select-filtro-analista"
-                        [(ngModel)]="filtroMedicoSeleccionado">
+                <select id="select-filtro-medico" class="form-control select-custom select-filtro-analista"
+                  [(ngModel)]="filtroMedicoSeleccionado">
                   <option value="TODOS">-- Todos los Médicos ({{ listaNombresMedicos.length }}) --</option>
                   <option *ngFor="let nombre of listaNombresMedicos" [value]="nombre">
                     {{ nombre }}
                   </option>
                 </select>
-                <button *ngIf="filtroMedicoSeleccionado !== 'TODOS'"
-                        type="button"
-                        class="btn-clear-filtro-analista"
-                        (click)="limpiarFiltroMedico()"
-                        title="Limpiar filtro de médico">
+                <button *ngIf="filtroMedicoSeleccionado !== 'TODOS'" type="button" class="btn-clear-filtro-analista"
+                  (click)="limpiarFiltroMedico()" title="Limpiar filtro de médico">
                   ✕
                 </button>
               </div>
             </div>
 
             <!-- Badge de Médicos -->
-            <div class="badge-analistas-activos" [class.badge-analistas-filtrados]="filtroMedicoSeleccionado !== 'TODOS' || codigoCoberturaSeleccionada !== 'TODAS'">
+            <div class="badge-analistas-activos"
+              [class.badge-analistas-filtrados]="filtroMedicoSeleccionado !== 'TODOS' || codigoCoberturaSeleccionada !== 'TODAS'">
               <span *ngIf="filtroMedicoSeleccionado === 'TODOS' && codigoCoberturaSeleccionada === 'TODAS'">
                 {{ medicosDatos.length }} Médicos Activos
               </span>
@@ -1793,13 +1946,11 @@
 
         <!-- Estado Vacío General -->
         <div *ngIf="!cargandoMedicos && medicosDatos.length === 0" class="empty-state">
-          <span class="empty-icon">📁</span>
           <p>No se encontraron débitos registrados para los médicos en el período seleccionado.</p>
         </div>
 
         <!-- Estado Vacío por Filtros Específicos -->
         <div *ngIf="!cargandoMedicos && medicosDatos.length > 0 && medicosFiltrados.length === 0" class="empty-state">
-          <span class="empty-icon">🔍</span>
           <p>No se encontraron débitos registrados para los filtros seleccionados.</p>
           <button type="button" class="btn btn-sm btn-primary mt-2" (click)="restablecerFiltrosMedicos()">
             Restablecer filtros de médicos
@@ -1811,28 +1962,41 @@
           <table class="table-sanatorial table-bordered table-analistas">
             <thead>
               <tr>
-                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenMedico === 'medico'" (click)="ordenarMedicos('medico')" title="Ordenar por Médico">
-                  MÉDICO / MOTIVO / FINANCIADOR <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'medico'">{{ columnaOrdenMedico === 'medico' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenMedico === 'medico'"
+                  (click)="ordenarMedicos('medico')" title="Ordenar por Médico">
+                  MÉDICO / MOTIVO / FINANCIADOR <span class="sort-indicator"
+                    [class.active]="columnaOrdenMedico === 'medico'">{{ columnaOrdenMedico === 'medico' ?
+                    (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenMedico === 'documentos'" (click)="ordenarMedicos('documentos')" title="Ordenar por Documentos">
-                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'documentos'">{{ columnaOrdenMedico === 'documentos' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenMedico === 'documentos'"
+                  (click)="ordenarMedicos('documentos')" title="Ordenar por Documentos">
+                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'documentos'">{{
+                    columnaOrdenMedico === 'documentos' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'aceptados'" (click)="ordenarMedicos('aceptados')" title="Ordenar por Débitos Aceptados">
-                  ACEPTADOS (PÉRDIDA) <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'aceptados'">{{ columnaOrdenMedico === 'aceptados' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'aceptados'"
+                  (click)="ordenarMedicos('aceptados')" title="Ordenar por Débitos Aceptados">
+                  ACEPTADOS (PÉRDIDA) <span class="sort-indicator"
+                    [class.active]="columnaOrdenMedico === 'aceptados'">{{ columnaOrdenMedico === 'aceptados' ?
+                    (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'refacturados'" (click)="ordenarMedicos('refacturados')" title="Ordenar por Refacturados">
-                  REFACTURADOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'refacturados'">{{ columnaOrdenMedico === 'refacturados' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'refacturados'"
+                  (click)="ordenarMedicos('refacturados')" title="Ordenar por Refacturados">
+                  REFACTURADOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'refacturados'">{{
+                    columnaOrdenMedico === 'refacturados' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'ticket'" (click)="ordenarMedicos('ticket')" title="Ordenar por Ticket Promedio">
-                  TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'ticket'">{{ columnaOrdenMedico === 'ticket' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'ticket'"
+                  (click)="ordenarMedicos('ticket')" title="Ordenar por Ticket Promedio">
+                  TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'ticket'">{{
+                    columnaOrdenMedico === 'ticket' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenMedico === 'recupero'" (click)="ordenarMedicos('recupero')" title="Ordenar por % Recupero">
-                  % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'recupero'">{{ columnaOrdenMedico === 'recupero' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenMedico === 'recupero'"
+                  (click)="ordenarMedicos('recupero')" title="Ordenar por % Recupero">
+                  % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'recupero'">{{
+                    columnaOrdenMedico === 'recupero' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              <ng-container *ngFor="let med of medicosFiltrados; trackBy: trackByMedico">
+            <tbody *ngFor="let med of medicosFiltrados; trackBy: trackByMedico">
 
                 <!-- NIVEL 1: Médico -->
                 <tr class="tr-analista tr-medico" (click)="toggleMedico(med)" [class.is-expanded]="med.expanded">
@@ -1841,7 +2005,6 @@
                       <button type="button" class="btn-toggle-expand" [class.is-expanded]="med.expanded">
                         {{ med.expanded ? '▼' : '▶' }}
                       </button>
-                      <span class="analista-icon">🩺</span>
                       <span class="analista-nombre">{{ med.medico }}</span>
                       <span class="badge-count">{{ med.motivos.length }} motivos</span>
                     </div>
@@ -1859,10 +2022,9 @@
                     {{ med.ticketPromedio | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
                   <td class="text-right">
-                    <span class="badge-recupero"
-                          [class.recupero-alto]="med.tasaRecupero >= 50"
-                          [class.recupero-medio]="med.tasaRecupero > 0 && med.tasaRecupero < 50"
-                          [class.recupero-cero]="med.tasaRecupero === 0">
+                    <span class="badge-recupero" [class.recupero-alto]="med.tasaRecupero >= 50"
+                      [class.recupero-medio]="med.tasaRecupero > 0 && med.tasaRecupero < 50"
+                      [class.recupero-cero]="med.tasaRecupero === 0">
                       {{ med.tasaRecupero | number:'1.1-1' }}%
                     </span>
                   </td>
@@ -1871,22 +2033,28 @@
                 <!-- NIVEL 2: Motivos (solo si médico está expandido) -->
                 <ng-container *ngIf="med.expanded">
                   <tr class="tr-sub-header tr-sub-header-motivo">
-                    <th class="td-sub-header-title sortable-sub-col" (click)="ordenarMedicos('medico')" title="Ordenar por Motivo">↳ Motivo de Débito</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('documentos')" title="Ordenar por Casos">Casos</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('ticket')" title="Ordenar por Monto Debitado">Monto Debitado</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('aceptados')" title="Ordenar por Aceptado">Aceptado</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('refacturados')" title="Ordenar por Refacturado">Refacturado</th>
-                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('recupero')" title="Ordenar por % Recupero">% Rec.</th>
+                    <th class="td-sub-header-title sortable-sub-col" (click)="ordenarMedicos('medico')"
+                      title="Ordenar por Motivo">↳ Motivo de Débito</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('documentos')"
+                      title="Ordenar por Casos">Casos</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('ticket')"
+                      title="Ordenar por Monto Debitado">Monto Debitado</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('aceptados')"
+                      title="Ordenar por Aceptado">Aceptado</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('refacturados')"
+                      title="Ordenar por Refacturado">Refacturado</th>
+                    <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('recupero')"
+                      title="Ordenar por % Recupero">% Rec.</th>
                   </tr>
 
                   <ng-container *ngFor="let m of med.motivos; trackBy: trackByMotivo">
                     <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
                       <td class="td-tree-node td-motivo">
                         <div class="motivo-cell-wrapper">
-                          <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm"
+                            [class.is-expanded]="m.expanded">
                             {{ m.expanded ? '▼' : '▶' }}
                           </button>
-                          <span class="motivo-icon">📋</span>
                           <span class="motivo-tag">{{ m.motivo }}</span>
                           <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                         </div>
@@ -1903,9 +2071,9 @@
                       </td>
                       <td class="text-right">
                         <span class="badge-recupero badge-recupero-sm"
-                              [class.recupero-alto]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) >= 50"
-                              [class.recupero-medio]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) > 0 && (m.refacturado * 100 / m.montoDebitado) < 50"
-                              [class.recupero-cero]="m.refacturado === 0">
+                          [class.recupero-alto]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) >= 50"
+                          [class.recupero-medio]="m.montoDebitado > 0 && (m.refacturado * 100 / m.montoDebitado) > 0 && (m.refacturado * 100 / m.montoDebitado) < 50"
+                          [class.recupero-cero]="m.refacturado === 0">
                           {{ (m.montoDebitado > 0 ? (m.refacturado * 100 / m.montoDebitado) : 0) | number:'1.1-1' }}%
                         </span>
                       </td>
@@ -1920,11 +2088,11 @@
                         <th class="text-center td-sub-header-col">—</th>
                       </tr>
 
-                      <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista" class="tr-financiador-sub">
+                      <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
+                        class="tr-financiador-sub">
                         <td class="td-tree-node td-financiador-sub-item">
                           <div class="financiador-cell-wrapper">
                             <span class="tree-branch">└─</span>
-                            <span class="financiador-icon">🏢</span>
                             <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                           </div>
                         </td>
@@ -1939,7 +2107,6 @@
                   </ng-container>
                 </ng-container>
 
-              </ng-container>
             </tbody>
           </table>
         </div>
@@ -1957,15 +2124,18 @@
         <div class="section-card-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">🔗 Detalle y Trazabilidad (Árbol Encadenado)</h2>
+              <h2 class="section-title">Detalle y Trazabilidad (Árbol Encadenado)</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide">
-                  <strong>Trazabilidad Integral:</strong> Reconstrucción cronológica completa de la historia clínica-administrativa de cada expediente, desde la FC de origen pasando por las NC y ND hasta su recibo de cobro final RC.
+                  <strong>Trazabilidad Integral:</strong> Reconstrucción cronológica completa de la historia
+                  clínica-administrativa de cada expediente, desde la FC de origen pasando por las NC y ND hasta su
+                  recibo de cobro final RC.
                 </span>
               </span>
             </div>
-            <p class="section-subtitle">Historial cronológico de vida de expedientes: Facturación (FC) ➔ Débitos (NC) ➔ Refacturación / Incremento (ND) ➔ Cobranza (RC).</p>
+            <p class="section-subtitle">Historial cronológico de vida de expedientes: Facturación (FC) ➔ Débitos (NC) ➔
+              Refacturación / Incremento (ND) ➔ Cobranza (RC).</p>
           </div>
         </div>
 
@@ -1977,7 +2147,6 @@
 
         <!-- Estado Vacío -->
         <div *ngIf="!cargandoTrazabilidad && trazabilidadDatos.length === 0" class="empty-state">
-          <span class="empty-icon">📁</span>
           <p>No se encontraron expedientes vinculados para los filtros seleccionados.</p>
         </div>
 
@@ -1987,29 +2156,44 @@
             <thead>
               <tr>
                 <th style="width: 45px;" class="text-center"></th>
-                <th class="sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'prestacion'" (click)="ordenarTrazabilidad('prestacion')" title="Ordenar por Prestación / Detalle">
-                  Prestación / Detalle <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'prestacion'">{{ columnaOrdenTrazabilidad === 'prestacion' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'prestacion'"
+                  (click)="ordenarTrazabilidad('prestacion')" title="Ordenar por Prestación / Detalle">
+                  Prestación / Detalle <span class="sort-indicator"
+                    [class.active]="columnaOrdenTrazabilidad === 'prestacion'">{{ columnaOrdenTrazabilidad ===
+                    'prestacion' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'financiador'" (click)="ordenarTrazabilidad('financiador')" title="Ordenar por Financiador">
-                  Financiador <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'financiador'">{{ columnaOrdenTrazabilidad === 'financiador' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'financiador'"
+                  (click)="ordenarTrazabilidad('financiador')" title="Ordenar por Financiador">
+                  Financiador <span class="sort-indicator"
+                    [class.active]="columnaOrdenTrazabilidad === 'financiador'">{{ columnaOrdenTrazabilidad ===
+                    'financiador' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'medico'" (click)="ordenarTrazabilidad('medico')" title="Ordenar por Médico">
-                  Médico <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'medico'">{{ columnaOrdenTrazabilidad === 'medico' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'medico'"
+                  (click)="ordenarTrazabilidad('medico')" title="Ordenar por Médico">
+                  Médico <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'medico'">{{
+                    columnaOrdenTrazabilidad === 'medico' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'facturado'" (click)="ordenarTrazabilidad('facturado')" title="Ordenar por Facturado">
-                  Facturado <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'facturado'">{{ columnaOrdenTrazabilidad === 'facturado' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'facturado'"
+                  (click)="ordenarTrazabilidad('facturado')" title="Ordenar por Facturado">
+                  Facturado <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'facturado'">{{
+                    columnaOrdenTrazabilidad === 'facturado' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
                 </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'debitos'" (click)="ordenarTrazabilidad('debitos')" title="Ordenar por Débitos">
-                  Débitos <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'debitos'">{{ columnaOrdenTrazabilidad === 'debitos' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenTrazabilidad === 'debitos'"
+                  (click)="ordenarTrazabilidad('debitos')" title="Ordenar por Débitos">
+                  Débitos <span class="sort-indicator" [class.active]="columnaOrdenTrazabilidad === 'debitos'">{{
+                    columnaOrdenTrazabilidad === 'debitos' ? (direccionOrdenTrazabilidad === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
                 </th>
               </tr>
             </thead>
-            <tbody>
-              <ng-container *ngFor="let cadena of trazabilidadDatos; trackBy: trackByCadena">
+            <tbody *ngFor="let cadena of trazabilidadDatos; trackBy: trackByCadena">
                 <!-- Fila Principal (Nivel 1) -->
                 <tr class="tr-parent-nivel1" (click)="toggleCadena(cadena)" [class.is-expanded]="cadena.expanded">
                   <td class="text-center">
-                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="cadena.expanded" (click)="$event.stopPropagation(); toggleCadena(cadena)">
+                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="cadena.expanded"
+                      (click)="$event.stopPropagation(); toggleCadena(cadena)">
                       ▶
                     </button>
                   </td>
@@ -2027,7 +2211,8 @@
                     {{ cadena.montoFacturadoOriginal | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
                   <td class="text-right color-aceptado font-weight-bold">
-                    {{ cadena.totalDebitado > 0 ? (cadena.totalDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                    {{ cadena.totalDebitado > 0 ? (cadena.totalDebitado |
+                    currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                   </td>
                 </tr>
 
@@ -2037,8 +2222,11 @@
                     <div class="chain-wrapper">
                       <div class="chain-header-info">
                         <span class="chain-badge-expediente">Expediente: {{ cadena.idPrestacion }}</span>
-                        <span class="chain-badge-medico" *ngIf="cadena.medico && cadena.medico !== 'No especificado'">Médico: {{ cadena.medico }}</span>
-                        <span class="chain-total-eventos">{{ cadena.historialEventos.length }} evento(s) en la cadena</span>
+                        <span class="chain-badge-medico"
+                          *ngIf="cadena.medico && cadena.medico !== 'No especificado'">Médico: {{ cadena.medico
+                          }}</span>
+                        <span class="chain-total-eventos">{{ cadena.historialEventos.length }} evento(s) en la
+                          cadena</span>
                       </div>
 
                       <div class="chain-timeline">
@@ -2067,7 +2255,6 @@
                     </div>
                   </td>
                 </tr>
-              </ng-container>
             </tbody>
           </table>
         </div>

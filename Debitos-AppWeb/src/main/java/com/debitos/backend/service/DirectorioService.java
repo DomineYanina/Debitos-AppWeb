@@ -1405,6 +1405,8 @@ public class DirectorioService {
 
                     if (fc.getHijos() != null) {
                         for (CcComprobanteDTO h : fc.getHijos()) {
+                            // Saltar el hijo FC inyectado: ya está sumado en el propio fc (Factura Madre padre).
+                            if ("FC".equalsIgnoreCase(h.getOrigenTipo())) continue;
                             perFacturacion = perFacturacion.add(h.getFacturacionFc());
                             perIncrementos = perIncrementos.add(h.getIncrementosNd());
                             perDebitos = perDebitos.add(h.getDebitosNc());
@@ -1583,6 +1585,35 @@ public class DirectorioService {
 
         rootDTO.setHijos(descendientes);
 
+        // ── HIJO FC RAÍZ (posición 0): factura de origen con monto bruto original ──────────
+        // Se inserta PRIMERO en la lista de hijos para que el acordeón muestre la FC cabecera
+        // con su importe bruto original (antes de cualquier descuento), dejando las demás
+        // columnas financieras en cero. El padre (rootDTO) NO se modifica y sigue mostrando
+        // el saldo neto real con todas las deducciones aplicadas.
+        BigDecimal montoBrutoOriginal = fcRaiz.getDebe() != null
+                ? fcRaiz.getDebe().setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        CcComprobanteDTO hijoFcRaiz = new CcComprobanteDTO(
+                fcRaiz.getTipo() != null ? fcRaiz.getTipo().trim().toUpperCase() : "FC",
+                formatearComprobante(fcRaiz),
+                fcRaiz.getFecha() != null ? fcRaiz.getFecha().toString() : "",
+                montoBrutoOriginal,  // facturacionFc = monto bruto original
+                BigDecimal.ZERO,     // incrementosNd = 0
+                BigDecimal.ZERO,     // debitosNc = 0
+                BigDecimal.ZERO,     // refacturacionNd = 0
+                BigDecimal.ZERO,     // cobranzasRc = 0
+                montoBrutoOriginal   // saldo = monto bruto (sin deducciones)
+        );
+        hijoFcRaiz.setId(fcRaiz.getId());
+        hijoFcRaiz.setAsociado(fcRaiz.getAsociado());
+        hijoFcRaiz.setAsociadogrupo(fcRaiz.getAsociadogrupo());
+        hijoFcRaiz.setNivel(1);
+        hijoFcRaiz.setOrigenTipo("FC");
+
+        descendientes.add(0, hijoFcRaiz);
+
+
         // Saldo consolidado de la Factura Madre:
         // Saldo = Facturación FC + sum(incrementos) + sum(refacturacion) - sum(debitos) - sum(cobranzas)
         BigDecimal totFc = rootDTO.getFacturacionFc();
@@ -1592,6 +1623,10 @@ public class DirectorioService {
         BigDecimal totCob = rootDTO.getCobranzasRc();
 
         for (CcComprobanteDTO h : descendientes) {
+            // Saltar el hijo FC inyectado (posición 0): su facturacionFc ya está
+            // contabilizada en rootDTO.getFacturacionFc() (el debe de la FC raíz).
+            // Sumarlo nuevamente inflaría el saldo del encabezado padre.
+            if ("FC".equalsIgnoreCase(h.getOrigenTipo())) continue;
             totFc = totFc.add(h.getFacturacionFc());
             totInc = totInc.add(h.getIncrementosNd());
             totDeb = totDeb.add(h.getDebitosNc());

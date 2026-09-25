@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, AfterViewInit, HostListener } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -55,7 +55,7 @@ interface SliceDonut {
   templateUrl: './directorio-dashboard.component.html',
   styleUrl: './directorio-dashboard.component.css'
 })
-export class DirectorioDashboardComponent implements OnInit {
+export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   private directorioService = inject(DirectorioService);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
@@ -108,6 +108,7 @@ export class DirectorioDashboardComponent implements OnInit {
       }
     }
     this.cargarDatosSolapa(solapa);
+    this.actualizarAlturasSticky();
     if (solapa === 'tablero' || solapa === 'tiempos-cobranza' || solapa === 'motivos') {
       setTimeout(() => {
         window.dispatchEvent(new Event('resize'));
@@ -587,6 +588,62 @@ export class DirectorioDashboardComponent implements OnInit {
     this.cargarDashboard();
   }
 
+  ngAfterViewInit(): void {
+    this.actualizarAlturasSticky();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.actualizarAlturasSticky();
+  }
+
+  /**
+   * Mide dinámicamente la altura real de la cabecera (thead) y filas expandidas de las tablas,
+   * asignando las variables CSS correspondientes para que las filas fijas encajen a la perfección
+   * sin superposiciones ni saltos al hacer scroll vertical.
+   */
+  actualizarAlturasSticky(): void {
+    setTimeout(() => {
+      const tables = document.querySelectorAll('.table-sanatorial');
+      tables.forEach((tableEl) => {
+        const table = tableEl as HTMLElement;
+        if (table.offsetParent === null && table.offsetWidth === 0 && table.offsetHeight === 0) {
+          return;
+        }
+
+        const thead = table.querySelector('thead');
+        if (thead) {
+          const theadHeight = Math.round(thead.getBoundingClientRect().height);
+          if (theadHeight > 0) {
+            table.style.setProperty('--sticky-header-top', `${theadHeight}px`);
+          }
+        }
+
+        // Fila Nivel 1 expandida
+        const l1Expanded = table.querySelector(
+          'tr.is-expanded.tr-analista, tr.is-expanded.tr-financiador, tr.is-expanded.tr-parent-nivel1'
+        ) as HTMLElement | null;
+        if (l1Expanded) {
+          const l1Height = Math.round(l1Expanded.getBoundingClientRect().height);
+          if (l1Height > 0) {
+            table.style.setProperty('--sticky-l1-height', `${l1Height}px`);
+          }
+        }
+
+        // Fila Nivel 2 expandida
+        const l2Expanded = table.querySelector(
+          'tr.is-expanded.tr-motivo, tr.is-expanded.tr-periodo'
+        ) as HTMLElement | null;
+        if (l2Expanded) {
+          const l2Height = Math.round(l2Expanded.getBoundingClientRect().height);
+          if (l2Height > 0) {
+            table.style.setProperty('--sticky-l2-height', `${l2Height}px`);
+          }
+        }
+      });
+    }, 40);
+  }
+
   // Establece por defecto el primer y último día del mes anterior
   inicializarFechasMesAnterior(): void {
     const hoy = new Date();
@@ -635,7 +692,31 @@ export class DirectorioDashboardComponent implements OnInit {
     this.cargarDatosSolapa(this.solapaActiva, true);
   }
 
+  onFechaDesdeChange(): void {
+    if (this.fechaDesde && this.fechaHasta && this.fechaDesde > this.fechaHasta) {
+      this.fechaDesde = this.fechaHasta;
+      this.cdr.markForCheck();
+    }
+    this.aplicarFiltros();
+  }
+
+  onFechaHastaChange(): void {
+    if (this.fechaDesde && this.fechaHasta && this.fechaHasta < this.fechaDesde) {
+      this.fechaHasta = this.fechaDesde;
+      this.cdr.markForCheck();
+    }
+    this.aplicarFiltros();
+  }
+
+  validarRangoFechas(): void {
+    if (this.fechaDesde && this.fechaHasta && this.fechaHasta < this.fechaDesde) {
+      this.fechaHasta = this.fechaDesde;
+      this.cdr.markForCheck();
+    }
+  }
+
   aplicarFiltros(): void {
+    this.validarRangoFechas();
     this.cargarDashboard();
   }
 
@@ -648,6 +729,13 @@ export class DirectorioDashboardComponent implements OnInit {
         const month = parseInt(parts[1], 10) - 1;
         baseDate = new Date(year, month, 1);
       }
+    } else if (this.fechaHasta) {
+      const parts = this.fechaHasta.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        baseDate = new Date(year, month, 1);
+      }
     }
 
     const primerDiaMesAnterior = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
@@ -655,6 +743,33 @@ export class DirectorioDashboardComponent implements OnInit {
 
     this.fechaDesde = this.formatearFechaIso(primerDiaMesAnterior);
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesAnterior);
+
+    this.cargarDashboard();
+  }
+
+  irAlMesSiguiente(): void {
+    let baseDate = new Date();
+    if (this.fechaDesde) {
+      const parts = this.fechaDesde.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        baseDate = new Date(year, month, 1);
+      }
+    } else if (this.fechaHasta) {
+      const parts = this.fechaHasta.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        baseDate = new Date(year, month, 1);
+      }
+    }
+
+    const primerDiaMesSiguiente = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
+    const ultimoDiaMesSiguiente = new Date(baseDate.getFullYear(), baseDate.getMonth() + 2, 0);
+
+    this.fechaDesde = this.formatearFechaIso(primerDiaMesSiguiente);
+    this.fechaHasta = this.formatearFechaIso(ultimoDiaMesSiguiente);
 
     this.cargarDashboard();
   }
@@ -1192,6 +1307,7 @@ export class DirectorioDashboardComponent implements OnInit {
         }
         this.cargandoCuentaCorriente = false;
         this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
       },
       error: (err) => {
         console.error('Error al cargar cuenta corriente:', err);
@@ -1203,14 +1319,17 @@ export class DirectorioDashboardComponent implements OnInit {
 
   toggleFinanciador(f: CcFinanciadorDTO): void {
     f.expanded = !f.expanded;
+    this.actualizarAlturasSticky();
   }
 
   togglePeriodo(p: CcPeriodoDTO): void {
     p.expanded = !p.expanded;
+    this.actualizarAlturasSticky();
   }
 
   toggleFactura(fc: CcComprobanteDTO): void {
     fc.expanded = !fc.expanded;
+    this.actualizarAlturasSticky();
   }
 
   expandirTodosCuentaCorriente(expandir: boolean): void {
@@ -1221,6 +1340,7 @@ export class DirectorioDashboardComponent implements OnInit {
         p.comprobantes?.forEach(fc => fc.expanded = expandir);
       });
     });
+    this.actualizarAlturasSticky();
   }
 
   obtenerBadgeClase(tipo: string): string {
@@ -1307,6 +1427,7 @@ export class DirectorioDashboardComponent implements OnInit {
         }
         this.cargandoMatriz = false;
         this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
       },
       error: (err) => {
         console.error('Error al cargar matriz de recaudación:', err);
@@ -1352,6 +1473,7 @@ export class DirectorioDashboardComponent implements OnInit {
         }
         this.cargandoTrazabilidad = false;
         this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
       },
       error: (err) => {
         console.error('Error al cargar trazabilidad:', err);
@@ -1363,6 +1485,7 @@ export class DirectorioDashboardComponent implements OnInit {
 
   toggleCadena(cadena: CadenaTrazabilidadDTO): void {
     cadena.expanded = !cadena.expanded;
+    this.actualizarAlturasSticky();
   }
 
   trackByCadena(index: number, item: CadenaTrazabilidadDTO): string {
@@ -1521,6 +1644,7 @@ export class DirectorioDashboardComponent implements OnInit {
         this.filtrarBuclesLocales();
         this.cargandoBucles = false;
         this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
       },
       error: (err) => {
         console.error('Error al cargar bucles de insistencia:', err);
@@ -1617,6 +1741,7 @@ export class DirectorioDashboardComponent implements OnInit {
         this.cargandoMedicos = false;
         this.cargandoOperadores = false;
         this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
       },
       error: (err) => {
         console.error('Error al cargar desempeño operativo global:', err);
@@ -1630,6 +1755,7 @@ export class DirectorioDashboardComponent implements OnInit {
 
   toggleAnalista(analista: MetricaAnalistaDTO): void {
     analista.expanded = !analista.expanded;
+    this.actualizarAlturasSticky();
   }
 
   get listaNombresAnalistas(): string[] {
@@ -2628,10 +2754,12 @@ export class DirectorioDashboardComponent implements OnInit {
     if (orig) {
       orig.expanded = medico.expanded;
     }
+    this.actualizarAlturasSticky();
   }
 
   toggleOperador(operador: MetricaOperadorDTO): void {
     operador.expanded = !operador.expanded;
+    this.actualizarAlturasSticky();
   }
 
   toggleMotivo(motivo: DesgloseMotivoDTO): void {
@@ -2644,6 +2772,7 @@ export class DirectorioDashboardComponent implements OnInit {
         }
       }
     }
+    this.actualizarAlturasSticky();
   }
 
   trackByAnalista(index: number, item: MetricaAnalistaDTO): string {

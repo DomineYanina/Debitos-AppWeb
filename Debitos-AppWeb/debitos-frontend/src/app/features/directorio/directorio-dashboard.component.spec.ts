@@ -167,6 +167,21 @@ describe('DirectorioDashboardComponent', () => {
     expect(directorioServiceSpy.obtenerTotales).toHaveBeenCalledWith('OSDE', 'FCE', '2026-07-01', '2026-07-31');
   });
 
+  it('irAlMesSiguiente debería avanzar un mes en las fechas sin resetear los filtros de cobertura y tipoDoc', () => {
+    component.codigoCoberturaSeleccionada = 'OSDE';
+    component.tipoDocSeleccionado = 'FCE';
+    component.fechaDesde = '2026-08-01';
+    component.fechaHasta = '2026-08-31';
+
+    component.irAlMesSiguiente();
+
+    expect(component.codigoCoberturaSeleccionada).toBe('OSDE');
+    expect(component.tipoDocSeleccionado).toBe('FCE');
+    expect(component.fechaDesde).toBe('2026-09-01');
+    expect(component.fechaHasta).toBe('2026-09-30');
+    expect(directorioServiceSpy.obtenerTotales).toHaveBeenCalledWith('OSDE', 'FCE', '2026-09-01', '2026-09-30');
+  });
+
   it('formatearComprobante debería formatear correctamente con 4 y 8 dígitos con padding de ceros', () => {
     expect(component.formatearComprobante('A', 31, 1919)).toBe('A 0031-00001919');
     expect(component.formatearComprobante('B', 1, 5)).toBe('B 0001-00000005');
@@ -199,6 +214,42 @@ describe('DirectorioDashboardComponent', () => {
     const spyIrMes = vi.spyOn(component, 'irAlMesAnterior');
     component.restablecerFiltros();
     expect(spyIrMes).toHaveBeenCalled();
+  });
+
+  it('validarRangoFechas y aplicarFiltros no deberían permitir que fechaHasta sea menor a fechaDesde', () => {
+    component.fechaDesde = '2026-08-01';
+    component.fechaHasta = '2026-06-01';
+
+    component.aplicarFiltros();
+
+    expect(component.fechaHasta).toBe('2026-08-01');
+  });
+
+  it('validarRangoFechas debería mantener fechaHasta si es mayor o igual a fechaDesde', () => {
+    component.fechaDesde = '2026-08-01';
+    component.fechaHasta = '2026-08-31';
+
+    component.validarRangoFechas();
+
+    expect(component.fechaHasta).toBe('2026-08-31');
+  });
+
+  it('onFechaDesdeChange no debería permitir que fechaDesde sea mayor a fechaHasta', () => {
+    component.fechaHasta = '2026-06-30';
+    component.fechaDesde = '2026-08-01';
+
+    component.onFechaDesdeChange();
+
+    expect(component.fechaDesde).toBe('2026-06-30');
+  });
+
+  it('onFechaHastaChange no debería permitir que fechaHasta sea menor a fechaDesde', () => {
+    component.fechaDesde = '2026-08-01';
+    component.fechaHasta = '2026-06-01';
+
+    component.onFechaHastaChange();
+
+    expect(component.fechaHasta).toBe('2026-08-01');
   });
 
   it('onHoverSector debería actualizar el sector en hover', () => {
