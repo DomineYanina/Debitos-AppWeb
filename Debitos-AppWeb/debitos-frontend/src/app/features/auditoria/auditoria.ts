@@ -1854,6 +1854,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   guardarParcialmente(silencioso: boolean = false) {
+    if (this.cargando || this.guardandoSilencioso) {
+      return;
+    }
+
     if (this.idEstadoActual === 2) {
       if (!silencioso) {
         this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder guardar modificaciones.', undefined, 'peligro');

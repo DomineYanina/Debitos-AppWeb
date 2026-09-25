@@ -141,10 +141,12 @@ class DirectorioServiceTest {
 
         Cabecera fcMadre = new Cabecera();
         fcMadre.setId(1L);
+        fcMadre.setAsociadogrupo(100L);
         fcMadre.setTipo("FC");
 
         Cabecera ncHija = new Cabecera();
         ncHija.setId(2L);
+        ncHija.setAsociadogrupo(100L);
         ncHija.setTipo("NC");
         ncHija.setLetra("A");
         ncHija.setPtovta(1);
@@ -153,6 +155,7 @@ class DirectorioServiceTest {
 
         Cabecera ndHija = new Cabecera();
         ndHija.setId(3L);
+        ndHija.setAsociadogrupo(100L);
         ndHija.setTipo("ND");
         ndHija.setLetra("A");
         ndHija.setPtovta(1);
@@ -160,16 +163,18 @@ class DirectorioServiceTest {
         ndHija.setFecha(LocalDate.of(2026, 8, 15));
         ndHija.setDebe(new BigDecimal("3000.00"));
 
-        when(cabeceraRepository.findByGrupoOrAsociadogrupoOrId(100L)).thenReturn(List.of(fcMadre, ncHija, ndHija));
+        when(cabeceraRepository.findByGrupoOrAsociadogrupoOrIdIn(any())).thenReturn(List.of(fcMadre, ncHija, ndHija));
 
         NotaDeCredito ncItem = new NotaDeCredito();
+        ncItem.setCabecera(ncHija);
         ncItem.setDebitoaceptado(true);
         ncItem.setImporteDebitado(new BigDecimal("4000.00"));
-        when(notaDeCreditoRepository.findByCabecera_Id(2L)).thenReturn(List.of(ncItem));
+        when(notaDeCreditoRepository.findByCabecera_IdIn(any())).thenReturn(List.of(ncItem));
 
         NotaDeDebito ndItem = new NotaDeDebito();
+        ndItem.setCabecera(ndHija);
         ndItem.setImporterefactura(new BigDecimal("3000.00"));
-        when(notaDeDebitoRepository.findByCabecera_Id(3L)).thenReturn(List.of(ndItem));
+        when(notaDeDebitoRepository.findByCabecera_IdIn(any())).thenReturn(List.of(ndItem));
 
         List<DirectorioGrupoFacturaDTO> grupos = directorioService.obtenerGruposFacturas("OSDE", null, null, null);
 
@@ -276,6 +281,14 @@ class DirectorioServiceTest {
         assertEquals(new BigDecimal("4500.00"), fcDto.getSaldo());
         assertNotNull(fcDto.getHijos());
         assertEquals(3, fcDto.getHijos().size());
+
+        // Test con filtro de rango que coincide con 2025-10
+        List<CcFinanciadorDTO> resCoincide = directorioService.getCuentaCorrienteTresNiveles(null, null, "2025-10-01", "2025-10-31");
+        assertEquals(1, resCoincide.size());
+
+        // Test con filtro de rango que NO coincide con 2025-10 (ej. 2025-11)
+        List<CcFinanciadorDTO> resNoCoincide = directorioService.getCuentaCorrienteTresNiveles(null, null, "2025-11-01", "2025-11-30");
+        assertTrue(resNoCoincide.isEmpty());
     }
 
     @Test
@@ -373,14 +386,68 @@ class DirectorioServiceTest {
         assertNotNull(datasets);
         assertEquals(3, datasets.size());
         assertEquals("Facturación", datasets.get(0).getTituloDataset());
-        assertEquals(1, datasets.get(0).getPuntos().size());
-        assertEquals("2026-05", datasets.get(0).getPuntos().get(0).getEtiqueta());
-        assertEquals(new BigDecimal("1000000.00"), datasets.get(0).getPuntos().get(0).getValor());
+        assertEquals(12, datasets.get(0).getPuntos().size());
+        assertEquals("2026-05", datasets.get(0).getPuntos().get(11).getEtiqueta());
+        assertEquals(new BigDecimal("1000000.00"), datasets.get(0).getPuntos().get(11).getValor());
 
         assertEquals("Débitos", datasets.get(1).getTituloDataset());
-        assertEquals(new BigDecimal("50000.00"), datasets.get(1).getPuntos().get(0).getValor());
+        assertEquals(new BigDecimal("50000.00"), datasets.get(1).getPuntos().get(11).getValor());
 
         assertEquals("Cobranzas", datasets.get(2).getTituloDataset());
-        assertEquals(new BigDecimal("600000.00"), datasets.get(2).getPuntos().get(0).getValor());
+        assertEquals(new BigDecimal("600000.00"), datasets.get(2).getPuntos().get(11).getValor());
+    }
+
+    @Test
+    @DisplayName("getTiemposCobranza calcula métricas de aging y DSO con y sin filtros")
+    void testGetTiemposCobranzaConFiltros() {
+        List<Object[]> rows = new ArrayList<>();
+        // Row 1: 15 dias atraso (0 a 30 dias), saldo 1000.00
+        rows.add(new Object[]{15, new BigDecimal("1000.00")});
+        // Row 2: 45 dias atraso (31 a 60 dias), saldo 2000.00
+        rows.add(new Object[]{45, new BigDecimal("2000.00")});
+        // Row 3: 200 dias atraso (Más de 180 dias), saldo 7000.00
+        rows.add(new Object[]{200, new BigDecimal("7000.00")});
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        TiemposCobranzaDTO dto = directorioService.getTiemposCobranza("OSDE", "FC", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 8, 31));
+
+        assertNotNull(dto);
+        // Saldo total mora = 1000 + 2000 + 7000 = 10000.00
+        assertEquals(new BigDecimal("10000.00"), dto.getSaldoTotalMora());
+        // DSO = (15*1000 + 45*2000 + 200*7000) / 10000 = (15000 + 90000 + 1400000) / 10000 = 1505000 / 10000 = 151
+        assertEquals(151, dto.getDsoGlobal());
+        assertEquals(0, dto.getCobroRealPromedio());
+
+        // Verificar los 5 rangos
+        List<RangoAntiguedadDTO> detalles = dto.getDetalles();
+        assertEquals(5, detalles.size());
+
+        // 0 a 30 días
+        assertEquals("0 a 30 días", detalles.get(0).getRango());
+        assertEquals(1, detalles.get(0).getCantidadComprobantes());
+        assertEquals(new BigDecimal("1000.00"), detalles.get(0).getSaldoEnMora());
+        assertEquals(new BigDecimal("10.00"), detalles.get(0).getPorcentajeCartera());
+
+        // 31 a 60 días
+        assertEquals("31 a 60 días", detalles.get(1).getRango());
+        assertEquals(1, detalles.get(1).getCantidadComprobantes());
+        assertEquals(new BigDecimal("2000.00"), detalles.get(1).getSaldoEnMora());
+        assertEquals(new BigDecimal("20.00"), detalles.get(1).getPorcentajeCartera());
+
+        // 61 a 90 días
+        assertEquals("61 a 90 días", detalles.get(2).getRango());
+        assertEquals(0, detalles.get(2).getCantidadComprobantes());
+        assertEquals(BigDecimal.ZERO, detalles.get(2).getSaldoEnMora());
+
+        // 91 a 180 días
+        assertEquals("91 a 180 días", detalles.get(3).getRango());
+        assertEquals(0, detalles.get(3).getCantidadComprobantes());
+
+        // Más de 180 días
+        assertEquals("Más de 180 días", detalles.get(4).getRango());
+        assertEquals(1, detalles.get(4).getCantidadComprobantes());
+        assertEquals(new BigDecimal("7000.00"), detalles.get(4).getSaldoEnMora());
+        assertEquals(new BigDecimal("70.00"), detalles.get(4).getPorcentajeCartera());
     }
 }

@@ -22,12 +22,15 @@ import jakarta.persistence.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import com.debitos.backend.config.CacheConfig;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.*;
 
 @Service
@@ -57,6 +60,7 @@ public class DirectorioService {
     @Autowired
     private AmbLiquidadoRepository ambLiquidadoRepository;
 
+    @Cacheable(CacheConfig.CACHE_COBERTURAS)
     public List<DirectorioCoberturaDTO> obtenerCoberturasDisponibles() {
         String sql = """
             SELECT DISTINCT codigo_cobertura, cobertura 
@@ -77,6 +81,7 @@ public class DirectorioService {
         return lista;
     }
 
+    @Cacheable(CacheConfig.CACHE_TIPOS_DOC)
     public List<String> obtenerTiposDocumentoDisponibles() {
         String sql = """
             SELECT DISTINCT UPPER(TRIM(tipo)) 
@@ -98,8 +103,19 @@ public class DirectorioService {
         return lista;
     }
 
+    @Cacheable(CacheConfig.CACHE_TOTALES)
     public DirectorioTotalesDTO obtenerTotalesMacro(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
             SELECT 
                 -- 0. Facturación Original (FC)
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
@@ -140,10 +156,15 @@ public class DirectorioService {
                 ) AS dso_ponderado
 
             FROM cabecera c
-            WHERE c.fecha IS NOT NULL
+            LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
+            WHERE COALESCE(
+                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+                c.periodo,
+                c.fecha
+            ) IS NOT NULL
         """);
 
-        aplicarFiltrosCabecera(sql, "c", codigoCobertura, fechaDesde, fechaHasta);
+        aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fechaDesde, fechaHasta);
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
             sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
         }
@@ -196,7 +217,11 @@ public class DirectorioService {
         // Campos legados por compatibilidad
         dto.setCobranzaEfectiva(dto.getTotalCobranzas());
         dto.setDeudaNeta(dto.getSaldoPendienteReal());
-        dto.setPerdidaAsumida(dto.getTotalDebitosNc());
+        BigDecimal perdidaAsumida = debitosNc.subtract(refacturacionNd);
+        if (perdidaAsumida.compareTo(BigDecimal.ZERO) < 0) {
+            perdidaAsumida = BigDecimal.ZERO;
+        }
+        dto.setPerdidaAsumida(perdidaAsumida.setScale(2, RoundingMode.HALF_UP));
         dto.setCantidadComprobantes(cantFacturas);
 
         return dto;
@@ -214,13 +239,14 @@ public class DirectorioService {
         } else {
             sql.append(" AND (UPPER(TRIM(c.tipo)) IN ('FC', 'FCE', 'FCA', 'FAC') OR UPPER(TRIM(c.tipo)) LIKE 'FC%')");
         }
-        aplicarFiltrosCabecera(sql, "c", codigoCobertura, fechaDesde, fechaHasta);
-        sql.append(" ORDER BY c.fecha DESC, c.numero DESC LIMIT 200");
+        aplicarFiltrosCabeceraPeriodo(sql, "c", null, codigoCobertura, fechaDesde, fechaHasta);
+        sql.append(" ORDER BY COALESCE(c.periodo, c.fecha) DESC, c.fecha DESC, c.numero DESC LIMIT 200");
 
         Query query = crearQueryConFiltros(sql.toString(), codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         List<Object[]> rows = query.getResultList();
 
         List<DirectorioGrupoFacturaDTO> resultado = new ArrayList<>();
+        Set<Long> grupoIds = new HashSet<>();
 
         for (Object[] r : rows) {
             DirectorioGrupoFacturaDTO dto = new DirectorioGrupoFacturaDTO();
@@ -238,9 +264,61 @@ public class DirectorioService {
             dto.setTotalFacturado(r[10] != null ? new BigDecimal(r[10].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
             dto.setIdEstado(r[11] != null ? ((Number) r[11]).intValue() : 1);
 
-            // Obtener comprobantes derivados de este grupo
             Long idGrupo = dto.getAsociadogrupo() != null ? dto.getAsociadogrupo() : id;
-            List<Cabecera> familia = cabeceraRepository.findByGrupoOrAsociadogrupoOrId(idGrupo);
+            if (idGrupo != null) {
+                grupoIds.add(idGrupo);
+            }
+            resultado.add(dto);
+        }
+
+        // Carga BATCH de todas las familias de cabecera en una sola consulta
+        Map<Long, List<Cabecera>> familiaPorGrupo = new HashMap<>();
+        Set<Long> ncCabeceraIds = new HashSet<>();
+        Set<Long> ndCabeceraIds = new HashSet<>();
+
+        if (!grupoIds.isEmpty()) {
+            List<Cabecera> todasLasFamilias = cabeceraRepository.findByGrupoOrAsociadogrupoOrIdIn(grupoIds);
+            for (Cabecera c : todasLasFamilias) {
+                for (Long gId : grupoIds) {
+                    if (Objects.equals(c.getAsociadogrupo(), gId) || Objects.equals(c.getGrupo(), gId) || Objects.equals(c.getId(), gId)) {
+                        familiaPorGrupo.computeIfAbsent(gId, k -> new ArrayList<>()).add(c);
+                    }
+                }
+                String t = resolverTipoBase(c.getTipo());
+                if ("NC".equalsIgnoreCase(t) && c.getId() != null) {
+                    ncCabeceraIds.add(c.getId());
+                } else if ("ND".equalsIgnoreCase(t) && c.getId() != null) {
+                    ndCabeceraIds.add(c.getId());
+                }
+            }
+        }
+
+        // Carga BATCH de Notas de Crédito
+        Map<Long, List<NotaDeCredito>> ncsPorCabeceraId = new HashMap<>();
+        if (!ncCabeceraIds.isEmpty()) {
+            List<NotaDeCredito> todasNcs = notaDeCreditoRepository.findByCabecera_IdIn(ncCabeceraIds);
+            for (NotaDeCredito nc : todasNcs) {
+                if (nc.getCabecera() != null && nc.getCabecera().getId() != null) {
+                    ncsPorCabeceraId.computeIfAbsent(nc.getCabecera().getId(), k -> new ArrayList<>()).add(nc);
+                }
+            }
+        }
+
+        // Carga BATCH de Notas de Débito
+        Map<Long, List<NotaDeDebito>> ndsPorCabeceraId = new HashMap<>();
+        if (!ndCabeceraIds.isEmpty()) {
+            List<NotaDeDebito> todasNds = notaDeDebitoRepository.findByCabecera_IdIn(ndCabeceraIds);
+            for (NotaDeDebito nd : todasNds) {
+                if (nd.getCabecera() != null && nd.getCabecera().getId() != null) {
+                    ndsPorCabeceraId.computeIfAbsent(nd.getCabecera().getId(), k -> new ArrayList<>()).add(nd);
+                }
+            }
+        }
+
+        // Mapeo en memoria (0 consultas SQL adicionales)
+        for (DirectorioGrupoFacturaDTO dto : resultado) {
+            Long idGrupo = dto.getAsociadogrupo() != null ? dto.getAsociadogrupo() : dto.getId();
+            List<Cabecera> familia = familiaPorGrupo.getOrDefault(idGrupo, Collections.emptyList());
 
             List<DirectorioComprobanteDTO> derivados = new ArrayList<>();
             BigDecimal sumaAceptado = BigDecimal.ZERO;
@@ -249,7 +327,7 @@ public class DirectorioService {
             int cantRefacturaciones = 0;
 
             for (Cabecera c : familia) {
-                if (Objects.equals(c.getId(), id)) continue; // omitir la propia factura raíz
+                if (Objects.equals(c.getId(), dto.getId())) continue; // omitir la propia factura raíz
 
                 String t = resolverTipoBase(c.getTipo());
                 DirectorioComprobanteDTO derivado = new DirectorioComprobanteDTO();
@@ -262,10 +340,7 @@ public class DirectorioService {
 
                 if ("NC".equalsIgnoreCase(t)) {
                     derivado.setOrigenTipo("DEB");
-                    List<NotaDeCredito> ncs = notaDeCreditoRepository.findByCabecera_Id(c.getId());
-                    if (ncs.isEmpty() && c.getLetra() != null && c.getPtovta() != null && c.getNumero() != null) {
-                        ncs = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(c.getLetra(), c.getPtovta(), c.getNumero());
-                    }
+                    List<NotaDeCredito> ncs = ncsPorCabeceraId.getOrDefault(c.getId(), Collections.emptyList());
 
                     BigDecimal debAcep = BigDecimal.ZERO;
                     BigDecimal debNoAcep = BigDecimal.ZERO;
@@ -287,10 +362,7 @@ public class DirectorioService {
                     derivado.setOrigenTipo("REF");
                     cantRefacturaciones++;
 
-                    List<NotaDeDebito> nds = notaDeDebitoRepository.findByCabecera_Id(c.getId());
-                    if (nds.isEmpty() && c.getLetra() != null && c.getPtovta() != null && c.getNumero() != null) {
-                        nds = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(c.getLetra(), c.getPtovta(), c.getNumero());
-                    }
+                    List<NotaDeDebito> nds = ndsPorCabeceraId.getOrDefault(c.getId(), Collections.emptyList());
                     BigDecimal totalRef = nds.stream()
                             .map(NotaDeDebito::getImporterefactura)
                             .filter(Objects::nonNull)
@@ -324,8 +396,6 @@ public class DirectorioService {
             dto.setTotalDebitadoNoAceptado(sumaNoAceptado.setScale(2, RoundingMode.HALF_UP));
             dto.setTotalCobranza(sumaCobranza.setScale(2, RoundingMode.HALF_UP));
             dto.setCantidadRefacturaciones(cantRefacturaciones);
-
-            resultado.add(dto);
         }
 
         return resultado;
@@ -548,14 +618,26 @@ public class DirectorioService {
     }
 
     private void aplicarFiltrosCabecera(StringBuilder sb, String alias, String codigoCobertura, LocalDate fechaDesde, LocalDate fechaHasta) {
+        aplicarFiltrosCabeceraPeriodo(sb, alias, null, codigoCobertura, fechaDesde, fechaHasta);
+    }
+
+    private void aplicarFiltrosCabeceraPeriodo(StringBuilder sb, String aliasCabecera, String aliasFcMadre, String codigoCobertura, LocalDate fechaDesde, LocalDate fechaHasta) {
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            sb.append(" AND ").append(alias).append(".codigo_cobertura = :codigoCobertura");
+            sb.append(" AND ").append(aliasCabecera).append(".codigo_cobertura = :codigoCobertura");
         }
+        String exprPeriodo;
+        if (aliasFcMadre != null && !aliasFcMadre.trim().isEmpty()) {
+            exprPeriodo = String.format("COALESCE(CASE WHEN UPPER(TRIM(%s.tipo)) IN ('FC','FAC','FCE','FCA') THEN %s.periodo ELSE %s.periodo END, %s.periodo, %s.fecha)",
+                    aliasCabecera, aliasCabecera, aliasFcMadre, aliasCabecera, aliasCabecera);
+        } else {
+            exprPeriodo = String.format("COALESCE(%s.periodo, %s.fecha)", aliasCabecera, aliasCabecera);
+        }
+
         if (fechaDesde != null) {
-            sb.append(" AND ").append(alias).append(".fecha >= :fechaDesde");
+            sb.append(" AND ").append(exprPeriodo).append(" >= :fechaDesde");
         }
         if (fechaHasta != null) {
-            sb.append(" AND ").append(alias).append(".fecha <= :fechaHasta");
+            sb.append(" AND ").append(exprPeriodo).append(" <= :fechaHasta");
         }
     }
 
@@ -610,8 +692,19 @@ public class DirectorioService {
         return obtenerBalanceFinanciero(null, null, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_BALANCE)
     public List<BalanceFinanciadorDTO> obtenerBalanceFinanciero(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
             SELECT 
                 COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
@@ -634,10 +727,15 @@ public class DirectorioService {
                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
                 ) AS saldo_pendiente
             FROM cabecera c
-            WHERE c.fecha IS NOT NULL
+            LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
+            WHERE COALESCE(
+                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+                c.periodo,
+                c.fecha
+            ) IS NOT NULL
         """);
 
-        aplicarFiltrosCabecera(sql, "c", codigoCobertura, fechaDesde, fechaHasta);
+        aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fechaDesde, fechaHasta);
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
             sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
         }
@@ -679,8 +777,19 @@ public class DirectorioService {
         return obtenerDistribucionCarteraDonut(null, null, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_DONUT)
     public List<PuntoDonutDTO> obtenerDistribucionCarteraDonut(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         StringBuilder sql = new StringBuilder("""
+            WITH fc_madre AS (
+                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
+                    COALESCE(asociadogrupo, grupo) AS gid,
+                    periodo,
+                    fecha
+                FROM cabecera
+                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
+                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+            )
             SELECT 
                 COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
                 (
@@ -690,10 +799,15 @@ public class DirectorioService {
                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
                 ) AS saldo
             FROM cabecera c
-            WHERE c.fecha IS NOT NULL
+            LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
+            WHERE COALESCE(
+                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END,
+                c.periodo,
+                c.fecha
+            ) IS NOT NULL
         """);
 
-        aplicarFiltrosCabecera(sql, "c", codigoCobertura, fechaDesde, fechaHasta);
+        aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fechaDesde, fechaHasta);
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
             sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
         }
@@ -727,6 +841,7 @@ public class DirectorioService {
         return getDistribucionCartera(null, null, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_DISTRIBUCION)
     public DatasetGraficoDTO getDistribucionCartera(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         List<PuntoDonutDTO> donuts = obtenerDistribucionCarteraDonut(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         List<PuntoGraficoDTO> puntos = new ArrayList<>();
@@ -744,6 +859,7 @@ public class DirectorioService {
         return getEvolucionMensual(null, null, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_EVOLUCION)
     public List<DatasetGraficoDTO> getEvolucionMensual(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         LocalDate fDesdeEfectiva = fechaDesde;
         LocalDate fHastaEfectiva = fechaHasta;
@@ -787,17 +903,9 @@ public class DirectorioService {
             ) IS NOT NULL
         """);
 
-        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            sql.append(" AND c.codigo_cobertura = :codigoCobertura");
-        }
+        aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fDesdeEfectiva, fHastaEfectiva);
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
             sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
-        }
-        if (fDesdeEfectiva != null) {
-            sql.append(" AND COALESCE(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END, c.periodo, c.fecha) >= :fechaDesde");
-        }
-        if (fHastaEfectiva != null) {
-            sql.append(" AND COALESCE(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.periodo ELSE fc.periodo END, c.periodo, c.fecha) <= :fechaHasta");
         }
 
         sql.append("""
@@ -853,6 +961,7 @@ public class DirectorioService {
      * Devuelve un único DatasetGraficoDTO con título "Saldo en Mora".
      * Cada PuntoGraficoDTO: etiqueta=rango ('0-30 días', etc.), valor=saldo.
      */
+    @Cacheable(CacheConfig.CACHE_AGING)
     public DatasetGraficoDTO getAgingFinanciero() {
         List<Object[]> rows = cabeceraRepository.obtenerAgingFinanciero();
         List<PuntoGraficoDTO> puntos = new ArrayList<>();
@@ -871,7 +980,71 @@ public class DirectorioService {
      * saldo total en mora y desglose en 5 rangos de antigüedad.
      */
     public TiemposCobranzaDTO getTiemposCobranza() {
-        List<Object[]> rows = cabeceraRepository.obtenerDetalleFacturasPendientes();
+        return getTiemposCobranza(null, null, null, null);
+    }
+
+    @Cacheable(CacheConfig.CACHE_TIEMPOS)
+    public TiemposCobranzaDTO getTiemposCobranza(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
+        String nombreCobertura = null;
+        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
+            for (DirectorioCoberturaDTO c : obtenerCoberturasDisponibles()) {
+                if (c.getCodigo().equalsIgnoreCase(codigoCobertura.trim())) {
+                    nombreCobertura = c.getNombre() != null ? c.getNombre().trim().toLowerCase() : null;
+                    break;
+                }
+            }
+        }
+
+        StringBuilder sql = new StringBuilder("""
+            SELECT 
+              CAST(CURRENT_DATE - c.fecha AS INTEGER) AS dias_atraso,
+              (c.debe - COALESCE(c.haber, 0)) AS saldo
+            FROM cabecera c
+            WHERE (c.debe - COALESCE(c.haber, 0)) > 0
+              AND c.fecha IS NOT NULL
+        """);
+
+        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
+            sql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
+        } else {
+            sql.append(" AND UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')");
+        }
+
+        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
+            if (nombreCobertura != null) {
+                sql.append(" AND (c.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c.cobertura)) = :nombreCob)");
+            } else {
+                sql.append(" AND c.codigo_cobertura = :codigoCobertura");
+            }
+        }
+
+        String exprPeriodo = "COALESCE(c.periodo, c.fecha)";
+        if (fechaDesde != null) {
+            sql.append(" AND ").append(exprPeriodo).append(" >= :fechaDesde");
+        }
+        if (fechaHasta != null) {
+            sql.append(" AND ").append(exprPeriodo).append(" <= :fechaHasta");
+        }
+
+        Query q = entityManager.createNativeQuery(sql.toString());
+        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
+            q.setParameter("tipoDoc", tipoDoc.trim().toUpperCase());
+        }
+        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
+            q.setParameter("codigoCobertura", codigoCobertura.trim());
+            if (nombreCobertura != null) {
+                q.setParameter("nombreCob", nombreCobertura);
+            }
+        }
+        if (fechaDesde != null) {
+            q.setParameter("fechaDesde", fechaDesde);
+        }
+        if (fechaHasta != null) {
+            q.setParameter("fechaHasta", fechaHasta);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = q.getResultList();
 
         String[] nombresRangos = {
             "0 a 30 días",
@@ -892,7 +1065,7 @@ public class DirectorioService {
 
         for (Object[] row : rows) {
             if (row == null || row[0] == null || row[1] == null) continue;
-            int dias = ((Number) row[0]).intValue();
+            int dias = Math.max(0, ((Number) row[0]).intValue());
             BigDecimal saldo = new BigDecimal(row[1].toString()).setScale(2, RoundingMode.HALF_UP);
 
             if (saldo.compareTo(BigDecimal.ZERO) <= 0) continue;
@@ -959,6 +1132,7 @@ public class DirectorioService {
         return getParetoMotivos(null, null, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_MOTIVOS)
     public List<DatasetGraficoDTO> getParetoMotivos(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         String nombreCobertura = null;
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
@@ -1069,9 +1243,29 @@ public class DirectorioService {
      * Agrupa y calcula los saldos y acumuladores mediante Java Streams (Collectors.groupingBy).
      */
     public List<CcFinanciadorDTO> getCuentaCorrienteTresNiveles(String financiadorFiltro, String periodoFiltro) {
+        return getCuentaCorrienteTresNiveles(financiadorFiltro, periodoFiltro, null, null);
+    }
+
+    public List<CcFinanciadorDTO> getCuentaCorrienteTresNiveles(String financiadorFiltro, String periodoFiltro, String fechaDesde, String fechaHasta) {
         List<Cabecera> cabeceras = cabeceraRepository.findCabecerasParaCuentaCorriente();
         Set<Long> ndHijosDeNc = new HashSet<>(cabeceraRepository.findIdsNdHijosDeNc());
         DateTimeFormatter periodoFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+
+        YearMonth ymDesde = null;
+        if (fechaDesde != null && !fechaDesde.trim().isEmpty()) {
+            String fd = fechaDesde.trim();
+            try {
+                ymDesde = fd.length() >= 7 ? YearMonth.parse(fd.substring(0, 7)) : YearMonth.parse(fd);
+            } catch (Exception ignored) {}
+        }
+
+        YearMonth ymHasta = null;
+        if (fechaHasta != null && !fechaHasta.trim().isEmpty()) {
+            String fh = fechaHasta.trim();
+            try {
+                ymHasta = fh.length() >= 7 ? YearMonth.parse(fh.substring(0, 7)) : YearMonth.parse(fh);
+            } catch (Exception ignored) {}
+        }
 
         // 1. Agrupar comprobantes por Familia/Grupo (asociadogrupo / grupo / asociado / id)
         Map<Long, List<Cabecera>> familias = cabeceras.stream()
@@ -1141,17 +1335,27 @@ public class DirectorioService {
                 }
             }
 
-            // Período: tomado de la fecha de la FC raíz (o su campo periodo)
-            LocalDate fechaPeriodo = fcRaiz.getFecha() != null ? fcRaiz.getFecha() : fcRaiz.getPeriodo();
+            // Período: tomado de la FC raíz (priorizando el campo periodo, luego fecha)
+            LocalDate fechaPeriodo = fcRaiz.getPeriodo() != null ? fcRaiz.getPeriodo() : fcRaiz.getFecha();
             if (fechaPeriodo == null) {
                 for (Cabecera m : miembros) {
-                    if (m.getFecha() != null) {
-                        fechaPeriodo = m.getFecha();
+                    if (m.getPeriodo() != null) {
+                        fechaPeriodo = m.getPeriodo();
                         break;
+                    } else if (m.getFecha() != null) {
+                        fechaPeriodo = m.getFecha();
                     }
                 }
             }
             if (fechaPeriodo == null) continue;
+
+            YearMonth ymPeriodo = YearMonth.from(fechaPeriodo);
+            if (ymDesde != null && ymPeriodo.isBefore(ymDesde)) {
+                continue;
+            }
+            if (ymHasta != null && ymPeriodo.isAfter(ymHasta)) {
+                continue;
+            }
 
             String periodo = fechaPeriodo.format(periodoFormatter);
             if (periodoFiltro != null && !periodoFiltro.trim().isEmpty()) {
@@ -1237,6 +1441,10 @@ public class DirectorioService {
 
             // Ordenar períodos cronológicamente inverso (más reciente primero)
             periodosDTO.sort(Comparator.comparing(CcPeriodoDTO::getPeriodo, Comparator.nullsLast(Comparator.reverseOrder())));
+
+            if (periodosDTO.isEmpty()) {
+                continue;
+            }
 
             // Totalizadores Nivel 1 (Financiador)
             BigDecimal finFacturacion = periodosDTO.stream()
@@ -1561,6 +1769,7 @@ public class DirectorioService {
         return getMatrizRecaudacion(anioObjetivo, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_MATRIZ)
     public MatrizRecaudacionDTO getMatrizRecaudacion(Integer anioObjetivo, String financiadorFiltro) {
         int anio = anioObjetivo != null ? anioObjetivo : LocalDate.now().getYear();
 
@@ -1653,8 +1862,28 @@ public class DirectorioService {
         return getTrazabilidad(financiadorFiltro, medicoFiltro, periodoFiltro, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_TRAZABILIDAD)
     public List<CadenaTrazabilidadDTO> getTrazabilidad(String financiadorFiltro, String medicoFiltro, String periodoFiltro, String fechaDesde, String fechaHasta) {
-        List<Cabecera> comprobantes = cabeceraRepository.findComprobantesParaTrazabilidad();
+        LocalDate fDesde = null;
+        LocalDate fHasta = null;
+        if (fechaDesde != null && !fechaDesde.trim().isEmpty()) {
+            try { fDesde = LocalDate.parse(fechaDesde.trim()); } catch (Exception ignored) {}
+        }
+        if (fechaHasta != null && !fechaHasta.trim().isEmpty()) {
+            try { fHasta = LocalDate.parse(fechaHasta.trim()); } catch (Exception ignored) {}
+        }
+
+        List<Cabecera> comprobantes;
+        if (fDesde != null || fHasta != null) {
+            List<Long> idsGrupos = cabeceraRepository.findIdsGruposFacturasPorRangoFechas(fDesde, fHasta);
+            if (idsGrupos == null || idsGrupos.isEmpty()) {
+                return Collections.emptyList();
+            }
+            comprobantes = cabeceraRepository.findByGrupoOrAsociadogrupoOrIdIn(idsGrupos);
+        } else {
+            comprobantes = cabeceraRepository.findComprobantesParaTrazabilidad();
+        }
+
         if (comprobantes == null || comprobantes.isEmpty()) {
             return Collections.emptyList();
         }
@@ -1787,21 +2016,11 @@ public class DirectorioService {
             }
 
             // Filtro por Rango de Fechas de la Factura Origen (fechaDesde y fechaHasta)
-            if (fechaDesde != null && !fechaDesde.trim().isEmpty()) {
-                try {
-                    LocalDate fDesde = LocalDate.parse(fechaDesde.trim());
-                    if (fcRaiz.getFecha() == null || fcRaiz.getFecha().isBefore(fDesde)) {
-                        continue;
-                    }
-                } catch (Exception ignored) {}
+            if (fDesde != null && (fcRaiz.getFecha() == null || fcRaiz.getFecha().isBefore(fDesde))) {
+                continue;
             }
-            if (fechaHasta != null && !fechaHasta.trim().isEmpty()) {
-                try {
-                    LocalDate fHasta = LocalDate.parse(fechaHasta.trim());
-                    if (fcRaiz.getFecha() == null || fcRaiz.getFecha().isAfter(fHasta)) {
-                        continue;
-                    }
-                } catch (Exception ignored) {}
+            if (fHasta != null && (fcRaiz.getFecha() == null || fcRaiz.getFecha().isAfter(fHasta))) {
+                continue;
             }
 
             // Filtro por Médico
@@ -2209,9 +2428,12 @@ public class DirectorioService {
         return getDesempenoGlobal(periodoFiltro, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_DESEMPENO)
     public DesempenoGlobalDTO getDesempenoGlobal(String periodoFiltro, LocalDate fechaDesde, LocalDate fechaHasta) {
+        String fDesdeStr = fechaDesde != null ? fechaDesde.toString() : null;
+        String fHastaStr = fechaHasta != null ? fechaHasta.toString() : null;
         List<MetricaAnalistaDTO> analistas = getMetricasAnalistas(periodoFiltro, fechaDesde, fechaHasta);
-        List<CadenaTrazabilidadDTO> cadenas = getTrazabilidad(null, null, periodoFiltro);
+        List<CadenaTrazabilidadDTO> cadenas = getTrazabilidad(null, null, periodoFiltro, fDesdeStr, fHastaStr);
         List<MetricaMedicoDTO> medicos = (cadenas != null && !cadenas.isEmpty()) ? procesarMetricasMedicos(cadenas) : Collections.emptyList();
         List<MetricaOperadorDTO> operadores = (cadenas != null && !cadenas.isEmpty()) ? procesarMetricasOperadores(cadenas) : Collections.emptyList();
 
@@ -2234,6 +2456,7 @@ public class DirectorioService {
         return getMetricasAnalistas(periodoFiltro, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_ANALISTAS)
     public List<MetricaAnalistaDTO> getMetricasAnalistas(String periodoFiltro, LocalDate fechaDesde, LocalDate fechaHasta) {
         StringBuilder sql = new StringBuilder("""
             WITH items AS (
@@ -2580,6 +2803,7 @@ public class DirectorioService {
         return getBuclesInsistencia(financiador, medico, periodo, null, null);
     }
 
+    @Cacheable(CacheConfig.CACHE_BUCLES)
     public List<CadenaTrazabilidadDTO> getBuclesInsistencia(String financiador, String medico, String periodo, String fechaDesde, String fechaHasta) {
         List<CadenaTrazabilidadDTO> todasLasCadenas = getTrazabilidad(financiador, medico, periodo, fechaDesde, fechaHasta);
 

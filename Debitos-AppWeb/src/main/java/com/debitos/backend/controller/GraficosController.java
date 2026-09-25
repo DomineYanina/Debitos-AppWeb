@@ -132,8 +132,12 @@ public class GraficosController {
      * saldo total en mora y el detalle por rango de antigüedad).
      */
     @GetMapping("/tiempos-cobranza")
-    public ResponseEntity<TiemposCobranzaDTO> getTiemposCobranza() {
-        TiemposCobranzaDTO dto = directorioService.getTiemposCobranza();
+    public ResponseEntity<TiemposCobranzaDTO> getTiemposCobranza(
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) String tipoDoc,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        TiemposCobranzaDTO dto = directorioService.getTiemposCobranza(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         return ResponseEntity.ok(dto);
     }
 
@@ -176,8 +180,10 @@ public class GraficosController {
     @GetMapping("/cuenta-corriente")
     public ResponseEntity<List<CcFinanciadorDTO>> getCuentaCorriente(
             @RequestParam(required = false) String financiador,
-            @RequestParam(required = false) String periodo) {
-        List<CcFinanciadorDTO> resultado = directorioService.getCuentaCorrienteTresNiveles(financiador, periodo);
+            @RequestParam(required = false) String periodo,
+            @RequestParam(required = false) String fechaDesde,
+            @RequestParam(required = false) String fechaHasta) {
+        List<CcFinanciadorDTO> resultado = directorioService.getCuentaCorrienteTresNiveles(financiador, periodo, fechaDesde, fechaHasta);
         return ResponseEntity.ok(resultado);
     }
 

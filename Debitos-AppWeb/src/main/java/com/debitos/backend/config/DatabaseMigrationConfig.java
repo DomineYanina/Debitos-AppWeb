@@ -45,6 +45,34 @@ public class DatabaseMigrationConfig {
             } catch (Exception e) {
                 log.debug("Aviso migración período en recibos de cabecera: {}", e.getMessage());
             }
+
+            // Creación de índices estratégicos para alto rendimiento y concurrencia
+            String[] indices = {
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_tipo_fecha ON cabecera (tipo, fecha)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_asociadogrupo ON cabecera (asociadogrupo)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_grupo ON cabecera (grupo)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_asociado ON cabecera (asociado)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_codigo_cobertura ON cabecera (codigo_cobertura)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_periodo ON cabecera (periodo)",
+                "CREATE INDEX IF NOT EXISTS idx_notadecredito_idcabecera ON notadecredito (idcabecera)",
+                "CREATE INDEX IF NOT EXISTS idx_notadecredito_id_prestacion ON notadecredito (id_prestacion)",
+                "CREATE INDEX IF NOT EXISTS idx_notadecredito_id_notadedebito ON notadecredito (id_notadedebito)",
+                "CREATE INDEX IF NOT EXISTS idx_notadedebito_idcabecera ON notadedebito (idcabecera)",
+                "CREATE INDEX IF NOT EXISTS idx_notadedebito_id_prestacion ON notadedebito (id_prestacion)",
+                "CREATE INDEX IF NOT EXISTS idx_notadedebito_id_notadecredito ON notadedebito (id_notadecredito)",
+                "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idcabecera ON amb_liquidado (idcabecera)",
+                "CREATE INDEX IF NOT EXISTS idx_nd_ajustedeiva_idcabecera ON nd_ajustedeiva (idcabecera)",
+                "CREATE INDEX IF NOT EXISTS idx_nc_ajustedeiva_idcabecera ON nc_ajustedeiva (idcabecera)"
+            };
+
+            for (String sqlIndex : indices) {
+                try {
+                    jdbcTemplate.execute(sqlIndex);
+                } catch (Exception e) {
+                    log.debug("Aviso creación de índice (puede que la tabla aún no exista): {}", e.getMessage());
+                }
+            }
+            log.info("Verificación y creación de índices estratégicos de rendimiento completada.");
         };
     }
 }

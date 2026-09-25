@@ -65,15 +65,21 @@
 
     <!-- Barra de Filtros -->
     <div class="filter-card">
-      <div class="filter-group" [class.filter-group-disabled]="solapaActiva === 'analistas' || solapaActiva === 'medicos'">
+      <div class="filter-group" [class.filter-group-disabled]="solapaActiva === 'analistas'">
         <label for="select-cobertura">
-          Institución / Cobertura
-          <span *ngIf="solapaActiva === 'analistas' || solapaActiva === 'medicos'" class="badge-disabled-hint">(No aplicable)</span>
+          <span>Institución / Cobertura</span>
+          <span *ngIf="solapaActiva === 'analistas'" class="badge-disabled-hint">(No aplicable)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-wide">
+              <strong>Filtro de Financiador:</strong> Filtra todas las métricas por Obra Social, Prepaga o Financiador. En la solapa Analistas se deshabilita para contemplar la totalidad de prestaciones.
+            </span>
+          </span>
         </label>
         <select id="select-cobertura" class="form-control select-custom" [(ngModel)]="codigoCoberturaSeleccionada"
           (change)="aplicarFiltros()"
-          [attr.disabled]="(solapaActiva === 'analistas' || solapaActiva === 'medicos') ? '' : null"
-          [title]="(solapaActiva === 'analistas' || solapaActiva === 'medicos') ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Institución / Cobertura'">
+          [attr.disabled]="solapaActiva === 'analistas' ? '' : null"
+          [title]="solapaActiva === 'analistas' ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Institución / Cobertura'">
           <option value="TODAS">-- Todas las Instituciones --</option>
           <option *ngFor="let cob of coberturasVisibles" [value]="cob.codigo">
             {{ cob.nombre }} ({{ cob.codigo }})
@@ -81,15 +87,22 @@
         </select>
       </div>
 
-      <div class="filter-group" [class.filter-group-disabled]="solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos'">
+      <div class="filter-group" [class.filter-group-disabled]="esFiltroTipoDocDeshabilitado">
         <label for="select-tipo-doc">
-          Tipo de Comprobante
-          <span *ngIf="solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos'" class="badge-disabled-hint">(No aplicable)</span>
+          <span>Tipo de Comprobante</span>
+          <span *ngIf="esFiltroTipoDocDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-wide">
+              <strong>Filtro por Tipo:</strong> Permite segmentar por Facturas (FC), Débitos (NC), Refacturaciones/Incrementos (ND) o Cobranzas (RC). En Tiempos de Cobranza y Matriz de Cobranzas está deshabilitado porque procesan tipos específicos (Facturas impagas y Recibos respectivamente).
+            </span>
+          </span>
         </label>
         <select id="select-tipo-doc" class="form-control select-custom" [(ngModel)]="tipoDocSeleccionado"
           (change)="aplicarFiltros()"
-          [attr.disabled]="(solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos') ? '' : null"
-          [title]="(solapaActiva === 'analistas' || solapaActiva === 'bucles' || solapaActiva === 'medicos') ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Tipo de Comprobante'">
+          [disabled]="esFiltroTipoDocDeshabilitado"
+          [attr.disabled]="esFiltroTipoDocDeshabilitado ? '' : null"
+          [title]="esFiltroTipoDocDeshabilitado ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por Tipo de Comprobante'">
           <option value="TODOS">-- Todos los Tipos --</option>
           <option *ngFor="let tipo of tiposDocumento" [value]="tipo">
             {{ tipo }}
@@ -97,22 +110,43 @@
         </select>
       </div>
 
-      <div class="filter-group">
-        <label for="fecha-desde">Fecha Desde</label>
-        <input type="date" id="fecha-desde" class="form-control" [(ngModel)]="fechaDesde" (change)="aplicarFiltros()">
+      <div class="filter-group" [class.filter-group-disabled]="esFiltroFechaDeshabilitado">
+        <label for="fecha-desde">
+          <span>{{ etiquetaFechaDesde }}</span>
+          <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img" aria-label="Información del filtro">ℹ</span>
+            <span class="filtro-tooltip-popup">{{ tooltipFiltroFecha }}</span>
+          </span>
+        </label>
+        <input type="date" id="fecha-desde" class="form-control" [(ngModel)]="fechaDesde" (change)="aplicarFiltros()"
+          [disabled]="esFiltroFechaDeshabilitado"
+          [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
+          [title]="tooltipFiltroFecha">
       </div>
 
-      <div class="filter-group">
-        <label for="fecha-hasta">Fecha Hasta</label>
-        <input type="date" id="fecha-hasta" class="form-control" [(ngModel)]="fechaHasta" (change)="aplicarFiltros()">
+      <div class="filter-group" [class.filter-group-disabled]="esFiltroFechaDeshabilitado">
+        <label for="fecha-hasta">
+          <span>{{ etiquetaFechaHasta }}</span>
+          <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img" aria-label="Información del filtro">ℹ</span>
+            <span class="filtro-tooltip-popup">{{ tooltipFiltroFecha }}</span>
+          </span>
+        </label>
+        <input type="date" id="fecha-hasta" class="form-control" [(ngModel)]="fechaHasta" (change)="aplicarFiltros()"
+          [disabled]="esFiltroFechaDeshabilitado"
+          [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
+          [title]="tooltipFiltroFecha">
       </div>
 
       <div class="filter-actions">
-        <button type="button" class="btn btn-primary" (click)="aplicarFiltros()" title="Aplicar filtros de búsqueda">
+        <button type="button" class="btn btn-primary" (click)="aplicarFiltros()" title="Aplica los filtros de cobertura, tipo y fechas a todos los componentes del tablero">
           <span class="icon">🔍</span> Filtrar
         </button>
         <button type="button" class="btn btn-secondary" (click)="irAlMesAnterior()"
-          title="Ver mes anterior manteniendo filtros">
+          [disabled]="esFiltroFechaDeshabilitado"
+          [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : 'Retrocede un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados'">
           <span class="icon">↺</span> Mes Anterior
         </button>
       </div>
@@ -130,6 +164,12 @@
       <div class="kpi-card card-facturacion-fc">
         <div class="kpi-header">
           <span class="kpi-title">FACTURACIÓN ORIGINAL (FC)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Devengado Bruto Inicial:</strong> Suma total de las Facturas Madre emitidas (debe de FC/FAC/FCE/FCA) antes de la aplicación de débitos y cobranzas.
+            </span>
+          </span>
         </div>
         <div class="kpi-value kpi-val-fc">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalFacturado) }}</span>
@@ -144,6 +184,12 @@
       <div class="kpi-card card-incrementos-nd">
         <div class="kpi-header">
           <span class="kpi-title">INCREMENTOS (ND)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Ajustes Positivos Directos:</strong> Notas de Débito directas no originadas por reclamos de débitos (ajustes de aranceles, recargos o intereses). Incrementan el saldo exigible.
+            </span>
+          </span>
         </div>
         <div class="kpi-value kpi-val-nd">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalIncrementosNd) }}</span>
@@ -158,6 +204,12 @@
       <div class="kpi-card card-debitos-nc">
         <div class="kpi-header">
           <span class="kpi-title">DÉBITOS RECIBIDOS (NC)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Quitas de Auditoría:</strong> Total debitado por los financiadores mediante Notas de Crédito recibidas o aceptadas. Descuenta del saldo de facturación original.
+            </span>
+          </span>
         </div>
         <div class="kpi-value kpi-val-nc">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalDebitosNc) }}</span>
@@ -172,13 +224,20 @@
       <div class="kpi-card card-refacturacion-nd">
         <div class="kpi-header">
           <span class="kpi-title">REFACTURACIÓN (ND-NC)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Recupero de Débitos:</strong> Notas de Débito emitidas en respuesta a débitos recibidos de auditoría médica.<br><br>
+              <strong>Tasa de Recupero:</strong> (Refacturación / Débitos NC) × 100
+            </span>
+          </span>
         </div>
         <div class="kpi-value kpi-val-ref">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalRefacturacionNd) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
         <div class="kpi-footer-simple">
-          <span class="kpi-desc">Recupero: {{ (totales.tasaRecupero || 0) | number:'1.1-1' }}%</span>
+          <span class="kpi-desc" title="Porcentaje recuperado mediante refacturación sobre el total debitado">Recupero: {{ (totales.tasaRecupero || 0) | number:'1.1-1' }}%</span>
         </div>
       </div>
 
@@ -186,13 +245,20 @@
       <div class="kpi-card card-cobranzas-rc">
         <div class="kpi-header">
           <span class="kpi-title">COBRANZAS (RC)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Fondos Ingresados:</strong> Cobranzas efectivamente percibidas mediante Recibos (RC, RCA, RCB, OP).<br><br>
+              <strong>Efectividad de Cobro:</strong> (Cobranzas / (Facturación + Incrementos)) × 100
+            </span>
+          </span>
         </div>
         <div class="kpi-value kpi-val-rc">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalCobranzas) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
         <div class="kpi-footer-simple">
-          <span class="kpi-desc">Efectividad: {{ (totales.efectividadCobro || 0) | number:'1.1-1' }}%</span>
+          <span class="kpi-desc" title="Porcentaje de cobranza efectiva sobre el total facturado e incrementado">Efectividad: {{ (totales.efectividadCobro || 0) | number:'1.1-1' }}%</span>
         </div>
       </div>
 
@@ -200,13 +266,21 @@
       <div class="kpi-card card-saldo-real">
         <div class="kpi-header">
           <span class="kpi-title">SALDO PENDIENTE REAL</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Deuda Neta Exigible:</strong><br>
+              Facturación + Incrementos + Refacturación - Débitos - Cobranzas.<br><br>
+              <strong>DSO Ponderado:</strong> Días promedio ponderados de atraso en cobrar la cartera.
+            </span>
+          </span>
         </div>
         <div class="kpi-value kpi-val-saldo">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.saldoPendienteReal) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
         <div class="kpi-footer-simple">
-          <span class="kpi-desc">DSO Ponderado: {{ totales.dsoPonderadoDias }} días</span>
+          <span class="kpi-desc" title="Días promedio ponderados de cobro en la cartera de facturas pendientes">DSO Ponderado: {{ totales.dsoPonderadoDias }} días</span>
         </div>
       </div>
     </section>
@@ -221,12 +295,20 @@
             <div class="grafico-title-group">
               <span class="grafico-icon">📈</span>
               <div>
-                <h3 class="grafico-title">Evolución Mensual</h3>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h3 class="grafico-title">Evolución Mensual</h3>
+                  <span class="filtro-info-wrapper">
+                    <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                    <span class="filtro-tooltip-popup tooltip-wide">
+                      <strong>Evolución de Flujos:</strong> Correlación cronológica entre Facturación FC (azul), Débitos Recibidos NC (rojo) y Cobranzas RC (verde) imputados al período de atención de la Factura Madre.
+                    </span>
+                  </span>
+                </div>
                 <p class="grafico-subtitle">Facturación FC · Débitos Recibidos NC · Cobranzas RC</p>
               </div>
             </div>
             <div class="header-badge-container">
-              <span class="badge-cabeceras" title="Universo total de comprobantes íntegro y mapeado al 100%">
+              <span class="badge-cabeceras" title="Validación Contable: El 100% de los comprobantes del período están validados y vinculados en la base de datos sin registros huérfanos.">
                 <span class="badge-dot">●</span> Cabeceras 100%
               </span>
             </div>
@@ -255,7 +337,15 @@
             <div class="grafico-title-group">
               <span class="grafico-icon">🍩</span>
               <div>
-                <h3 class="grafico-title">Distribución de Cartera por Financiador</h3>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <h3 class="grafico-title">Distribución de Cartera por Financiador</h3>
+                  <span class="filtro-info-wrapper">
+                    <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                    <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+                      <strong>Participación en Deuda:</strong> Proporción del saldo total pendiente de cobro distribuida por obra social o prepaga (solo financiadores con deuda activa > $0).
+                    </span>
+                  </span>
+                </div>
                 <p class="grafico-subtitle">Saldo pendiente de cobro (Saldos > $0)</p>
               </div>
             </div>
@@ -286,7 +376,15 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">Resumen de Cartera y Balance Financiero</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">Resumen de Cartera y Balance Financiero</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Consolidado por Financiador:</strong> Desglose aritmético donde Débitos (NC) y Cobranzas (RC) descuentan de la Facturación e Incrementos para determinar el Saldo Pendiente exacto de cada obra social.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">Consolidado por financiador: Facturación, Incrementos, Débitos, Refacturaciones y Cobranzas</p>
           </div>
         </div>
@@ -351,14 +449,22 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">Cuenta Corriente a 3 Niveles</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">Cuenta Corriente a 3 Niveles</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Jerarquía Contable:</strong> Desglose en 3 niveles: <em>Nivel 1 (Financiador)</em> ➔ <em>Nivel 2 (Período mensual de atención)</em> ➔ <em>Nivel 3 (Factura Madre y comprobantes asociados: NC, ND, RC)</em>. Permite auditar el saldo vivo línea por línea.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">Estructura jerárquica: Financiador ➔ Período ➔ Comprobantes detallados con saldos y estados de refacturación.</p>
           </div>
           <div class="grid-tools">
-            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(true)">
+            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(true)" title="Despliega todos los niveles jerárquicos (Financiadores, Períodos y Comprobantes)">
               [+] Expandir Todo
             </button>
-            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)">
+            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)" title="Colapsa todos los niveles jerárquicos para una vista resumida">
               [-] Contraer Todo
             </button>
           </div>
@@ -480,7 +586,7 @@
                               {{ fc.expanded ? '▼' : '▶' }}
                             </button>
                             <span *ngIf="!fc.hijos || fc.hijos.length === 0" class="tree-bullet">•</span>
-                            <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(fc.tipo)">{{ fc.tipo }}</span>
+                            <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(fc.tipo)" [title]="'Tipo de comprobante: ' + fc.tipo">{{ fc.tipo }}</span>
                             <strong class="comprobante-numero">{{ fc.comprobante }}</strong>
                           </td>
                           <td class="text-center text-fecha">
@@ -511,7 +617,7 @@
                           <tr *ngFor="let h of fc.hijos" class="tr-comprobante-hijo">
                             <td class="td-tree-node td-comprobante-hijo-node" [style.padding-left.px]="74 + ((h.nivel || 1) - 1) * 25">
                               <span class="tree-branch">└─</span>
-                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)">{{ h.tipo }}</span>
+                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)" [title]="'Comprobante hijo asociado: ' + h.tipo">{{ h.tipo }}</span>
                               <strong class="comprobante-numero">{{ h.comprobante }}</strong>
                             </td>
                             <td class="text-center text-fecha">
@@ -563,7 +669,15 @@
         <!-- Columna 1: Tarjeta KPI DSO -->
         <div class="tiempos-box kpi-dso-box">
           <div>
-            <div class="kpi-dso-title">DSO GLOBAL PONDERADO POR MONTO</div>
+            <div class="kpi-dso-title" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>DSO GLOBAL PONDERADO POR MONTO</span>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
+                  <strong>Days Sales Outstanding (DSO):</strong> Plazo promedio ponderado por el importe adeudado que transcurre desde la emisión de las facturas hasta la fecha actual para las facturas aún impagas.
+                </span>
+              </span>
+            </div>
             <div class="kpi-dso-main">
               <div class="kpi-dso-val">{{ tiemposCobranzaDatos?.dsoGlobal ?? 0 }}</div>
               <p class="kpi-dso-sub">Días promedio ponderados de atraso en cartera de facturas pendientes.</p>
@@ -574,11 +688,27 @@
             <hr class="kpi-dso-divider">
             <div class="kpi-dso-footer">
               <div class="kpi-dso-col">
-                <span class="kpi-dso-col-lbl">Cobro Real Promedio:</span>
+                <span class="kpi-dso-col-lbl" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                  Cobro Real Promedio:
+                  <span class="filtro-info-wrapper">
+                    <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                    <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
+                      <strong>Cobro Histórico:</strong> Promedio real de días transcurridos entre la fecha de emisión de las facturas y la fecha de cobro efectivo de sus recibos (RC).
+                    </span>
+                  </span>
+                </span>
                 <span class="kpi-dso-col-val text-green">{{ tiemposCobranzaDatos?.cobroRealPromedio ?? 0 }} días</span>
               </div>
               <div class="kpi-dso-col">
-                <span class="kpi-dso-col-lbl">Saldo Total en Mora:</span>
+                <span class="kpi-dso-col-lbl" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                  Saldo Total en Mora:
+                  <span class="filtro-info-wrapper">
+                    <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                    <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
+                      <strong>Cartera Vencida:</strong> Suma del saldo impago de comprobantes con antigüedad superior al plazo contractual estándar (> 30 días).
+                    </span>
+                  </span>
+                </span>
                 <span class="kpi-dso-col-val text-red">${{ (tiemposCobranzaDatos?.saldoTotalMora ?? 0) | number:'1.0-0':'es-AR' }}</span>
               </div>
             </div>
@@ -593,7 +723,15 @@
                 <path d="M2 10a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6zM8 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1H9a1 1 0 01-1-1V4zM14 8a1 1 0 011-1h2a1 1 0 011 1v8a1 1 0 01-1 1h-2a1 1 0 01-1-1V8z"/>
               </svg>
             </span>
-            <h3 class="tiempos-box-title">Distribución de Deuda por Rangos de Vencimiento (Aging)</h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 class="tiempos-box-title">Distribución de Deuda por Rangos de Vencimiento (Aging)</h3>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
+                  <strong>Estratificación de Cartera:</strong> Clasificación de la deuda vencida en tramos (0-30, 31-60, 61-90, 91-120 y >120 días) para identificar riesgos de incobrabilidad.
+                </span>
+              </span>
+            </div>
           </div>
 
           <div class="aging-canvas-container">
@@ -623,7 +761,15 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </span>
-          <h3 class="tiempos-box-title">Detalle de Antigüedad de Deuda por Rango</h3>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 class="tiempos-box-title">Detalle de Antigüedad de Deuda por Rango</h3>
+            <span class="filtro-info-wrapper">
+              <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+              <span class="filtro-tooltip-popup tooltip-wide">
+                <strong>Cuadro de Maduración:</strong> Cantidad de comprobantes, saldo acumulado y porcentaje que representa cada franja respecto al total adeudado.
+              </span>
+            </span>
+          </div>
         </div>
 
         <div class="tabla-aging-wrap">
@@ -663,7 +809,15 @@
       <div class="section-card section-card--matriz">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">🧾 Matriz Anual de Recaudación por Fecha Real de Recibo (RC)</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">🧾 Matriz Anual de Recaudación por Fecha Real de Recibo (RC)</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Flujo de Caja Real:</strong> Registra las cobranzas efectivas distribuidas según el mes calendario en que se emitió/cobró el Recibo (RC), independientemente del período de facturación original.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">Imputación basada estrictamente en la fecha real de cobro (cabeceras.fecha)</p>
           </div>
           <div class="grid-tools matriz-tools">
@@ -710,7 +864,7 @@
                 <th class="th-mes">OCT</th>
                 <th class="th-mes">NOV</th>
                 <th class="th-mes">DIC</th>
-                <th class="th-total-anual sortable-col" [class.col-sorted]="columnaOrdenMatriz === 'totalAnual'" (click)="ordenarMatriz('totalAnual')" title="Ordenar por Total Anual">
+                <th class="th-total-anual sortable-col" [class.col-sorted]="columnaOrdenMatriz === 'totalAnual'" (click)="ordenarMatriz('totalAnual')" title="Ordenar por Total Anual (Suma de los 12 meses para el financiador)">
                   TOTAL ANUAL <span class="sort-indicator" [class.active]="columnaOrdenMatriz === 'totalAnual'">{{ columnaOrdenMatriz === 'totalAnual' ? (direccionOrdenMatriz === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
@@ -764,8 +918,14 @@
     <section class="contadores-motivos-grid">
       <!-- 1. TOTAL DEBITADO EN NC -->
       <div class="card-contador-motivo card-debitado-nc">
-        <div class="contador-header">
+        <div class="contador-header" style="display: flex; align-items: center; justify-content: space-between;">
           <span class="contador-title">TOTAL DEBITADO EN NC</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Glosas Médicas Recibidas:</strong> Suma acumulada de débitos practicados por los financiadores en el período filtrado mediante Notas de Crédito (NC).
+            </span>
+          </span>
         </div>
         <div class="contador-value">
           {{ formatearMontoContador(totalDebitadoMotivos) }}
@@ -777,8 +937,15 @@
 
       <!-- 2. DÉBITO ACEPTADO (PÉRDIDA) -->
       <div class="card-contador-motivo card-debito-aceptado">
-        <div class="contador-header">
+        <div class="contador-header" style="display: flex; align-items: center; justify-content: space-between;">
           <span class="contador-title">DÉBITO ACEPTADO (PÉRDIDA)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Pérdida Asumida:</strong> Débitos que no fueron disputados o refacturados (o confirmados), constituyendo pérdida definitiva.<br><br>
+              <strong>Tasa de Pérdida:</strong> (Pérdida / Total Debitado) × 100
+            </span>
+          </span>
         </div>
         <div class="contador-value">
           {{ formatearMontoContador(debitoAceptadoPerdidaMotivos) }}
@@ -790,8 +957,15 @@
 
       <!-- 3. TOTAL REFACTURADO (DISPUTADO) -->
       <div class="card-contador-motivo card-total-refacturado">
-        <div class="contador-header">
+        <div class="contador-header" style="display: flex; align-items: center; justify-content: space-between;">
           <span class="contador-title">TOTAL REFACTURADO (DISPUTADO)</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Recupero en Gestión:</strong> Monto defendido y reemitido mediante Notas de Débito (ND) ante las obras sociales.<br><br>
+              <strong>Tasa de Recupero:</strong> (Refacturado / Total Debitado) × 100
+            </span>
+          </span>
         </div>
         <div class="contador-value">
           {{ formatearMontoContador(totalRefacturadoMotivos) }}
@@ -803,8 +977,14 @@
 
       <!-- 4. MOTIVOS IDENTIFICADOS -->
       <div class="card-contador-motivo card-motivos-identificados">
-        <div class="contador-header">
+        <div class="contador-header" style="display: flex; align-items: center; justify-content: space-between;">
           <span class="contador-title">MOTIVOS IDENTIFICADOS</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+              <strong>Tipologías de Glosas:</strong> Cantidad de causales únicas de débito detectadas en las liquidaciones procesadas.
+            </span>
+          </span>
         </div>
         <div class="contador-value">
           {{ motivosIdentificadosCount }}
@@ -818,7 +998,15 @@
     <!-- Pareto de Glosas -->
     <section class="graficos-section">
       <div class="section-header">
-        <h2 class="section-title">🛡️ Motivos de Débito y Refacturación (Pareto)</h2>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h2 class="section-title">🛡️ Motivos de Débito y Refacturación (Pareto)</h2>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-wide">
+              <strong>Principio de Pareto 80/20:</strong> Identifica el 20% de los motivos que concentran el 80% del valor debitado, comparando cuánto se refactura (barra azul) vs. cuánto se pierde definitivamente (barra roja).
+            </span>
+          </span>
+        </div>
         <p class="section-subtitle">Top 10 motivos de rechazo · Monto refacturado vs. Pérdida asumida definitivamente</p>
       </div>
 
@@ -856,7 +1044,15 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">Distribución de Débitos por Causa / Motivo</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">Distribución de Débitos por Causa / Motivo</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Análisis Causal y Drill-Down:</strong> Muestra la participación porcentual de cada causa. Haga clic en una porción del anillo o en "Ver Detalle" para ver las prestaciones y comentarios de auditoría.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">Haga clic en cualquier porción del anillo o motivo de la lista para acceder al
               detalle con los comentarios de los operadores.
             </p>
@@ -959,7 +1155,15 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">👤 Desempeño y Gestión por Analista de Débito (3 Niveles)</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">👤 Desempeño y Gestión por Analista de Débito (3 Niveles)</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Auditoría de Gestión:</strong> Monitoreo del volumen de débitos gestionados por cada analista, su efectividad de recupero, ticket promedio de rechazo y distribución entre atención ambulatoria e internación.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">
               Nivel 1: Analista &gt; Nivel 2: Motivos de Débito &gt; Nivel 3: Institución / Financiador
             </p>
@@ -1041,13 +1245,13 @@
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'refacturados'" (click)="ordenarAnalistas('refacturados')" title="Ordenar por Refacturados">
                   REFACTURADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'refacturados'">{{ columnaOrdenAnalista === 'refacturados' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'ticket'" (click)="ordenarAnalistas('ticket')" title="Ordenar por Ticket Promedio">
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'ticket'" (click)="ordenarAnalistas('ticket')" title="Ordenar por Ticket Promedio (Débitos Aceptados / Documentos)">
                   TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'ticket'">{{ columnaOrdenAnalista === 'ticket' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-center th-atencion sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'atencion'" (click)="ordenarAnalistas('atencion')" title="Ordenar por Atención">
+                <th class="text-center th-atencion sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'atencion'" (click)="ordenarAnalistas('atencion')" title="Ordenar por Atención (Proporción Ambulatorio vs. Internación)">
                   ATENCIÓN (AMB / INT) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'atencion'">{{ columnaOrdenAnalista === 'atencion' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'recupero'" (click)="ordenarAnalistas('recupero')" title="Ordenar por % Recupero">
+                <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'recupero'" (click)="ordenarAnalistas('recupero')" title="Ordenar por % Recupero ((Refacturados / Débitos Aceptados) × 100)">
                   % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'recupero'">{{ columnaOrdenAnalista === 'recupero' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
@@ -1225,7 +1429,15 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">⭕ Auditoría de Bucles de Insistencia</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">⭕ Auditoría de Bucles de Insistencia</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Ciclos de Rechazo Recurrente:</strong> Detecta prestaciones que tras ser debitadas (NC) y refacturadas (ND) volvieron a recibir débitos sucesivos (≥ 2 NCs), señalando posibles fallas sistemáticas de facturación o convenios en disputa.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">Prestaciones críticas con 2 o más débitos recibidos (NC) tras intentos de refacturación.</p>
           </div>
         </div>
@@ -1345,7 +1557,15 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">📇 Desempeño por Usuarios de Carga (Operadores)</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">📇 Desempeño por Usuarios de Carga (Operadores)</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Calidad en Emisión:</strong> Evalúa la calidad de carga original de los operadores que emitieron las facturas que luego sufrieron débitos, permitiendo detectar necesidades de capacitación en carga de órdenes o nomencladores.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">
               Auditoría de emisión original a 3 niveles: Nivel 1 (Operador FC) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3 (Financiador Afectado).
             </p>
@@ -1514,10 +1734,54 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">👨‍⚕️ Desempeño por Prestadores / Médicos</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">👨‍⚕️ Desempeño por Prestadores / Médicos</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Débitos Médicos por Efector:</strong> Identifica a los profesionales médicos cuyos actos o prescripciones generaron débitos de auditoría médica (falta de justificación, protocolos, firmas o códigos erróneos).
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">
               Auditoría médica a 3 niveles: Nivel 1 (Médico) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3 (Financiador Afectado).
             </p>
+          </div>
+
+          <!-- Controles y Filtro exclusivo de la Solapa Médicos -->
+          <div class="analistas-header-controls" *ngIf="medicosDatos.length > 0">
+            <div class="filtro-analista-container">
+              <label for="select-filtro-medico" class="filtro-analista-label">
+                <span class="icon-filter">🔍</span> Filtrar Médico:
+              </label>
+              <div class="select-wrapper-analista">
+                <select id="select-filtro-medico"
+                        class="form-control select-custom select-filtro-analista"
+                        [(ngModel)]="filtroMedicoSeleccionado">
+                  <option value="TODOS">-- Todos los Médicos ({{ listaNombresMedicos.length }}) --</option>
+                  <option *ngFor="let nombre of listaNombresMedicos" [value]="nombre">
+                    {{ nombre }}
+                  </option>
+                </select>
+                <button *ngIf="filtroMedicoSeleccionado !== 'TODOS'"
+                        type="button"
+                        class="btn-clear-filtro-analista"
+                        (click)="limpiarFiltroMedico()"
+                        title="Limpiar filtro de médico">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Badge de Médicos -->
+            <div class="badge-analistas-activos" [class.badge-analistas-filtrados]="filtroMedicoSeleccionado !== 'TODOS' || codigoCoberturaSeleccionada !== 'TODAS'">
+              <span *ngIf="filtroMedicoSeleccionado === 'TODOS' && codigoCoberturaSeleccionada === 'TODAS'">
+                {{ medicosDatos.length }} Médicos Activos
+              </span>
+              <span *ngIf="filtroMedicoSeleccionado !== 'TODOS' || codigoCoberturaSeleccionada !== 'TODAS'">
+                Mostrando: {{ medicosFiltrados.length }} de {{ medicosDatos.length }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1527,14 +1791,23 @@
           <p>Cargando métricas de médicos / prestadores...</p>
         </div>
 
-        <!-- Estado Vacío -->
+        <!-- Estado Vacío General -->
         <div *ngIf="!cargandoMedicos && medicosDatos.length === 0" class="empty-state">
           <span class="empty-icon">📁</span>
           <p>No se encontraron débitos registrados para los médicos en el período seleccionado.</p>
         </div>
 
+        <!-- Estado Vacío por Filtros Específicos -->
+        <div *ngIf="!cargandoMedicos && medicosDatos.length > 0 && medicosFiltrados.length === 0" class="empty-state">
+          <span class="empty-icon">🔍</span>
+          <p>No se encontraron débitos registrados para los filtros seleccionados.</p>
+          <button type="button" class="btn btn-sm btn-primary mt-2" (click)="restablecerFiltrosMedicos()">
+            Restablecer filtros de médicos
+          </button>
+        </div>
+
         <!-- Tabla Sanatorial Médicos a 3 Niveles -->
-        <div *ngIf="!cargandoMedicos && medicosDatos.length > 0" class="table-responsive">
+        <div *ngIf="!cargandoMedicos && medicosFiltrados.length > 0" class="table-responsive">
           <table class="table-sanatorial table-bordered table-analistas">
             <thead>
               <tr>
@@ -1559,7 +1832,7 @@
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let med of medicosDatos; trackBy: trackByMedico">
+              <ng-container *ngFor="let med of medicosFiltrados; trackBy: trackByMedico">
 
                 <!-- NIVEL 1: Médico -->
                 <tr class="tr-analista tr-medico" (click)="toggleMedico(med)" [class.is-expanded]="med.expanded">
@@ -1683,7 +1956,15 @@
       <div class="section-card">
         <div class="section-card-header">
           <div>
-            <h2 class="section-title">🔗 Detalle y Trazabilidad (Árbol Encadenado)</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 class="section-title">🔗 Detalle y Trazabilidad (Árbol Encadenado)</h2>
+              <span class="filtro-info-wrapper">
+                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                <span class="filtro-tooltip-popup tooltip-wide">
+                  <strong>Trazabilidad Integral:</strong> Reconstrucción cronológica completa de la historia clínica-administrativa de cada expediente, desde la FC de origen pasando por las NC y ND hasta su recibo de cobro final RC.
+                </span>
+              </span>
+            </div>
             <p class="section-subtitle">Historial cronológico de vida de expedientes: Facturación (FC) ➔ Débitos (NC) ➔ Refacturación / Incremento (ND) ➔ Cobranza (RC).</p>
           </div>
         </div>

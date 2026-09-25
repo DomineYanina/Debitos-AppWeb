@@ -78,7 +78,8 @@ describe('DirectorioDashboardComponent', () => {
       obtenerTiposDocumento: vi.fn().mockReturnValue(of(['FAC', 'FC', 'FCA', 'FCE'])),
       obtenerTotales: vi.fn().mockReturnValue(of(mockTotales)),
       obtenerGrupos: vi.fn().mockReturnValue(of(mockGrupos)),
-      obtenerMotivos: vi.fn().mockReturnValue(of(mockMotivos))
+      obtenerMotivos: vi.fn().mockReturnValue(of(mockMotivos)),
+      getTiemposCobranza: vi.fn().mockReturnValue(of({ dsoGlobal: 150, cobroRealPromedio: 0, saldoTotalMora: 10000, detalles: [] }))
     };
 
     await TestBed.configureTestingModule({
@@ -479,14 +480,14 @@ describe('DirectorioDashboardComponent', () => {
       expect(selectTipoDoc.disabled).toBe(false);
     });
 
-    it('los selectores de cobertura y tipo de comprobante deben estar deshabilitados en la solapa medicos', () => {
+    it('el selector de cobertura debe estar habilitado y el de tipo de comprobante deshabilitado en la solapa medicos', () => {
       component.solapaActiva = 'medicos';
       fixture.detectChanges();
 
       const selectCobertura = fixture.nativeElement.querySelector('#select-cobertura');
       const selectTipoDoc = fixture.nativeElement.querySelector('#select-tipo-doc');
 
-      expect(selectCobertura.disabled).toBe(true);
+      expect(selectCobertura.disabled).toBe(false);
       expect(selectTipoDoc.disabled).toBe(true);
     });
   });
@@ -559,6 +560,138 @@ describe('DirectorioDashboardComponent', () => {
 
       component.ordenarMedicos('recupero');
       expect(component.medicosDatos[0].medico).toBe('Dr. Alvarez'); // 40 vs 28.5
+    });
+  });
+
+  describe('Filtros en Solapa Médicos', () => {
+    const mockMedicos = [
+      {
+        medico: 'Dr. Perez',
+        cantidadRegistros: 50,
+        debitosAceptados: 50000,
+        debitosRefacturados: 20000,
+        totalTramitado: 70000,
+        ticketPromedio: 1400,
+        tasaRecupero: 28.5,
+        motivos: [
+          {
+            motivo: 'Falta firma',
+            casos: 30,
+            montoDebitado: 40000,
+            aceptado: 30000,
+            refacturado: 10000,
+            financiadores: [
+              { financiador: 'OSDE', casos: 20, monto: 25000, aceptado: 20000, refacturado: 5000 },
+              { financiador: 'SWISS', casos: 10, monto: 15000, aceptado: 10000, refacturado: 5000 }
+            ]
+          },
+          {
+            motivo: 'Autorización',
+            casos: 20,
+            montoDebitado: 30000,
+            aceptado: 20000,
+            refacturado: 10000,
+            financiadores: [
+              { financiador: 'OSDE', casos: 20, monto: 30000, aceptado: 20000, refacturado: 10000 }
+            ]
+          }
+        ]
+      },
+      {
+        medico: 'Dr. Alvarez',
+        cantidadRegistros: 120,
+        debitosAceptados: 120000,
+        debitosRefacturados: 80000,
+        totalTramitado: 200000,
+        ticketPromedio: 1666,
+        tasaRecupero: 40,
+        motivos: [
+          {
+            motivo: 'Prescripción vencida',
+            casos: 120,
+            montoDebitado: 200000,
+            aceptado: 120000,
+            refacturado: 80000,
+            financiadores: [
+              { financiador: 'SWISS', casos: 120, monto: 200000, aceptado: 120000, refacturado: 80000 }
+            ]
+          }
+        ]
+      }
+    ];
+
+    beforeEach(() => {
+      component.medicosDatos = [...mockMedicos];
+      component.filtroMedicoSeleccionado = 'TODOS';
+      component.codigoCoberturaSeleccionada = 'TODAS';
+      component.coberturas = [
+        { codigo: 'OSDE', nombre: 'OSDE' },
+        { codigo: 'SWISS', nombre: 'SWISS MEDICAL' }
+      ];
+    });
+
+    it('debería retornar nombres únicos y ordenados en listaNombresMedicos', () => {
+      expect(component.listaNombresMedicos).toEqual(['Dr. Alvarez', 'Dr. Perez']);
+    });
+
+    it('debería retornar todos los médicos cuando los filtros son TODOS y TODAS', () => {
+      expect(component.medicosFiltrados.length).toBe(2);
+    });
+
+    it('debería filtrar específicamente por médico seleccionado', () => {
+      component.filtroMedicoSeleccionado = 'Dr. Perez';
+      expect(component.medicosFiltrados.length).toBe(1);
+      expect(component.medicosFiltrados[0].medico).toBe('Dr. Perez');
+    });
+
+    it('debería filtrar por Institución / Cobertura y recalcular los desgloses', () => {
+      component.codigoCoberturaSeleccionada = 'OSDE';
+      expect(component.medicosFiltrados.length).toBe(1);
+      const drPerezFiltrado = component.medicosFiltrados[0];
+      expect(drPerezFiltrado.medico).toBe('Dr. Perez');
+      expect(drPerezFiltrado.cantidadRegistros).toBe(40);
+      expect(drPerezFiltrado.motivos.length).toBe(2);
+      expect(drPerezFiltrado.motivos[0].financiadores.length).toBe(1);
+      expect(drPerezFiltrado.motivos[0].financiadores[0].financiador).toBe('OSDE');
+    });
+
+    it('debería combinar ambos filtros (Médico e Institución)', () => {
+      component.filtroMedicoSeleccionado = 'Dr. Alvarez';
+      component.codigoCoberturaSeleccionada = 'SWISS';
+      expect(component.medicosFiltrados.length).toBe(1);
+      expect(component.medicosFiltrados[0].medico).toBe('Dr. Alvarez');
+
+      component.codigoCoberturaSeleccionada = 'OSDE';
+      expect(component.medicosFiltrados.length).toBe(0);
+    });
+
+    it('debería limpiar el filtro con limpiarFiltroMedico', () => {
+      component.filtroMedicoSeleccionado = 'Dr. Alvarez';
+      component.limpiarFiltroMedico();
+      expect(component.filtroMedicoSeleccionado).toBe('TODOS');
+      expect(component.medicosFiltrados.length).toBe(2);
+    });
+
+    it('debería restablecer todos los filtros con restablecerFiltrosMedicos', () => {
+      component.filtroMedicoSeleccionado = 'Dr. Alvarez';
+      component.codigoCoberturaSeleccionada = 'SWISS';
+      component.restablecerFiltrosMedicos();
+      expect(component.filtroMedicoSeleccionado).toBe('TODOS');
+      expect(component.codigoCoberturaSeleccionada).toBe('TODAS');
+      expect(component.medicosFiltrados.length).toBe(2);
+    });
+
+    it('debería restablecer el filtro a TODOS si el médico seleccionado no existe en nuevos datos', () => {
+      directorioServiceSpy.getDesempenoGlobal = vi.fn().mockReturnValue(of({
+        analistas: [],
+        medicos: [mockMedicos[0]],
+        operadores: []
+      }));
+
+      component.filtroMedicoSeleccionado = 'Dr. Alvarez';
+      component.cargarDesempenoOperativo();
+
+      expect(component.filtroMedicoSeleccionado).toBe('TODOS');
     });
   });
 
@@ -862,6 +995,116 @@ describe('DirectorioDashboardComponent', () => {
       component.ordenarTrazabilidad('facturado');
       expect(component.columnaOrdenTrazabilidad).toBe('');
       expect(component.trazabilidadDatos[0].montoFacturadoOriginal).toBe(5000);
+    });
+  });
+
+  describe('Filtros de Fecha Dinámicos (Opción D)', () => {
+    it('debería mostrar "Período Desde" y "Período Hasta" en tablero, motivos y cuenta-corriente', () => {
+      component.solapaActiva = 'tablero';
+      expect(component.etiquetaFechaDesde).toBe('Período Desde');
+      expect(component.etiquetaFechaHasta).toBe('Período Hasta');
+
+      component.solapaActiva = 'motivos';
+      expect(component.etiquetaFechaDesde).toBe('Período Desde');
+      expect(component.etiquetaFechaHasta).toBe('Período Hasta');
+
+      component.solapaActiva = 'cuenta-corriente';
+      expect(component.etiquetaFechaDesde).toBe('Período Desde');
+      expect(component.etiquetaFechaHasta).toBe('Período Hasta');
+    });
+
+    it('debería mostrar "Fecha Desde" y "Fecha Hasta" en solapas de fecha de emisión o gestión', () => {
+      component.solapaActiva = 'trazabilidad';
+      expect(component.etiquetaFechaDesde).toBe('Fecha Desde');
+      expect(component.etiquetaFechaHasta).toBe('Fecha Hasta');
+
+      component.solapaActiva = 'analistas';
+      expect(component.etiquetaFechaDesde).toBe('Fecha Desde');
+      expect(component.etiquetaFechaHasta).toBe('Fecha Hasta');
+
+      component.solapaActiva = 'bucles';
+      expect(component.etiquetaFechaDesde).toBe('Fecha Desde');
+      expect(component.etiquetaFechaHasta).toBe('Fecha Hasta');
+    });
+
+    it('debería identificar correctamente las solapas donde el filtro de fecha está deshabilitado', () => {
+      component.solapaActiva = 'cuenta-corriente';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'tiempos-cobranza';
+      expect(component.esFiltroFechaDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'matriz-cobranzas';
+      expect(component.esFiltroFechaDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'tablero';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'motivos';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'trazabilidad';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+    });
+
+    it('debería deshabilitar el filtro de Tipo de Comprobante en analistas, bucles, medicos, matriz-cobranzas y tiempos-cobranza', () => {
+      component.solapaActiva = 'tablero';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'cuenta-corriente';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'matriz-cobranzas';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'analistas';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'bucles';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'medicos';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'tiempos-cobranza';
+      expect(component.esFiltroTipoDocDeshabilitado).toBe(true);
+    });
+
+    it('debería proveer la descripción contextual adecuada para cada solapa en el tooltip', () => {
+      component.solapaActiva = 'tablero';
+      expect(component.tooltipFiltroFecha).toContain('período prestacional');
+
+      component.solapaActiva = 'motivos';
+      expect(component.tooltipFiltroFecha).toContain('período prestacional');
+
+      component.solapaActiva = 'cuenta-corriente';
+      expect(component.tooltipFiltroFecha).toContain('períodos prestacionales visualizados');
+
+      component.solapaActiva = 'analistas';
+      expect(component.tooltipFiltroFecha).toContain('auditoría o gestión');
+
+      component.solapaActiva = 'bucles';
+      expect(component.tooltipFiltroFecha).toContain('fecha de emisión cronológica');
+
+      component.solapaActiva = 'tiempos-cobranza';
+      expect(component.tooltipFiltroFecha).toContain('no filtra por rango de fechas');
+    });
+
+    it('debería invocar getTiemposCobranza con la cobertura seleccionada y sin filtro de tipoDoc al estar deshabilitado en tiempos-cobranza', () => {
+      component.solapaActiva = 'tiempos-cobranza';
+      component.codigoCoberturaSeleccionada = 'OSDE';
+      component.tipoDocSeleccionado = 'FC';
+
+      component.aplicarFiltros();
+
+      expect(directorioServiceSpy.getTiemposCobranza).toHaveBeenCalledWith(
+        'OSDE',
+        undefined,
+        undefined,
+        undefined
+      );
+      expect(component.tiemposCobranzaDatos?.dsoGlobal).toBe(150);
+      expect(component.tiemposCobranzaDatos?.saldoTotalMora).toBe(10000);
     });
   });
 });

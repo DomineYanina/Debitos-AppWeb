@@ -91,8 +91,16 @@ export class DirectorioDashboardComponent implements OnInit {
       | 'trazabilidad'
   ): void {
     this.solapaActiva = solapa;
-    if (solapa === 'bucles') {
+    if (
+      solapa === 'tiempos-cobranza' ||
+      solapa === 'matriz-cobranzas' ||
+      solapa === 'bucles' ||
+      solapa === 'analistas' ||
+      solapa === 'medicos'
+    ) {
       this.tipoDocSeleccionado = 'TODOS';
+    }
+    if (solapa === 'bucles') {
       if (this.codigoCoberturaSeleccionada !== 'TODAS' && this.coberturasBucles.length > 0) {
         if (!this.coberturasBucles.some(c => c.codigo === this.codigoCoberturaSeleccionada)) {
           this.codigoCoberturaSeleccionada = 'TODAS';
@@ -165,6 +173,72 @@ export class DirectorioDashboardComponent implements OnInit {
     return this.coberturas;
   }
 
+  get esFiltroFechaDeshabilitado(): boolean {
+    return (
+      this.solapaActiva === 'tiempos-cobranza' ||
+      this.solapaActiva === 'matriz-cobranzas'
+    );
+  }
+
+  get esFiltroTipoDocDeshabilitado(): boolean {
+    return (
+      this.solapaActiva === 'analistas' ||
+      this.solapaActiva === 'bucles' ||
+      this.solapaActiva === 'medicos' ||
+      this.solapaActiva === 'matriz-cobranzas' ||
+      this.solapaActiva === 'tiempos-cobranza'
+    );
+  }
+
+  get etiquetaFechaDesde(): string {
+    if (
+      this.solapaActiva === 'tablero' ||
+      this.solapaActiva === 'motivos' ||
+      this.solapaActiva === 'cuenta-corriente'
+    ) {
+      return 'Período Desde';
+    }
+    return 'Fecha Desde';
+  }
+
+  get etiquetaFechaHasta(): string {
+    if (
+      this.solapaActiva === 'tablero' ||
+      this.solapaActiva === 'motivos' ||
+      this.solapaActiva === 'cuenta-corriente'
+    ) {
+      return 'Período Hasta';
+    }
+    return 'Fecha Hasta';
+  }
+
+  get tooltipFiltroFecha(): string {
+    switch (this.solapaActiva) {
+      case 'tablero':
+        return 'Filtra comprobantes según su período prestacional (período de la Factura Madre).';
+      case 'motivos':
+        return 'Filtra motivos de débito y refacturación según el período prestacional imputado a la Factura Madre.';
+      case 'cuenta-corriente':
+        return 'Filtra los períodos prestacionales visualizados en el desglose de cada institución médica.';
+      case 'analistas':
+        return 'Filtra débitos y refacturaciones según la fecha de auditoría o gestión del comprobante.';
+      case 'bucles':
+        return 'Filtra bucles de insistencia según la fecha de emisión cronológica de la Factura Original.';
+      case 'usuarios-carga':
+        return 'Filtra la productividad del operador según la fecha de emisión cronológica de la Factura Original.';
+      case 'medicos':
+        return 'Filtra el desempeño por prestador según la fecha de emisión cronológica de la Factura Original.';
+      case 'trazabilidad':
+        return 'Filtra expedientes según la fecha de emisión cronológica de la Factura Original.';
+      case 'tiempos-cobranza':
+        return 'Esta solapa no filtra por rango de fechas; calcula la antigüedad y DSO a la fecha de hoy sobre comprobantes impagos.';
+      case 'matriz-cobranzas':
+        return 'Esta solapa no filtra por rango de fechas; utiliza el selector anual de recaudación de la tabla.';
+      default:
+        return 'Rango de fechas para el filtrado de comprobantes.';
+    }
+  }
+
   // Estados de carga
   cargandoTotales: boolean = false;
   cargandoGrupos: boolean = false;
@@ -208,6 +282,7 @@ export class DirectorioDashboardComponent implements OnInit {
   pasoOrdenMotivoAnalista: number = 0;
 
   medicosDatos: MetricaMedicoDTO[] = [];
+  filtroMedicoSeleccionado: string = 'TODOS';
   columnaOrdenMedico: string = '';
   direccionOrdenMedico: 'asc' | 'desc' = 'desc';
   pasoOrdenMedico: number = 0;
@@ -509,7 +584,6 @@ export class DirectorioDashboardComponent implements OnInit {
     this.inicializarFechasMesAnterior();
     this.cargarCoberturas();
     this.cargarTiposDocumento();
-    this.precargarBucles();
     this.cargarDashboard();
   }
 
@@ -587,6 +661,7 @@ export class DirectorioDashboardComponent implements OnInit {
 
   restablecerFiltros(): void {
     this.filtroAnalistaSeleccionado = 'TODOS';
+    this.filtroMedicoSeleccionado = 'TODOS';
     this.columnaOrdenAnalista = '';
     this.pasoOrdenAnalista = 0;
     this.columnaOrdenMotivoAnalista = '';
@@ -789,9 +864,6 @@ export class DirectorioDashboardComponent implements OnInit {
   }
 
   get debitoAceptadoPerdidaMotivos(): number {
-    if (this.totales?.perdidaAsumida && this.totales.perdidaAsumida > 0) {
-      return this.totales.perdidaAsumida;
-    }
     const deb = this.totalDebitadoMotivos;
     const ref = this.totalRefacturadoMotivos;
     return Math.max(0, deb - ref);
@@ -987,7 +1059,12 @@ export class DirectorioDashboardComponent implements OnInit {
   private cargarAgingFinanciero(): void {
     if (!this.directorioService.getTiemposCobranza) return;
     this.iniciarCargaGrafico();
-    this.directorioService.getTiemposCobranza().subscribe({
+    const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
+    const tipoDoc = !this.esFiltroTipoDocDeshabilitado && this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
+    const fDesde = !this.esFiltroFechaDeshabilitado ? (this.fechaDesde || undefined) : undefined;
+    const fHasta = !this.esFiltroFechaDeshabilitado ? (this.fechaHasta || undefined) : undefined;
+
+    this.directorioService.getTiemposCobranza(codCob, tipoDoc, fDesde, fHasta).subscribe({
       next: (res: TiemposCobranzaDTO) => {
         this.tiemposCobranzaDatos = res;
         const detalles = res?.detalles ?? [];
@@ -1002,10 +1079,12 @@ export class DirectorioDashboardComponent implements OnInit {
           }]
         };
         this.finalizarCargaGrafico();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error al cargar tiempos de cobranza:', err);
         this.finalizarCargaGrafico();
+        this.cdr.markForCheck();
       }
     });
   }
@@ -1085,8 +1164,10 @@ export class DirectorioDashboardComponent implements OnInit {
     if (!this.directorioService.getCuentaCorrienteTresNiveles) return;
     this.cargandoCuentaCorriente = true;
     const financiador = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
+    const fDesde = this.fechaDesde || undefined;
+    const fHasta = this.fechaHasta || undefined;
 
-    this.directorioService.getCuentaCorrienteTresNiveles(financiador).subscribe({
+    this.directorioService.getCuentaCorrienteTresNiveles(financiador, undefined, fDesde, fHasta).subscribe({
       next: (data) => {
         this.cuentaCorrienteDatos = (data || []).map((f, idxF) => ({
           ...f,
@@ -1478,7 +1559,7 @@ export class DirectorioDashboardComponent implements OnInit {
         }));
 
         if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
-            !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
+          !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
           this.filtroAnalistaSeleccionado = 'TODOS';
         }
 
@@ -1506,6 +1587,11 @@ export class DirectorioDashboardComponent implements OnInit {
 
         if (this.columnaOrdenMedico) {
           this.aplicarOrdenMedicos();
+        }
+
+        if (this.filtroMedicoSeleccionado !== 'TODOS' &&
+          !this.medicosDatos.some(m => m.medico === this.filtroMedicoSeleccionado)) {
+          this.filtroMedicoSeleccionado = 'TODOS';
         }
 
         this.operadoresDatos = (data?.operadores || []).map((op, idxOp) => ({
@@ -1946,6 +2032,142 @@ export class DirectorioDashboardComponent implements OnInit {
     }
     this.medicosDatos = [...this.medicosDatos];
     this.cdr.markForCheck();
+  }
+
+  coincideFinanciador(nombreFinanciador?: string, codigoCobertura?: string): boolean {
+    if (!nombreFinanciador && !codigoCobertura) return false;
+    const codFiltro = (this.codigoCoberturaSeleccionada || 'TODAS').trim().toLowerCase();
+    if (codFiltro === 'todas' || codFiltro === '') return true;
+
+    const cobObj = this.coberturas.find(c => c.codigo.toLowerCase() === codFiltro);
+    const nomFiltro = cobObj?.nombre ? cobObj.nombre.trim().toLowerCase() : '';
+
+    const finTexto = (nombreFinanciador || '').trim().toLowerCase();
+    const codTexto = (codigoCobertura || '').trim().toLowerCase();
+
+    if (codTexto && codTexto === codFiltro) return true;
+    if (finTexto === codFiltro) return true;
+    if (finTexto.includes(codFiltro) || (codTexto && codFiltro.includes(codTexto))) return true;
+    if (nomFiltro && (finTexto.includes(nomFiltro) || nomFiltro.includes(finTexto))) return true;
+
+    const partes = finTexto.split('-');
+    if (partes.length > 1 && partes[0].trim() === codFiltro) return true;
+
+    return false;
+  }
+
+  medicoTieneCobertura(med: MetricaMedicoDTO, codigoCobertura?: string): boolean {
+    const cod = (codigoCobertura || this.codigoCoberturaSeleccionada || 'TODAS').trim();
+    if (!cod || cod === 'TODAS') return true;
+    if (!med.motivos || med.motivos.length === 0) return false;
+    return med.motivos.some(m =>
+      m.financiadores && m.financiadores.some(f => this.coincideFinanciador(f.financiador, cod))
+    );
+  }
+
+  get listaNombresMedicos(): string[] {
+    let medicosBase = this.medicosDatos;
+    if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+      medicosBase = medicosBase.filter(med => this.medicoTieneCobertura(med, this.codigoCoberturaSeleccionada));
+    }
+    const nombres = medicosBase
+      .map(m => m.medico)
+      .filter((n): n is string => !!n && n.trim().length > 0);
+    return Array.from(new Set(nombres)).sort((a, b) => a.localeCompare(b));
+  }
+
+  get medicosFiltrados(): MetricaMedicoDTO[] {
+    let lista = this.medicosDatos;
+
+    // 1. Filtrar por Médico seleccionado
+    if (this.filtroMedicoSeleccionado && this.filtroMedicoSeleccionado !== 'TODOS') {
+      lista = lista.filter(m => m.medico === this.filtroMedicoSeleccionado);
+    }
+
+    // 2. Filtrar por Institución / Cobertura
+    if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+      const codCob = this.codigoCoberturaSeleccionada;
+      lista = lista
+        .filter(med => this.medicoTieneCobertura(med, codCob))
+        .map((med): MetricaMedicoDTO => {
+          const motivosFiltrados: DesgloseMotivoDTO[] = [];
+          for (const mot of (med.motivos || [])) {
+            const finsFiltrados = (mot.financiadores || []).filter(f =>
+              this.coincideFinanciador(f.financiador, codCob)
+            );
+            if (finsFiltrados.length === 0) continue;
+
+            const casosMot = finsFiltrados.reduce((acc, f) => acc + (f.casos || 0), 0);
+            const montoMot = finsFiltrados.reduce((acc, f) => acc + (f.monto || (f as any).montoDebitado || 0), 0);
+            const aceptadoMot = finsFiltrados.reduce((acc, f) => acc + (f.aceptado || 0), 0);
+            const refacturadoMot = finsFiltrados.reduce((acc, f) => acc + (f.refacturado || 0), 0);
+
+            motivosFiltrados.push({
+              ...mot,
+              expanded: !!mot.expanded,
+              casos: casosMot,
+              montoDebitado: montoMot,
+              aceptado: aceptadoMot,
+              refacturado: refacturadoMot,
+              financiadores: finsFiltrados
+            });
+          }
+
+          const casosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.casos || 0), 0);
+          const aceptadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.aceptado || 0), 0);
+          const refacturadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.refacturado || 0), 0);
+          const montoTotal = motivosFiltrados.reduce((acc, m) => acc + (m.montoDebitado || 0), 0);
+          const ticketProm = casosTotal > 0 ? (montoTotal / casosTotal) : 0;
+          const tasaRec = montoTotal > 0 ? (refacturadosTotal * 100 / montoTotal) : 0;
+
+          return {
+            ...med,
+            expanded: !!med.expanded,
+            cantidadRegistros: casosTotal > 0 ? casosTotal : med.cantidadRegistros,
+            debitosAceptados: aceptadosTotal,
+            debitosRefacturados: refacturadosTotal,
+            totalTramitado: montoTotal,
+            ticketPromedio: ticketProm,
+            tasaRecupero: tasaRec,
+            motivos: motivosFiltrados
+          };
+        });
+    }
+
+    // 3. Si hay ordenamiento activo sobre médicos, aplicarlo a la lista filtrada
+    if (this.columnaOrdenMedico) {
+      const factor = this.direccionOrdenMedico === 'asc' ? 1 : -1;
+      const columna = this.columnaOrdenMedico;
+      lista = [...lista].sort((a, b) => {
+        switch (columna) {
+          case 'medico':
+            return (a.medico || '').localeCompare(b.medico || '') * factor;
+          case 'documentos':
+            return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
+          case 'aceptados':
+            return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
+          case 'refacturados':
+            return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'ticket':
+            return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
+          case 'recupero':
+            return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return lista;
+  }
+
+  limpiarFiltroMedico(): void {
+    this.filtroMedicoSeleccionado = 'TODOS';
+  }
+
+  restablecerFiltrosMedicos(): void {
+    this.filtroMedicoSeleccionado = 'TODOS';
+    this.codigoCoberturaSeleccionada = 'TODAS';
   }
 
   // ── Ordenamiento Cuenta Corriente ─────────────────────────────────────────
@@ -2402,6 +2624,10 @@ export class DirectorioDashboardComponent implements OnInit {
 
   toggleMedico(medico: MetricaMedicoDTO): void {
     medico.expanded = !medico.expanded;
+    const orig = this.medicosDatos.find(m => m.medico === medico.medico);
+    if (orig) {
+      orig.expanded = medico.expanded;
+    }
   }
 
   toggleOperador(operador: MetricaOperadorDTO): void {
@@ -2410,6 +2636,14 @@ export class DirectorioDashboardComponent implements OnInit {
 
   toggleMotivo(motivo: DesgloseMotivoDTO): void {
     motivo.expanded = !motivo.expanded;
+    for (const med of this.medicosDatos) {
+      if (med.motivos) {
+        const origM = med.motivos.find(m => m.motivo === motivo.motivo);
+        if (origM) {
+          origM.expanded = motivo.expanded;
+        }
+      }
+    }
   }
 
   trackByAnalista(index: number, item: MetricaAnalistaDTO): string {

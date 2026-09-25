@@ -80,6 +80,15 @@ public class AuditoriaService {
     @Autowired
     private RegistroImputacionRepository registroImputacionRepository;
 
+    @Autowired(required = false)
+    private com.debitos.backend.config.CacheConfig cacheConfig;
+
+    private void invalidarCacheTablero() {
+        if (cacheConfig != null) {
+            cacheConfig.desalojarCacheTablero();
+        }
+    }
+
     public static List<String> resolverTiposEquivalentes(String tipo) {
         if (tipo == null || tipo.trim().isEmpty()) return List.of();
         String t = tipo.trim().toUpperCase();
@@ -803,10 +812,16 @@ public class AuditoriaService {
 
         Set<Cabecera> cabecerasImputadasModificadas = new HashSet<>();
 
-        List<Integer> idsPrestaciones = registros.stream()
-                .filter(p -> p.getId() != null)
-                .map(RegistroAuditoriaDTO::getId)
-                .toList();
+        // Deduplicar registros por ID de prestación para evitar procesar la misma prestación múltiples veces en el mismo lote
+        Map<Integer, RegistroAuditoriaDTO> registrosUnicos = new LinkedHashMap<>();
+        for (RegistroAuditoriaDTO reg : registros) {
+            if (reg != null && reg.getId() != null) {
+                registrosUnicos.put(reg.getId(), reg);
+            }
+        }
+        if (registrosUnicos.isEmpty()) return;
+
+        List<Integer> idsPrestaciones = new ArrayList<>(registrosUnicos.keySet());
 
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
@@ -814,7 +829,7 @@ public class AuditoriaService {
         List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
         List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
 
-        for (RegistroAuditoriaDTO p : registros) {
+        for (RegistroAuditoriaDTO p : registrosUnicos.values()) {
             Integer idPrestacion = p.getId();
             if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
@@ -918,6 +933,7 @@ public class AuditoriaService {
         for (Cabecera cabDestino : cabecerasImputadasModificadas) {
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabDestino, "Modificación de prestaciones ya imputadas");
         }
+        invalidarCacheTablero();
     }
 
     @Transactional
@@ -1087,6 +1103,7 @@ public class AuditoriaService {
             String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "ND";
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
         }
+        invalidarCacheTablero();
     }
 
     @Transactional
@@ -1275,6 +1292,7 @@ public class AuditoriaService {
             String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "NC";
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
         }
+        invalidarCacheTablero();
     }
 
     @Transactional
@@ -1335,6 +1353,7 @@ public class AuditoriaService {
         ncIva.setPorcIva(porcIva != null ? porcIva : BigDecimal.ZERO);
 
         ncAjusteDeIvaRepository.save(ncIva);
+        invalidarCacheTablero();
     }
 
     private BigDecimal parsearMonto(Object valor) {
@@ -1460,6 +1479,7 @@ public class AuditoriaService {
         ndAjusteDeIvaRepository.save(ndIva);
         String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "ND_AJUSTE_IVA";
         registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
+        invalidarCacheTablero();
     }
 
     public List<CabeceraCandidataDTO> obtenerCabecerasDisponibles(String tipoRequerido, String origen, String letraOriginal, Integer ptovtaOriginal, Integer numeroOriginal) {

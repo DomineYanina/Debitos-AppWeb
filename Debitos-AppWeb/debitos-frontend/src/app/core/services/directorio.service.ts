@@ -153,8 +153,26 @@ export class DirectorioService {
    * GET /api/graficos/tiempos-cobranza
    * Retorna KPIs de DSO global, cobro real promedio, saldo total en mora y desglose por rangos de antigüedad.
    */
-  getTiemposCobranza(): Observable<TiemposCobranzaDTO> {
-    return this.http.get<TiemposCobranzaDTO>(`${this.apiGraficosUrl}/tiempos-cobranza`);
+  getTiemposCobranza(
+    codigoCobertura?: string,
+    tipoDoc?: string,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ): Observable<TiemposCobranzaDTO> {
+    let params = new HttpParams();
+    if (codigoCobertura && codigoCobertura !== 'TODAS') {
+      params = params.set('codigoCobertura', codigoCobertura);
+    }
+    if (tipoDoc && tipoDoc !== 'TODOS') {
+      params = params.set('tipoDoc', tipoDoc);
+    }
+    if (fechaDesde) {
+      params = params.set('fechaDesde', fechaDesde);
+    }
+    if (fechaHasta) {
+      params = params.set('fechaHasta', fechaHasta);
+    }
+    return this.http.get<TiemposCobranzaDTO>(`${this.apiGraficosUrl}/tiempos-cobranza`, { params });
   }
 
   /**
@@ -177,10 +195,17 @@ export class DirectorioService {
    * Retorna el árbol a 3 niveles (Financiador -> Período -> Comprobante)
    * para la tabla de Cuenta Corriente.
    */
-  getCuentaCorrienteTresNiveles(financiador?: string, periodo?: string): Observable<CcFinanciadorDTO[]> {
+  getCuentaCorrienteTresNiveles(
+    financiador?: string,
+    periodo?: string,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ): Observable<CcFinanciadorDTO[]> {
     let params = new HttpParams();
-    if (financiador) params = params.set('financiador', financiador);
+    if (financiador && financiador !== 'TODAS') params = params.set('financiador', financiador);
     if (periodo) params = params.set('periodo', periodo);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
 
     return this.http.get<CcFinanciadorDTO[]>(`${this.apiGraficosUrl}/cuenta-corriente`, { params });
   }

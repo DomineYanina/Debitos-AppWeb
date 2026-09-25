@@ -39,7 +39,7 @@ public class NotaDeDebito {
     private BigDecimal importerefactura;
     private String prestacionenglobante;
     private String codigo;
-    private Integer diasfacturados;
+    private Long diasfacturados;
 
     private String comentarios;
 
@@ -127,12 +127,16 @@ public class NotaDeDebito {
         this.codigo = codigo;
     }
 
-    public Integer getDiasfacturados() {
+    public Long getDiasfacturados() {
         return diasfacturados;
     }
 
-    public void setDiasfacturados(Integer diasfacturados) {
+    public void setDiasfacturados(Long diasfacturados) {
         this.diasfacturados = diasfacturados;
+    }
+
+    public void setDiasfacturados(Integer diasfacturados) {
+        this.diasfacturados = diasfacturados != null ? diasfacturados.longValue() : null;
     }
 
     public String getComentarios() {

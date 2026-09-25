@@ -42,7 +42,7 @@ public class NotaDeCredito {
     private String motivoderefactura;
     private BigDecimal importederefactura;
     private String comentarios;
-    private Integer diasfacturados;
+    private Long diasfacturados;
     private String prestacionenglobante;
 
     @Column(name = "comentarios_debito")
@@ -136,12 +136,16 @@ public class NotaDeCredito {
         this.comentarios = comentarios;
     }
 
-    public Integer getDiasfacturados() {
+    public Long getDiasfacturados() {
         return diasfacturados;
     }
 
-    public void setDiasfacturados(Integer diasfacturados) {
+    public void setDiasfacturados(Long diasfacturados) {
         this.diasfacturados = diasfacturados;
+    }
+
+    public void setDiasfacturados(Integer diasfacturados) {
+        this.diasfacturados = diasfacturados != null ? diasfacturados.longValue() : null;
     }
 
     public String getPrestacionenglobante() {

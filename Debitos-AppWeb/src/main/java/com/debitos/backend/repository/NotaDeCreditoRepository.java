@@ -44,7 +44,8 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     Optional<NotaDeCredito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionIdAndDebitoaceptadoFalse(String letra, Integer ptovta, Integer numero, Integer idPrestacion);
 
-    Optional<NotaDeCredito> findByPrestacionIdAndNotaDeDebitoPadreIsNull(Integer idPrestacion);
+    @Query(value = "SELECT * FROM notadecredito WHERE id_prestacion = :idPrestacion AND (id_notadedebito IS NULL OR id_notadedebito = 0) LIMIT 1", nativeQuery = true)
+    Optional<NotaDeCredito> findByPrestacionIdAndNotaDeDebitoPadreIsNull(@Param("idPrestacion") Integer idPrestacion);
 
     Optional<NotaDeCredito> findByNotaDeDebitoPadreId(Integer idNotaDeDebito);
 

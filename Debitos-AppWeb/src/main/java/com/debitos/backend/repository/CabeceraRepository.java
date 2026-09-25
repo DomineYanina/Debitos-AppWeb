@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,9 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
 
     @Query("SELECT c FROM Cabecera c WHERE c.asociadogrupo = :idGrupo OR c.grupo = :idGrupo OR c.id = :idGrupo")
     List<Cabecera> findByGrupoOrAsociadogrupoOrId(@Param("idGrupo") Long idGrupo);
+
+    @Query("SELECT c FROM Cabecera c WHERE c.asociadogrupo IN :idsGrupos OR c.grupo IN :idsGrupos OR c.id IN :idsGrupos")
+    List<Cabecera> findByGrupoOrAsociadogrupoOrIdIn(@Param("idsGrupos") Collection<Long> idsGrupos);
 
     @Query("SELECT c FROM Cabecera c WHERE UPPER(TRIM(c.tipo)) IN :tipos AND (c.asociadogrupo IN :grupos OR c.grupo IN :grupos OR c.asociado IN :grupos OR c.id IN :grupos) ORDER BY c.fecha DESC, c.numero DESC")
     List<Cabecera> findCandidatosPorTipoYGrupos(@Param("tipos") Collection<String> tipos,
@@ -299,5 +303,19 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
           AND (c.debe - COALESCE(c.haber, 0)) > 0
     """, nativeQuery = true)
     List<Object[]> obtenerDetalleFacturasPendientes();
+
+    /**
+     * Obtiene los IDs de grupo (asociadogrupo, grupo, asociado o id) de las facturas origen (FC)
+     * cuya fecha se encuentre dentro del rango especificado para acelerar la trazabilidad.
+     */
+    @Query(value = """
+        SELECT DISTINCT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
+        FROM cabecera c
+        WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
+          AND c.fecha IS NOT NULL
+          AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
+          AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+        """, nativeQuery = true)
+    List<Long> findIdsGruposFacturasPorRangoFechas(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 }
 

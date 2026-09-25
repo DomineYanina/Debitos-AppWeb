@@ -233,4 +233,18 @@ describe('DirectorioService', () => {
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
+
+  it('getTiemposCobranza debería enviar parámetros de cobertura, tipoDoc y fechas', () => {
+    service.getTiemposCobranza('443', 'FC', '2026-05-01', '2026-05-31').subscribe();
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/api/graficos/tiempos-cobranza') &&
+      r.params.get('codigoCobertura') === '443' &&
+      r.params.get('tipoDoc') === 'FC' &&
+      r.params.get('fechaDesde') === '2026-05-01' &&
+      r.params.get('fechaHasta') === '2026-05-31'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ dsoGlobal: 120, cobroRealPromedio: 0, saldoTotalMora: 50000, detalles: [] });
+  });
 });
