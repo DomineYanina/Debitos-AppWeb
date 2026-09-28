@@ -134,7 +134,8 @@ describe('DirectorioDashboardComponent', () => {
     expect(component.gruposFacturas[0].expandido).toBe(true);
   });
 
-  it('navegarADetalleMotivo debería redirigir a la ruta drill-down con queryParams', () => {
+  it('navegarADetalleMotivo debería redirigir a la ruta drill-down con queryParams incluyendo solapa', () => {
+    component.solapaActiva = 'motivos';
     component.codigoCoberturaSeleccionada = 'OSDE';
     component.tipoDocSeleccionado = 'FCE';
     component.navegarADetalleMotivo('Falta de autorización');
@@ -146,7 +147,8 @@ describe('DirectorioDashboardComponent', () => {
           codigoCobertura: 'OSDE',
           tipoDoc: 'FCE',
           fechaDesde: component.fechaDesde,
-          fechaHasta: component.fechaHasta
+          fechaHasta: component.fechaHasta,
+          solapa: 'motivos'
         }
       }
     );
@@ -1156,6 +1158,161 @@ describe('DirectorioDashboardComponent', () => {
       );
       expect(component.tiemposCobranzaDatos?.dsoGlobal).toBe(150);
       expect(component.tiemposCobranzaDatos?.saldoTotalMora).toBe(10000);
+    });
+  });
+
+  describe('Selección de institución desde gráfico Donut de Distribución de Cartera', () => {
+    beforeEach(() => {
+      component.coberturas = [
+        { codigo: 'OSDE', nombre: 'OSDE BINARIO' },
+        { codigo: 'SWISS', nombre: 'SWISS MEDICAL' },
+        { codigo: '446', nombre: 'O.S.SERVICIO PENITENCIARIO FEDERAL' }
+      ];
+      component.puntosDonut = [
+        { etiqueta: '446 - O.S.SERVICIO PENITENCIARIO FEDERAL', saldo: 500000 },
+        { etiqueta: 'OSDE - OSDE BINARIO', saldo: 300000 }
+      ];
+      component.distribucionChartData.labels = [
+        '446 - O.S.SERVICIO PENITENCIARIO FEDERAL',
+        'OSDE - OSDE BINARIO'
+      ];
+    });
+
+    it('resolverCodigoCobertura debería resolver códigos por coincidencia directa, etiqueta con guión o nombre', () => {
+      expect(component.resolverCodigoCobertura('OSDE')).toBe('OSDE');
+      expect(component.resolverCodigoCobertura('446 - O.S.SERVICIO PENITENCIARIO FEDERAL')).toBe('446');
+      expect(component.resolverCodigoCobertura('SWISS MEDICAL')).toBe('SWISS');
+      expect(component.resolverCodigoCobertura('810 - GRUPO DDM S.A.')).toBe('810');
+      expect(component.resolverCodigoCobertura('')).toBeNull();
+      expect(component.resolverCodigoCobertura('S/C - Sin cobertura')).toBeNull();
+    });
+
+    it('seleccionarInstitucionDesdeGrafico debería actualizar codigoCoberturaSeleccionada y disparar aplicarFiltros', () => {
+      const aplicarFiltrosSpy = vi.spyOn(component, 'aplicarFiltros');
+      component.codigoCoberturaSeleccionada = 'TODAS';
+
+      component.seleccionarInstitucionDesdeGrafico('446 - O.S.SERVICIO PENITENCIARIO FEDERAL');
+
+      expect(component.codigoCoberturaSeleccionada).toBe('446');
+      expect(aplicarFiltrosSpy).toHaveBeenCalled();
+    });
+
+    it('seleccionarInstitucionDesdeGrafico con índice debería usar el puntoDonut correspondiente', () => {
+      const aplicarFiltrosSpy = vi.spyOn(component, 'aplicarFiltros');
+      component.codigoCoberturaSeleccionada = 'TODAS';
+
+      component.seleccionarInstitucionDesdeGrafico('', 1);
+
+      expect(component.codigoCoberturaSeleccionada).toBe('OSDE');
+      expect(aplicarFiltrosSpy).toHaveBeenCalled();
+    });
+
+    it('seleccionarInstitucionDesdeGrafico no debería reaplicar filtros si la institución ya está seleccionada', () => {
+      const aplicarFiltrosSpy = vi.spyOn(component, 'aplicarFiltros');
+      component.codigoCoberturaSeleccionada = '446';
+
+      component.seleccionarInstitucionDesdeGrafico('446 - O.S.SERVICIO PENITENCIARIO FEDERAL');
+
+      expect(aplicarFiltrosSpy).not.toHaveBeenCalled();
+    });
+
+    it('onDistribucionChartClick debería procesar el elemento activo y seleccionar la institución', () => {
+      const seleccionarSpy = vi.spyOn(component, 'seleccionarInstitucionDesdeGrafico');
+
+      component.onDistribucionChartClick({
+        active: [{ index: 0 }]
+      });
+
+      expect(seleccionarSpy).toHaveBeenCalledWith('446 - O.S.SERVICIO PENITENCIARIO FEDERAL', 0);
+    });
+  });
+
+  describe('Ordenamiento de Resumen de Cartera y Balance Financiero', () => {
+    beforeEach(() => {
+      component.balanceFinanciadores = [
+        {
+          financiador: '782 - MEDICINA PREPAGA HOMINIS S.A.',
+          facturacionFc: 2857091,
+          incrementosNd: 0,
+          debitosNc: 162788,
+          refacturadoNd: 56638,
+          cobradoRc: 1537297,
+          saldoPendiente: 1213643,
+          _originalIndex: 0
+        },
+        {
+          financiador: '446 - O.S.SERVICIO PENITENCIARIO FEDERAL',
+          facturacionFc: 3771950,
+          incrementosNd: 27041,
+          debitosNc: 330438,
+          refacturadoNd: 27652,
+          cobradoRc: 2105443,
+          saldoPendiente: 1390763,
+          _originalIndex: 1
+        },
+        {
+          financiador: '810 - GRUPO DDM S.A. (PREMEDIC)',
+          facturacionFc: 3166751,
+          incrementosNd: 2150,
+          debitosNc: 419330,
+          refacturadoNd: 61775,
+          cobradoRc: 1746347,
+          saldoPendiente: 1064998,
+          _originalIndex: 2
+        }
+      ];
+    });
+
+    it('debería ordenar por financiador (alfabético)', () => {
+      // 1er click: asc
+      component.ordenarBalance('financiador');
+      expect(component.columnaOrdenBalance).toBe('financiador');
+      expect(component.direccionOrdenBalance).toBe('asc');
+      expect(component.balanceFinanciadores[0].financiador).toContain('446');
+
+      // 2do click: desc
+      component.ordenarBalance('financiador');
+      expect(component.direccionOrdenBalance).toBe('desc');
+      expect(component.balanceFinanciadores[0].financiador).toContain('810');
+
+      // 3er click: restablecer orden original
+      component.ordenarBalance('financiador');
+      expect(component.columnaOrdenBalance).toBe('');
+      expect(component.balanceFinanciadores[0].financiador).toContain('782');
+    });
+
+    it('debería ordenar por saldoPendiente (numérico)', () => {
+      // 1er click: desc por defecto en montos
+      component.ordenarBalance('saldo');
+      expect(component.columnaOrdenBalance).toBe('saldo');
+      expect(component.direccionOrdenBalance).toBe('desc');
+      expect(component.balanceFinanciadores[0].saldoPendiente).toBe(1390763);
+
+      // 2do click: asc
+      component.ordenarBalance('saldo');
+      expect(component.direccionOrdenBalance).toBe('asc');
+      expect(component.balanceFinanciadores[0].saldoPendiente).toBe(1064998);
+
+      // 3er click: restablecer
+      component.ordenarBalance('saldo');
+      expect(component.columnaOrdenBalance).toBe('');
+      expect(component.balanceFinanciadores[0].financiador).toContain('782');
+    });
+
+    it('debería ordenar por facturacionFc (numérico desc)', () => {
+      component.ordenarBalance('facturacion');
+      expect(component.balanceFinanciadores[0].facturacionFc).toBe(3771950);
+      expect(component.balanceFinanciadores[2].facturacionFc).toBe(2857091);
+    });
+  });
+
+  describe('Restauración de solapa y filtros desde queryParams en ngOnInit', () => {
+    it('esSolapaValida debería validar únicamente solapas reconocidas del sistema', () => {
+      expect(component.esSolapaValida('motivos')).toBe(true);
+      expect(component.esSolapaValida('tablero')).toBe(true);
+      expect(component.esSolapaValida('cuenta-corriente')).toBe(true);
+      expect(component.esSolapaValida('invalida')).toBe(false);
+      expect(component.esSolapaValida('')).toBe(false);
     });
   });
 });

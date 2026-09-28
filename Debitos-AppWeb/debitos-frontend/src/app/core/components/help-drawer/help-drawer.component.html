@@ -65,6 +65,48 @@
               </div>
             </div>
           </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('busqueda-q3')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('busqueda-q3')"
+              [attr.aria-expanded]="isQuestionOpen('busqueda-q3')" aria-controls="faq-ans-busqueda-q3">
+              <span class="faq-question-text">¿Qué debo hacer si busco un comprobante y el sistema indica que no existe?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('busqueda-q3')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-busqueda-q3" class="faq-answer-wrapper" [class.open]="isQuestionOpen('busqueda-q3')">
+              <div class="faq-answer-inner">
+                <p>Si al buscar un comprobante el sistema muestra que no fue encontrado, aparecerá en pantalla el
+                  botón <strong>Notificar a Administradores</strong>. Al presionarlo, se enviará una alerta automática
+                  al panel de los supervisores y administradores informando los datos exactos del comprobante (tipo, letra,
+                  punto de venta y número) para que gestionen su carga en la base de datos.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('busqueda-q4')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('busqueda-q4')"
+              [attr.aria-expanded]="isQuestionOpen('busqueda-q4')" aria-controls="faq-ans-busqueda-q4">
+              <span class="faq-question-text">¿Por qué al buscar un Recibo (RC) no aparecen prestaciones en la grilla?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('busqueda-q4')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-busqueda-q4" class="faq-answer-wrapper" [class.open]="isQuestionOpen('busqueda-q4')">
+              <div class="faq-answer-inner">
+                <p>Los Recibos (RC) representan órdenes de cobranza y no contienen detalle de prestaciones médicas directas.
+                  Al consultar un RC, la pantalla te indicará que el comprobante fue cargado y habilitará el botón
+                  <strong>📋 Ver historial de comprobantes asociados</strong>, desde donde podrás explorar las facturas
+                  y notas vinculadas a esa cobranza y acceder a sus prestaciones correspondientes.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -121,6 +163,46 @@
                 <p>Los registros modificados se destacan visualmente en la grilla y el sistema activa una protección. Si
                   intentás cerrar la pestaña del navegador o salir de la página antes de guardar, se mostrará un cartel
                   de advertencia para evitar la pérdida accidental de datos.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('edicion-q3')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('edicion-q3')"
+              [attr.aria-expanded]="isQuestionOpen('edicion-q3')" aria-controls="faq-ans-edicion-q3">
+              <span class="faq-question-text">¿Qué diferencia hay entre marcar Débito Aceptado en "SI" o en "NO"?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('edicion-q3')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-edicion-q3" class="faq-answer-wrapper" [class.open]="isQuestionOpen('edicion-q3')">
+              <div class="faq-answer-inner">
+                <p>Define si el débito aplicado por la obra social o financiador es aceptado o si será defendido:</p>
+                <ul>
+                  <li><strong>Débito Aceptado = SI:</strong> Significa que el débito es correcto y queda en firme (asumido por la institución/profesional). Al marcar "SI", el sistema inhabilita y limpia automáticamente los campos de Refacturación, ya que la prestación no se volverá a cobrar.</li>
+                  <li><strong>Débito Aceptado = NO:</strong> Significa que el débito es rechazado por auditoría y se defenderá ante la entidad. El sistema habilitará la carga de Motivo e Importe de Refacturación y sumará el valor a la tarjeta de <strong>Total a Refacturar</strong>.</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('edicion-q4')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('edicion-q4')"
+              [attr.aria-expanded]="isQuestionOpen('edicion-q4')" aria-controls="faq-ans-edicion-q4">
+              <span class="faq-question-text">¿Por qué aparece un cartel de confirmación al cambiar un motivo o importe?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('edicion-q4')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-edicion-q4" class="faq-answer-wrapper" [class.open]="isQuestionOpen('edicion-q4')">
+              <div class="faq-answer-inner">
+                <p>Si una prestación ya tenía un importe debitado o un motivo asignado y seleccionás uno nuevo, el sistema te consultará si deseás <strong>reemplazar</strong> el valor anterior por el nuevo cálculo automático o <strong>mantener</strong> el importe que ya habías cargado manualmente. Esto previene pérdidas accidentales de datos cargados previamente.</p>
               </div>
             </div>
           </article>
@@ -237,6 +319,28 @@
               </div>
             </div>
           </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('grilla-q3')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('grilla-q3')"
+              [attr.aria-expanded]="isQuestionOpen('grilla-q3')" aria-controls="faq-ans-grilla-q3">
+              <span class="faq-question-text">¿Por qué algunas celdas aparecen en color naranja y no me permiten escribir?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('grilla-q3')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-grilla-q3" class="faq-answer-wrapper" [class.open]="isQuestionOpen('grilla-q3')">
+              <div class="faq-answer-inner">
+                <p>El color naranja indica que la celda está bloqueada según las reglas de consistencia de la auditoría:</p>
+                <ul>
+                  <li><strong>Comentarios de Débito:</strong> Solo se habilitan si previamente seleccionaste un <em>Motivo de Débito</em>.</li>
+                  <li><strong>Motivo, Importe y Comentarios de Refactura:</strong> Solo se habilitan si la columna <em>Débito Aceptado</em> está definida en <strong>NO</strong>. Si está vacía o en "SI", estas celdas permanecerán bloqueadas.</li>
+                </ul>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -298,7 +402,7 @@
       </div>
     </section>
 
-    <!-- Categoría 4: Gestión de Documentos y Guardado -->
+    <!-- Categoría 6: Gestión de Documentos y Guardado -->
     <section class="faq-group">
       <button type="button" class="faq-group-header" (click)="toggleGroup('documentos')"
         [attr.aria-expanded]="isGroupOpen('documentos')" aria-controls="faq-group-documentos">
@@ -354,11 +458,98 @@
               </div>
             </div>
           </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('documentos-q3')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('documentos-q3')"
+              [attr.aria-expanded]="isQuestionOpen('documentos-q3')" aria-controls="faq-ans-documentos-q3">
+              <span class="faq-question-text">¿Cuándo utilizar una Nota de Crédito "Por Prestaciones" vs. "Por ajuste de IVA"?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('documentos-q3')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-documentos-q3" class="faq-answer-wrapper" [class.open]="isQuestionOpen('documentos-q3')">
+              <div class="faq-answer-inner">
+                <p>La modalidad depende del origen del ajuste sobre la factura:</p>
+                <ul>
+                  <li><strong>Por Prestaciones:</strong> Se utiliza en la auditoría tradicional de débitos médicos para acreditar prestaciones no liquidadas o corregidas.</li>
+                  <li><strong>Por ajuste de IVA:</strong> Se utiliza cuando la factura original tuvo una alícuota incorrecta o exención de IVA. Puede generarse <em>Con detalle</em> (seleccionando prestaciones con motivo "Iva mal facturado") o por <em>Concepto</em> (ingresando el neto manualmente y la alícuota 0%, 10.5% o 21%). Permite además emitir en simultáneo la Nota de Débito espejo desde el panel derecho.</li>
+                </ul>
+                <p><em>Nota: Solo se permite registrar una única Nota de Crédito por ajuste de IVA por factura.</em></p>
+              </div>
+            </div>
+          </article>
+
+          <article class="faq-item" [class.open]="isQuestionOpen('documentos-q4')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('documentos-q4')"
+              [attr.aria-expanded]="isQuestionOpen('documentos-q4')" aria-controls="faq-ans-documentos-q4">
+              <span class="faq-question-text">¿Qué hago si al emitir una NC o ND el comprobante no aparece en la lista desplegable?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('documentos-q4')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-documentos-q4" class="faq-answer-wrapper" [class.open]="isQuestionOpen('documentos-q4')">
+              <div class="faq-answer-inner">
+                <p>En el menú desplegable solo se listan comprobantes sugeridos que aún no han sido imputados. Si el
+                  comprobante que necesitás vincular no figura (o la lista indica que todos ya fueron asociados), hacé clic
+                  en el enlace <strong>"¿No figura? Ingresar manualmente →"</strong> para cargar los datos oficiales
+                  (Tipo, Letra, Punto de Venta, Número y Fecha).</p>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
     </section>
 
-    <!-- Categoría 5: Herramientas y Exportación -->
+    <!-- Categoría 7: Historial y Trazabilidad -->
+    <section class="faq-group">
+      <button type="button" class="faq-group-header" (click)="toggleGroup('historial')"
+        [attr.aria-expanded]="isGroupOpen('historial')" aria-controls="faq-group-historial">
+        <span class="faq-group-title">Historial y Trazabilidad</span>
+        <span class="faq-chevron" [class.rotated]="isGroupOpen('historial')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </button>
+
+      <div id="faq-group-historial" class="faq-group-content" [class.open]="isGroupOpen('historial')">
+        <div class="faq-group-inner">
+          <article class="faq-item" [class.open]="isQuestionOpen('historial-q1')">
+            <button type="button" class="faq-question-button" (click)="toggleQuestion('historial-q1')"
+              [attr.aria-expanded]="isQuestionOpen('historial-q1')" aria-controls="faq-ans-historial-q1">
+              <span class="faq-question-text">¿Qué significan las siglas DEB, COB, REF e IVA en el Historial de Comprobantes?</span>
+              <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('historial-q1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+            <div id="faq-ans-historial-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('historial-q1')">
+              <div class="faq-answer-inner">
+                <p>En el modal de Historial, estas etiquetas indican el rol de cada documento dentro del circuito:</p>
+                <ul>
+                  <li><strong>DEB</strong> (Débito): Comprobante generado a partir de débitos aplicados.</li>
+                  <li><strong>COB</strong> (Cobranza): Recibos o comprobantes de cobro asociados.</li>
+                  <li><strong>REF</strong> (Refacturación): Comprobante originado por prestaciones no aceptadas y refacturadas.</li>
+                  <li><strong>IVA</strong> (Ajuste de IVA): Comprobante emitido exclusivamente por rectificación de alícuotas impositivas.</li>
+                </ul>
+                <p>Además, podés hacer clic en <strong>Ver prestaciones</strong> en cualquier comprobante del árbol para auditarlo directamente sin tener que reescribir su numeración en el buscador principal.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categoría 8: Herramientas y Exportación -->
     <section class="faq-group">
       <button type="button" class="faq-group-header" (click)="toggleGroup('exportacion')"
         [attr.aria-expanded]="isGroupOpen('exportacion')" aria-controls="faq-group-exportacion">
@@ -415,6 +606,289 @@
         </div>
       </div>
     </section>
+
+    <!-- ====================================================================
+         BLOQUE EXCLUSIVO PARA ADMINISTRADORES
+         ==================================================================== -->
+    <ng-container *ngIf="esAdmin()">
+      <div class="admin-faq-divider">
+        <span class="admin-badge-tag">ADMINISTRADOR</span>
+        <span class="admin-section-subtitle">Preguntas y operaciones exclusivas de supervisión</span>
+      </div>
+
+      <!-- Admin Categoría 1: Simulación de Roles y Permisos -->
+      <section class="faq-group faq-group-admin">
+        <button type="button" class="faq-group-header" (click)="toggleGroup('adminSimulacion')"
+          [attr.aria-expanded]="isGroupOpen('adminSimulacion')" aria-controls="faq-group-admin-simulacion">
+          <span class="faq-group-title">Simulación de Roles y Permisos</span>
+          <span class="faq-chevron" [class.rotated]="isGroupOpen('adminSimulacion')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <div id="faq-group-admin-simulacion" class="faq-group-content" [class.open]="isGroupOpen('adminSimulacion')">
+          <div class="faq-group-inner">
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q1')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q1')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q1')" aria-controls="faq-ans-admin-q1">
+                <span class="faq-question-text">¿Cómo funciona el selector "Ver como" en la barra de navegación?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q1')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q1" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q1')">
+                <div class="faq-answer-inner">
+                  <p>El selector <strong>"Ver como"</strong> te permite experimentar la interfaz exactamente como la ve otro perfil (por ejemplo, <em>Operador</em> o <em>Directorio</em>), ocultando o mostrando botones y secciones según los permisos asignados a ese rol. Podés volver a tu vista completa en cualquier momento seleccionando la opción <strong>"Administrador (Actual)"</strong>.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q2')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q2')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q2')" aria-controls="faq-ans-admin-q2">
+                <span class="faq-question-text">¿Al simular otro rol se modifican mis permisos en el servidor o se altera la base de datos?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q2')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q2" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q2')">
+                <div class="faq-answer-inner">
+                  <p>No. La simulación de rol es puramente visual en el navegador del administrador. Tu token de seguridad real de Administrador se mantiene intacto y no afecta la seguridad del sistema ni altera las sesiones de otros usuarios conectados.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Admin Categoría 2: Centro de Notificaciones y Comprobantes Ausentes -->
+      <section class="faq-group faq-group-admin">
+        <button type="button" class="faq-group-header" (click)="toggleGroup('adminNotificaciones')"
+          [attr.aria-expanded]="isGroupOpen('adminNotificaciones')" aria-controls="faq-group-admin-notificaciones">
+          <span class="faq-group-title">Centro de Notificaciones y Comprobantes Ausentes</span>
+          <span class="faq-chevron" [class.rotated]="isGroupOpen('adminNotificaciones')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <div id="faq-group-admin-notificaciones" class="faq-group-content" [class.open]="isGroupOpen('adminNotificaciones')">
+          <div class="faq-group-inner">
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q3')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q3')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q3')" aria-controls="faq-ans-admin-q3">
+                <span class="faq-question-text">¿Qué tipo de notificaciones recibe el Administrador en la campana?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q3')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q3" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q3')">
+                <div class="faq-answer-inner">
+                  <p>La campana de notificaciones alerta sobre eventos del circuito que requieren atención de supervisión:</p>
+                  <ul>
+                    <li><strong>AUSENTE / DOC_NO_ENCONTRADO:</strong> Notificaciones enviadas por operadores cuando buscan una factura, nota o recibo que no existe en el sistema.</li>
+                    <li><strong>NC / ND:</strong> Avisos automáticos de generación o ingreso de nuevos comprobantes de ajuste.</li>
+                  </ul>
+                  <p>Podés marcarlas como vistas individualmente o presionar <strong>"✓ Ver todas"</strong> para vaciar los avisos pendientes.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q4')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q4')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q4')" aria-controls="faq-ans-admin-q4">
+                <span class="faq-question-text">¿Cómo debo gestionar una alerta de "Documento No Encontrado"?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q4')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q4" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q4')">
+                <div class="faq-answer-inner">
+                  <p>Al hacer clic en una notificación con la etiqueta roja <strong>AUSENTE</strong>, se abrirá la ventana de <strong>Reporte de Documento Ausente</strong>, detallando el comprobante solicitado, la fecha y el operador que lo reportó. Desde allí podés presionar <strong>"📋 Copiar datos"</strong> para trasladar la información al equipo de sistemas o al proceso de carga de comprobantes en la base de datos.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Admin Categoría 3: Control y Conciliación de Trámites -->
+      <section class="faq-group faq-group-admin">
+        <button type="button" class="faq-group-header" (click)="toggleGroup('adminConciliacion')"
+          [attr.aria-expanded]="isGroupOpen('adminConciliacion')" aria-controls="faq-group-admin-conciliacion">
+          <span class="faq-group-title">Control y Conciliación de Trámites</span>
+          <span class="faq-chevron" [class.rotated]="isGroupOpen('adminConciliacion')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <div id="faq-group-admin-conciliacion" class="faq-group-content" [class.open]="isGroupOpen('adminConciliacion')">
+          <div class="faq-group-inner">
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q5')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q5')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q5')" aria-controls="faq-ans-admin-q5">
+                <span class="faq-question-text">¿Qué impacto tiene la acción "Finalizar Trámite" sobre un documento?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q5')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q5" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q5')">
+                <div class="faq-answer-inner">
+                  <p>El botón <strong>"Finalizar Trámite"</strong> (disponible exclusivamente para Administradores en la cabecera de auditoría) marca el grupo del documento como conciliado (Estado 2). Al finalizarlo:</p>
+                  <ul>
+                    <li>Las prestaciones de la grilla pasan automáticamente a <strong>solo lectura</strong> para todos los usuarios.</li>
+                    <li>En el Historial de Comprobantes, el documento raíz mostrará la insignia verde <strong>"Finalizado"</strong>.</li>
+                    <li>Se bloquea cualquier edición masiva o individual accidental sobre los débitos y refacturaciones.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q6')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q6')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q6')" aria-controls="faq-ans-admin-q6">
+                <span class="faq-question-text">¿Cómo puedo reabrir un trámite finalizado si se requiere una corrección posterior?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q6')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q6" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q6')">
+                <div class="faq-answer-inner">
+                  <p>Al buscar nuevamente un documento finalizado, el botón de acción cambiará automáticamente a <strong>"Reabrir Trámite"</strong>. Al hacer clic sobre él, el estado volverá a <em>Pendiente de conciliación</em> (Estado 1), restituyendo los permisos de edición sobre la grilla para que los operadores puedan aplicar los ajustes necesarios.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Admin Categoría 4: Tablero de Control y Métricas Ejecutivas -->
+      <section class="faq-group faq-group-admin">
+        <button type="button" class="faq-group-header" (click)="toggleGroup('adminTablero')"
+          [attr.aria-expanded]="isGroupOpen('adminTablero')" aria-controls="faq-group-admin-tablero">
+          <span class="faq-group-title">Tablero de Control y Métricas Ejecutivas</span>
+          <span class="faq-chevron" [class.rotated]="isGroupOpen('adminTablero')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <div id="faq-group-admin-tablero" class="faq-group-content" [class.open]="isGroupOpen('adminTablero')">
+          <div class="faq-group-inner">
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q7')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q7')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q7')" aria-controls="faq-ans-admin-q7">
+                <span class="faq-question-text">¿Qué información estratégica proporciona el Tablero de Control (/directorio)?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q7')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q7" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q7')">
+                <div class="faq-answer-inner">
+                  <p>El Tablero de Control consolida los indicadores clave de rendimiento (KPIs) del circuito de facturación y débitos:</p>
+                  <ul>
+                    <li><strong>Tasa de Recupero Global:</strong> Porcentaje y monto efectivamente recuperado mediante refacturaciones.</li>
+                    <li><strong>Volumen Debitado vs. Refacturado:</strong> Comparativas temporales de importes.</li>
+                    <li><strong>Ranking de Motivos de Débito:</strong> Identificación de las principales causas de pérdida (médicas, administrativas o contractuales).</li>
+                    <li><strong>Desempeño de Analistas:</strong> Métricas operativas por operador y tiempos medios de procesamiento.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q8')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q8')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q8')" aria-controls="faq-ans-admin-q8">
+                <span class="faq-question-text">¿Cómo exportar o filtrar los datos en el Tablero de Control?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q8')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q8" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q8')">
+                <div class="faq-answer-inner">
+                  <p>Podés segmentar las métricas ejecutivas utilizando la barra superior de filtros por <strong>Rango de Fechas</strong>, <strong>Institución/Financiador</strong>, <strong>Profesional Médico</strong> o <strong>Analista</strong>. Además, cada gráfico y tabla de desglose permite profundizar haciendo clic en un motivo específico para ver el detalle de prestaciones afectadas.</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Admin Categoría 5: Telemetría y Monitoreo Operativo -->
+      <section class="faq-group faq-group-admin">
+        <button type="button" class="faq-group-header" (click)="toggleGroup('adminTelemetria')"
+          [attr.aria-expanded]="isGroupOpen('adminTelemetria')" aria-controls="faq-group-admin-telemetria">
+          <span class="faq-group-title">Monitoreo Operativo y Telemetría</span>
+          <span class="faq-chevron" [class.rotated]="isGroupOpen('adminTelemetria')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <div id="faq-group-admin-telemetria" class="faq-group-content" [class.open]="isGroupOpen('adminTelemetria')">
+          <div class="faq-group-inner">
+            <article class="faq-item" [class.open]="isQuestionOpen('admin-q9')">
+              <button type="button" class="faq-question-button" (click)="toggleQuestion('admin-q9')"
+                [attr.aria-expanded]="isQuestionOpen('admin-q9')" aria-controls="faq-ans-admin-q9">
+                <span class="faq-question-text">¿Cómo monitorea el sistema la actividad y posibles pérdidas de datos de los operadores?</span>
+                <span class="faq-question-chevron" [class.rotated]="isQuestionOpen('admin-q9')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </button>
+              <div id="faq-ans-admin-q9" class="faq-answer-wrapper" [class.open]="isQuestionOpen('admin-q9')">
+                <div class="faq-answer-inner">
+                  <p>El sistema cuenta con un motor de telemetría automática y tolerancia a fallos (<em>Store and Forward</em>):</p>
+                  <ul>
+                    <li>Registra eventos cada vez que un operador intenta cerrar la pestaña con registros modificados sin guardar (<code>INTENTO_CERRAR_PESTANA_SIN_GUARDAR</code>).</li>
+                    <li>Realiza un autoguardado silencioso cada 60 segundos sobre los cambios pendientes.</li>
+                    <li>Si el servidor se desconecta momentáneamente, almacena los eventos localmente y los sincroniza en lote apenas se restablece la comunicación.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </ng-container>
   </main>
 
   <!-- Pie del Panel con Acción Guiada -->

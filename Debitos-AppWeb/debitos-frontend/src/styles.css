@@ -77,3 +77,37 @@ body {
   opacity: 1;
   visibility: visible;
 }
+
+/* =============================================
+   Indicadores de ordenamiento en tablas
+   Alineación óptica precisa con títulos en mayúsculas / minúsculas
+   ============================================= */
+.sortable-col,
+.sortable-sub-col {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap !important;
+  vertical-align: middle;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  line-height: 1;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  color: #94a3b8;
+  transform: translateY(-2px);
+  user-select: none;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.sort-indicator.active {
+  color: #2563eb;
+  font-weight: 800;
+  font-size: 0.74rem;
+  transform: translateY(-2px);
+}
+

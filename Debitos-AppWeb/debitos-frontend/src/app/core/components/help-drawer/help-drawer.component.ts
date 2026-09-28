@@ -1,5 +1,6 @@
-import { Component, ChangeDetectionStrategy, input, output, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output, signal, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../services/auth';
 
 @Component({
   selector: 'app-help-drawer',
@@ -10,6 +11,9 @@ import { CommonModule } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HelpDrawerComponent {
+  private readonly authService = inject(AuthService);
+  readonly cdr = inject(ChangeDetectorRef);
+
   /**
    * Estado visual del panel lateral (abierto/cerrado).
    * Angular 21 Signal input con valor por defecto false.
@@ -27,6 +31,13 @@ export class HelpDrawerComponent {
   startTourRequested = output<void>();
 
   /**
+   * Indica si el usuario actual cuenta con rol activo de ADMIN (y no está simulando otro perfil).
+   */
+  esAdmin(): boolean {
+    return this.authService.hasRole('ADMIN');
+  }
+
+  /**
    * Estado desplegable de cada grupo de preguntas frecuentes (por defecto todos colapsados/ocultos).
    */
   openGroups = signal<Record<string, boolean>>({
@@ -36,7 +47,13 @@ export class HelpDrawerComponent {
     grilla: false,
     calculos: false,
     documentos: false,
-    exportacion: false
+    historial: false,
+    exportacion: false,
+    adminSimulacion: false,
+    adminNotificaciones: false,
+    adminConciliacion: false,
+    adminTablero: false,
+    adminTelemetria: false
   });
 
   /**

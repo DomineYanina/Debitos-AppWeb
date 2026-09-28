@@ -517,7 +517,10 @@ public class DirectorioService {
                     fecha,
                     codigo_cobertura,
                     cobertura,
-                    tipo
+                    tipo,
+                    letra,
+                    ptovta,
+                    numero
                 FROM cabecera
                 WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
                   AND COALESCE(asociadogrupo, grupo) IS NOT NULL

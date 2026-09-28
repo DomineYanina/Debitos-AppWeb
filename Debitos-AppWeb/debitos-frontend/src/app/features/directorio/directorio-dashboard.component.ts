@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef, AfterViewInit, HostListener } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import {
   Chart,
@@ -58,7 +58,25 @@ interface SliceDonut {
 export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   private directorioService = inject(DirectorioService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
+
+  private readonly SOLAPAS_VALIDAS = new Set([
+    'tablero',
+    'cuenta-corriente',
+    'tiempos-cobranza',
+    'matriz-cobranzas',
+    'motivos',
+    'analistas',
+    'bucles',
+    'usuarios-carga',
+    'medicos',
+    'trazabilidad'
+  ]);
+
+  esSolapaValida(solapa: string): boolean {
+    return this.SOLAPAS_VALIDAS.has(solapa);
+  }
 
   // ---------------------------------------------------------------------------
   // Sistema de Solapas / Pestañas de Navegación del Tablero (10 Sectores Individuales)
@@ -292,7 +310,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   columnaOrdenOperador: string = '';
   direccionOrdenOperador: 'asc' | 'desc' = 'desc';
   pasoOrdenOperador: number = 0;
+
   balanceFinanciadores: BalanceFinanciadorDTO[] = [];
+  columnaOrdenBalance: string = '';
+  direccionOrdenBalance: 'asc' | 'desc' = 'desc';
+  pasoOrdenBalance: number = 0;
   cargandoBalance: boolean = false;
   totalesBalance = {
     facturacionFc: 0,
@@ -346,6 +368,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   cargandoGraficos = false;
 
+  puntosDonut: PuntoDonutDTO[] = [];
+
   /** Doughnut: Distribución de cartera por financiador */
   distribucionChartData: ChartConfiguration<'doughnut'>['data'] = {
     labels: [],
@@ -362,6 +386,19 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     responsive: true,
     maintainAspectRatio: false,
     cutout: '62%',
+    onHover: (event, activeElements) => {
+      const target = event.native?.target as HTMLElement | null;
+      if (target) {
+        target.style.cursor = activeElements && activeElements.length > 0 ? 'pointer' : 'default';
+      }
+    },
+    onClick: (_event, activeElements, chart) => {
+      if (activeElements && activeElements.length > 0) {
+        const index = activeElements[0].index;
+        const label = chart.data.labels?.[index] as string;
+        this.seleccionarInstitucionDesdeGrafico(label, index);
+      }
+    },
     plugins: {
       legend: {
         position: 'right',
@@ -370,6 +407,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           font: { size: 12, family: 'Inter, sans-serif' },
           padding: 14,
           boxWidth: 14
+        },
+        onClick: (_event, legendItem, legend) => {
+          if (legendItem.index !== undefined && legend.chart) {
+            const label = legend.chart.data.labels?.[legendItem.index] as string;
+            this.seleccionarInstitucionDesdeGrafico(label, legendItem.index);
+          }
         }
       },
       tooltip: {
@@ -583,9 +626,40 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.inicializarFechasMesAnterior();
-    this.cargarCoberturas();
-    this.cargarTiposDocumento();
-    this.cargarDashboard();
+
+    this.route.queryParamMap.subscribe((params) => {
+      const solapaParam = params.get('solapa');
+      if (solapaParam && this.esSolapaValida(solapaParam)) {
+        this.solapaActiva = solapaParam as any;
+      }
+      const codCob = params.get('codigoCobertura');
+      if (codCob) {
+        this.codigoCoberturaSeleccionada = codCob;
+      }
+      const tipo = params.get('tipoDoc');
+      if (tipo) {
+        this.tipoDocSeleccionado = tipo;
+      }
+      const fDesde = params.get('fechaDesde');
+      if (fDesde) {
+        this.fechaDesde = fDesde;
+      }
+      const fHasta = params.get('fechaHasta');
+      if (fHasta) {
+        this.fechaHasta = fHasta;
+      }
+
+      this.cargarCoberturas();
+      this.cargarTiposDocumento();
+      this.cargarDashboard();
+
+      if (this.solapaActiva === 'motivos' || this.solapaActiva === 'tablero' || this.solapaActiva === 'tiempos-cobranza') {
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+          this.actualizarAlturasSticky();
+        }, 80);
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -793,6 +867,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.pasoOrdenOperador = 0;
     this.columnaOrdenTrazabilidad = '';
     this.pasoOrdenTrazabilidad = 0;
+    this.columnaOrdenBalance = '';
+    this.pasoOrdenBalance = 0;
     this.irAlMesAnterior();
   }
 
@@ -938,7 +1014,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         codigoCobertura: this.codigoCoberturaSeleccionada,
         tipoDoc: this.tipoDocSeleccionado,
         fechaDesde: this.fechaDesde,
-        fechaHasta: this.fechaHasta
+        fechaHasta: this.fechaHasta,
+        solapa: this.solapaActiva
       }
     });
   }
@@ -1045,6 +1122,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.directorioService.getCarteraDonut(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
       next: (puntos: PuntoDonutDTO[]) => {
+        this.puntosDonut = puntos || [];
         const labels = (puntos || []).map(p => p.etiqueta);
         const data = (puntos || []).map(p => Number(p.saldo));
         this.distribucionChartData = {
@@ -1066,6 +1144,77 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
+  onDistribucionChartClick(e: { event?: any; active?: any[] }): void {
+    if (e.active && e.active.length > 0) {
+      const activeEl = e.active[0];
+      const index = activeEl.index;
+      if (index !== undefined) {
+        const label = this.distribucionChartData.labels?.[index] as string;
+        this.seleccionarInstitucionDesdeGrafico(label, index);
+      }
+    }
+  }
+
+  seleccionarInstitucionDesdeGrafico(etiquetaOcodigo: string, indice?: number): void {
+    if (indice !== undefined && this.puntosDonut[indice]) {
+      etiquetaOcodigo = this.puntosDonut[indice].etiqueta || etiquetaOcodigo;
+    }
+    const codigo = this.resolverCodigoCobertura(etiquetaOcodigo);
+    if (!codigo) return;
+
+    if (this.codigoCoberturaSeleccionada === codigo) {
+      return;
+    }
+
+    this.codigoCoberturaSeleccionada = codigo;
+    this.aplicarFiltros();
+    this.cdr.markForCheck();
+  }
+
+  resolverCodigoCobertura(etiqueta: string): string | null {
+    if (!etiqueta) return null;
+
+    const etiquetaTrim = etiqueta.trim();
+
+    // 1. Coincidencia directa con código existente
+    const cobDirecta = this.coberturas.find(
+      c => c.codigo.trim().toLowerCase() === etiquetaTrim.toLowerCase()
+    );
+    if (cobDirecta) return cobDirecta.codigo;
+
+    // 2. Coincidencia por nombre completo de la cobertura
+    const cobPorNombreCompleto = this.coberturas.find(
+      c => c.nombre.trim().toLowerCase() === etiquetaTrim.toLowerCase()
+    );
+    if (cobPorNombreCompleto) return cobPorNombreCompleto.codigo;
+
+    // 3. Extraer código antes del primer guión "COD - Nombre"
+    const partes = etiquetaTrim.split(' - ');
+    const posibleCodigo = partes[0]?.trim();
+    if (posibleCodigo) {
+      const cobPorCodigo = this.coberturas.find(
+        c => c.codigo.trim().toLowerCase() === posibleCodigo.toLowerCase()
+      );
+      if (cobPorCodigo) return cobPorCodigo.codigo;
+    }
+
+    // 4. Coincidencia por nombre de la cobertura posterior al guión
+    const posibleNombre = partes.slice(1).join(' - ').trim();
+    if (posibleNombre) {
+      const cobPorNombre = this.coberturas.find(
+        c => c.nombre.trim().toLowerCase() === posibleNombre.toLowerCase()
+      );
+      if (cobPorNombre) return cobPorNombre.codigo;
+    }
+
+    // 5. Si el código extraído tiene valor y no es 'S/C'
+    if (posibleCodigo && posibleCodigo !== 'S/C' && partes.length > 1) {
+      return posibleCodigo;
+    }
+
+    return null;
+  }
+
   cargarBalanceFinanciero(): void {
     if (!this.directorioService.getBalanceFinanciero) return;
     this.cargandoBalance = true;
@@ -1074,7 +1223,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.directorioService.getBalanceFinanciero(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
       next: (data: BalanceFinanciadorDTO[]) => {
-        this.balanceFinanciadores = data || [];
+        this.balanceFinanciadores = (data || []).map((b, idx) => ({
+          ...b,
+          _originalIndex: idx
+        }));
+        if (this.columnaOrdenBalance) {
+          this.aplicarOrdenBalance();
+        }
         this.calcularTotalesBalance();
         this.cargandoBalance = false;
         this.cdr.markForCheck();
@@ -2160,20 +2315,18 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.cdr.markForCheck();
   }
 
-  coincideFinanciador(nombreFinanciador?: string, codigoCobertura?: string): boolean {
-    if (!nombreFinanciador && !codigoCobertura) return false;
-    const codFiltro = (this.codigoCoberturaSeleccionada || 'TODAS').trim().toLowerCase();
+  coincideFinanciador(nombreFinanciador?: string, codigoFiltro?: string): boolean {
+    if (!nombreFinanciador) return false;
+    const codFiltro = (codigoFiltro || this.codigoCoberturaSeleccionada || 'TODAS').trim().toLowerCase();
     if (codFiltro === 'todas' || codFiltro === '') return true;
 
     const cobObj = this.coberturas.find(c => c.codigo.toLowerCase() === codFiltro);
     const nomFiltro = cobObj?.nombre ? cobObj.nombre.trim().toLowerCase() : '';
 
     const finTexto = (nombreFinanciador || '').trim().toLowerCase();
-    const codTexto = (codigoCobertura || '').trim().toLowerCase();
 
-    if (codTexto && codTexto === codFiltro) return true;
     if (finTexto === codFiltro) return true;
-    if (finTexto.includes(codFiltro) || (codTexto && codFiltro.includes(codTexto))) return true;
+    if (finTexto.includes(codFiltro)) return true;
     if (nomFiltro && (finTexto.includes(nomFiltro) || nomFiltro.includes(finTexto))) return true;
 
     const partes = finTexto.split('-');
@@ -2745,6 +2898,62 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   restaurarOrdenTrazabilidad(): void {
     this.trazabilidadDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
     this.trazabilidadDatos = [...this.trazabilidadDatos];
+    this.cdr.markForCheck();
+  }
+
+  // ── Ordenamiento Resumen de Cartera y Balance Financiero ─────────────────
+  ordenarBalance(columna: string): void {
+    if (this.columnaOrdenBalance === columna) {
+      if (this.pasoOrdenBalance === 1) {
+        this.pasoOrdenBalance = 2;
+        this.direccionOrdenBalance = this.direccionOrdenBalance === 'asc' ? 'desc' : 'asc';
+        this.aplicarOrdenBalance();
+      } else {
+        // 3er click: deshacer ordenamiento
+        this.columnaOrdenBalance = '';
+        this.pasoOrdenBalance = 0;
+        this.restaurarOrdenBalance();
+      }
+    } else {
+      this.columnaOrdenBalance = columna;
+      this.pasoOrdenBalance = 1;
+      this.direccionOrdenBalance = columna === 'financiador' ? 'asc' : 'desc';
+      this.aplicarOrdenBalance();
+    }
+  }
+
+  aplicarOrdenBalance(): void {
+    const factor = this.direccionOrdenBalance === 'asc' ? 1 : -1;
+    const columna = this.columnaOrdenBalance;
+
+    this.balanceFinanciadores.sort((a, b) => {
+      switch (columna) {
+        case 'financiador':
+          return (a.financiador || '').localeCompare(b.financiador || '') * factor;
+        case 'facturacion':
+          return ((a.facturacionFc || 0) - (b.facturacionFc || 0)) * factor;
+        case 'incrementos':
+          return ((a.incrementosNd || 0) - (b.incrementosNd || 0)) * factor;
+        case 'debitos':
+          return ((a.debitosNc || 0) - (b.debitosNc || 0)) * factor;
+        case 'refacturado':
+          return ((a.refacturadoNd || 0) - (b.refacturadoNd || 0)) * factor;
+        case 'cobrado':
+          return ((a.cobradoRc || 0) - (b.cobradoRc || 0)) * factor;
+        case 'saldo':
+          return ((a.saldoPendiente || 0) - (b.saldoPendiente || 0)) * factor;
+        default:
+          return 0;
+      }
+    });
+
+    this.balanceFinanciadores = [...this.balanceFinanciadores];
+    this.cdr.markForCheck();
+  }
+
+  restaurarOrdenBalance(): void {
+    this.balanceFinanciadores.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
+    this.balanceFinanciadores = [...this.balanceFinanciadores];
     this.cdr.markForCheck();
   }
 

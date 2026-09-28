@@ -275,6 +275,7 @@ export interface BalanceFinanciadorDTO {
   refacturadoNd: number;
   cobradoRc: number;
   saldoPendiente: number;
+  _originalIndex?: number;
 }
 
 /** Punto para Gráfico Donut de Distribución de Cartera */

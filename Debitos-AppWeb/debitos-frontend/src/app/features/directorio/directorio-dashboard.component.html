@@ -175,7 +175,7 @@
           <span class="kpi-title">FACTURACIÓN ORIGINAL (FC)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Devengado Bruto Inicial:</strong> Suma total de las Facturas Madre emitidas (debe de
               FC/FAC/FCE/FCA) antes de la aplicación de débitos y cobranzas.
             </span>
@@ -196,7 +196,7 @@
           <span class="kpi-title">INCREMENTOS (ND)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Ajustes Positivos Directos:</strong> Notas de Débito directas no originadas por reclamos de
               débitos (ajustes de aranceles, recargos o intereses). Incrementan el saldo exigible.
             </span>
@@ -217,7 +217,7 @@
           <span class="kpi-title">DÉBITOS RECIBIDOS (NC)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Quitas de Auditoría:</strong> Total debitado por los financiadores mediante Notas de Crédito
               recibidas o aceptadas. Descuenta del saldo de facturación original.
             </span>
@@ -238,7 +238,7 @@
           <span class="kpi-title">REFACTURACIÓN (ND-NC)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Recupero de Débitos:</strong> Notas de Débito emitidas en respuesta a débitos recibidos de
               auditoría médica.<br><br>
               <strong>Tasa de Recupero:</strong> (Refacturación / Débitos NC) × 100
@@ -261,7 +261,7 @@
           <span class="kpi-title">COBRANZAS (RC)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Fondos Ingresados:</strong> Cobranzas efectivamente percibidas mediante Recibos (RC, RCA, RCB,
               OP).<br><br>
               <strong>Efectividad de Cobro:</strong> (Cobranzas / (Facturación + Incrementos)) × 100
@@ -285,7 +285,7 @@
           <span class="kpi-title">SALDO PENDIENTE REAL</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Deuda Neta Exigible:</strong><br>
               Facturación + Incrementos + Refacturación - Débitos - Cobranzas.<br><br>
               <strong>DSO Ponderado:</strong> Días promedio ponderados de atraso en cobrar la cartera.
@@ -374,7 +374,8 @@
               <span>Sin datos de saldo pendiente</span>
             </div>
             <canvas *ngIf="!cargandoGraficos && (distribucionChartData.labels?.length ?? 0) > 0" id="chart-distribucion"
-              baseChart [type]="'doughnut'" [data]="distribucionChartData" [options]="distribucionChartOptions">
+              baseChart [type]="'doughnut'" [data]="distribucionChartData" [options]="distribucionChartOptions"
+              (chartClick)="onDistribucionChartClick($event)">
             </canvas>
           </div>
         </div>
@@ -391,7 +392,7 @@
               <h2 class="section-title">Resumen de Cartera y Balance Financiero</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Consolidado por Financiador:</strong> Desglose aritmético donde Débitos (NC) y Cobranzas (RC)
                   descuentan de la Facturación e Incrementos para determinar el Saldo Pendiente exacto de cada obra
                   social.
@@ -416,13 +417,41 @@
           <table class="table-sanatorial table-balance">
             <thead>
               <tr>
-                <th class="th-financiador text-left">FINANCIADOR</th>
-                <th class="text-right">FACTURACIÓN (FC)</th>
-                <th class="text-right">INCREMENTOS (ND)</th>
-                <th class="text-right">DÉBITOS (NC)</th>
-                <th class="text-right">REFACTURADO (ND-NC)</th>
-                <th class="text-right">COBRADO (RC)</th>
-                <th class="text-right th-saldo">SALDO PENDIENTE</th>
+                <th class="th-financiador text-left sortable-col" [class.col-sorted]="columnaOrdenBalance === 'financiador'"
+                  (click)="ordenarBalance('financiador')" title="Ordenar por Financiador">
+                  FINANCIADOR <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'financiador'">{{
+                    columnaOrdenBalance === 'financiador' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBalance === 'facturacion'"
+                  (click)="ordenarBalance('facturacion')" title="Ordenar por Facturación">
+                  FACTURACIÓN (FC) <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'facturacion'">{{
+                    columnaOrdenBalance === 'facturacion' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBalance === 'incrementos'"
+                  (click)="ordenarBalance('incrementos')" title="Ordenar por Incrementos">
+                  INCREMENTOS (ND) <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'incrementos'">{{
+                    columnaOrdenBalance === 'incrementos' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBalance === 'debitos'"
+                  (click)="ordenarBalance('debitos')" title="Ordenar por Débitos">
+                  DÉBITOS (NC) <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'debitos'">{{
+                    columnaOrdenBalance === 'debitos' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBalance === 'refacturado'"
+                  (click)="ordenarBalance('refacturado')" title="Ordenar por Refacturado">
+                  REFACTURADO (ND-NC) <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'refacturado'">{{
+                    columnaOrdenBalance === 'refacturado' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenBalance === 'cobrado'"
+                  (click)="ordenarBalance('cobrado')" title="Ordenar por Cobrado">
+                  COBRADO (RC) <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'cobrado'">{{
+                    columnaOrdenBalance === 'cobrado' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right th-saldo sortable-col" [class.col-sorted]="columnaOrdenBalance === 'saldo'"
+                  (click)="ordenarBalance('saldo')" title="Ordenar por Saldo Pendiente">
+                  SALDO PENDIENTE <span class="sort-indicator" [class.active]="columnaOrdenBalance === 'saldo'">{{
+                    columnaOrdenBalance === 'saldo' ? (direccionOrdenBalance === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -467,7 +496,7 @@
               <h2 class="section-title">Cuenta Corriente</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Jerarquía Contable:</strong> Desglose en 3 niveles: <em>Nivel 1 (Financiador)</em> ➔ <em>Nivel
                     2 (Período mensual de atención)</em> ➔ <em>Nivel 3 (Factura Madre y comprobantes asociados: NC, ND,
                     RC)</em>. Permite auditar el saldo vivo línea por línea.
@@ -550,10 +579,12 @@
                 <!-- NIVEL 1: Financiador -->
                 <tr class="tr-financiador" (click)="toggleFinanciador(f)" [class.is-expanded]="f.expanded">
                   <td class="td-tree-node td-financiador">
-                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="f.expanded">
-                      {{ f.expanded ? '▼' : '▶' }}
-                    </button>
-                    <span class="financiador-nombre">{{ f.financiador }}</span>
+                    <div class="cc-cell-wrapper">
+                      <button type="button" class="btn-toggle-expand" [class.is-expanded]="f.expanded">
+                        {{ f.expanded ? '▼' : '▶' }}
+                      </button>
+                      <span class="financiador-nombre">{{ f.financiador }}</span>
+                    </div>
                   </td>
                   <td class="text-center text-muted">—</td>
                   <td class="text-right font-weight-bold color-facturado">
@@ -583,10 +614,12 @@
 
                     <tr class="tr-periodo" (click)="togglePeriodo(p)" [class.is-expanded]="p.expanded">
                       <td class="td-tree-node td-periodo">
-                        <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="p.expanded">
-                          {{ p.expanded ? '▼' : '▶' }}
-                        </button>
-                        <span class="periodo-tag">{{ p.periodo }}</span>
+                        <div class="cc-cell-wrapper">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="p.expanded">
+                            {{ p.expanded ? '▼' : '▶' }}
+                          </button>
+                          <span class="periodo-tag">{{ p.periodo }}</span>
+                        </div>
                       </td>
                       <td class="text-center text-muted">—</td>
                       <td class="text-right color-facturado">
@@ -616,15 +649,17 @@
                         <!-- Fila Factura Madre -->
                         <tr class="tr-factura" (click)="toggleFactura(fc)" [class.is-expanded]="fc.expanded">
                           <td class="td-tree-node td-factura-node">
-                            <button *ngIf="fc.hijos && fc.hijos.length > 0" type="button"
-                              class="btn-toggle-expand btn-toggle-xs" [class.is-expanded]="fc.expanded"
-                              (click)="$event.stopPropagation(); toggleFactura(fc)">
-                              {{ fc.expanded ? '▼' : '▶' }}
-                            </button>
-                            <span *ngIf="!fc.hijos || fc.hijos.length === 0" class="tree-bullet">•</span>
-                            <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(fc.tipo)"
-                              [title]="'Tipo de comprobante: ' + fc.tipo">{{ fc.tipo }}</span>
-                            <strong class="comprobante-numero">{{ fc.comprobante }}</strong>
+                            <div class="cc-cell-wrapper">
+                              <button *ngIf="fc.hijos && fc.hijos.length > 0" type="button"
+                                class="btn-toggle-expand btn-toggle-xs" [class.is-expanded]="fc.expanded"
+                                (click)="$event.stopPropagation(); toggleFactura(fc)">
+                                {{ fc.expanded ? '▼' : '▶' }}
+                              </button>
+                              <span *ngIf="!fc.hijos || fc.hijos.length === 0" class="tree-bullet">•</span>
+                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(fc.tipo)"
+                                [title]="'Tipo de comprobante: ' + fc.tipo">{{ fc.tipo }}</span>
+                              <strong class="comprobante-numero">{{ fc.comprobante }}</strong>
+                            </div>
                           </td>
                           <td class="text-center text-fecha">
                             {{ fc.fecha | date:'dd/MM/yyyy' }}
@@ -661,12 +696,14 @@
                               [class.tr-hijo-fc-origen]="h.origenTipo === 'FC'">
                             <td class="td-tree-node td-comprobante-hijo-node"
                               [style.padding-left.px]="74 + ((h.nivel || 1) - 1) * 25">
-                              <span class="tree-branch">└─</span>
-                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)"
-                                [title]="'Comprobante hijo asociado: ' + h.tipo">{{ h.tipo }}</span>
-                              <strong class="comprobante-numero">{{ h.comprobante }}</strong>
-                              <span *ngIf="h.origenTipo === 'FC'" class="badge-hijo-fc-origen"
-                                title="Factura de origen — monto bruto original antes de descuentos">Origen</span>
+                              <div class="cc-cell-wrapper">
+                                <span class="tree-branch">└─</span>
+                                <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)"
+                                  [title]="'Comprobante hijo asociado: ' + h.tipo">{{ h.tipo }}</span>
+                                <strong class="comprobante-numero">{{ h.comprobante }}</strong>
+                                <span *ngIf="h.origenTipo === 'FC'" class="badge-hijo-fc-origen"
+                                  title="Factura de origen — monto bruto original antes de descuentos">Origen</span>
+                              </div>
                             </td>
                             <td class="text-center text-fecha">
                               {{ h.fecha | date:'dd/MM/yyyy' }}
@@ -726,7 +763,7 @@
               <span>DSO GLOBAL PONDERADO POR MONTO</span>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-right tooltip-bottom">
                   <strong>Days Sales Outstanding (DSO):</strong> Plazo promedio ponderado por el importe adeudado que
                   transcurre desde la emisión de las facturas hasta la fecha actual para las facturas aún impagas.
                 </span>
@@ -787,7 +824,7 @@
               <h3 class="tiempos-box-title">Distribución de Deuda por Rangos de Vencimiento (Aging)</h3>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide tooltip-right">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-right tooltip-bottom">
                   <strong>Estratificación de Cartera:</strong> Clasificación de la deuda vencida en tramos (0-30, 31-60,
                   61-90, 91-120 y >120 días) para identificar riesgos de incobrabilidad.
                 </span>
@@ -871,7 +908,7 @@
               <h2 class="section-title">Matriz Anual de Recaudación por Fecha Real de Recibo (RC)</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Flujo de Caja Real:</strong> Registra las cobranzas efectivas distribuidas según el mes
                   calendario en que se emitió/cobró el Recibo (RC), independientemente del período de facturación
                   original.
@@ -988,7 +1025,7 @@
           <span class="contador-title">TOTAL DEBITADO EN NC</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Glosas Médicas Recibidas:</strong> Suma acumulada de débitos practicados por los financiadores en
               el período filtrado mediante Notas de Crédito (NC).
             </span>
@@ -1008,7 +1045,7 @@
           <span class="contador-title">DÉBITO ACEPTADO (PÉRDIDA)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Pérdida Asumida:</strong> Débitos que no fueron disputados o refacturados (o confirmados),
               constituyendo pérdida definitiva.<br><br>
               <strong>Tasa de Pérdida:</strong> (Pérdida / Total Debitado) × 100
@@ -1029,7 +1066,7 @@
           <span class="contador-title">TOTAL REFACTURADO (DISPUTADO)</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Recupero en Gestión:</strong> Monto defendido y reemitido mediante Notas de Débito (ND) ante las
               obras sociales.<br><br>
               <strong>Tasa de Recupero:</strong> (Refacturado / Total Debitado) × 100
@@ -1050,7 +1087,7 @@
           <span class="contador-title">MOTIVOS IDENTIFICADOS</span>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-right tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
               <strong>Tipologías de Glosas:</strong> Cantidad de causales únicas de débito detectadas en las
               liquidaciones procesadas.
             </span>
@@ -1072,7 +1109,7 @@
           <h2 class="section-title">Motivos de Débito y Refacturación (Pareto)</h2>
           <span class="filtro-info-wrapper">
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-            <span class="filtro-tooltip-popup tooltip-wide">
+            <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
               <strong>Principio de Pareto 80/20:</strong> Identifica el 20% de los motivos que concentran el 80% del
               valor debitado, comparando cuánto se refactura (barra azul) vs. cuánto se pierde definitivamente (barra
               roja).
@@ -1116,7 +1153,7 @@
               <h2 class="section-title">Distribución de Débitos por Causa / Motivo</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Análisis Causal y Drill-Down:</strong> Muestra la participación porcentual de cada causa. Haga
                   clic en una porción del anillo o en "Ver Detalle" para ver las prestaciones y comentarios de
                   auditoría.
@@ -1228,7 +1265,7 @@
               <h2 class="section-title">Desempeño y Gestión por Analista de Débito</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Auditoría de Gestión:</strong> Monitoreo del volumen de débitos gestionados por cada analista,
                   su efectividad de recupero, ticket promedio de rechazo y distribución entre atención ambulatoria e
                   internación.
@@ -1544,7 +1581,7 @@
               <h2 class="section-title">Auditoría de Bucles de Insistencia</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Ciclos de Rechazo Recurrente:</strong> Detecta prestaciones que tras ser debitadas (NC) y
                   refacturadas (ND) volvieron a recibir débitos sucesivos (≥ 2 NCs), señalando posibles fallas
                   sistemáticas de facturación o convenios en disputa.
@@ -1689,7 +1726,7 @@
               <h2 class="section-title">Desempeño por Usuarios de Carga (Operadores)</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Calidad en Emisión:</strong> Evalúa la calidad de carga original de los operadores que
                   emitieron las facturas que luego sufrieron débitos, permitiendo detectar necesidades de capacitación
                   en carga de órdenes o nomencladores.
@@ -1765,7 +1802,6 @@
                       <button type="button" class="btn-toggle-expand" [class.is-expanded]="op.expanded">
                         {{ op.expanded ? '▼' : '▶' }}
                       </button>
-                      <span class="analista-icon">💻</span>
                       <span class="analista-nombre">{{ op.operador }}</span>
                       <span class="badge-count">{{ op.motivos.length }} motivos</span>
                     </div>
@@ -1891,7 +1927,7 @@
               <h2 class="section-title">Desempeño por Prestadores / Médicos</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Débitos Médicos por Efector:</strong> Identifica a los profesionales médicos cuyos actos o
                   prescripciones generaron débitos de auditoría médica (falta de justificación, protocolos, firmas o
                   códigos erróneos).
@@ -2127,7 +2163,7 @@
               <h2 class="section-title">Detalle y Trazabilidad (Árbol Encadenado)</h2>
               <span class="filtro-info-wrapper">
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide">
+                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Trazabilidad Integral:</strong> Reconstrucción cronológica completa de la historia
                   clínica-administrativa de cada expediente, desde la FC de origen pasando por las NC y ND hasta su
                   recibo de cobro final RC.

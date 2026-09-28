@@ -152,13 +152,20 @@
   color: #dc2626;
 }
 
-/* Search Bar Card */
-.search-bar-card {
+/* Filters Card & Controls */
+.filters-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.85rem 1.25rem;
-  margin-bottom: 1.25rem;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.filters-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -184,7 +191,7 @@
   border: 1px solid #cbd5e1;
   background-color: #f8fafc;
   color: #0f172a;
-  padding: 0.5rem 0.85rem;
+  padding: 0.55rem 0.85rem;
   border-radius: 8px;
   font-size: 0.88rem;
   outline: none;
@@ -197,9 +204,210 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+.results-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .results-count {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
+  color: #475569;
+}
+
+.results-count strong {
+  color: #0f172a;
+}
+
+.filtered-amount-pill {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.filtered-amount-pill strong {
+  font-weight: 700;
+}
+
+.btn-clear-filters {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-clear-filters:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+/* Fila de Filtros Desplegables */
+.filters-dropdowns-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.filter-item-wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 992px) {
+  .filter-item-wide {
+    grid-column: span 1;
+  }
+}
+
+.filter-item label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: #64748b;
+}
+
+.form-control-select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #1e293b;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-control-select:hover {
+  border-color: #94a3b8;
+  background-color: #ffffff;
+}
+
+.form-control-select:focus {
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.filter-item-dates {
+  min-width: 210px;
+}
+
+.custom-dates-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.form-control-date {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #1e293b;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-control-date:hover {
+  border-color: #94a3b8;
+  background-color: #ffffff;
+}
+
+.form-control-date:focus {
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.input-money-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.currency-prefix {
+  position: absolute;
+  left: 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.form-control-money {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #1e293b;
+  padding: 0.5rem 0.65rem 0.5rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-control-money:hover {
+  border-color: #94a3b8;
+  background-color: #ffffff;
+}
+
+.form-control-money:focus {
+  border-color: #3b82f6;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+/* Quitar flechas spin por defecto en navegadores */
+.form-control-money::-webkit-outer-spin-button,
+.form-control-money::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.form-control-money {
+  -moz-appearance: textfield;
+}
+
+.dates-sep {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 /* Table Card */
@@ -231,6 +439,44 @@
   padding: 0.75rem 0.85rem;
   border-bottom: 2px solid #e2e8f0;
   text-align: left;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.sortable-col {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sortable-col:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a;
+}
+
+.sortable-col.col-sorted {
+  background-color: #eff6ff !important;
+  color: #1d4ed8;
+}
+
+.sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  margin-left: 0.35rem;
+  color: #94a3b8;
+  line-height: 1;
+  vertical-align: middle;
+  transform: translateY(-2px);
+  transition: all 0.15s ease;
+}
+
+.sort-indicator.active {
+  color: #2563eb;
+  font-weight: 800;
+  font-size: 0.74rem;
 }
 
 .table-drilldown td {

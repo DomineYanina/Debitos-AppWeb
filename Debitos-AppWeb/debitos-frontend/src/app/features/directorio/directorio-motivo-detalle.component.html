@@ -36,15 +36,109 @@
     </div>
   </header>
 
-  <!-- Barra de Búsqueda Rápida -->
-  <div class="search-bar-card">
-    <div class="search-input-wrapper">
-      <span class="search-icon">🔍</span>
-      <input type="text" class="form-control-search" [(ngModel)]="filtroBusqueda"
-        placeholder="Buscar por paciente, carnet, código de prestación, médico o texto del comentario...">
+  <!-- Barra de Búsqueda y Filtros Desplegables -->
+  <div class="filters-card">
+    <!-- Fila Superior: Búsqueda libre y contadores -->
+    <div class="filters-top-row">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="form-control-search" [(ngModel)]="filtroBusqueda"
+          placeholder="Buscar por paciente, carnet, código de prestación, médico o texto del comentario...">
+      </div>
+      <div class="results-info">
+        <span class="results-count">
+          Mostrando <strong>{{ prestacionesFiltradas.length }}</strong> de {{ prestaciones.length }} prestaciones
+        </span>
+        <span *ngIf="hayFiltrosActivos" class="filtered-amount-pill">
+          Total Filtrado: <strong>{{ formatearMoneda(totalMontoFiltrado) }}</strong>
+        </span>
+        <button *ngIf="hayFiltrosActivos" type="button" class="btn-clear-filters" (click)="limpiarFiltros()"
+          title="Restablecer todos los filtros">
+          ✕ Limpiar Filtros
+        </button>
+      </div>
     </div>
-    <div class="results-count">
-      Mostrando <strong>{{ prestacionesFiltradas.length }}</strong> de {{ prestaciones.length }} prestaciones
+
+    <!-- Fila Inferior: Desplegables alimentados dinámicamente -->
+    <div class="filters-dropdowns-row">
+      <!-- 1. Calendario Fecha Desde -->
+      <div class="filter-item">
+        <label for="filtro-fecha-desde">Fecha Desde</label>
+        <input type="date" id="filtro-fecha-desde" class="form-control-date" [(ngModel)]="filtroFechaDesde"
+          (change)="onFechaDesdeChange()"
+          [min]="fechaMinimaPermitida || null"
+          [attr.min]="fechaMinimaPermitida || null"
+          [max]="fechaMaximaPermitidaDesde || null"
+          [attr.max]="fechaMaximaPermitidaDesde || null"
+          title="Seleccionar fecha desde en calendario">
+      </div>
+
+      <!-- 2. Calendario Fecha Hasta -->
+      <div class="filter-item">
+        <label for="filtro-fecha-hasta">Fecha Hasta</label>
+        <input type="date" id="filtro-fecha-hasta" class="form-control-date" [(ngModel)]="filtroFechaHasta"
+          (change)="onFechaHastaChange()"
+          [min]="fechaMinimaPermitidaHasta || null"
+          [attr.min]="fechaMinimaPermitidaHasta || null"
+          [max]="fechaMaximaPermitida || null"
+          [attr.max]="fechaMaximaPermitida || null"
+          title="Seleccionar fecha hasta en calendario">
+      </div>
+
+      <!-- 3. Desplegable Paciente -->
+      <div class="filter-item">
+        <label for="filtro-paciente">Paciente</label>
+        <select id="filtro-paciente" class="form-control-select" [(ngModel)]="filtroPacienteSeleccionado">
+          <option value="TODOS">-- Todos los Pacientes ({{ opcionesPacientes.length }}) --</option>
+          <option *ngFor="let pac of opcionesPacientes" [value]="pac.paciente">
+            {{ pac.paciente }} ({{ pac.cantidad }})
+          </option>
+        </select>
+      </div>
+
+      <!-- 4. Desplegable Prestación Médica -->
+      <div class="filter-item filter-item-wide">
+        <label for="filtro-prestacion">Prestación Médica</label>
+        <select id="filtro-prestacion" class="form-control-select" [(ngModel)]="filtroPrestacionSeleccionada">
+          <option value="TODAS">-- Todas las Prestaciones ({{ opcionesPrestaciones.length }}) --</option>
+          <option *ngFor="let pres of opcionesPrestaciones" [value]="pres.codigo">
+            {{ pres.label }} ({{ pres.cantidad }})
+          </option>
+        </select>
+      </div>
+
+      <!-- 5. Input Importe Desde -->
+      <div class="filter-item">
+        <label for="filtro-importe-desde">Importe Desde</label>
+        <div class="input-money-wrapper">
+          <span class="currency-prefix">$</span>
+          <input type="number" id="filtro-importe-desde" class="form-control-money" [(ngModel)]="filtroImporteDesde"
+            (change)="onImporteDesdeChange()" (keypress)="validarSoloNumeros($event)"
+            min="0" step="any" placeholder="0,00" title="Ingresar importe mínimo">
+        </div>
+      </div>
+
+      <!-- 6. Input Importe Hasta -->
+      <div class="filter-item">
+        <label for="filtro-importe-hasta">Importe Hasta</label>
+        <div class="input-money-wrapper">
+          <span class="currency-prefix">$</span>
+          <input type="number" id="filtro-importe-hasta" class="form-control-money" [(ngModel)]="filtroImporteHasta"
+            (change)="onImporteHastaChange()" (keypress)="validarSoloNumeros($event)"
+            min="0" step="any" placeholder="0,00" title="Ingresar importe máximo">
+        </div>
+      </div>
+
+      <!-- 7. Desplegable Estado de Débito (Aceptado / Pérdida) -->
+      <div class="filter-item">
+        <label for="filtro-aceptado">Débito Aceptado</label>
+        <select id="filtro-aceptado" class="form-control-select" [(ngModel)]="filtroAceptadoSeleccionado">
+          <option value="TODOS">-- Todos los Estados --</option>
+          <option *ngFor="let est of opcionesAceptado" [value]="est.key">
+            {{ est.label }} ({{ est.cantidad }})
+          </option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -63,15 +157,60 @@
       <table class="table-drilldown">
         <thead>
           <tr>
-            <th>Comprobante NC</th>
-            <th>Fecha</th>
-            <th>Paciente / Carnet</th>
-            <th>Plan & Médico</th>
-            <th>Prestación Médica</th>
-            <th>Motivo de Débito</th>
-            <th>Comentarios del Operador (Texto Libre)</th>
-            <th class="text-right">Importe Debitado</th>
-            <th class="text-center">Aceptado</th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'comprobante'"
+              (click)="ordenar('comprobante')" title="Ordenar por Comprobante NC">
+              Comprobante NC <span class="sort-indicator" [class.active]="columnaOrden === 'comprobante'">
+                {{ columnaOrden === 'comprobante' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'fecha'"
+              (click)="ordenar('fecha')" title="Ordenar por Fecha">
+              Fecha <span class="sort-indicator" [class.active]="columnaOrden === 'fecha'">
+                {{ columnaOrden === 'fecha' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'paciente'"
+              (click)="ordenar('paciente')" title="Ordenar por Paciente / Carnet">
+              Paciente / Carnet <span class="sort-indicator" [class.active]="columnaOrden === 'paciente'">
+                {{ columnaOrden === 'paciente' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'plan'"
+              (click)="ordenar('plan')" title="Ordenar por Plan & Médico">
+              Plan & Médico <span class="sort-indicator" [class.active]="columnaOrden === 'plan'">
+                {{ columnaOrden === 'plan' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'prestacion'"
+              (click)="ordenar('prestacion')" title="Ordenar por Prestación Médica">
+              Prestación Médica <span class="sort-indicator" [class.active]="columnaOrden === 'prestacion'">
+                {{ columnaOrden === 'prestacion' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'motivo'"
+              (click)="ordenar('motivo')" title="Ordenar por Motivo de Débito">
+              Motivo de Débito <span class="sort-indicator" [class.active]="columnaOrden === 'motivo'">
+                {{ columnaOrden === 'motivo' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-nowrap" [class.col-sorted]="columnaOrden === 'comentarios'"
+              (click)="ordenar('comentarios')" title="Ordenar por Comentarios del Operador">
+              Comentarios del Operador (Texto Libre) <span class="sort-indicator" [class.active]="columnaOrden === 'comentarios'">
+                {{ columnaOrden === 'comentarios' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-right text-nowrap" [class.col-sorted]="columnaOrden === 'importe'"
+              (click)="ordenar('importe')" title="Ordenar por Importe Debitado">
+              Importe Debitado <span class="sort-indicator" [class.active]="columnaOrden === 'importe'">
+                {{ columnaOrden === 'importe' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
+            <th class="sortable-col text-center text-nowrap" [class.col-sorted]="columnaOrden === 'aceptado'"
+              (click)="ordenar('aceptado')" title="Ordenar por Aceptado">
+              Aceptado <span class="sort-indicator" [class.active]="columnaOrden === 'aceptado'">
+                {{ columnaOrden === 'aceptado' ? (direccionOrden === 'asc' ? '▲' : '▼') : '↕' }}
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
