@@ -37,6 +37,7 @@ import { NotificacionService } from '../../core/services/notificacion.service';
 export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   isHelpDrawerOpen = false;
   modificadosSinGuardar = new Set<number>(); // Guarda los IDs de las filas tocadas
+  prestacionesParaBorrar = new Set<number>(); // Filas con NC ya guardada que fueron limpiadas
   guardandoSilencioso = false;
 
   // ── Tour guiado ─────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnInit() {
-    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(60000)).subscribe(() => {
+    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
       if (this.modificadosSinGuardar.size > 0) {
         this.guardarParcialmente(true);
       }
@@ -404,6 +405,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.paginaActual = 1;
     this.totalPaginas = 1;
     this.modificadosSinGuardar.clear();
+    this.prestacionesParaBorrar.clear();
 
     this.cdr.detectChanges();
   }
@@ -927,6 +929,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }).subscribe({ error: () => { } });
 
       this.registrosSeleccionados.forEach(p => {
+        // Si la prestación ya tiene una NC guardada en BD, la marcamos para borrar en el backend
+        if (p.id != null && p.ncNumero) {
+          this.prestacionesParaBorrar.add(p.id);
+        }
         p.debitoAceptado = '';
         p.motivoDebito = '';
         p.importeDebitado = undefined;  // Queda vacío en la grilla
@@ -934,7 +940,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         p.motivoRefactura = '';
         p.importeRefactura = undefined;
         p.comentarios = '';
-        this.registrarCambio(p); // <-- CAMBIAR ACÁ
+        p.ncNumero = undefined;
+        p.ncLetra = undefined;
+        this.registrarCambio(p);
       });
       this.calcularTotales();
       this.cerrarModal();
@@ -1866,11 +1874,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const registrosParaGuardar = this.prestaciones.filter(p => {
+      if (p.id == null || !this.modificadosSinGuardar.has(p.id)) return false;
       if (this.esTipoNotaCredito()) return p.motivoRefactura && p.motivoRefactura.trim() !== '';
       return p.motivoDebito && p.motivoDebito.trim() !== '';
     });
 
-    if (registrosParaGuardar.length === 0) {
+    const idsParaBorrar = Array.from(this.prestacionesParaBorrar);
+
+    if (registrosParaGuardar.length === 0 && idsParaBorrar.length === 0) {
       if (!silencioso) {
         // Disparar métrica
         this.auditoriaService.registrarMetricaUsabilidad({
@@ -1892,25 +1903,29 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       ptovta: this.busquedaForm.value.puntoVenta,
       numero: this.busquedaForm.value.numero,
       usuario: this.authService.obtenerUsuario(),
-      registros: registrosParaGuardar
+      registros: registrosParaGuardar,
+      idsParaBorrar: idsParaBorrar
     };
 
-    if (silencioso) this.guardandoSilencioso = true;
-    else this.cargando = true;
+    if (silencioso) {
+      this.guardandoSilencioso = true;
+    } else {
+      this.cargando = true;
+      this.cdr.detectChanges();
+    }
 
-    this.cdr.detectChanges();
-
-    this.auditoriaService.guardarParcialmente(payload).subscribe({
+    this.auditoriaService.guardarParcialmente(payload, silencioso).subscribe({
       next: () => {
-        this.modificadosSinGuardar.clear(); // <-- ÉXITO: Limpiamos el contador
+        this.modificadosSinGuardar.clear(); // <-- ÉXITO: Limpiamos el contador tras respuesta 200/202
+        this.prestacionesParaBorrar.clear();  // <-- ÉXITO: Limpiamos los pendientes de borrado
 
         if (silencioso) {
           this.guardandoSilencioso = false;
         } else {
           this.cargando = false;
           this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!', undefined, 'exito');
+          this.cdr.detectChanges();
         }
-        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
@@ -1949,8 +1964,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         } else {
           this.cargando = false;
           this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.', undefined, 'error');
+          this.cdr.detectChanges();
         }
-        this.cdr.detectChanges();
       }
     });
   }

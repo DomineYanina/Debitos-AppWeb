@@ -271,5 +271,45 @@ public class GraficosController {
         DesempenoGlobalDTO resultado = directorioService.getDesempenoGlobal(periodo, fechaDesde, fechaHasta);
         return ResponseEntity.ok(resultado);
     }
+
+    /**
+     * GET /api/graficos/desempeno/analistas
+     *
+     * Retorna únicamente las métricas de desempeño por Analistas de Débito,
+     * permitiendo una carga ultrarrápida e independiente para la solapa de Analistas.
+     *
+     * @param periodo filtro opcional por período YYYY-MM
+     * @param fechaDesde fecha límite inferior opcional (YYYY-MM-DD)
+     * @param fechaHasta fecha límite superior opcional (YYYY-MM-DD)
+     * @return Lista de MetricaAnalistaDTO
+     */
+    @GetMapping("/desempeno/analistas")
+    public ResponseEntity<List<MetricaAnalistaDTO>> getDesempenoAnalistas(
+            @RequestParam(required = false) String periodo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        List<MetricaAnalistaDTO> resultado = directorioService.getMetricasAnalistas(periodo, fechaDesde, fechaHasta);
+        return ResponseEntity.ok(resultado);
+    }
+
+    /**
+     * GET /api/graficos/desempeno/operadores
+     *
+     * Retorna únicamente las métricas de desempeño por Operadores / Usuarios de Carga,
+     * permitiendo una carga ultrarrápida e independiente para la solapa de Usuario de Carga.
+     *
+     * @param periodo filtro opcional por período YYYY-MM
+     * @param fechaDesde fecha límite inferior opcional (YYYY-MM-DD)
+     * @param fechaHasta fecha límite superior opcional (YYYY-MM-DD)
+     * @return Lista de MetricaOperadorDTO
+     */
+    @GetMapping("/desempeno/operadores")
+    public ResponseEntity<List<MetricaOperadorDTO>> getDesempenoOperadores(
+            @RequestParam(required = false) String periodo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta);
+        return ResponseEntity.ok(resultado);
+    }
 }
 

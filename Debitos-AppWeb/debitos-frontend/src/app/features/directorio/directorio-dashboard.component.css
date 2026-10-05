@@ -292,6 +292,66 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fffaf0 !important;
+}
+
+.input-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.error-hint {
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: #dc2626;
+  margin-top: 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 1.2;
+}
+
+.rango-error-banner {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #ef4444;
+  color: #991b1b;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+  animation: fadeInError 0.2s ease-in-out;
+}
+
+.rango-error-icon {
+  font-size: 1.05rem;
+}
+
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+@keyframes fadeInError {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .form-control:disabled,
 select.form-control:disabled {
   background-color: #f1f5f9 !important;
@@ -308,7 +368,7 @@ select.form-control:disabled {
 .badge-disabled-hint {
   font-size: 0.68rem;
   font-weight: 500;
-  color: #94a3b8;
+  color: #64748b;
   margin-left: 0.25rem;
   text-transform: none;
   letter-spacing: normal;
@@ -623,7 +683,13 @@ select.form-control:disabled {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
+  .kpi-grid--six {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 576px) {
   .kpi-grid--six {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
@@ -696,6 +762,8 @@ select.form-control:disabled {
   margin-bottom: 0.45rem;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Colores de montos acordes a la captura */
@@ -755,7 +823,7 @@ select.form-control:disabled {
 }
 
 .skeleton-text {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 1rem;
   font-style: italic;
 }
@@ -926,7 +994,8 @@ select.form-control:disabled {
 
 .legend-header {
   display: grid;
-  grid-template-columns: 2.5fr 1.2fr 1fr 1fr;
+  grid-template-columns: minmax(170px, 2.2fr) minmax(110px, 1.1fr) minmax(130px, 1.2fr) minmax(105px, 0.9fr);
+  column-gap: 1.5rem;
   padding: 0.65rem 1rem;
   background: #f1f5f9;
   font-size: 0.72rem;
@@ -935,6 +1004,35 @@ select.form-control:disabled {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid #e2e8f0;
+  align-items: center;
+}
+
+.legend-header span.sortable-col {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  margin: -0.2rem -0.4rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  width: fit-content;
+}
+
+.legend-header span.sortable-col:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a;
+}
+
+.legend-header span.sortable-col.col-sorted {
+  background-color: #dbeafe !important;
+  color: #1d4ed8;
+}
+
+.legend-th-accion {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .legend-list {
@@ -944,7 +1042,8 @@ select.form-control:disabled {
 
 .legend-item {
   display: grid;
-  grid-template-columns: 2.5fr 1.2fr 1fr 1fr;
+  grid-template-columns: minmax(170px, 2.2fr) minmax(110px, 1.1fr) minmax(130px, 1.2fr) minmax(105px, 0.9fr);
+  column-gap: 1.5rem;
   align-items: center;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid #edf2f7;
@@ -961,6 +1060,7 @@ select.form-control:disabled {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .color-dot {
@@ -992,12 +1092,14 @@ select.form-control:disabled {
   font-size: 0.85rem;
   font-weight: 700;
   color: #0f172a;
+  white-space: nowrap;
 }
 
 .legend-col-porc {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  padding-right: 0.25rem;
 }
 
 .mini-bar-wrapper {
@@ -1006,6 +1108,7 @@ select.form-control:disabled {
   background: #e2e8f0;
   border-radius: 3px;
   overflow: hidden;
+  min-width: 40px;
 }
 
 .mini-bar-fill {
@@ -1017,7 +1120,15 @@ select.form-control:disabled {
   font-size: 0.78rem;
   font-weight: 600;
   color: #475569;
-  min-width: 38px;
+  min-width: 42px;
+  text-align: right;
+}
+
+.legend-col-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .btn-drilldown {
@@ -1030,6 +1141,7 @@ select.form-control:disabled {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .btn-drilldown:hover {
@@ -1235,7 +1347,7 @@ select.form-control:disabled {
 .tree-branch {
   display: inline-block;
   width: 18px;
-  color: #94a3b8;
+  color: #64748b;
   font-family: monospace;
   font-size: 0.85rem;
   user-select: none;
@@ -1246,7 +1358,7 @@ select.form-control:disabled {
   display: inline-block;
   width: 18px;
   text-align: center;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.85rem;
   user-select: none;
 }
@@ -1364,7 +1476,7 @@ select.form-control:disabled {
 }
 
 .text-muted {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .table-facturas {
@@ -1448,6 +1560,12 @@ select.form-control:disabled {
   background: #dbeafe;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
+}
+
+.badge-grupo {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
 }
 
 /* Fila del hijo FC inyectado (Factura Raíz de Origen) */
@@ -1553,7 +1671,7 @@ select.form-control:disabled {
 .empty-derived {
   padding: 1.5rem;
   text-align: center;
-  color: #94a3b8;
+  color: #64748b;
   font-style: italic;
   font-size: 0.85rem;
 }
@@ -1716,7 +1834,8 @@ select.form-control:disabled {
 
 .grafico-subtitle {
   font-size: 0.78rem;
-  color: #64748b;
+  color: #475569;
+  font-weight: 500;
   margin: 0;
 }
 
@@ -1833,7 +1952,8 @@ select.form-control:disabled {
 /* Estado de carga */
 .grafico-loading {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: #475569;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -1851,13 +1971,24 @@ select.form-control:disabled {
 /* Estado vacío */
 .grafico-empty {
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: #475569;
+  font-weight: 500;
   text-align: center;
 }
 
 /* Modificador: canvas más alto para gráficos con muchas etiquetas (ej. Pareto) */
 .grafico-body--tall {
   height: 380px;
+}
+
+/* Modificador específico Pareto: ocupa el ancho completo igual que Distribución de Débitos */
+.grafico-card--pareto {
+  width: 100%;
+}
+
+.grafico-body--pareto {
+  height: 460px;
+  width: 100%;
 }
 
 /* Responsivo: apila columnas en pantallas pequeñas */
@@ -2004,7 +2135,7 @@ select.form-control:disabled {
 }
 
 .td-mes-valor.valor-cero {
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 400;
   text-align: center;
 }
@@ -2040,7 +2171,7 @@ select.form-control:disabled {
 }
 
 .td-mes-total.valor-cero {
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 400;
   text-align: center;
 }
@@ -2138,6 +2269,190 @@ select.form-control:disabled {
   padding: 1rem 1.5rem !important;
   background-color: #f8fafc;
   border-bottom: 2px solid #cbd5e1 !important;
+}
+
+/* ── Bucles Desglosados por Prestación ── */
+.bucle-factura-container {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.bucle-factura-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.bucle-badge-factura {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+}
+
+.bucle-badge-contador {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+}
+
+.bucle-prestaciones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.bucle-prestacion-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.bucle-prestacion-card:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+.bucle-prestacion-card.is-expanded {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.bucle-prestacion-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  background: #f8fafc;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+  transition: background-color 0.15s ease;
+}
+
+.bucle-prestacion-card.is-expanded .bucle-prestacion-header {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+
+.bucle-prestacion-header-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.bucle-prestacion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  color: #475569;
+  transition: transform 0.2s ease;
+}
+
+.bucle-prestacion-toggle.is-expanded {
+  transform: rotate(90deg);
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.bucle-prestacion-codigo {
+  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #0f172a;
+  background: #e2e8f0;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.bucle-prestacion-desc {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.bucle-badge-paciente {
+  font-size: 0.78rem;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.bucle-badge-medico-item {
+  font-size: 0.78rem;
+  background: #f3e8ff;
+  color: #7e22ce;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.bucle-prestacion-header-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-left: auto;
+}
+
+.bucle-monto-item {
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bucle-monto-label {
+  color: #64748b;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.bucle-badge-debitos-count {
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  border: 1px solid #fca5a5;
+}
+
+.bucle-prestacion-timeline-wrapper {
+  padding: 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
 }
 
 .chain-wrapper {
@@ -2373,7 +2688,7 @@ select.form-control:disabled {
   line-height: 1;
   vertical-align: middle;
   margin-left: 0.35rem;
-  color: #94a3b8;
+  color: #64748b;
   transform: translateY(-2px);
   user-select: none;
   transition: color 0.15s ease, transform 0.15s ease;
@@ -3039,9 +3354,20 @@ select.form-control:disabled {
 }
 
 .td-aging-rango {
-  font-weight: 700;
-  color: #000000;
+  font-weight: 600;
+  color: #0f172a;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot-rango {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .td-aging-comprobantes {
@@ -3051,8 +3377,25 @@ select.form-control:disabled {
 
 .td-aging-saldo {
   font-weight: 700;
-  color: #dc2626;
   text-align: right;
+}
+
+.td-aging-saldo.text-slate {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.td-aging-saldo.text-red {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.tr-aun-no-cobrado {
+  background-color: #fff1f2 !important;
+}
+
+.tr-aun-no-cobrado:hover {
+  background-color: #ffe4e6 !important;
 }
 
 .td-aging-porcentaje {
@@ -3189,3 +3532,172 @@ select.form-control:disabled {
 }
 
 
+/* ==========================================================================
+   RESPONSIVE GENERAL — TABLERO DE CONTROL
+   Agrega cobertura progresiva para tablet, mobile y mobile pequeño.
+   ========================================================================== */
+
+/* Tablets apaisadas / Laptops < 1024px */
+@media (max-width: 1024px) {
+  .directorio-container {
+    padding: 1rem;
+  }
+
+  .main-title {
+    font-size: 1.45rem;
+  }
+
+  /* Reducir tamaño de solapas para que entren mejor antes del scroll */
+  .tab-strip-item {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  /* Donut + leyenda: apilar verticalmente */
+  .chart-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .donut-container {
+    flex: 0 0 auto;
+  }
+
+  .legend-container {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Filtros: reducir mínimo para que entren más en fila */
+  .filter-group {
+    min-width: 160px;
+  }
+
+  /* Cards de sección con menos padding */
+  .section-card {
+    padding: 1.15rem;
+  }
+}
+
+/* Tablets verticales / Mobile grande (≤ 768px) */
+@media (max-width: 768px) {
+  .directorio-container {
+    padding: 0.75rem;
+  }
+
+  .main-title {
+    font-size: 1.25rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  /* Filtros: padding reducido y grupos más compactos */
+  .filter-card {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .filter-group {
+    min-width: 130px;
+  }
+
+  /* Acciones de filtro: agrupar en fila */
+  .filter-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* KPI: permitir wrapping del valor monetario en lugar de desbordarse */
+  .kpi-value {
+    font-size: 1.25rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .kpi-card {
+    padding: 1rem;
+  }
+
+  /* Header de sección: apilar en columna */
+  .section-card-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Section cards con menos padding */
+  .section-card {
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Solapas: tamaño mínimo para ser tocables */
+  .tab-strip-item {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.73rem;
+  }
+
+  /* Sub-filtros (pills): envolver */
+  .sub-filter-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
+
+/* Mobile pequeño (≤ 576px) */
+@media (max-width: 576px) {
+  .directorio-container {
+    padding: 0.5rem;
+  }
+
+  .main-title {
+    font-size: 1.1rem;
+  }
+
+  /* Solapas: compresión máxima */
+  .tab-strip-item {
+    padding: 0.45rem 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  /* Filtros: cada grupo ocupa el 100% */
+  .filter-group {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* Botones de acción en columna full-width */
+  .filter-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .filter-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* KPI: fuente aún más pequeña */
+  .kpi-value {
+    font-size: 1.1rem;
+  }
+
+  /* Cards de sección: padding mínimo */
+  .section-card {
+    padding: 0.75rem;
+    border-radius: 10px;
+  }
+
+  /* Contadores de motivos: un poco más compactos */
+  .card-contador-motivo {
+    padding: 0.9rem 1rem;
+    min-height: 90px;
+  }
+
+  .card-contador-motivo .contador-value {
+    font-size: 1.5rem;
+  }
+}

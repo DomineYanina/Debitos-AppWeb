@@ -29,6 +29,15 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     List<NotaDeCredito> findByCabecera_IdIn(java.util.Collection<Long> idCabeceras);
 
+    @Query("""
+        SELECT new com.debitos.backend.dto.NotaCreditoLigeraDTO(
+            nc.cabecera.id, nc.usuario, nc.motivoDebito
+        )
+        FROM NotaDeCredito nc
+        WHERE nc.cabecera.id IN :idCabeceras
+    """)
+    List<com.debitos.backend.dto.NotaCreditoLigeraDTO> findNotasCreditoLigerasPorCabeceraIds(@Param("idCabeceras") java.util.Collection<Long> idCabeceras);
+
     @Query(value = """
         SELECT nc.idcabecera, 
                COALESCE(NULLIF(TRIM(c_fc.tiporegistro), ''), NULLIF(TRIM(c_nc.tiporegistro), '')) AS tiporegistro
@@ -46,6 +55,9 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     @Query(value = "SELECT * FROM notadecredito WHERE id_prestacion = :idPrestacion AND (id_notadedebito IS NULL OR id_notadedebito = 0) LIMIT 1", nativeQuery = true)
     Optional<NotaDeCredito> findByPrestacionIdAndNotaDeDebitoPadreIsNull(@Param("idPrestacion") Integer idPrestacion);
+
+    @Query(value = "SELECT * FROM notadecredito WHERE id_prestacion IN :idsPrestaciones AND (id_notadedebito IS NULL OR id_notadedebito = 0)", nativeQuery = true)
+    List<NotaDeCredito> findByPrestacionIdInAndNotaDeDebitoPadreIsNull(@Param("idsPrestaciones") java.util.Collection<Integer> idsPrestaciones);
 
     Optional<NotaDeCredito> findByNotaDeDebitoPadreId(Integer idNotaDeDebito);
 

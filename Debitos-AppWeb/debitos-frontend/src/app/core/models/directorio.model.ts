@@ -65,6 +65,7 @@ export interface DirectorioMotivoDebito {
   porcentaje: number;
   cantidadCasos: number;
   color?: string;
+  _originalIndex?: number;
 }
 
 export interface DirectorioPrestacionDetalle {
@@ -172,6 +173,22 @@ export interface EventoTrazabilidadDTO {
   responsable: string;
 }
 
+export interface BuclePrestacionDTO {
+  id?: number;
+  codigo?: string;
+  descripcion?: string;
+  paciente?: string;
+  carnet?: string;
+  medico?: string;
+  montoFacturadoOriginal: number;
+  totalDebitado: number;
+  cantidadDebitos?: number;
+  cantidadRefacturaciones?: number;
+  totalRefacturado?: number;
+  historialEventos: EventoTrazabilidadDTO[];
+  expanded?: boolean;
+}
+
 export interface CadenaTrazabilidadDTO {
   idPrestacion: string;
   descripcion: string;
@@ -183,6 +200,7 @@ export interface CadenaTrazabilidadDTO {
   totalDebitado: number;
   tipoRegistro?: string;
   historialEventos: EventoTrazabilidadDTO[];
+  prestaciones?: BuclePrestacionDTO[];
   expanded?: boolean;
   _originalIndex?: number;
 }
@@ -298,4 +316,15 @@ export interface TiemposCobranzaDTO {
   saldoTotalMora: number;
   detalles: RangoAntiguedadDTO[];
 }
+
+export interface PaginatedResponse<T> {
+  content: T[];
+  totalElements: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 

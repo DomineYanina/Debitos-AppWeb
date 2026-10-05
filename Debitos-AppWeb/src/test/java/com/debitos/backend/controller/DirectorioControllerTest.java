@@ -117,36 +117,40 @@ class DirectorioControllerTest {
         );
         grupo.setComprobantesDerivados(List.of(derivado));
 
-        when(directorioService.obtenerGruposFacturas(any(), any(), any(), any())).thenReturn(List.of(grupo));
+        when(directorioService.obtenerGruposFacturasPaginado(any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(new PaginatedResponseDTO<>(List.of(grupo), 1, 0, 50));
 
         mockMvc.perform(get("/api/directorio/grupos")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].numero").value(1001))
-                .andExpect(jsonPath("$[0].cantidadRefacturaciones").value(2))
-                .andExpect(jsonPath("$[0].comprobantesDerivados.length()").value(1))
-                .andExpect(jsonPath("$[0].comprobantesDerivados[0].tipo").value("NC"));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].numero").value(1001))
+                .andExpect(jsonPath("$.content[0].cantidadRefacturaciones").value(2))
+                .andExpect(jsonPath("$.content[0].comprobantesDerivados.length()").value(1))
+                .andExpect(jsonPath("$.content[0].comprobantesDerivados[0].tipo").value("NC"));
     }
 
     @Test
-    @DisplayName("GET /api/directorio/motivos debe retornar lista de motivos agrupados")
+    @DisplayName("GET /api/directorio/motivos debe retornar lista paginada de motivos agrupados")
     void testObtenerMotivos() throws Exception {
-        when(directorioService.obtenerDistribucionMotivos(any(), any(), any(), any())).thenReturn(List.of(
-                new DirectorioMotivoDebitoDTO("Falta de autorización", new BigDecimal("45000.00"), new BigDecimal("60.00"), 12),
-                new DirectorioMotivoDebitoDTO("Falta firma profesional", new BigDecimal("30000.00"), new BigDecimal("40.00"), 8)
-        ));
+        when(directorioService.obtenerDistribucionMotivosPaginado(any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(new PaginatedResponseDTO<>(List.of(
+                        new DirectorioMotivoDebitoDTO("Falta de autorización", new BigDecimal("45000.00"), new BigDecimal("60.00"), 12),
+                        new DirectorioMotivoDebitoDTO("Falta firma profesional", new BigDecimal("30000.00"), new BigDecimal("40.00"), 8)
+                ), 2, 0, 50));
 
         mockMvc.perform(get("/api/directorio/motivos")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].motivo").value("Falta de autorización"))
-                .andExpect(jsonPath("$[0].porcentaje").value(60.00));
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].motivo").value("Falta de autorización"))
+                .andExpect(jsonPath("$.content[0].porcentaje").value(60.00));
     }
 
     @Test
-    @DisplayName("GET /api/directorio/motivo-detalle debe retornar prestaciones por motivo")
+    @DisplayName("GET /api/directorio/motivo-detalle debe retornar prestaciones por motivo paginadas")
     void testObtenerPrestacionesPorMotivo() throws Exception {
         DirectorioPrestacionDetalleDTO prestacion = new DirectorioPrestacionDetalleDTO(
                 501, "GOMEZ JUAN", "12345678", "PLAN 210", "SANATORIO", "DR PEREZ",
@@ -156,16 +160,17 @@ class DirectorioControllerTest {
                 new BigDecimal("4500.00"), true
         );
 
-        when(directorioService.obtenerPrestacionesPorMotivo(eq("Falta de autorización"), any(), any(), any(), any()))
-                .thenReturn(List.of(prestacion));
+        when(directorioService.obtenerPrestacionesPorMotivoPaginado(eq("Falta de autorización"), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(new PaginatedResponseDTO<>(List.of(prestacion), 1, 0, 50));
 
         mockMvc.perform(get("/api/directorio/motivo-detalle")
                         .param("motivo", "Falta de autorización")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].paciente").value("GOMEZ JUAN"))
-                .andExpect(jsonPath("$[0].motivoDebito").value("Falta de autorización"))
-                .andExpect(jsonPath("$[0].comentariosDebito").value("No adjunta autorización previa"));
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].paciente").value("GOMEZ JUAN"))
+                .andExpect(jsonPath("$.content[0].motivoDebito").value("Falta de autorización"))
+                .andExpect(jsonPath("$.content[0].comentariosDebito").value("No adjunta autorización previa"));
     }
 }

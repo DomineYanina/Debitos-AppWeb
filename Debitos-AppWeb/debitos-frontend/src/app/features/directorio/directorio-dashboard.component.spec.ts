@@ -254,6 +254,58 @@ describe('DirectorioDashboardComponent', () => {
     expect(component.fechaHasta).toBe('2026-08-01');
   });
 
+  it('validarFormatoFecha debería rechazar años de menos de 4 dígitos o anteriores a 2000', () => {
+    expect(component.validarFormatoFecha('0024-01-01')).toContain('anterior a 2000');
+    expect(component.validarFormatoFecha('24-01-01')).toContain('4 dígitos');
+    expect(component.validarFormatoFecha('2024-02-31')).toContain('Día inválido');
+    expect(component.validarFormatoFecha('2024-01-15')).toBeNull();
+  });
+
+  it('superaBrechaMaxima48Meses debería detectar si el rango excede los 48 meses', () => {
+    // 2 años (24 meses) -> válido
+    expect(component.superaBrechaMaxima48Meses('2024-01-01', '2026-01-01')).toBe(false);
+    // Exactamente 4 años (48 meses) -> válido
+    expect(component.superaBrechaMaxima48Meses('2022-01-01', '2026-01-01')).toBe(false);
+    // 48 meses y 1 mes más (49 meses) -> supera
+    expect(component.superaBrechaMaxima48Meses('2022-01-01', '2026-02-05')).toBe(true);
+    // 6 años -> supera
+    expect(component.superaBrechaMaxima48Meses('2020-01-01', '2026-09-30')).toBe(true);
+  });
+
+  it('validarFechas debería marcar errorRangoFechas si supera los 48 meses y deshabilitar esRangoFechasValido', () => {
+    component.fechaDesde = '2020-01-01';
+    component.fechaHasta = '2026-09-30';
+
+    const valido = component.validarFechas();
+
+    expect(valido).toBe(false);
+    expect(component.errorRangoFechas).toContain('48 meses');
+    expect(component.esRangoFechasValido).toBe(false);
+  });
+
+  it('aplicarFiltros no debería llamar a cargarDashboard si las fechas son inválidas', () => {
+    const spyCargar = vi.spyOn(component, 'cargarDashboard');
+    component.fechaDesde = '2020-01-01';
+    component.fechaHasta = '2026-09-30'; // Supera 48 meses
+
+    component.aplicarFiltros();
+
+    expect(spyCargar).not.toHaveBeenCalled();
+  });
+
+  it('onFechaBlur con badInput debería marcar error de fecha incompleta o inválida', () => {
+    const mockEvent = {
+      target: {
+        validity: { badInput: true },
+        value: ''
+      }
+    } as any;
+
+    component.onFechaBlur(mockEvent, 'desde');
+    expect(component.errorFechaDesde).toBe('Fecha incompleta o inválida');
+    expect(component.esRangoFechasValido).toBe(false);
+  });
+
   it('onHoverSector debería actualizar el sector en hover', () => {
     const slice = { motivo: 'Test', porcentaje: 50 } as any;
     component.onHoverSector(slice);
@@ -514,6 +566,31 @@ describe('DirectorioDashboardComponent', () => {
       component.cargarDesempenoOperativo();
 
       expect(directorioServiceSpy.getDesempenoGlobal).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15');
+    });
+
+    it('cargarOperadores debería llamar a getDesempenoOperadores con rango de fechas y poblar operadoresDatos', () => {
+      const mockOps = [
+        {
+          operador: 'Operador Test',
+          cantidadRegistros: 10,
+          debitosAceptados: 5000,
+          debitosRefacturados: 2000,
+          totalTramitado: 7000,
+          ticketPromedio: 700,
+          tasaRecupero: 28.5,
+          motivos: []
+        }
+      ];
+      directorioServiceSpy.getDesempenoOperadores = vi.fn().mockReturnValue(of(mockOps));
+      component.fechaDesde = '2026-08-01';
+      component.fechaHasta = '2026-08-15';
+
+      component.cargarOperadores();
+
+      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15');
+      expect(component.operadoresDatos.length).toBe(1);
+      expect(component.operadoresDatos[0].operador).toBe('Operador Test');
+      expect(component.cargandoOperadores).toBe(false);
     });
 
     it('los selectores de cobertura y tipo de comprobante deben estar deshabilitados en la solapa analistas', () => {

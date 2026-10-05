@@ -25,19 +25,32 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
 
     List<NotaDeDebito> findByCabecera_IdIn(java.util.Collection<Long> idCabeceras);
 
+    @Query("""
+        SELECT new com.debitos.backend.dto.NotaDebitoLigeraDTO(
+            nd.cabecera.id, nd.usuario
+        )
+        FROM NotaDeDebito nd
+        WHERE nd.cabecera.id IN :idCabeceras
+    """)
+    List<com.debitos.backend.dto.NotaDebitoLigeraDTO> findNotasDebitoLigerasPorCabeceraIds(@Param("idCabeceras") java.util.Collection<Long> idCabeceras);
+
     Optional<NotaDeDebito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(String letra, Integer ptovta, Integer numero, Integer idPrestacion);
 
-    Optional<NotaDeDebito> findByNotaDeCreditoPadreId(Integer idNotaCredito);
+    @Query(value = """
+        SELECT nd.* FROM notadedebito nd
+        LEFT JOIN cabecera c ON nd.idcabecera = c.id
+        WHERE nd.id_notadecredito = :idNotaCredito
+        ORDER BY CASE WHEN c.origen <> 'BDD' THEN 0 ELSE 1 END, nd.id DESC
+        LIMIT 1
+        """, nativeQuery = true)
+    Optional<NotaDeDebito> findByNotaDeCreditoPadreId(@Param("idNotaCredito") Integer idNotaCredito);
+
+    List<NotaDeDebito> findAllByNotaDeCreditoPadreId(Integer idNotaCredito);
 
     @Query(value = """
         SELECT CASE
-            WHEN COUNT(nc.id) > 0
-                 AND COUNT(nd.id) = COUNT(nc.id)
-                 AND COUNT(c_nd.tipo) = COUNT(nc.id)
-                 AND COUNT(c_nd.fecha) = COUNT(nc.id)
-                 AND COUNT(c_nd.letra) = COUNT(nc.id)
-                 AND COUNT(c_nd.numero) = COUNT(nc.id)
-                 AND COUNT(c_nd.ptovta) = COUNT(nc.id)
+            WHEN COUNT(DISTINCT nc.id) > 0
+                 AND COUNT(DISTINCT CASE WHEN c_nd.tipo IS NOT NULL AND c_nd.fecha IS NOT NULL AND c_nd.letra IS NOT NULL AND c_nd.numero IS NOT NULL AND c_nd.ptovta IS NOT NULL THEN nc.id END) = COUNT(DISTINCT nc.id)
             THEN true
             ELSE false
         END
@@ -47,11 +60,6 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
             ON nd.id_notadecredito = nc.id
         LEFT JOIN cabecera c_nd
             ON nd.idcabecera = c_nd.id
-           AND c_nd.tipo IS NOT NULL
-           AND c_nd.fecha IS NOT NULL
-           AND c_nd.letra IS NOT NULL
-           AND c_nd.numero IS NOT NULL
-           AND c_nd.ptovta IS NOT NULL
         WHERE c_nc.letra = :letra
           AND c_nc.ptovta = :ptovta
           AND c_nc.numero = :numero
@@ -71,6 +79,15 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
 
     @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd WHERE nd.notaDeCreditoPadre.id = :notaDeCreditoPadreId AND nd.tipoNd = :tipoNd")
     boolean existsByNotaDeCreditoPadreIdAndTipoNd(@Param("notaDeCreditoPadreId") Integer notaDeCreditoPadreId, @Param("tipoNd") String tipoNd);
+
+    /**
+     * Verifica si ya existe una ND del tipoNd indicado vinculada a la NC padre,
+     * cuya cabecera tenga origen distinto de "BDD".
+     * Las NDs con cabecera de origen "BDD" son importaciones automáticas del financiador
+     * y no bloquean la creación de una nueva ND por parte del usuario.
+     */
+    @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd WHERE nd.notaDeCreditoPadre.id = :notaDeCreditoPadreId AND nd.tipoNd = :tipoNd AND nd.cabecera.origen <> 'BDD'")
+    boolean existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(@Param("notaDeCreditoPadreId") Integer notaDeCreditoPadreId, @Param("tipoNd") String tipoNd);
 
     @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd JOIN nd.cabecera c WHERE c.tiporegistro = :tipoRegistro AND nd.tipoNd = :tipoNd")
     boolean existsByTiporegistroAndTipoNd(@Param("tipoRegistro") String tipoRegistro, @Param("tipoNd") String tipoNd);

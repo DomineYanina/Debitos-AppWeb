@@ -46,6 +46,39 @@ public class DatabaseMigrationConfig {
                 log.debug("Aviso migración período en recibos de cabecera: {}", e.getMessage());
             }
 
+            try {
+                jdbcTemplate.execute("ALTER TABLE notadedebito DROP CONSTRAINT IF EXISTS unique_id_notadecredito");
+                log.info("Migración automática aplicada: eliminada restricción de unicidad unique_id_notadecredito en notadedebito.");
+            } catch (Exception e) {
+                log.debug("Aviso migración unique_id_notadecredito: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("DROP INDEX IF EXISTS unique_id_notadecredito");
+                log.info("Migración automática aplicada: eliminado índice unique_id_notadecredito en notadedebito si existía.");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop index unique_id_notadecredito: {}", e.getMessage());
+            }
+
+            try {
+                int ndSincronizadas = jdbcTemplate.update("""
+                    UPDATE cabecera c_nd
+                    SET asociadogrupo = COALESCE(NULLIF(c_nc.asociadogrupo, 0), NULLIF(c_nc.grupo, 0), NULLIF(c_nc.asociado, 0), c_nc.id),
+                        asociado = COALESCE(c_nd.asociado, c_nc.id),
+                        grupo = COALESCE(NULLIF(c_nd.grupo, 0), NULLIF(c_nc.grupo, 0), c_nc.asociadogrupo)
+                    FROM notadedebito nd
+                    JOIN notadecredito nc ON nd.id_notadecredito = nc.id
+                    JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
+                    WHERE nd.idcabecera = c_nd.id
+                      AND (c_nd.asociadogrupo IS NULL OR c_nd.asociadogrupo <> COALESCE(NULLIF(c_nc.asociadogrupo, 0), NULLIF(c_nc.grupo, 0), NULLIF(c_nc.asociado, 0), c_nc.id))
+                """);
+                if (ndSincronizadas > 0) {
+                    log.info("Migración automática aplicada: sincronizado asociadogrupo en {} cabeceras de ND con sus respectivas NC padre.", ndSincronizadas);
+                }
+            } catch (Exception e) {
+                log.debug("Aviso migración sincronización asociadogrupo ND: {}", e.getMessage());
+            }
+
             // Creación de índices estratégicos para alto rendimiento y concurrencia
             String[] indices = {
                 "CREATE INDEX IF NOT EXISTS idx_cabecera_tipo_fecha ON cabecera (tipo, fecha)",

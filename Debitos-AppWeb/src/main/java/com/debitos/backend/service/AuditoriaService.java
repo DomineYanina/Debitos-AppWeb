@@ -31,15 +31,19 @@ import com.debitos.backend.repository.RegistroImputacionRepository;
 import com.debitos.backend.repository.RegistroUsabilidadRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,6 +55,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class AuditoriaService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditoriaService.class);
 
     @Autowired
     private CabeceraRepository cabeceraRepository;
@@ -94,9 +100,9 @@ public class AuditoriaService {
         String t = tipo.trim().toUpperCase();
         return switch (t) {
             case "FC", "FAC", "FCE", "FCA", "FCB" -> List.of("FC", "FAC", "FCE", "FCA", "FCB");
-            case "NC", "NCE" -> List.of("NC", "NCE");
-            case "ND", "NDE" -> List.of("ND", "NDE");
-            case "RC", "REC" -> List.of("RC", "REC");
+            case "NC", "NCE", "NCA", "NCB" -> List.of("NC", "NCE", "NCA", "NCB");
+            case "ND", "NDE", "NDA", "NDB" -> List.of("ND", "NDE", "NDA", "NDB");
+            case "RC", "REC", "RCA", "RCB" -> List.of("RC", "REC", "RCA", "RCB");
             default -> List.of(t);
         };
     }
@@ -789,6 +795,16 @@ public class AuditoriaService {
                 .orElse(new NotaDeCredito());
     }
 
+    @Async
+    @Transactional
+    public void procesarGuardadoParcialAsincrono(GuardarParcialRequest request) {
+        try {
+            procesarGuardadoParcial(request);
+        } catch (Exception e) {
+            log.error("Error al procesar guardado parcial asíncrono", e);
+        }
+    }
+
     @Transactional
     public void procesarGuardadoParcial(GuardarParcialRequest request) {
         if (request == null) return;
@@ -819,12 +835,32 @@ public class AuditoriaService {
                 registrosUnicos.put(reg.getId(), reg);
             }
         }
-        if (registrosUnicos.isEmpty()) return;
+        if (registrosUnicos.isEmpty() && (request.getIdsParaBorrar() == null || request.getIdsParaBorrar().isEmpty())) return;
+
+        // ── Borrado de prestaciones limpiadas por el usuario (Batch Delete) ─────────
+        if (request.getIdsParaBorrar() != null && !request.getIdsParaBorrar().isEmpty()) {
+            List<NotaDeCredito> ncsABorrar = notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(request.getIdsParaBorrar());
+            if (!ncsABorrar.isEmpty()) {
+                log.info("Eliminando {} NotaDeCredito por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
+                notaDeCreditoRepository.deleteAll(ncsABorrar);
+            }
+        }
 
         List<Integer> idsPrestaciones = new ArrayList<>(registrosUnicos.keySet());
 
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
+
+        // Optimización Batch: Precargar Notas de Crédito existentes en memoria para evitar N+1 queries
+        Map<Integer, NotaDeCredito> notasCreditoExistentesMap = new HashMap<>();
+        if (!idsPrestaciones.isEmpty()) {
+            List<NotaDeCredito> ncExistentes = notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(idsPrestaciones);
+            for (NotaDeCredito nc : ncExistentes) {
+                if (nc.getPrestacion() != null && nc.getPrestacion().getId() != null) {
+                    notasCreditoExistentesMap.putIfAbsent(nc.getPrestacion().getId(), nc);
+                }
+            }
+        }
 
         List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
         List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
@@ -846,7 +882,10 @@ public class AuditoriaService {
 
             String origenBase = resolverTipoBase(documentoOrigen);
             if ("FC".equals(origenBase)) {
-                NotaDeCredito nc = obtenerOCrearNotaCreditoPrimaria(idPrestacion);
+                NotaDeCredito nc = notasCreditoExistentesMap.get(idPrestacion);
+                if (nc == null) {
+                    nc = new NotaDeCredito();
+                }
                 if (nc.getCabecera() != null) {
                     cabecerasImputadasModificadas.add(nc.getCabecera());
                 }
@@ -872,7 +911,7 @@ public class AuditoriaService {
                         .findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ncPadre -> {
                             NotaDeDebito nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
-                                    .orElse(new NotaDeDebito());
+                                     .orElse(new NotaDeDebito());
                             if (nd.getCabecera() != null) {
                                 cabecerasImputadasModificadas.add(nd.getCabecera());
                             }
@@ -933,7 +972,6 @@ public class AuditoriaService {
         for (Cabecera cabDestino : cabecerasImputadasModificadas) {
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabDestino, "Modificación de prestaciones ya imputadas");
         }
-        invalidarCacheTablero();
     }
 
     @Transactional
@@ -963,6 +1001,13 @@ public class AuditoriaService {
                 Integer.valueOf(request.getNumeroOriginal().toString()))
                 .stream()
                 .findFirst();
+
+        if (cabeceraOrigenOpt.isEmpty()) {
+            cabeceraOrigenOpt = cabeceraRepository.findByLetraAndPtovtaAndNumero(
+                    request.getLetraOriginal(),
+                    Integer.valueOf(request.getPtovtaOriginal().toString()),
+                    Integer.valueOf(request.getNumeroOriginal().toString()));
+        }
 
         String codigoCobertura = cabeceraOrigenOpt.map(Cabecera::getCodigoCobertura).orElse(null);
         String cobertura = cabeceraOrigenOpt.map(Cabecera::getCobertura).orElse(null);
@@ -1064,12 +1109,33 @@ public class AuditoriaService {
                     Integer.valueOf(request.getPtovtaOriginal().toString()),
                     Integer.valueOf(request.getNumeroOriginal().toString()),
                     idPrestacion).ifPresent(ncPadre -> {
+                        if (ncPadre.getCabecera() != null) {
+                            Cabecera ncCab = ncPadre.getCabecera();
+                            Long targetGrupo = ncCab.getAsociadogrupo() != null && ncCab.getAsociadogrupo() != 0
+                                    ? ncCab.getAsociadogrupo()
+                                    : (ncCab.getGrupo() != null && ncCab.getGrupo() != 0
+                                            ? ncCab.getGrupo()
+                                            : (ncCab.getAsociado() != null && ncCab.getAsociado() != 0
+                                                    ? ncCab.getAsociado()
+                                                    : ncCab.getId()));
+                            if (targetGrupo != null && (cabecera.getAsociadogrupo() == null || !targetGrupo.equals(cabecera.getAsociadogrupo()))) {
+                                cabecera.setAsociadogrupo(targetGrupo);
+                                if (cabecera.getAsociado() == null) {
+                                    cabecera.setAsociado(ncCab.getId());
+                                }
+                                if (cabecera.getGrupo() == null || cabecera.getGrupo() == 0) {
+                                    cabecera.setGrupo(ncCab.getGrupo() != null && ncCab.getGrupo() != 0 ? ncCab.getGrupo() : targetGrupo);
+                                }
+                                cabeceraRepository.save(cabecera);
+                            }
+                        }
+
                         final NotaDeDebito nd;
                         if (ncPadre.getNotaDeDebitoPadre() == null) {
                             if (tipoNd == null || tipoNd.trim().isEmpty()) {
                                 throw new IllegalArgumentException("Debe especificar el tipo de Nota de Débito (Por ajuste de IVA o Por Refactura).");
                             }
-                            if (notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNd(ncPadre.getId(), tipoNd)) {
+                            if (notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(ncPadre.getId(), tipoNd)) {
                                 throw new IllegalArgumentException("Ya existe una Nota de Débito de tipo '" + tipoNd + "' para la Nota de Crédito seleccionada.");
                             }
                             nd = new NotaDeDebito();
@@ -1103,7 +1169,7 @@ public class AuditoriaService {
             String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "ND";
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
         }
-        invalidarCacheTablero();
+        // invalidarCacheTablero(); // Parche de rendimiento: el autoguardado parcial/silencioso no debe purgar la caché global del tablero
     }
 
     @Transactional
@@ -1580,9 +1646,17 @@ public class AuditoriaService {
             cabecera.setHaber(haberCalculado != null ? haberCalculado : BigDecimal.ZERO);
             if (cabeceraOrigenOpt.isPresent()) {
                 Cabecera origenCab = cabeceraOrigenOpt.get();
+                Long asociadogrupoDestino = origenCab.getAsociadogrupo() != null && origenCab.getAsociadogrupo() != 0
+                        ? origenCab.getAsociadogrupo()
+                        : (origenCab.getGrupo() != null && origenCab.getGrupo() != 0
+                                ? origenCab.getGrupo()
+                                : (origenCab.getAsociado() != null && origenCab.getAsociado() != 0
+                                        ? origenCab.getAsociado()
+                                        : origenCab.getId()));
+
                 cabecera.setAsociado(origenCab.getId());
-                cabecera.setGrupo(origenCab.getGrupo());
-                cabecera.setAsociadogrupo(origenCab.getAsociadogrupo() != null ? origenCab.getAsociadogrupo() : origenCab.getGrupo());
+                cabecera.setGrupo(origenCab.getGrupo() != null && origenCab.getGrupo() != 0 ? origenCab.getGrupo() : asociadogrupoDestino);
+                cabecera.setAsociadogrupo(asociadogrupoDestino);
             }
             Cabecera cabeceraGuardada = cabeceraRepository.save(cabecera);
             if (cabeceraGuardada != null) {
@@ -1606,16 +1680,24 @@ public class AuditoriaService {
             }
             if (cabeceraOrigenOpt.isPresent()) {
                 Cabecera origenCab = cabeceraOrigenOpt.get();
+                Long asociadogrupoDestino = origenCab.getAsociadogrupo() != null && origenCab.getAsociadogrupo() != 0
+                        ? origenCab.getAsociadogrupo()
+                        : (origenCab.getGrupo() != null && origenCab.getGrupo() != 0
+                                ? origenCab.getGrupo()
+                                : (origenCab.getAsociado() != null && origenCab.getAsociado() != 0
+                                        ? origenCab.getAsociado()
+                                        : origenCab.getId()));
+
                 if (cabecera.getAsociado() == null) {
                     cabecera.setAsociado(origenCab.getId());
                     modificado = true;
                 }
-                if (cabecera.getGrupo() == null && origenCab.getGrupo() != null) {
-                    cabecera.setGrupo(origenCab.getGrupo());
+                if (cabecera.getGrupo() == null || cabecera.getGrupo() == 0) {
+                    cabecera.setGrupo(origenCab.getGrupo() != null && origenCab.getGrupo() != 0 ? origenCab.getGrupo() : asociadogrupoDestino);
                     modificado = true;
                 }
-                if (cabecera.getAsociadogrupo() == null && origenCab.getAsociadogrupo() != null) {
-                    cabecera.setAsociadogrupo(origenCab.getAsociadogrupo());
+                if (asociadogrupoDestino != null && (cabecera.getAsociadogrupo() == null || cabecera.getAsociadogrupo() == 0 || !asociadogrupoDestino.equals(cabecera.getAsociadogrupo()))) {
+                    cabecera.setAsociadogrupo(asociadogrupoDestino);
                     modificado = true;
                 }
                 if (cabecera.getCodigoCobertura() == null && codigoCobertura != null) {

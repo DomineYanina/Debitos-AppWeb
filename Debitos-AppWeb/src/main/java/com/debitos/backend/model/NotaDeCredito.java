@@ -15,20 +15,20 @@ public class NotaDeCredito {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "idcabecera")
     @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "idcabecera")
     private Cabecera cabecera;
 
     // Relación con la prestación original
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_prestacion")
     @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "id_prestacion")
     private AmbLiquidado prestacion;
 
     // Relación: La ND original que originó esta NC (Caso 3)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_notadedebito")
     @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "id_notadedebito")
     private NotaDeDebito notaDeDebitoPadre;
 
     private Boolean debitoaceptado;

@@ -16,7 +16,6 @@ public class NdAjusteDeIva {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idcabecera")
-    @NotFound(action = NotFoundAction.IGNORE)
     private Cabecera cabecera;
 
     @Column(name = "letra_nc", nullable = false, length = 1)

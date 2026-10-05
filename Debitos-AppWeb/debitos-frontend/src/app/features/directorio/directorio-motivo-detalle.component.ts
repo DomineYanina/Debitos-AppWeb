@@ -76,12 +76,16 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
 
   ngOnInit(): void {
     combineLatest([this.route.paramMap, this.route.queryParamMap]).subscribe(([params, queryParams]) => {
-      const motivoParam = params.get('motivoId') || '';
+      let motivoParam = params.get('motivoId') || '';
       try {
-        this.motivo = decodeURIComponent(motivoParam);
+        motivoParam = decodeURIComponent(motivoParam);
+        if (motivoParam.includes('%')) {
+          motivoParam = decodeURIComponent(motivoParam);
+        }
       } catch {
-        this.motivo = motivoParam;
+        // mantener motivoParam tal cual
       }
+      this.motivo = motivoParam;
 
       this.solapaOrigen = queryParams.get('solapa') || 'motivos';
       this.codigoCobertura = queryParams.get('codigoCobertura') || 'TODAS';
@@ -98,7 +102,7 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
     this.cargando = true;
     this.directorioService.obtenerMotivoDetalle(this.motivo, this.codigoCobertura, this.tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
       next: (data) => {
-        this.prestaciones = data || [];
+        this.prestaciones = Array.isArray(data) ? data : (data?.content || []);
         this.calcularTotales();
         this.construirOpcionesFiltros();
         this.cargando = false;
@@ -106,6 +110,9 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
       },
       error: (err) => {
         console.error('Error al cargar prestaciones por motivo:', err);
+        this.prestaciones = [];
+        this.calcularTotales();
+        this.construirOpcionesFiltros();
         this.cargando = false;
         this.cdr.markForCheck();
       }
@@ -138,7 +145,7 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
     let minF = '';
     let maxF = '';
     for (const p of this.prestaciones) {
-      const f = this.obtenerFechaIso(p.fechaDoc || p.fechaPrestacion);
+      const f = this.obtenerFechaIso(p.fechaPrestacion || p.fechaDoc);
       if (f) {
         mapFechas.set(f, (mapFechas.get(f) || 0) + 1);
         if (!minF || f < minF) minF = f;
@@ -335,7 +342,7 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
     // 2. Filtro Fecha Desde
     if (this.filtroFechaDesde) {
       resultado = resultado.filter(p => {
-        const f = this.obtenerFechaIso(p.fechaDoc || p.fechaPrestacion);
+        const f = this.obtenerFechaIso(p.fechaPrestacion || p.fechaDoc);
         return f ? f >= this.filtroFechaDesde : true;
       });
     }
@@ -343,7 +350,7 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
     // 3. Filtro Fecha Hasta
     if (this.filtroFechaHasta) {
       resultado = resultado.filter(p => {
-        const f = this.obtenerFechaIso(p.fechaDoc || p.fechaPrestacion);
+        const f = this.obtenerFechaIso(p.fechaPrestacion || p.fechaDoc);
         return f ? f <= this.filtroFechaHasta : true;
       });
     }
@@ -400,8 +407,8 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
             return compA.localeCompare(compB) * dir;
           }
           case 'fecha': {
-            const valA = this.obtenerFechaIso(a.fechaDoc || a.fechaPrestacion);
-            const valB = this.obtenerFechaIso(b.fechaDoc || b.fechaPrestacion);
+            const valA = this.obtenerFechaIso(a.fechaPrestacion || a.fechaDoc);
+            const valB = this.obtenerFechaIso(b.fechaPrestacion || b.fechaDoc);
             return valA.localeCompare(valB) * dir;
           }
           case 'paciente': {

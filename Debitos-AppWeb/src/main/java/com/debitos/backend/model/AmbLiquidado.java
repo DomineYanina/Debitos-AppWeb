@@ -15,8 +15,8 @@ public class AmbLiquidado {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "idcabecera")
     @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "idcabecera")
     private Cabecera cabecera;
 
     private String carnet;

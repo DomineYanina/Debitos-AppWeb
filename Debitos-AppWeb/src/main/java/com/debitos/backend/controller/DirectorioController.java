@@ -43,33 +43,42 @@ public class DirectorioController {
     }
 
     @GetMapping("/grupos")
-    public ResponseEntity<List<DirectorioGrupoFacturaDTO>> obtenerGrupos(
+    public ResponseEntity<PaginatedResponseDTO<DirectorioGrupoFacturaDTO>> obtenerGrupos(
             @RequestParam(required = false) String codigoCobertura,
             @RequestParam(required = false) String tipoDoc,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<DirectorioGrupoFacturaDTO> grupos = directorioService.obtenerGruposFacturas(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        PaginatedResponseDTO<DirectorioGrupoFacturaDTO> grupos = directorioService.obtenerGruposFacturasPaginado(
+                codigoCobertura, tipoDoc, fechaDesde, fechaHasta, page, size);
         return ResponseEntity.ok(grupos);
     }
 
     @GetMapping("/motivos")
-    public ResponseEntity<List<DirectorioMotivoDebitoDTO>> obtenerMotivos(
+    public ResponseEntity<PaginatedResponseDTO<DirectorioMotivoDebitoDTO>> obtenerMotivos(
             @RequestParam(required = false) String codigoCobertura,
             @RequestParam(required = false) String tipoDoc,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<DirectorioMotivoDebitoDTO> motivos = directorioService.obtenerDistribucionMotivos(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        PaginatedResponseDTO<DirectorioMotivoDebitoDTO> motivos = directorioService.obtenerDistribucionMotivosPaginado(
+                codigoCobertura, tipoDoc, fechaDesde, fechaHasta, page, size);
         return ResponseEntity.ok(motivos);
     }
 
     @GetMapping("/motivo-detalle")
-    public ResponseEntity<List<DirectorioPrestacionDetalleDTO>> obtenerPrestacionesPorMotivo(
+    public ResponseEntity<PaginatedResponseDTO<DirectorioPrestacionDetalleDTO>> obtenerPrestacionesPorMotivo(
             @RequestParam String motivo,
             @RequestParam(required = false) String codigoCobertura,
             @RequestParam(required = false) String tipoDoc,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<DirectorioPrestacionDetalleDTO> lista = directorioService.obtenerPrestacionesPorMotivo(motivo, codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        PaginatedResponseDTO<DirectorioPrestacionDetalleDTO> lista = directorioService.obtenerPrestacionesPorMotivoPaginado(
+                motivo, codigoCobertura, tipoDoc, fechaDesde, fechaHasta, page, size);
         return ResponseEntity.ok(lista);
     }
 }

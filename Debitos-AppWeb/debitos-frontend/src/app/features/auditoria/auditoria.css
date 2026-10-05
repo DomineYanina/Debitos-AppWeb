@@ -2210,8 +2210,8 @@ tr.row-selected {
   grid-template-columns: repeat(2, 1fr) !important;
   gap: 8px !important;
   align-items: stretch !important;
-  width: 280px !important;
-  max-width: 280px !important;
+  width: 280px;
+  max-width: 100%;
   box-sizing: border-box !important;
 
   .indicador-guardado {

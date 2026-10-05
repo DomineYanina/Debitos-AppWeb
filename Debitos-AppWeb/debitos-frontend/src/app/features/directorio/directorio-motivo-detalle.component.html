@@ -224,8 +224,8 @@
               </div>
             </td>
 
-            <!-- Fecha -->
-            <td class="text-nowrap">{{ p.fechaDoc | date:'dd/MM/yyyy' }}</td>
+            <!-- Fecha de la Prestación -->
+            <td class="text-nowrap">{{ (p.fechaPrestacion || p.fechaDoc) | date:'dd/MM/yyyy' }}</td>
 
             <!-- Paciente & Carnet -->
             <td>

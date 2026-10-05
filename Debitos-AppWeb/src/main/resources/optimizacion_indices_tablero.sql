@@ -11,6 +11,7 @@ CREATE INDEX IF NOT EXISTS idx_cabecera_grupo ON cabecera (grupo);
 CREATE INDEX IF NOT EXISTS idx_cabecera_asociado ON cabecera (asociado);
 CREATE INDEX IF NOT EXISTS idx_cabecera_codigo_cobertura ON cabecera (codigo_cobertura);
 CREATE INDEX IF NOT EXISTS idx_cabecera_periodo ON cabecera (periodo);
+CREATE INDEX IF NOT EXISTS idx_cabecera_id_estado ON cabecera (id_estado);
 
 -- 2. Índices en tabla 'notadecredito' para resolución de relaciones con cabecera y prestaciones
 CREATE INDEX IF NOT EXISTS idx_notadecredito_idcabecera ON notadecredito (idcabecera);

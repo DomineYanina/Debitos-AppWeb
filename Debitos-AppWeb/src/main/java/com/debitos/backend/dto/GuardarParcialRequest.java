@@ -8,6 +8,7 @@ public class GuardarParcialRequest {
     private Object ptovta;
     private Object numero;
     private String usuario;
+    private List<Integer> idsParaBorrar;
     private List<RegistroAuditoriaDTO> registros;
 
     public String getDocumentoOrigen() {
@@ -56,5 +57,13 @@ public class GuardarParcialRequest {
 
     public void setRegistros(List<RegistroAuditoriaDTO> registros) {
         this.registros = registros;
+    }
+
+    public List<Integer> getIdsParaBorrar() {
+        return idsParaBorrar;
+    }
+
+    public void setIdsParaBorrar(List<Integer> idsParaBorrar) {
+        this.idsParaBorrar = idsParaBorrar;
     }
 }

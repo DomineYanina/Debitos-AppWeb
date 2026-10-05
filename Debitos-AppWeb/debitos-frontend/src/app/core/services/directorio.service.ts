@@ -19,7 +19,8 @@ import {
   BalanceFinanciadorDTO,
   PuntoDonutDTO,
   TiemposCobranzaDTO,
-  RangoAntiguedadDTO
+  RangoAntiguedadDTO,
+  PaginatedResponse
 } from '../models/directorio.model';
 
 @Injectable({
@@ -76,34 +77,41 @@ export class DirectorioService {
     return this.http.get<DirectorioTotales>(`${this.apiUrl}/totales`, { params });
   }
 
-  obtenerGrupos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DirectorioGrupoFactura[]> {
-    let params = new HttpParams();
+  obtenerGrupos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 50): Observable<PaginatedResponse<DirectorioGrupoFactura>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
     if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
     if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
 
-    return this.http.get<DirectorioGrupoFactura[]>(`${this.apiUrl}/grupos`, { params });
+    return this.http.get<PaginatedResponse<DirectorioGrupoFactura>>(`${this.apiUrl}/grupos`, { params });
   }
 
-  obtenerMotivos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DirectorioMotivoDebito[]> {
-    let params = new HttpParams();
+  obtenerMotivos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 50): Observable<PaginatedResponse<DirectorioMotivoDebito>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
     if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
     if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
 
-    return this.http.get<DirectorioMotivoDebito[]>(`${this.apiUrl}/motivos`, { params });
+    return this.http.get<PaginatedResponse<DirectorioMotivoDebito>>(`${this.apiUrl}/motivos`, { params });
   }
 
-  obtenerMotivoDetalle(motivo: string, codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DirectorioPrestacionDetalle[]> {
-    let params = new HttpParams().set('motivo', motivo);
+  obtenerMotivoDetalle(motivo: string, codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 1000): Observable<PaginatedResponse<DirectorioPrestacionDetalle>> {
+    let params = new HttpParams()
+      .set('motivo', motivo)
+      .set('page', page.toString())
+      .set('size', size.toString());
     if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
     if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
 
-    return this.http.get<DirectorioPrestacionDetalle[]>(`${this.apiUrl}/motivo-detalle`, { params });
+    return this.http.get<PaginatedResponse<DirectorioPrestacionDetalle>>(`${this.apiUrl}/motivo-detalle`, { params });
   }
 
   // ---------------------------------------------------------------------------
@@ -243,7 +251,7 @@ export class DirectorioService {
 
   /**
    * GET /api/graficos/bucles
-   * Retorna los bucles de insistencia (expedientes con 2 o más débitos NC).
+   * Retorna los bucles de insistencia (expedientes con 2 o más refacturaciones ND tras débitos NC).
    * @param financiador filtro opcional por financiador o código
    * @param medico      filtro opcional por profesional / médico
    * @param periodo     filtro opcional por período YYYY-MM
@@ -276,6 +284,34 @@ export class DirectorioService {
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
 
     return this.http.get<DesempenoGlobalDTO>(`${this.apiGraficosUrl}/desempeno`, { params });
+  }
+
+  /**
+   * GET /api/graficos/desempeno/analistas
+   * Retorna únicamente las métricas de desempeño por Analistas de Débito
+   * de forma directa y optimizada.
+   */
+  getDesempenoAnalistas(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<MetricaAnalistaDTO[]> {
+    let params = new HttpParams();
+    if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<MetricaAnalistaDTO[]>(`${this.apiGraficosUrl}/desempeno/analistas`, { params });
+  }
+
+  /**
+   * GET /api/graficos/desempeno/operadores
+   * Retorna únicamente las métricas de desempeño por Usuarios de Carga / Operadores
+   * de forma directa y optimizada.
+   */
+  getDesempenoOperadores(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<MetricaOperadorDTO[]> {
+    let params = new HttpParams();
+    if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<MetricaOperadorDTO[]>(`${this.apiGraficosUrl}/desempeno/operadores`, { params });
   }
 }
 

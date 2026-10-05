@@ -107,11 +107,11 @@ class AuditoriaServiceTest {
         assertTrue(AuditoriaService.resolverTiposEquivalentes("").isEmpty());
         assertEquals(List.of("FC", "FAC", "FCE", "FCA", "FCB"), AuditoriaService.resolverTiposEquivalentes("FC"));
         assertEquals(List.of("FC", "FAC", "FCE", "FCA", "FCB"), AuditoriaService.resolverTiposEquivalentes("FCE"));
-        assertEquals(List.of("NC", "NCE"), AuditoriaService.resolverTiposEquivalentes("NC"));
-        assertEquals(List.of("NC", "NCE"), AuditoriaService.resolverTiposEquivalentes("NCE"));
-        assertEquals(List.of("ND", "NDE"), AuditoriaService.resolverTiposEquivalentes("ND"));
-        assertEquals(List.of("ND", "NDE"), AuditoriaService.resolverTiposEquivalentes("NDE"));
-        assertEquals(List.of("RC", "REC"), AuditoriaService.resolverTiposEquivalentes("RC"));
+        assertEquals(List.of("NC", "NCE", "NCA", "NCB"), AuditoriaService.resolverTiposEquivalentes("NC"));
+        assertEquals(List.of("NC", "NCE", "NCA", "NCB"), AuditoriaService.resolverTiposEquivalentes("NCE"));
+        assertEquals(List.of("ND", "NDE", "NDA", "NDB"), AuditoriaService.resolverTiposEquivalentes("ND"));
+        assertEquals(List.of("ND", "NDE", "NDA", "NDB"), AuditoriaService.resolverTiposEquivalentes("NDE"));
+        assertEquals(List.of("RC", "REC", "RCA", "RCB"), AuditoriaService.resolverTiposEquivalentes("RC"));
     }
 
     @Test
@@ -349,7 +349,7 @@ class AuditoriaServiceTest {
         amb.setCabecera(cabeceraFC);
 
         when(ambLiquidadoRepository.findAllById(List.of(1))).thenReturn(List.of(amb));
-        when(notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(1)).thenReturn(Optional.empty());
+        when(notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(any())).thenReturn(List.of());
 
         RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
         reg.setId(1);
@@ -704,14 +704,59 @@ class AuditoriaServiceTest {
 
         NotaDeCredito ncPadre = new NotaDeCredito();
         ncPadre.setId(88);
+        ncPadre.setCabecera(cabeceraNC);
         when(notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId("A", 1, 2000, 5))
                 .thenReturn(Optional.of(ncPadre));
-        when(notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNd(88, "Por Refactura")).thenReturn(false);
+        when(notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(88, "Por Refactura")).thenReturn(false);
 
         auditoriaService.procesarNuevaNotaDebito(req);
 
         verify(cabeceraRepository, times(1)).save(any(Cabecera.class));
         verify(notaDeDebitoRepository, times(1)).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("Nueva Nota de Débito - Bloquea si ya existe una ND no-BDD para la misma NC")
+    void testProcesarNuevaNotaDebitoBloqueaSiExisteNdNoBDD() {
+        NuevaNotaDebitoRequest req = new NuevaNotaDebitoRequest();
+        req.setOrigen("NC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(2000);
+        req.setUsuario("auditor");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("ND");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(3000);
+        datos.setTipoNd("Por Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(5);
+        reg.setImporteRefactura("500.00");
+        reg.setDiasFacturados(10);
+        req.setRegistros(List.of(reg));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(2000)))
+                .thenReturn(List.of(cabeceraNC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("ND", "A", 1, 3000))
+                .thenReturn(Optional.empty());
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(5);
+        amb.setTotalNeto(new BigDecimal("1000.00"));
+        amb.setIva(new BigDecimal("210.00"));
+        when(ambLiquidadoRepository.findAllById(List.of(5))).thenReturn(List.of(amb));
+
+        NotaDeCredito ncPadre = new NotaDeCredito();
+        ncPadre.setId(88);
+        when(notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId("A", 1, 2000, 5))
+                .thenReturn(Optional.of(ncPadre));
+        when(notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(88, "Por Refactura")).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> auditoriaService.procesarNuevaNotaDebito(req));
     }
 
     @Test
@@ -1734,9 +1779,10 @@ class AuditoriaServiceTest {
 
         NotaDeCredito ncPadre = new NotaDeCredito();
         ncPadre.setId(88);
+        ncPadre.setCabecera(cabeceraNC);
         when(notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId("A", 1, 2000, 10))
                 .thenReturn(Optional.of(ncPadre));
-        when(notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNd(88, "Por Refactura")).thenReturn(false);
+        when(notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(88, "Por Refactura")).thenReturn(false);
 
         auditoriaService.procesarNuevaNotaDebito(req);
 
@@ -1926,12 +1972,13 @@ class AuditoriaServiceTest {
         NotaDeCredito ncExistente = new NotaDeCredito();
         ncExistente.setId(10);
         ncExistente.setCabecera(cabeceraNC);
+        ncExistente.setPrestacion(amb);
 
         when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
                 .thenReturn(List.of(cabeceraFC));
         when(ambLiquidadoRepository.findAllById(anyList())).thenReturn(List.of(amb));
-        when(notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(502))
-                .thenReturn(Optional.of(ncExistente));
+        when(notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(any()))
+                .thenReturn(List.of(ncExistente));
 
         auditoriaService.procesarGuardadoParcial(req);
 

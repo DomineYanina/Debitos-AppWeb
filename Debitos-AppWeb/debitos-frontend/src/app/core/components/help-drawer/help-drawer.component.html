@@ -879,7 +879,7 @@
                   <p>El sistema cuenta con un motor de telemetría automática y tolerancia a fallos (<em>Store and Forward</em>):</p>
                   <ul>
                     <li>Registra eventos cada vez que un operador intenta cerrar la pestaña con registros modificados sin guardar (<code>INTENTO_CERRAR_PESTANA_SIN_GUARDAR</code>).</li>
-                    <li>Realiza un autoguardado silencioso cada 60 segundos sobre los cambios pendientes.</li>
+                    <li>Realiza un autoguardado silencioso cada 10 segundos sobre los cambios pendientes.</li>
                     <li>Si el servidor se desconecta momentáneamente, almacena los eventos localmente y los sincroniza en lote apenas se restablece la comunicación.</li>
                   </ul>
                 </div>

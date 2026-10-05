@@ -115,9 +115,9 @@ public class AuditoriaController {
     }
 
     @PostMapping("/guardar-parcialmente")
-    public ResponseEntity<Map<String, String>> guardarParcialmente(@RequestBody GuardarParcialRequest payload) {
-        auditoriaService.procesarGuardadoParcial(payload);
-        return ResponseEntity.ok(Map.of("mensaje", "Guardado exitoso"));
+    public ResponseEntity<Void> guardarParcialmente(@RequestBody GuardarParcialRequest payload) {
+        auditoriaService.procesarGuardadoParcialAsincrono(payload);
+        return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/nueva-nota-credito")

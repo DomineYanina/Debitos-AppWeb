@@ -39,7 +39,7 @@
 }
 
 .breadcrumb-sep {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .breadcrumb-current {
@@ -183,7 +183,7 @@
 
 .search-icon {
   font-size: 1rem;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .form-control-search {
@@ -405,7 +405,7 @@
 }
 
 .dates-sep {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -466,7 +466,7 @@
   justify-content: center;
   font-size: 0.72rem;
   margin-left: 0.35rem;
-  color: #94a3b8;
+  color: #64748b;
   line-height: 1;
   vertical-align: middle;
   transform: translateY(-2px);
@@ -589,7 +589,7 @@
 
 .operator-comment-box.no-comment {
   border-left-color: #cbd5e1;
-  color: #94a3b8;
+  color: #64748b;
   font-style: italic;
 }
 

@@ -20,6 +20,7 @@ public class CadenaTrazabilidadDTO {
     private String codigoCobertura;
     private String fechaFactura;
     private List<EventoTrazabilidadDTO> historialEventos = new ArrayList<>();
+    private List<BuclePrestacionDTO> prestaciones = new ArrayList<>();
 
     public CadenaTrazabilidadDTO() {}
 
@@ -113,5 +114,13 @@ public class CadenaTrazabilidadDTO {
 
     public void setFechaFactura(String fechaFactura) {
         this.fechaFactura = fechaFactura;
+    }
+
+    public List<BuclePrestacionDTO> getPrestaciones() {
+        return prestaciones;
+    }
+
+    public void setPrestaciones(List<BuclePrestacionDTO> prestaciones) {
+        this.prestaciones = prestaciones != null ? prestaciones : new ArrayList<>();
     }
 }

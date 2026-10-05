@@ -22,6 +22,7 @@ import {
   MatrizRecaudacionDTO,
   MatrizRecaudacionFilaDTO,
   CadenaTrazabilidadDTO,
+  BuclePrestacionDTO,
   EventoTrazabilidadDTO,
   MetricaAnalistaDTO,
   MetricaMedicoDTO,
@@ -159,11 +160,15 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         this.cargarParetoMotivos();
         break;
       case 'analistas':
-      case 'medicos':
-      case 'usuarios-carga':
-        this.cargarDesempenoOperativo();
+        this.cargarAnalistas();
         this.solapasCargadas.add('analistas');
+        break;
+      case 'medicos':
+        this.cargarDesempenoOperativo();
         this.solapasCargadas.add('medicos');
+        break;
+      case 'usuarios-carga':
+        this.cargarOperadores();
         this.solapasCargadas.add('usuarios-carga');
         break;
       case 'bucles':
@@ -184,6 +189,16 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   tipoDocSeleccionado: string = 'TODOS';
   fechaDesde: string = '';
   fechaHasta: string = '';
+  errorFechaDesde: string | null = null;
+  errorFechaHasta: string | null = null;
+  errorRangoFechas: string | null = null;
+
+  get esRangoFechasValido(): boolean {
+    if (this.esFiltroFechaDeshabilitado) {
+      return true;
+    }
+    return !this.errorFechaDesde && !this.errorFechaHasta && !this.errorRangoFechas && !!this.fechaDesde && !!this.fechaHasta;
+  }
 
   get coberturasVisibles(): DirectorioCobertura[] {
     if (this.solapaActiva === 'bucles') {
@@ -343,6 +358,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   gruposFacturas: DirectorioGrupoFactura[] = [];
   motivosDebito: DirectorioMotivoDebito[] = [];
+  columnaOrdenMotivos: string = '';
+  direccionOrdenMotivos: 'asc' | 'desc' = 'desc';
+  pasoOrdenMotivos: number = 0;
 
   // Paleta de colores para el gráfico Donut
   private paletaColores: string[] = [
@@ -403,8 +421,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       legend: {
         position: 'right',
         labels: {
-          color: '#cbd5e1',
-          font: { size: 12, family: 'Inter, sans-serif' },
+          color: '#1e293b',
+          font: { size: 12, family: 'Inter, sans-serif', weight: 500 },
           padding: 14,
           boxWidth: 14
         },
@@ -473,23 +491,23 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     interaction: { mode: 'index', intersect: false },
     scales: {
       x: {
-        ticks: { color: '#94a3b8', font: { size: 11 } },
-        grid: { color: 'rgba(148,163,184,0.10)' }
+        ticks: { color: '#475569', font: { size: 11, weight: 500 } },
+        grid: { color: 'rgba(148,163,184,0.15)' }
       },
       y: {
         ticks: {
-          color: '#94a3b8',
-          font: { size: 11 },
+          color: '#475569',
+          font: { size: 11, weight: 500 },
           callback: (v) => '$ ' + Number(v).toLocaleString('es-AR', { notation: 'compact', maximumFractionDigits: 1 })
         },
-        grid: { color: 'rgba(148,163,184,0.10)' }
+        grid: { color: 'rgba(148,163,184,0.15)' }
       }
     },
     plugins: {
       legend: {
         labels: {
-          color: '#cbd5e1',
-          font: { size: 12, family: 'Inter, sans-serif' },
+          color: '#1e293b',
+          font: { size: 12, family: 'Inter, sans-serif', weight: 500 },
           padding: 16,
           boxWidth: 16,
           usePointStyle: true
@@ -505,21 +523,33 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   // ── Aging Financiero (Bar vertical) ───────────────────────────────────────
 
-  /** Colores por rango: verde→azul→ámbar→rojo→rojo oscuro */
-  private readonly COLORES_AGING = [
-    '#059669',  // 0-30 días   (verde)
-    '#2563eb',  // 31-60 días  (azul)
-    '#b45309',  // 61-90 días  (naranja/ámbar)
-    '#dc2626',  // 91-180 días (rojo)
-    '#7f1d1d'   // +180 días   (rojo oscuro)
+  /** Colores por rango: 5 tramos cobrados + 1 tramo aún no cobrado */
+  readonly COLORES_AGING = [
+    '#059669',  // De 0 a 30 días   (verde esmeralda)
+    '#0284c7',  // De 31 a 60 días  (celeste)
+    '#2563eb',  // De 61 a 90 días  (azul)
+    '#d97706',  // De 91 a 180 días (ámbar)
+    '#7c3aed',  // Más de 180 días  (púrpura)
+    '#dc2626'   // Aún no cobrados  (rojo alerta)
   ];
+
+  obtenerColorRango(rango: string): string {
+    const r = (rango || '').toLowerCase();
+    if (r.includes('aún no') || r.includes('aun no') || r.includes('no cobrad')) return '#dc2626';
+    if (r.includes('0 a 30')) return '#059669';
+    if (r.includes('31 a 60')) return '#0284c7';
+    if (r.includes('61 a 90')) return '#2563eb';
+    if (r.includes('91 a 180')) return '#d97706';
+    if (r.includes('180')) return '#7c3aed';
+    return '#64748b';
+  }
 
   tiemposCobranzaDatos: TiemposCobranzaDTO | null = null;
 
   agingChartData: ChartConfiguration<'bar'>['data'] = {
     labels: [],
     datasets: [{
-      label: 'Saldo en Mora',
+      label: 'Monto',
       data: [],
       backgroundColor: this.COLORES_AGING,
       borderColor: this.COLORES_AGING.map(c => c + 'cc'),
@@ -535,22 +565,22 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: ctx => ` Saldo en Mora: $${Number(ctx.raw).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
+          label: ctx => ` Monto: $${Number(ctx.raw).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
         }
       }
     },
     scales: {
       x: {
         ticks: {
-          color: '#64748b',
-          font: { size: 10 }
+          color: '#475569',
+          font: { size: 10, weight: 500 }
         },
         grid: { display: false }
       },
       y: {
         ticks: {
-          color: '#64748b',
-          font: { size: 9 },
+          color: '#475569',
+          font: { size: 9, weight: 500 },
           callback: v => '$' + Math.round(Number(v) / 1000) + 'k'
         },
         grid: { color: 'rgba(226, 232, 240, 0.6)' }
@@ -588,14 +618,17 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     maintainAspectRatio: false,
     plugins: {
       legend: {
+        position: 'top',
         labels: {
-          color: '#cbd5e1',
-          font: { size: 12 },
-          padding: 14,
-          boxWidth: 14
+          color: '#1e293b',
+          font: { size: 13, weight: 600 },
+          padding: 16,
+          boxWidth: 16
         }
       },
       tooltip: {
+        titleFont: { size: 13, weight: 600 },
+        bodyFont: { size: 13, weight: 500 },
         callbacks: {
           label: ctx => ` ${ctx.dataset.label}: $ ${Number(ctx.raw).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
         }
@@ -605,19 +638,19 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       x: {
         stacked: true,
         ticks: {
-          color: '#94a3b8',
-          font: { size: 10 },
+          color: '#334155',
+          font: { size: 12, weight: 600 },
           // El formato de moneda ahora va en el eje X (montos)
           callback: v => '$ ' + Number(v).toLocaleString('es-AR', { notation: 'compact', maximumFractionDigits: 1 })
         },
-        grid: { color: 'rgba(148,163,184,0.10)' }
+        grid: { color: 'rgba(148,163,184,0.18)' }
       },
       y: {
         stacked: true,
         ticks: {
-          color: '#94a3b8',
-          font: { size: 10 }
-          // maxRotation y minRotation eliminados: los textos largos ya no necesitan rotarse
+          color: '#0f172a',
+          font: { size: 13, weight: 600 },
+          padding: 8
         },
         grid: { display: false }
       }
@@ -648,6 +681,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       if (fHasta) {
         this.fechaHasta = fHasta;
       }
+      this.validarFechas();
 
       this.cargarCoberturas();
       this.cargarTiposDocumento();
@@ -726,6 +760,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.fechaDesde = this.formatearFechaIso(primerDiaMesAnterior);
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesAnterior);
+    this.validarFechas();
   }
 
   formatearFechaIso(fecha: Date): string {
@@ -733,6 +768,147 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const m = String(fecha.getMonth() + 1).padStart(2, '0');
     const d = String(fecha.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+  }
+
+  validarFormatoFecha(fechaStr: string): string | null {
+    if (!fechaStr || fechaStr.trim() === '') {
+      return 'Debe ingresar una fecha';
+    }
+
+    const partes = fechaStr.split('-');
+    if (partes.length !== 3) {
+      return 'Formato de fecha incompleto';
+    }
+
+    const anioStr = partes[0];
+    const mesStr = partes[1];
+    const diaStr = partes[2];
+
+    if (anioStr.length !== 4) {
+      return 'El año debe tener exactamente 4 dígitos';
+    }
+
+    const anio = parseInt(anioStr, 10);
+    const mes = parseInt(mesStr, 10);
+    const dia = parseInt(diaStr, 10);
+
+    if (isNaN(anio) || isNaN(mes) || isNaN(dia)) {
+      return 'Fecha con formato numérico inválido';
+    }
+
+    const anioMinimo = 2000;
+    const anioMaximo = new Date().getFullYear() + 1;
+
+    if (anio < anioMinimo) {
+      return `El año no puede ser anterior a ${anioMinimo}`;
+    }
+
+    if (anio > anioMaximo) {
+      return `El año no puede ser posterior a ${anioMaximo}`;
+    }
+
+    if (mes < 1 || mes > 12) {
+      return 'El mes debe estar entre 01 y 12';
+    }
+
+    const diasEnMes = new Date(anio, mes, 0).getDate();
+    if (dia < 1 || dia > diasEnMes) {
+      return `Día inválido para el mes (máximo ${diasEnMes} días)`;
+    }
+
+    return null;
+  }
+
+  superaBrechaMaxima48Meses(desdeStr: string, hastaStr: string): boolean {
+    if (!desdeStr || !hastaStr) return false;
+    const partesD = desdeStr.split('-');
+    const partesH = hastaStr.split('-');
+    if (partesD.length !== 3 || partesH.length !== 3) return false;
+
+    const yD = parseInt(partesD[0], 10);
+    const mD = parseInt(partesD[1], 10);
+    const dD = parseInt(partesD[2], 10);
+
+    const yH = parseInt(partesH[0], 10);
+    const mH = parseInt(partesH[1], 10);
+    const dH = parseInt(partesH[2], 10);
+
+    if (isNaN(yD) || isNaN(mD) || isNaN(dD) || isNaN(yH) || isNaN(mH) || isNaN(dH)) {
+      return false;
+    }
+
+    // Límite de 48 meses (4 años) calendario a partir de fechaDesde
+    const maxHastaDate = new Date(yD, mD - 1 + 48, dD);
+    const hastaDate = new Date(yH, mH - 1, dH);
+
+    return hastaDate > maxHastaDate;
+  }
+
+  validarFechas(): boolean {
+    if (this.esFiltroFechaDeshabilitado) {
+      this.errorFechaDesde = null;
+      this.errorFechaHasta = null;
+      this.errorRangoFechas = null;
+      return true;
+    }
+
+    this.errorFechaDesde = this.validarFormatoFecha(this.fechaDesde);
+    this.errorFechaHasta = this.validarFormatoFecha(this.fechaHasta);
+
+    if (this.errorFechaDesde || this.errorFechaHasta) {
+      this.errorRangoFechas = null;
+      return false;
+    }
+
+    if (this.fechaDesde > this.fechaHasta) {
+      this.errorRangoFechas = 'La Fecha Desde no puede ser posterior a la Fecha Hasta';
+      return false;
+    }
+
+    if (this.superaBrechaMaxima48Meses(this.fechaDesde, this.fechaHasta)) {
+      this.errorRangoFechas = 'El rango entre fechas no puede superar los 48 meses (4 años)';
+      return false;
+    }
+
+    this.errorRangoFechas = null;
+    return true;
+  }
+
+  onFechaInput(event: Event, tipo: 'desde' | 'hasta'): void {
+    const input = event.target as HTMLInputElement;
+    if (input && input.validity && input.validity.badInput) {
+      if (tipo === 'desde') {
+        this.errorFechaDesde = 'Fecha incompleta o inválida';
+      } else {
+        this.errorFechaHasta = 'Fecha incompleta o inválida';
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    this.validarFechas();
+    this.cdr.markForCheck();
+  }
+
+  onFechaBlur(event: Event, tipo: 'desde' | 'hasta'): void {
+    const input = event.target as HTMLInputElement;
+    if (input && input.validity && input.validity.badInput) {
+      if (tipo === 'desde') {
+        this.errorFechaDesde = 'Fecha incompleta o inválida';
+      } else {
+        this.errorFechaHasta = 'Fecha incompleta o inválida';
+      }
+    } else {
+      this.validarFechas();
+    }
+    this.cdr.markForCheck();
+  }
+
+  onEnterFiltro(): void {
+    this.validarFechas();
+    if (this.esRangoFechasValido) {
+      this.aplicarFiltros();
+    }
+    this.cdr.markForCheck();
   }
 
   cargarCoberturas(): void {
@@ -771,7 +947,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       this.fechaDesde = this.fechaHasta;
       this.cdr.markForCheck();
     }
-    this.aplicarFiltros();
+    this.validarFechas();
+    if (this.esRangoFechasValido) {
+      this.aplicarFiltros();
+    }
   }
 
   onFechaHastaChange(): void {
@@ -779,7 +958,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       this.fechaHasta = this.fechaDesde;
       this.cdr.markForCheck();
     }
-    this.aplicarFiltros();
+    this.validarFechas();
+    if (this.esRangoFechasValido) {
+      this.aplicarFiltros();
+    }
   }
 
   validarRangoFechas(): void {
@@ -787,10 +969,15 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       this.fechaHasta = this.fechaDesde;
       this.cdr.markForCheck();
     }
+    this.validarFechas();
   }
 
   aplicarFiltros(): void {
     this.validarRangoFechas();
+    if (!this.esRangoFechasValido) {
+      this.cdr.markForCheck();
+      return;
+    }
     this.cargarDashboard();
   }
 
@@ -817,6 +1004,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.fechaDesde = this.formatearFechaIso(primerDiaMesAnterior);
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesAnterior);
+    this.validarFechas();
 
     this.cargarDashboard();
   }
@@ -844,6 +1032,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.fechaDesde = this.formatearFechaIso(primerDiaMesSiguiente);
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesSiguiente);
+    this.validarFechas();
 
     this.cargarDashboard();
   }
@@ -869,6 +1058,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.pasoOrdenTrazabilidad = 0;
     this.columnaOrdenBalance = '';
     this.pasoOrdenBalance = 0;
+    this.columnaOrdenMotivos = '';
+    this.pasoOrdenMotivos = 0;
     this.irAlMesAnterior();
   }
 
@@ -898,8 +1089,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   cargarGrupos(): void {
     this.cargandoGrupos = true;
     this.directorioService.obtenerGrupos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta).subscribe({
-      next: (data) => {
-        this.gruposFacturas = (data || []).map(g => ({ ...g, expandido: false }));
+      next: (data: any) => {
+        const items: DirectorioGrupoFactura[] = Array.isArray(data) ? data : (data?.content || []);
+        this.gruposFacturas = items.map(g => ({ ...g, expandido: false }));
         this.cargandoGrupos = false;
         this.cdr.markForCheck();
       },
@@ -914,12 +1106,18 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   cargarMotivos(): void {
     this.cargandoMotivos = true;
     this.directorioService.obtenerMotivos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta).subscribe({
-      next: (data) => {
-        this.motivosDebito = (data || []).map((m, idx) => ({
+      next: (data: any) => {
+        const items: DirectorioMotivoDebito[] = Array.isArray(data) ? data : (data?.content || []);
+        this.motivosDebito = items.map((m, idx) => ({
           ...m,
+          _originalIndex: idx,
           color: this.paletaColores[idx % this.paletaColores.length]
         }));
-        this.calcularSlicesDonut();
+        if (this.columnaOrdenMotivos) {
+          this.aplicarOrdenMotivos();
+        } else {
+          this.calcularSlicesDonut();
+        }
         this.cargandoMotivos = false;
         this.cdr.markForCheck();
       },
@@ -1341,9 +1539,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         this.agingChartData = {
           labels: detalles.map(d => d.rango),
           datasets: [{
-            label: 'Saldo en Mora',
+            label: 'Monto',
             data: detalles.map(d => Number(d.saldoEnMora)),
-            backgroundColor: this.COLORES_AGING.slice(0, detalles.length),
+            backgroundColor: detalles.map(d => this.obtenerColorRango(d.rango)),
             borderRadius: 4,
             maxBarThickness: 75
           }]
@@ -1501,11 +1699,17 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   obtenerBadgeClase(tipo: string): string {
     if (!tipo) return 'badge-fc';
     const t = tipo.trim().toUpperCase();
+    if (t === 'GRUPO') return 'badge-grupo';
     if (t.startsWith('FC') || t.startsWith('FAC')) return 'badge-fc';
     if (t.startsWith('NC')) return 'badge-nc';
     if (t.startsWith('ND')) return 'badge-nd';
     if (t.startsWith('RC') || t.startsWith('REC')) return 'badge-rc';
     return 'badge-fc';
+  }
+
+  formatearNumeroComprobante(comprobante: string): string {
+    if (!comprobante) return '';
+    return comprobante.replace(/^(FC[A-Z]?|FAC)\s+/i, '');
   }
 
   trackByFinanciador(index: number, item: CcFinanciadorDTO): string { return item.financiador; }
@@ -1643,8 +1847,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.actualizarAlturasSticky();
   }
 
+  togglePrestacion(prestacion: BuclePrestacionDTO, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    prestacion.expanded = !prestacion.expanded;
+    this.actualizarAlturasSticky();
+  }
+
   trackByCadena(index: number, item: CadenaTrazabilidadDTO): string {
     return item.idPrestacion;
+  }
+
+  trackByPrestacion(index: number, item: BuclePrestacionDTO): any {
+    return item.id ?? item.codigo ?? index;
   }
 
   trackByEvento(index: number, item: EventoTrazabilidadDTO): string {
@@ -1681,7 +1897,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       next: (data) => {
         const chains = (data || []).map(c => ({
           ...c,
-          expanded: false
+          expanded: false,
+          prestaciones: (c.prestaciones || []).map(p => ({
+            ...p,
+            expanded: (c.prestaciones?.length === 1)
+          }))
         }));
         this.buclesTodos = chains;
         this.actualizarCoberturasBucles(chains);
@@ -1792,7 +2012,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         const chains = (data || []).map((c, idx) => ({
           ...c,
           _originalIndex: idx,
-          expanded: false
+          expanded: false,
+          prestaciones: (c.prestaciones || []).map(p => ({
+            ...p,
+            expanded: (c.prestaciones?.length === 1)
+          }))
         }));
         this.buclesTodos = chains;
         this.actualizarCoberturasBucles(chains);
@@ -1812,6 +2036,96 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   // ---------------------------------------------------------------------------
   // Desempeño Operativo a 3 Niveles (Analistas, Médicos, Operadores)
   // ---------------------------------------------------------------------------
+
+  cargarAnalistas(): void {
+    if (!this.directorioService.getDesempenoAnalistas) {
+      this.cargarDesempenoOperativo();
+      return;
+    }
+    this.cargandoAnalistas = true;
+    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+
+    this.directorioService.getDesempenoAnalistas(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+      next: (analistas) => {
+        this.analistasDatos = (analistas || []).map((a, idxA) => ({
+          ...a,
+          _originalIndex: idxA,
+          expanded: false,
+          motivos: (a.motivos || []).map((m, idxM) => ({
+            ...m,
+            _originalIndex: idxM,
+            expanded: false,
+            financiadores: (m.financiadores || []).map((f, idxF) => ({
+              ...f,
+              _originalIndex: idxF
+            }))
+          }))
+        }));
+
+        if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
+          !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
+          this.filtroAnalistaSeleccionado = 'TODOS';
+        }
+
+        if (this.columnaOrdenAnalista) {
+          this.aplicarOrdenAnalistas();
+        }
+        if (this.columnaOrdenMotivoAnalista) {
+          this.aplicarOrdenMotivosAnalistas();
+        }
+
+        this.cargandoAnalistas = false;
+        this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
+      },
+      error: (err) => {
+        console.error('Error al cargar analistas de débito:', err);
+        this.cargandoAnalistas = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  cargarOperadores(): void {
+    if (!this.directorioService.getDesempenoOperadores) {
+      this.cargarDesempenoOperativo();
+      return;
+    }
+    this.cargandoOperadores = true;
+    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+
+    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+      next: (operadores) => {
+        this.operadoresDatos = (operadores || []).map((op, idxOp) => ({
+          ...op,
+          _originalIndex: idxOp,
+          expanded: false,
+          motivos: (op.motivos || []).map((m, idxM) => ({
+            ...m,
+            _originalIndex: idxM,
+            expanded: false,
+            financiadores: (m.financiadores || []).map((f, idxF) => ({
+              ...f,
+              _originalIndex: idxF
+            }))
+          }))
+        }));
+
+        if (this.columnaOrdenOperador) {
+          this.aplicarOrdenOperadores();
+        }
+
+        this.cargandoOperadores = false;
+        this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
+      },
+      error: (err) => {
+        console.error('Error al cargar operadores de carga:', err);
+        this.cargandoOperadores = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
 
   cargarDesempenoOperativo(): void {
     if (!this.directorioService.getDesempenoGlobal) return;
@@ -3002,5 +3316,54 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   trackByFinanciadorAnalista(index: number, item: DesgloseFinanciadorDTO): string {
     return item.financiador;
+  }
+
+  // ── Ordenamiento de Distribución de Débitos por Causa / Motivo ───────────
+  ordenarMotivos(columna: string): void {
+    if (this.columnaOrdenMotivos === columna) {
+      if (this.pasoOrdenMotivos === 1) {
+        this.pasoOrdenMotivos = 2;
+        this.direccionOrdenMotivos = this.direccionOrdenMotivos === 'asc' ? 'desc' : 'asc';
+        this.aplicarOrdenMotivos();
+      } else {
+        // 3er click: restaurar orden original
+        this.columnaOrdenMotivos = '';
+        this.pasoOrdenMotivos = 0;
+        this.restaurarOrdenMotivos();
+      }
+    } else {
+      this.columnaOrdenMotivos = columna;
+      this.pasoOrdenMotivos = 1;
+      this.direccionOrdenMotivos = columna === 'motivo' ? 'asc' : 'desc';
+      this.aplicarOrdenMotivos();
+    }
+  }
+
+  aplicarOrdenMotivos(): void {
+    const factor = this.direccionOrdenMotivos === 'asc' ? 1 : -1;
+    const columna = this.columnaOrdenMotivos;
+
+    this.motivosDebito.sort((a, b) => {
+      switch (columna) {
+        case 'motivo':
+          return (a.motivo || '').localeCompare(b.motivo || '') * factor;
+        case 'monto':
+          return ((a.montoTotal || 0) - (b.montoTotal || 0)) * factor;
+        case 'porcentaje':
+          return ((a.porcentaje || 0) - (b.porcentaje || 0)) * factor;
+        default:
+          return 0;
+      }
+    });
+    this.motivosDebito = [...this.motivosDebito];
+    this.calcularSlicesDonut();
+    this.cdr.markForCheck();
+  }
+
+  restaurarOrdenMotivos(): void {
+    this.motivosDebito.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
+    this.motivosDebito = [...this.motivosDebito];
+    this.calcularSlicesDonut();
+    this.cdr.markForCheck();
   }
 }

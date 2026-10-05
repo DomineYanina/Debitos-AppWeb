@@ -426,6 +426,7 @@ describe('AuditoriaComponent', () => {
         { id: 1, motivoDebito: 'Falta firma' },
         { id: 2, motivoDebito: '' }
       ] as unknown as Prestacion[];
+      component.modificadosSinGuardar.add(1);
 
       // Secuestramos la función para atrapar el payload justo antes de que salga
       let payloadEnviado: any = null;
@@ -1796,6 +1797,7 @@ describe('AuditoriaComponent', () => {
 
       // Éxito silencioso
       component.prestaciones = [{ id: 1, motivoDebito: 'Falta firma' } as any];
+      component.modificadosSinGuardar.add(1);
       auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(of({}));
       component.guardarParcialmente(true);
       expect(component.guardandoSilencioso).toBe(false);
@@ -1912,7 +1914,7 @@ describe('AuditoriaComponent', () => {
       component.modificadosSinGuardar.add(1);
       const guardarSpy = vi.spyOn(component, 'guardarParcialmente');
       (component as any).autoguardado$.next();
-      vi.advanceTimersByTime(60000);
+      vi.advanceTimersByTime(10000);
       expect(guardarSpy).toHaveBeenCalledWith(true);
       vi.useRealTimers();
 

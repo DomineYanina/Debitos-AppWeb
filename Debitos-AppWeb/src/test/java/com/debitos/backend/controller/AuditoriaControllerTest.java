@@ -148,7 +148,7 @@ class AuditoriaControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/auditoria/guardar-parcialmente - Retorna 200 OK")
+    @DisplayName("POST /api/auditoria/guardar-parcialmente - Retorna 202 Accepted")
     void testGuardarParcialmente() throws Exception {
         GuardarParcialRequest request = new GuardarParcialRequest();
         request.setDocumentoOrigen("FC");
@@ -159,10 +159,9 @@ class AuditoriaControllerTest {
         mockMvc.perform(post("/api/auditoria/guardar-parcialmente")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mensaje").value("Guardado exitoso"));
+                .andExpect(status().isAccepted());
 
-        verify(auditoriaService, times(1)).procesarGuardadoParcial(any(GuardarParcialRequest.class));
+        verify(auditoriaService, times(1)).procesarGuardadoParcialAsincrono(any(GuardarParcialRequest.class));
     }
 
     @Test

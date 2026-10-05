@@ -1,14 +1,16 @@
 package com.debitos.backend.config;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 public class CacheConfig {
@@ -28,14 +30,16 @@ public class CacheConfig {
     public static final String CACHE_MATRIZ = "directorio_matriz";
     public static final String CACHE_DESEMPENO = "directorio_desempeno";
     public static final String CACHE_ANALISTAS = "directorio_analistas";
+    public static final String CACHE_OPERADORES = "directorio_operadores";
     public static final String CACHE_TRAZABILIDAD = "directorio_trazabilidad";
     public static final String CACHE_BUCLES = "directorio_bucles";
+    public static final String CACHE_CUENTA_CORRIENTE = "directorio_cuenta_corriente";
 
     private CacheManager cacheManager;
 
     @Bean
     public CacheManager cacheManager() {
-        ConcurrentMapCacheManager manager = new ConcurrentMapCacheManager(
+        CaffeineCacheManager manager = new CaffeineCacheManager(
                 CACHE_COBERTURAS,
                 CACHE_TIPOS_DOC,
                 CACHE_TOTALES,
@@ -49,9 +53,15 @@ public class CacheConfig {
                 CACHE_MATRIZ,
                 CACHE_DESEMPENO,
                 CACHE_ANALISTAS,
+                CACHE_OPERADORES,
                 CACHE_TRAZABILIDAD,
-                CACHE_BUCLES
+                CACHE_BUCLES,
+                CACHE_CUENTA_CORRIENTE
         );
+        manager.setCaffeine(Caffeine.newBuilder()
+                .maximumSize(500)
+                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .recordStats());
         this.cacheManager = manager;
         return manager;
     }
@@ -87,7 +97,12 @@ public class CacheConfig {
                     CACHE_TIEMPOS,
                     CACHE_MOTIVOS,
                     CACHE_MATRIZ,
-                    CACHE_DESEMPENO)) {
+                    CACHE_DESEMPENO,
+                    CACHE_ANALISTAS,
+                    CACHE_OPERADORES,
+                    CACHE_TRAZABILIDAD,
+                    CACHE_BUCLES,
+                    CACHE_CUENTA_CORRIENTE)) {
                 var cache = cacheManager.getCache(cacheName);
                 if (cache != null) {
                     cache.clear();

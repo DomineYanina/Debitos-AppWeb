@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Prestacion } from '../models/prestacion';
 import { DocumentoAsociado } from '../models/documento-asociado';
@@ -17,8 +17,11 @@ export class AuditoriaService {
     return this.http.get<Prestacion[]>(`${this.apiUrl}/buscar`, { params: filtros });
   }
 
-  guardarParcialmente(payload: any) {
-    return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload);
+  guardarParcialmente(payload: any, silencioso: boolean = false) {
+    const options = silencioso
+      ? { headers: new HttpHeaders({ 'X-Skip-Loading': 'true' }) }
+      : {};
+    return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload, options);
   }
 
   guardarNuevaNotaCredito(payload: any) {

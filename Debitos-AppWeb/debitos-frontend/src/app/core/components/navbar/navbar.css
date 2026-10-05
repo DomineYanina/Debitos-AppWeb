@@ -704,4 +704,15 @@
   .notification-dropdown {
     width: 320px;
   }
+
+  /* Ocultar el texto del Tour para liberar espacio en la navbar */
+  .btn-navbar-tour .tour-label {
+    display: none;
+  }
+
+  /* Compactar el botón Tour a solo ícono */
+  .btn-navbar-tour {
+    padding: 0.42rem 0.6rem;
+    min-width: 36px;
+  }
 }
