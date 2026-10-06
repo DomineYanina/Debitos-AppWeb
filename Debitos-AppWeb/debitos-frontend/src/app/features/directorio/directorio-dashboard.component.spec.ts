@@ -196,6 +196,17 @@ describe('DirectorioDashboardComponent', () => {
     expect(component.formatearMoneda(null as any)).toBe('$ 0,00');
   });
 
+  it('obtenerClaseTamanoMonto debería retornar clase adecuada según la longitud del monto', () => {
+    // Monto corto (< 17 caracteres) -> sin clase adicional
+    expect(component.obtenerClaseTamanoMonto(113885944.40)).toBe('');
+    // Monto mediano (17-18 caracteres) -> kpi-value--md
+    expect(component.obtenerClaseTamanoMonto(8647329638.08)).toBe('kpi-value--md');
+    // Monto largo (19-21 caracteres) -> kpi-value--sm
+    expect(component.obtenerClaseTamanoMonto(122557944384.38)).toBe('kpi-value--sm');
+    // Monto muy largo (>= 22 caracteres) -> kpi-value--xs
+    expect(component.obtenerClaseTamanoMonto(1225579443841.38)).toBe('kpi-value--xs');
+  });
+
   it('debería manejar errores de servicios graciosamente', () => {
     directorioServiceSpy.obtenerTotales.mockReturnValue(throwError(() => new Error('error')));
     directorioServiceSpy.obtenerGrupos.mockReturnValue(throwError(() => new Error('error')));

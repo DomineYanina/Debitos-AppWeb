@@ -195,7 +195,7 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-fc">
+        <div class="kpi-value kpi-val-fc" [ngClass]="obtenerClaseTamanoMonto(totales.totalFacturado)" [title]="formatearMoneda(totales.totalFacturado)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalFacturado) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -216,7 +216,7 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-nd">
+        <div class="kpi-value kpi-val-nd" [ngClass]="obtenerClaseTamanoMonto(totales.totalIncrementosNd)" [title]="formatearMoneda(totales.totalIncrementosNd)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalIncrementosNd) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -237,7 +237,7 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-nc">
+        <div class="kpi-value kpi-val-nc" [ngClass]="obtenerClaseTamanoMonto(totales.totalDebitosNc)" [title]="formatearMoneda(totales.totalDebitosNc)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalDebitosNc) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -259,7 +259,7 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-ref">
+        <div class="kpi-value kpi-val-ref" [ngClass]="obtenerClaseTamanoMonto(totales.totalRefacturacionNd)" [title]="formatearMoneda(totales.totalRefacturacionNd)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalRefacturacionNd) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -282,7 +282,7 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-rc">
+        <div class="kpi-value kpi-val-rc" [ngClass]="obtenerClaseTamanoMonto(totales.totalCobranzas)" [title]="formatearMoneda(totales.totalCobranzas)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalCobranzas) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -306,7 +306,7 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-saldo">
+        <div class="kpi-value kpi-val-saldo" [ngClass]="obtenerClaseTamanoMonto(totales.saldoPendienteReal)" [title]="formatearMoneda(totales.saldoPendienteReal)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.saldoPendienteReal) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>

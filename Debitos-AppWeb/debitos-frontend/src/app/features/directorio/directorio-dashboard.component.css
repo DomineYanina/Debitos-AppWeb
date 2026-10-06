@@ -677,6 +677,10 @@ select.form-control:disabled {
   gap: 0.85rem;
 }
 
+.kpi-grid--six .kpi-card {
+  padding: 1.1rem 0.85rem;
+}
+
 @media (max-width: 1400px) {
   .kpi-grid--six {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -756,14 +760,31 @@ select.form-control:disabled {
 }
 
 .kpi-value {
-  font-size: 1.55rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: #0f172a;
   margin-bottom: 0.45rem;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: font-size 0.15s ease;
+}
+
+/* Escalamiento dinámico para montos que exceden el ancho estándar */
+.kpi-value.kpi-value--md {
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+
+.kpi-value.kpi-value--sm {
+  font-size: 1.1rem;
+  letter-spacing: -0.035em;
+}
+
+.kpi-value.kpi-value--xs {
+  font-size: 0.95rem;
+  letter-spacing: -0.04em;
 }
 
 /* Colores de montos acordes a la captura */
@@ -3876,6 +3897,15 @@ select.form-control:disabled {
   /* KPI: fuente aún más pequeña */
   .kpi-value {
     font-size: 1.1rem;
+  }
+  .kpi-value.kpi-value--md {
+    font-size: 1.02rem;
+  }
+  .kpi-value.kpi-value--sm {
+    font-size: 0.94rem;
+  }
+  .kpi-value.kpi-value--xs {
+    font-size: 0.86rem;
   }
 
   /* Cards de sección: padding mínimo */

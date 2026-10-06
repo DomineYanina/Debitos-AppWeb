@@ -1247,6 +1247,15 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     return '$ ' + Number(valor).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  obtenerClaseTamanoMonto(valor?: number | null): string {
+    const texto = this.formatearMoneda(valor);
+    const len = texto.length;
+    if (len >= 22) return 'kpi-value--xs';
+    if (len >= 19) return 'kpi-value--sm';
+    if (len >= 17) return 'kpi-value--md';
+    return '';
+  }
+
   obtenerTotalDebitadoGeneral(): number {
     return this.motivosDebito.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
   }
