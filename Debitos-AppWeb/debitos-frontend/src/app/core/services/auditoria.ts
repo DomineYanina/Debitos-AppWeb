@@ -101,4 +101,8 @@ export class AuditoriaService {
       params: { forzarCierre }
     });
   }
+
+  obtenerConfiguracion(): Observable<{ permitirNcConjunta: boolean }> {
+    return this.http.get<{ permitirNcConjunta: boolean }>(`${this.apiUrl}/configuracion`);
+  }
 }

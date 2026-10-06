@@ -989,13 +989,14 @@ select.form-control:disabled {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .legend-header {
   display: grid;
-  grid-template-columns: minmax(170px, 2.2fr) minmax(110px, 1.1fr) minmax(130px, 1.2fr) minmax(105px, 0.9fr);
-  column-gap: 1.5rem;
+  grid-template-columns: minmax(180px, 2.2fr) minmax(85px, 0.8fr) minmax(110px, 1.1fr) minmax(115px, 1.1fr) minmax(95px, 0.9fr);
+  column-gap: 1.25rem;
   padding: 0.65rem 1rem;
   background: #f1f5f9;
   font-size: 0.72rem;
@@ -1005,6 +1006,7 @@ select.form-control:disabled {
   letter-spacing: 0.04em;
   border-bottom: 1px solid #e2e8f0;
   align-items: center;
+  min-width: 620px;
 }
 
 .legend-header span.sortable-col {
@@ -1027,6 +1029,10 @@ select.form-control:disabled {
   color: #1d4ed8;
 }
 
+.legend-th-casos {
+  white-space: nowrap;
+}
+
 .legend-th-accion {
   text-align: center;
   display: flex;
@@ -1038,12 +1044,13 @@ select.form-control:disabled {
 .legend-list {
   max-height: 280px;
   overflow-y: auto;
+  min-width: 620px;
 }
 
 .legend-item {
   display: grid;
-  grid-template-columns: minmax(170px, 2.2fr) minmax(110px, 1.1fr) minmax(130px, 1.2fr) minmax(105px, 0.9fr);
-  column-gap: 1.5rem;
+  grid-template-columns: minmax(180px, 2.2fr) minmax(85px, 0.8fr) minmax(110px, 1.1fr) minmax(115px, 1.1fr) minmax(95px, 0.9fr);
+  column-gap: 1.25rem;
   align-items: center;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid #edf2f7;
@@ -1077,15 +1084,25 @@ select.form-control:disabled {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+  max-width: 100%;
+}
+
+.legend-col-casos {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .casos-badge {
-  font-size: 0.7rem;
-  background: #e2e8f0;
-  color: #475569;
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .legend-col-monto {
@@ -2071,8 +2088,8 @@ select.form-control:disabled {
 
 .th-financiador {
   text-align: left !important;
-  min-width: 160px;
-  max-width: 210px;
+  min-width: 190px;
+  max-width: 260px;
   padding-left: 0.65rem !important;
 }
 
@@ -2107,6 +2124,64 @@ select.form-control:disabled {
 
 .th-total-anual .sort-indicator.active {
   color: #166534 !important;
+}
+
+/* Fila superior de totales en Matriz de Cobranzas (celeste claro) */
+.tr-matriz-total-superior {
+  background-color: #e0f2fe !important;
+  border-bottom: 2px solid #7dd3fc !important;
+}
+
+.tr-matriz-total-superior td {
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  font-weight: 700;
+  border-top: 1px solid #bae6fd !important;
+  border-bottom: 2px solid #7dd3fc !important;
+}
+
+.tr-matriz-total-superior:hover td {
+  background-color: #d0ecfe !important;
+}
+
+.td-total-superior-financiador {
+  color: #0369a1 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em;
+}
+
+.td-mes-total-superior {
+  color: #0369a1 !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700 !important;
+  text-align: right;
+  font-size: 0.76rem;
+}
+
+.td-mes-total-superior.valor-cero {
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+  text-align: center;
+}
+
+.td-gran-total-superior {
+  background-color: #bae6fd !important;
+  color: #0c4a6e !important;
+  font-weight: 800 !important;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  border-left: 2px solid #7dd3fc !important;
+  border-bottom: 2px solid #7dd3fc !important;
+  text-align: right;
+  padding-right: 0.65rem !important;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.05);
+}
+
+.tr-matriz-total-superior:hover .td-gran-total-superior {
+  background-color: #a7dbfc !important;
 }
 
 .tr-matriz-fila:hover {
@@ -2623,6 +2698,83 @@ select.form-control:disabled {
   font-size: 0.7rem;
 }
 
+/* Paginación Trazabilidad */
+.trazabilidad-pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  font-size: 0.85rem;
+  color: #475569;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.trazabilidad-pagination-bar .pagination-info strong {
+  color: #0f172a;
+}
+
+.trazabilidad-pagination-bar .pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trazabilidad-pagination-bar .btn-page-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.trazabilidad-pagination-bar .btn-page-nav:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.trazabilidad-pagination-bar .btn-page-nav:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.trazabilidad-pagination-bar .page-current-indicator {
+  font-weight: 600;
+  color: #1e293b;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.trazabilidad-pagination-bar .pagination-page-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trazabilidad-pagination-bar .page-size-select {
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 0.82rem;
+  color: #1e293b;
+  cursor: pointer;
+}
+
 /* ==========================================================================
    TABLA: DESEMPEÑO POR ANALISTAS DE DÉBITO (3 NIVELES)
    ========================================================================== */
@@ -2638,6 +2790,23 @@ select.form-control:disabled {
 
 .table-analistas th.th-analista {
   min-width: 280px;
+}
+
+.table-analistas th.th-operador {
+  min-width: 220px;
+}
+
+.table-analistas th.th-motivo-col {
+  min-width: 250px;
+}
+
+.table-analistas th.th-financiador-col {
+  min-width: 220px;
+}
+
+.table-analistas th.th-financiadores {
+  width: 130px;
+  text-align: center;
 }
 
 .table-analistas th.th-casos {
@@ -2761,6 +2930,20 @@ select.form-control:disabled {
   border-radius: 9999px;
   background-color: #475569;
   color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.badge-fin-analista {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background-color: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -3112,6 +3295,16 @@ select.form-control:disabled {
   font-size: 0.88rem;
   color: #334155;
   font-weight: 600;
+}
+
+.td-motivo-col-cell {
+  vertical-align: middle;
+  padding: 0.45rem 0.75rem !important;
+}
+
+.td-financiador-col-cell {
+  vertical-align: middle;
+  padding: 0.4rem 0.75rem !important;
 }
 
 /* Nivel 3: Financiador */

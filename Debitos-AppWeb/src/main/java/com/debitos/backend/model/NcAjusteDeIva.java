@@ -30,6 +30,18 @@ public class NcAjusteDeIva {
     @Column(name = "numero_fc", nullable = false)
     private Integer numeroFc;
 
+    @Column(name = "letra_nc", length = 1)
+    private String letraNc;
+
+    @Column(name = "ptovta_nc")
+    private Integer ptovtaNc;
+
+    @Column(name = "tipo_nc", length = 10)
+    private String tipoNc;
+
+    @Column(name = "numero_nc")
+    private Integer numeroNc;
+
     @Column(name = "neto", precision = 15, scale = 2, nullable = false)
     private BigDecimal neto;
 
@@ -47,7 +59,23 @@ public class NcAjusteDeIva {
     @PrePersist
     @PreUpdate
     public void actualizarFechaRegistro() {
-        this.fechaRegistro = ZonedDateTime.now();
+        if (this.fechaRegistro == null) {
+            this.fechaRegistro = ZonedDateTime.now();
+        }
+        if (this.cabecera != null) {
+            if (this.letraNc == null) {
+                this.letraNc = this.cabecera.getLetra();
+            }
+            if (this.ptovtaNc == null) {
+                this.ptovtaNc = this.cabecera.getPtovta();
+            }
+            if (this.tipoNc == null) {
+                this.tipoNc = this.cabecera.getTipo();
+            }
+            if (this.numeroNc == null) {
+                this.numeroNc = this.cabecera.getNumero();
+            }
+        }
     }
 
     public Integer getId() {
@@ -96,6 +124,38 @@ public class NcAjusteDeIva {
 
     public void setNumeroFc(Integer numeroFc) {
         this.numeroFc = numeroFc;
+    }
+
+    public String getLetraNc() {
+        return letraNc;
+    }
+
+    public void setLetraNc(String letraNc) {
+        this.letraNc = letraNc;
+    }
+
+    public Integer getPtovtaNc() {
+        return ptovtaNc;
+    }
+
+    public void setPtovtaNc(Integer ptovtaNc) {
+        this.ptovtaNc = ptovtaNc;
+    }
+
+    public String getTipoNc() {
+        return tipoNc;
+    }
+
+    public void setTipoNc(String tipoNc) {
+        this.tipoNc = tipoNc;
+    }
+
+    public Integer getNumeroNc() {
+        return numeroNc;
+    }
+
+    public void setNumeroNc(Integer numeroNc) {
+        this.numeroNc = numeroNc;
     }
 
     public BigDecimal getNeto() {

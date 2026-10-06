@@ -276,4 +276,12 @@ class AuditoriaControllerTest {
                         .param("numero", "1000"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("GET /api/auditoria/configuracion - Retorna permitirNcConjunta")
+    void testObtenerConfiguracion() throws Exception {
+        mockMvc.perform(get("/api/auditoria/configuracion"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permitirNcConjunta").isBoolean());
+    }
 }

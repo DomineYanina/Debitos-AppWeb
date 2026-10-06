@@ -149,6 +149,7 @@ export interface CcFinanciadorDTO {
 
 /** Interfaces para la Matriz Anual de Recaudación */
 export interface MatrizRecaudacionFilaDTO {
+  codigoFinanciador?: string;
   financiador: string;
   meses: number[];
   totalAnual: number;
@@ -237,6 +238,7 @@ export interface DesgloseMotivoDTO {
 export interface MetricaAnalistaDTO {
   analista: string;
   cantidadRegistros: number;
+  cantidadFinanciadores?: number;
   debitosAceptados: number;
   debitosRefacturados: number;
   totalTramitado: number;

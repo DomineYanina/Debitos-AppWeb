@@ -1,5 +1,6 @@
 package com.debitos.backend.service;
 
+import com.debitos.backend.dto.CabeceraLigeraDTO;
 import com.debitos.backend.dto.directorio.*;
 import com.debitos.backend.dto.reportes.*;
 import com.debitos.backend.model.AmbLiquidado;
@@ -448,13 +449,14 @@ class DirectorioServiceTest {
     }
 
     @Test
-    @DisplayName("getEvolucionMensual retorna los 3 datasets (Facturación, Débitos, Cobranzas) con filtros")
+    @DisplayName("getEvolucionMensual retorna los 5 datasets (Facturación, Débitos, Refacturación ND, Cobranzas, Deudas) con filtros")
     void testGetEvolucionMensualConFiltros() {
         List<Object[]> rows = new ArrayList<>();
         rows.add(new Object[]{
             "2026-05",
             new BigDecimal("1000000.00"),
             new BigDecimal("50000.00"),
+            new BigDecimal("20000.00"),
             new BigDecimal("600000.00")
         });
 
@@ -465,7 +467,7 @@ class DirectorioServiceTest {
         );
 
         assertNotNull(datasets);
-        assertEquals(3, datasets.size());
+        assertEquals(5, datasets.size());
         assertEquals("Facturación", datasets.get(0).getTituloDataset());
         assertEquals(12, datasets.get(0).getPuntos().size());
         assertEquals("2026-05", datasets.get(0).getPuntos().get(11).getEtiqueta());
@@ -474,8 +476,56 @@ class DirectorioServiceTest {
         assertEquals("Débitos", datasets.get(1).getTituloDataset());
         assertEquals(new BigDecimal("50000.00"), datasets.get(1).getPuntos().get(11).getValor());
 
-        assertEquals("Cobranzas", datasets.get(2).getTituloDataset());
-        assertEquals(new BigDecimal("600000.00"), datasets.get(2).getPuntos().get(11).getValor());
+        assertEquals("Refacturación (ND)", datasets.get(2).getTituloDataset());
+        assertEquals(new BigDecimal("20000.00"), datasets.get(2).getPuntos().get(11).getValor());
+
+        assertEquals("Cobranzas", datasets.get(3).getTituloDataset());
+        assertEquals(new BigDecimal("600000.00"), datasets.get(3).getPuntos().get(11).getValor());
+
+        // Deudas = 1.000.000 + 20.000 - 50.000 - 600.000 = 370.000
+        assertEquals("Deudas", datasets.get(4).getTituloDataset());
+        assertEquals(new BigDecimal("370000.00"), datasets.get(4).getPuntos().get(11).getValor());
+    }
+
+    @Test
+    @DisplayName("getEvolucionMensual retorna 12 meses con 5 datasets aunque se filtre un rango menor a 12 meses (ej. 2 meses)")
+    void testGetEvolucionMensualConFiltrosRangoMenorA12Meses() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[]{
+            "2026-08",
+            new BigDecimal("1500000.00"),
+            new BigDecimal("70000.00"),
+            new BigDecimal("35000.00"),
+            new BigDecimal("800000.00")
+        });
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        // Se filtran 2 meses (julio y agosto 2026)
+        List<DatasetGraficoDTO> datasets = directorioService.getEvolucionMensual(
+            "443", null, LocalDate.of(2026, 7, 1), LocalDate.of(2026, 8, 31)
+        );
+
+        assertNotNull(datasets);
+        assertEquals(5, datasets.size());
+        assertEquals("Facturación", datasets.get(0).getTituloDataset());
+        assertEquals(12, datasets.get(0).getPuntos().size(), "Debe retornar siempre 12 meses");
+        assertEquals("2025-09", datasets.get(0).getPuntos().get(0).getEtiqueta(), "El primer mes debe ser 11 meses antes de fechaHasta");
+        assertEquals("2026-08", datasets.get(0).getPuntos().get(11).getEtiqueta(), "El último mes debe ser el mes de fechaHasta");
+        assertEquals(new BigDecimal("1500000.00"), datasets.get(0).getPuntos().get(11).getValor());
+
+        assertEquals("Débitos", datasets.get(1).getTituloDataset());
+        assertEquals(new BigDecimal("70000.00"), datasets.get(1).getPuntos().get(11).getValor());
+
+        assertEquals("Refacturación (ND)", datasets.get(2).getTituloDataset());
+        assertEquals(new BigDecimal("35000.00"), datasets.get(2).getPuntos().get(11).getValor());
+
+        assertEquals("Cobranzas", datasets.get(3).getTituloDataset());
+        assertEquals(new BigDecimal("800000.00"), datasets.get(3).getPuntos().get(11).getValor());
+
+        // Deudas = 1.500.000 + 35.000 - 70.000 - 800.000 = 665.000
+        assertEquals("Deudas", datasets.get(4).getTituloDataset());
+        assertEquals(new BigDecimal("665000.00"), datasets.get(4).getPuntos().get(11).getValor());
     }
 
     @Test
@@ -1037,5 +1087,87 @@ class DirectorioServiceTest {
             // La prestación huérfana debe ser descartada sin provocar un error 500
             assertTrue(resultado.isEmpty() || resultado.get(0).getPrestaciones().isEmpty());
         });
+    }
+
+    @Test
+    @DisplayName("getBuclesInsistencia no considera bucle si sólo existe una ND de refacturación aunque tenga múltiples ítems o filas")
+    void testBuclesInsistencia_noConsideraBucleSiSoloExisteUnaNdAunqueTengaMultiplesItems() {
+        Cabecera fcRaiz = new Cabecera("FC", "A", 30, 5299, LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 1), "FAC", "ACTIVA");
+        fcRaiz.setId(706L);
+        fcRaiz.setDebe(new BigDecimal("33000000.00"));
+        fcRaiz.setAsociadogrupo(222619L);
+
+        Cabecera nc1 = new Cabecera("NC", "A", 333, 333, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 1, 1), "NCA", "ACTIVA");
+        nc1.setId(19783L);
+        nc1.setHaber(new BigDecimal("50000.00"));
+        nc1.setAsociadogrupo(222619L);
+
+        // Solo 1 ND de refacturación
+        Cabecera nd1 = new Cabecera("ND", "A", 33, 33, LocalDate.of(2026, 9, 12), LocalDate.of(2026, 1, 1), "NDA", "ACTIVA");
+        nd1.setId(19788L);
+        nd1.setDebe(new BigDecimal("50000.00"));
+        nd1.setAsociadogrupo(222619L);
+
+        AmbLiquidado prestacion = new AmbLiquidado();
+        prestacion.setId(26077449);
+        prestacion.setCodigo("M052935");
+        prestacion.setDescripcion("NAPRUX");
+        prestacion.setPaciente("RODRIGUEZ ROSA");
+        prestacion.setTotal(new BigDecimal("25000.00"));
+        prestacion.setCabecera(fcRaiz);
+
+        NotaDeCredito ncItem = new NotaDeCredito();
+        ncItem.setId(6269);
+        ncItem.setCabecera(nc1);
+        ncItem.setPrestacion(prestacion);
+        ncItem.setImporteDebitado(new BigDecimal("25000.00"));
+        ncItem.setMotivoDebito("Alta demorada");
+
+        // 2 ítems en la MISMA ND (o fila duplicada)
+        NotaDeDebito ndItem1 = new NotaDeDebito();
+        ndItem1.setId(138);
+        ndItem1.setCabecera(nd1);
+        ndItem1.setCodigo("M052935");
+        ndItem1.setNotaDeCreditoPadre(ncItem);
+        ndItem1.setImporterefactura(new BigDecimal("12500.00"));
+
+        NotaDeDebito ndItem2 = new NotaDeDebito();
+        ndItem2.setId(139);
+        ndItem2.setCabecera(nd1);
+        ndItem2.setCodigo("M052935");
+        ndItem2.setNotaDeCreditoPadre(ncItem);
+        ndItem2.setImporterefactura(new BigDecimal("12500.00"));
+
+        when(cabeceraRepository.findIdsGruposConMultiplesNc(any(), any())).thenReturn(List.of(222619L));
+        when(cabeceraRepository.findByGrupoOrAsociadogrupoOrIdIn(any())).thenReturn(List.of(fcRaiz, nc1, nd1));
+        when(ambLiquidadoRepository.findByCabecera_IdIn(any())).thenReturn(List.of(prestacion));
+        when(notaDeCreditoRepository.findByCabecera_IdIn(any())).thenReturn(List.of(ncItem));
+        when(notaDeDebitoRepository.findByCabecera_IdIn(any())).thenReturn(List.of(ndItem1, ndItem2));
+
+        List<CadenaTrazabilidadDTO> resultado = directorioService.getBuclesInsistencia(null, null, null, "2026-01-01", "2026-12-31");
+
+        // Al haber solo 1 comprobante ND de refacturación, NO es bucle de insistencia
+        assertTrue(resultado.isEmpty(), "No debe clasificar como bucle si solo existe 1 ND de refacturación distinta");
+    }
+
+    @Test
+    @DisplayName("getTrazabilidad utiliza findIdsGruposFacturasPorRangoFechasYFinanciador y retorna las cadenas correctamente")
+    void testGetTrazabilidad_optimizadaPorFinanciadorYLimite() {
+        when(cabeceraRepository.findIdsGruposFacturasPorRangoFechasYFinanciador(any(), any(), eq("OSDE"), eq(500)))
+                .thenReturn(List.of(10L));
+        when(cabeceraRepository.findLigeraByGrupoOrAsociadogrupoOrIdIn(any()))
+                .thenReturn(List.of(
+                        new CabeceraLigeraDTO(10L, "FC", "A", 1, 1001, LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 1), "AMB", "OSDE", "OSDE BINARIO", "SISTEMA", 10L, null, null, new BigDecimal("50000.00"), BigDecimal.ZERO, 1, "FC A 0001-00001001"),
+                        new CabeceraLigeraDTO(11L, "NC", "A", 1, 2001, LocalDate.of(2026, 9, 20), LocalDate.of(2026, 9, 1), "AMB", "OSDE", "OSDE BINARIO", "AUDITORIA", 10L, 10L, 10L, BigDecimal.ZERO, new BigDecimal("10000.00"), 1, "NC A 0001-00002001")
+                ));
+
+        List<CadenaTrazabilidadDTO> resultado = directorioService.getTrazabilidad("OSDE", null, null, "2026-09-01", "2026-09-30");
+
+        assertNotNull(resultado);
+        assertEquals(1, resultado.size());
+        CadenaTrazabilidadDTO cadena = resultado.get(0);
+        assertEquals(new BigDecimal("50000.00"), cadena.getMontoFacturadoOriginal());
+        assertEquals(new BigDecimal("10000.00"), cadena.getTotalDebitado());
+        assertEquals(2, cadena.getHistorialEventos().size());
     }
 }

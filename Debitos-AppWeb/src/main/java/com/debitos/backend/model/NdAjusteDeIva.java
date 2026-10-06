@@ -30,6 +30,18 @@ public class NdAjusteDeIva {
     @Column(name = "numero_nc", nullable = false)
     private Integer numeroNc;
 
+    @Column(name = "letra_nd", length = 1)
+    private String letraNd;
+
+    @Column(name = "ptovta_nd")
+    private Integer ptovtaNd;
+
+    @Column(name = "tipo_nd", length = 10)
+    private String tipoNd;
+
+    @Column(name = "numero_nd")
+    private Integer numeroNd;
+
     @Column(name = "neto", nullable = false, precision = 15, scale = 2)
     private BigDecimal neto;
 
@@ -45,9 +57,24 @@ public class NdAjusteDeIva {
     public NdAjusteDeIva() {}
 
     @PrePersist
+    @PreUpdate
     public void prePersist() {
         if (this.fechaRegistro == null) {
             this.fechaRegistro = LocalDateTime.now();
+        }
+        if (this.cabecera != null) {
+            if (this.letraNd == null) {
+                this.letraNd = this.cabecera.getLetra();
+            }
+            if (this.ptovtaNd == null) {
+                this.ptovtaNd = this.cabecera.getPtovta();
+            }
+            if (this.tipoNd == null) {
+                this.tipoNd = this.cabecera.getTipo();
+            }
+            if (this.numeroNd == null) {
+                this.numeroNd = this.cabecera.getNumero();
+            }
         }
     }
 
@@ -97,6 +124,38 @@ public class NdAjusteDeIva {
 
     public void setNumeroNc(Integer numeroNc) {
         this.numeroNc = numeroNc;
+    }
+
+    public String getLetraNd() {
+        return letraNd;
+    }
+
+    public void setLetraNd(String letraNd) {
+        this.letraNd = letraNd;
+    }
+
+    public Integer getPtovtaNd() {
+        return ptovtaNd;
+    }
+
+    public void setPtovtaNd(Integer ptovtaNd) {
+        this.ptovtaNd = ptovtaNd;
+    }
+
+    public String getTipoNd() {
+        return tipoNd;
+    }
+
+    public void setTipoNd(String tipoNd) {
+        this.tipoNd = tipoNd;
+    }
+
+    public Integer getNumeroNd() {
+        return numeroNd;
+    }
+
+    public void setNumeroNd(Integer numeroNd) {
+        this.numeroNd = numeroNd;
     }
 
     public BigDecimal getNeto() {

@@ -95,6 +95,18 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     | 'trazabilidad' = 'tablero';
 
   solapasCargadas = new Set<string>();
+  private debounceFiltroTimer: any = null;
+
+  private dispararFiltroDebounced(): void {
+    if (this.debounceFiltroTimer) {
+      clearTimeout(this.debounceFiltroTimer);
+    }
+    this.debounceFiltroTimer = setTimeout(() => {
+      if (this.esRangoFechasValido) {
+        this.aplicarFiltros();
+      }
+    }, 350);
+  }
 
   seleccionarSolapa(
     solapa:
@@ -143,6 +155,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     switch (solapa) {
       case 'tablero':
+        this.cargarTotales();
         this.cargarBalanceFinanciero();
         this.cargarDistribucionCartera();
         this.cargarEvolucionMensual();
@@ -157,19 +170,17 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         this.cargarMatrizRecaudacion();
         break;
       case 'motivos':
+        this.cargarMotivos();
         this.cargarParetoMotivos();
         break;
       case 'analistas':
         this.cargarAnalistas();
-        this.solapasCargadas.add('analistas');
         break;
       case 'medicos':
-        this.cargarDesempenoOperativo();
-        this.solapasCargadas.add('medicos');
+        this.cargarMedicos();
         break;
       case 'usuarios-carga':
         this.cargarOperadores();
-        this.solapasCargadas.add('usuarios-carga');
         break;
       case 'bucles':
         this.cargarBucles();
@@ -297,6 +308,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   pasoOrdenMatriz: number = 0;
 
   trazabilidadDatos: CadenaTrazabilidadDTO[] = [];
+  trazabilidadPaginaActual: number = 1;
+  trazabilidadItemsPorPagina: number = 25;
+  trazabilidadOpcionesItemsPorPagina: number[] = [10, 25, 50, 100];
   columnaOrdenTrazabilidad: string = '';
   direccionOrdenTrazabilidad: 'asc' | 'desc' = 'desc';
   pasoOrdenTrazabilidad: number = 0;
@@ -936,9 +950,6 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   cargarDashboard(): void {
     this.solapasCargadas.clear();
-    this.cargarTotales();
-    this.cargarGrupos();
-    this.cargarMotivos();
     this.cargarDatosSolapa(this.solapaActiva, true);
   }
 
@@ -949,7 +960,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     }
     this.validarFechas();
     if (this.esRangoFechasValido) {
-      this.aplicarFiltros();
+      this.dispararFiltroDebounced();
     }
   }
 
@@ -960,7 +971,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     }
     this.validarFechas();
     if (this.esRangoFechasValido) {
-      this.aplicarFiltros();
+      this.dispararFiltroDebounced();
     }
   }
 
@@ -973,6 +984,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   }
 
   aplicarFiltros(): void {
+    if (this.debounceFiltroTimer) {
+      clearTimeout(this.debounceFiltroTimer);
+      this.debounceFiltroTimer = null;
+    }
     this.validarRangoFechas();
     if (!this.esRangoFechasValido) {
       this.cdr.markForCheck();
@@ -1473,47 +1488,85 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           return;
         }
 
-        // Los 3 datasets llegan en orden: [0]=Facturación, [1]=Débitos, [2]=Cobranzas
-        const labels = datasets[0].puntos.map(p => p.etiqueta);
+        // Los datasets llegan: Facturación, Débitos, Refacturación (ND), Cobranzas y Deudas
+        const dsFacturacion = datasets.find(d => d.tituloDataset.toLowerCase().includes('factura')) || datasets[0];
+        const dsDebitos = datasets.find(d => d.tituloDataset.toLowerCase().includes('débito') || d.tituloDataset.toLowerCase().includes('debito')) || datasets[1];
+        const dsRefacturacion = datasets.find(d => d.tituloDataset.toLowerCase().includes('refactura'));
+        const dsCobranzas = datasets.find(d => d.tituloDataset.toLowerCase().includes('cobra')) || datasets[Math.min(3, datasets.length - 1)];
+        const dsDeudas = datasets.find(d => d.tituloDataset.toLowerCase().includes('deuda'));
+
+        const labels = dsFacturacion.puntos.map(p => p.etiqueta);
+
+        const chartDatasets: any[] = [
+          {
+            label: 'Facturación',
+            data: dsFacturacion.puntos.map(p => Number(p.valor)),
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56,189,248,0.10)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2
+          },
+          {
+            label: 'Débitos (NC)',
+            data: dsDebitos.puntos.map(p => Number(p.valor)),
+            borderColor: '#f87171',
+            backgroundColor: 'rgba(248,113,113,0.08)',
+            fill: false,
+            tension: 0.4,
+            borderDash: [6, 3],
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2
+          }
+        ];
+
+        if (dsRefacturacion) {
+          chartDatasets.push({
+            label: 'Refacturación (ND)',
+            data: dsRefacturacion.puntos.map(p => Number(p.valor)),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245,158,11,0.08)',
+            fill: false,
+            tension: 0.4,
+            borderDash: [5, 5],
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2
+          });
+        }
+
+        chartDatasets.push({
+          label: 'Cobranzas (RC)',
+          data: dsCobranzas.puntos.map(p => Number(p.valor)),
+          borderColor: '#34d399',
+          backgroundColor: 'rgba(52,211,153,0.10)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 2
+        });
+
+        if (dsDeudas) {
+          chartDatasets.push({
+            label: 'Deudas',
+            data: dsDeudas.puntos.map(p => Number(p.valor)),
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139, 92, 246, 0.08)',
+            fill: false,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2.5
+          });
+        }
 
         this.evolucionChartData = {
           labels,
-          datasets: [
-            {
-              label: 'Facturación',
-              data: datasets[0].puntos.map(p => Number(p.valor)),
-              borderColor: '#38bdf8',
-              backgroundColor: 'rgba(56,189,248,0.10)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 4,
-              pointHoverRadius: 6,
-              borderWidth: 2
-            },
-            {
-              label: 'Débitos (NC)',
-              data: datasets[1].puntos.map(p => Number(p.valor)),
-              borderColor: '#f87171',
-              backgroundColor: 'rgba(248,113,113,0.08)',
-              fill: false,
-              tension: 0.4,
-              borderDash: [6, 3],
-              pointRadius: 4,
-              pointHoverRadius: 6,
-              borderWidth: 2
-            },
-            {
-              label: 'Cobranzas (RC)',
-              data: datasets[2].puntos.map(p => Number(p.valor)),
-              borderColor: '#34d399',
-              backgroundColor: 'rgba(52,211,153,0.10)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 4,
-              pointHoverRadius: 6,
-              borderWidth: 2
-            }
-          ]
+          datasets: chartDatasets
         };
         this.finalizarCargaGrafico();
       },
@@ -1728,6 +1781,24 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.directorioService.getMatrizRecaudacion(anioConsulta, financiador).subscribe({
       next: (data) => {
+        if (data?.filas) {
+          data.filas.forEach(f => {
+            if (f.codigoFinanciador && !f.financiador.toLowerCase().startsWith(f.codigoFinanciador.toLowerCase() + ' - ') && !f.financiador.toLowerCase().startsWith(f.codigoFinanciador.toLowerCase() + '-')) {
+              f.financiador = `${f.codigoFinanciador} - ${f.financiador}`;
+            } else if (!f.financiador.includes(' - ')) {
+              const cob = this.coberturas.find(c =>
+                c.nombre && f.financiador && (
+                  c.nombre.trim().toLowerCase() === f.financiador.trim().toLowerCase()
+                )
+              );
+              if (cob && cob.codigo && !f.financiador.toLowerCase().startsWith(cob.codigo.toLowerCase())) {
+                f.codigoFinanciador = cob.codigo;
+                f.financiador = `${cob.codigo} - ${f.financiador}`;
+              }
+            }
+          });
+        }
+
         if (data && financiador) {
           const cobObj = this.coberturas.find(c => c.codigo === financiador);
 
@@ -1827,6 +1898,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           _originalIndex: idx,
           expanded: false
         }));
+        this.trazabilidadPaginaActual = 1;
         if (this.columnaOrdenTrazabilidad) {
           this.aplicarOrdenTrazabilidad();
         }
@@ -1840,6 +1912,32 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  get totalPaginasTrazabilidad(): number {
+    if (!this.trazabilidadDatos || this.trazabilidadDatos.length === 0) return 1;
+    return Math.ceil(this.trazabilidadDatos.length / this.trazabilidadItemsPorPagina);
+  }
+
+  get trazabilidadDatosPaginados(): CadenaTrazabilidadDTO[] {
+    if (!this.trazabilidadDatos || this.trazabilidadDatos.length === 0) return [];
+    const inicio = (this.trazabilidadPaginaActual - 1) * this.trazabilidadItemsPorPagina;
+    return this.trazabilidadDatos.slice(inicio, inicio + this.trazabilidadItemsPorPagina);
+  }
+
+  cambiarPaginaTrazabilidad(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginasTrazabilidad) {
+      this.trazabilidadPaginaActual = pagina;
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
+  onTrazabilidadItemsPorPaginaChange(tamano: any): void {
+    this.trazabilidadItemsPorPagina = Number(tamano) || 25;
+    this.trazabilidadPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
   }
 
   toggleCadena(cadena: CadenaTrazabilidadDTO): void {
@@ -2006,8 +2104,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   cargarBucles(): void {
     if (!this.directorioService.getBuclesInsistencia) return;
     this.cargandoBucles = true;
+    const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
 
-    this.directorioService.getBuclesInsistencia(undefined, undefined, undefined, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getBuclesInsistencia(codCob, undefined, undefined, this.fechaDesde, this.fechaHasta).subscribe({
       next: (data) => {
         const chains = (data || []).map((c, idx) => ({
           ...c,
@@ -2047,20 +2146,27 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.directorioService.getDesempenoAnalistas(periodo, this.fechaDesde, this.fechaHasta).subscribe({
       next: (analistas) => {
-        this.analistasDatos = (analistas || []).map((a, idxA) => ({
-          ...a,
-          _originalIndex: idxA,
-          expanded: false,
-          motivos: (a.motivos || []).map((m, idxM) => ({
-            ...m,
-            _originalIndex: idxM,
+        this.analistasDatos = (analistas || []).map((a, idxA) => {
+          const distinctFins = new Set<string>();
+          (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
+            if (f.financiador) distinctFins.add(f.financiador);
+          }));
+          return {
+            ...a,
+            _originalIndex: idxA,
             expanded: false,
-            financiadores: (m.financiadores || []).map((f, idxF) => ({
-              ...f,
-              _originalIndex: idxF
+            cantidadFinanciadores: distinctFins.size,
+            motivos: (a.motivos || []).map((m, idxM) => ({
+              ...m,
+              _originalIndex: idxM,
+              expanded: false,
+              financiadores: (m.financiadores || []).map((f, idxF) => ({
+                ...f,
+                _originalIndex: idxF
+              }))
             }))
-          }))
-        }));
+          };
+        });
 
         if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
           !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
@@ -2127,20 +2233,21 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
-  cargarDesempenoOperativo(): void {
-    if (!this.directorioService.getDesempenoGlobal) return;
-    this.cargandoAnalistas = true;
+  cargarMedicos(): void {
+    if (!this.directorioService.getDesempenoMedicos) {
+      this.cargarDesempenoOperativo();
+      return;
+    }
     this.cargandoMedicos = true;
-    this.cargandoOperadores = true;
     const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoGlobal(periodo, this.fechaDesde, this.fechaHasta).subscribe({
-      next: (data) => {
-        this.analistasDatos = (data?.analistas || []).map((a, idxA) => ({
-          ...a,
-          _originalIndex: idxA,
+    this.directorioService.getDesempenoMedicos(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+      next: (medicos) => {
+        this.medicosDatos = (medicos || []).map((med, idxMed) => ({
+          ...med,
+          _originalIndex: idxMed,
           expanded: false,
-          motivos: (a.motivos || []).map((m, idxM) => ({
+          motivos: (med.motivos || []).map((m, idxM) => ({
             ...m,
             _originalIndex: idxM,
             expanded: false,
@@ -2150,6 +2257,58 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
             }))
           }))
         }));
+
+        if (this.columnaOrdenMedico) {
+          this.aplicarOrdenMedicos();
+        }
+
+        if (this.filtroMedicoSeleccionado !== 'TODOS' &&
+          !this.medicosDatos.some(m => m.medico === this.filtroMedicoSeleccionado)) {
+          this.filtroMedicoSeleccionado = 'TODOS';
+        }
+
+        this.cargandoMedicos = false;
+        this.cdr.markForCheck();
+        this.actualizarAlturasSticky();
+      },
+      error: (err) => {
+        console.error('Error al cargar médicos:', err);
+        this.cargandoMedicos = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  cargarDesempenoOperativo(): void {
+    if (!this.directorioService.getDesempenoGlobal) return;
+    this.cargandoAnalistas = true;
+    this.cargandoMedicos = true;
+    this.cargandoOperadores = true;
+    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+
+    this.directorioService.getDesempenoGlobal(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+      next: (data) => {
+        this.analistasDatos = (data?.analistas || []).map((a, idxA) => {
+          const distinctFins = new Set<string>();
+          (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
+            if (f.financiador) distinctFins.add(f.financiador);
+          }));
+          return {
+            ...a,
+            _originalIndex: idxA,
+            expanded: false,
+            cantidadFinanciadores: distinctFins.size,
+            motivos: (a.motivos || []).map((m, idxM) => ({
+              ...m,
+              _originalIndex: idxM,
+              expanded: false,
+              financiadores: (m.financiadores || []).map((f, idxF) => ({
+                ...f,
+                _originalIndex: idxF
+              }))
+            }))
+          };
+        });
 
         if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
           !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
@@ -2274,6 +2433,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       switch (columna) {
         case 'analista':
           return (a.analista || '').localeCompare(b.analista || '') * factor;
+        case 'financiadores':
+          return ((a.cantidadFinanciadores || 0) - (b.cantidadFinanciadores || 0)) * factor;
         case 'documentos':
           return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
         case 'aceptados':
@@ -2302,6 +2463,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           switch (columna) {
             case 'analista':
               return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+            case 'financiadores':
+              return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
             case 'documentos':
               return ((m1.casos || 0) - (m2.casos || 0)) * factor;
             case 'aceptados':
@@ -2422,6 +2585,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           switch (columna) {
             case 'motivo':
               return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+            case 'financiadores':
+              return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
             case 'casos':
               return ((m1.casos || 0) - (m2.casos || 0)) * factor;
             case 'montoDebitado':
@@ -2450,6 +2615,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
             m.financiadores.sort((f1, f2) => {
               switch (columna) {
                 case 'motivo':
+                case 'financiadores':
                   return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
                 case 'casos':
                   return ((f1.casos || 0) - (f2.casos || 0)) * factor;
@@ -3060,6 +3226,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       switch (columna) {
         case 'operador':
           return (a.operador || '').localeCompare(b.operador || '') * factor;
+        case 'motivo':
+          return ((a.motivos?.length || 0) - (b.motivos?.length || 0)) * factor;
+        case 'financiador': {
+          const finsA = new Set((a.motivos || []).flatMap(m => (m.financiadores || []).map(f => f.financiador))).size;
+          const finsB = new Set((b.motivos || []).flatMap(m => (m.financiadores || []).map(f => f.financiador))).size;
+          return (finsA - finsB) * factor;
+        }
         case 'documentos':
           return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
         case 'aceptados':
@@ -3081,7 +3254,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         op.motivos.sort((m1, m2) => {
           switch (columna) {
             case 'operador':
+            case 'motivo':
               return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+            case 'financiador':
+              return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
             case 'documentos':
               return ((m1.casos || 0) - (m2.casos || 0)) * factor;
             case 'aceptados':
@@ -3109,6 +3285,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
             m.financiadores.sort((f1, f2) => {
               switch (columna) {
                 case 'operador':
+                case 'motivo':
+                case 'financiador':
                   return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
                 case 'documentos':
                   return ((f1.casos || 0) - (f2.casos || 0)) * factor;
@@ -3206,12 +3384,14 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     });
 
     this.trazabilidadDatos = [...this.trazabilidadDatos];
+    this.trazabilidadPaginaActual = 1;
     this.cdr.markForCheck();
   }
 
   restaurarOrdenTrazabilidad(): void {
     this.trazabilidadDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
     this.trazabilidadDatos = [...this.trazabilidadDatos];
+    this.trazabilidadPaginaActual = 1;
     this.cdr.markForCheck();
   }
 
@@ -3347,6 +3527,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       switch (columna) {
         case 'motivo':
           return (a.motivo || '').localeCompare(b.motivo || '') * factor;
+        case 'casos':
+          return ((a.cantidadCasos || 0) - (b.cantidadCasos || 0)) * factor;
         case 'monto':
           return ((a.montoTotal || 0) - (b.montoTotal || 0)) * factor;
         case 'porcentaje':

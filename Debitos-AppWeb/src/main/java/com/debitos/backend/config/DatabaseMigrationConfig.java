@@ -79,6 +79,90 @@ public class DatabaseMigrationConfig {
                 log.debug("Aviso migración sincronización asociadogrupo ND: {}", e.getMessage());
             }
 
+            try {
+                jdbcTemplate.execute("ALTER TABLE nc_ajustedeiva ALTER COLUMN letra_nc DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null letra_nc en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nc_ajustedeiva ALTER COLUMN ptovta_nc DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null ptovta_nc en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nc_ajustedeiva ALTER COLUMN tipo_nc DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null tipo_nc en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nc_ajustedeiva ALTER COLUMN numero_nc DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null numero_nc en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                int ncSincronizadas = jdbcTemplate.update("""
+                    UPDATE nc_ajustedeiva n
+                    SET letra_nc = COALESCE(n.letra_nc, c.letra),
+                        ptovta_nc = COALESCE(n.ptovta_nc, c.ptovta),
+                        tipo_nc = COALESCE(n.tipo_nc, c.tipo),
+                        numero_nc = COALESCE(n.numero_nc, c.numero)
+                    FROM cabecera c
+                    WHERE n.idcabecera = c.id
+                      AND (n.letra_nc IS NULL OR n.ptovta_nc IS NULL OR n.tipo_nc IS NULL OR n.numero_nc IS NULL)
+                """);
+                if (ncSincronizadas > 0) {
+                    log.info("Migración automática aplicada: sincronizados datos de NC en {} registros de nc_ajustedeiva.", ncSincronizadas);
+                }
+            } catch (Exception e) {
+                log.debug("Aviso sincronización datos nc en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nd_ajustedeiva ALTER COLUMN letra_nd DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null letra_nd en nd_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nd_ajustedeiva ALTER COLUMN ptovta_nd DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null ptovta_nd en nd_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nd_ajustedeiva ALTER COLUMN tipo_nd DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null tipo_nd en nd_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nd_ajustedeiva ALTER COLUMN numero_nd DROP NOT NULL");
+            } catch (Exception e) {
+                log.debug("Aviso migración drop not null numero_nd en nd_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                int ndSincronizadasAjuste = jdbcTemplate.update("""
+                    UPDATE nd_ajustedeiva n
+                    SET letra_nd = COALESCE(n.letra_nd, c.letra),
+                        ptovta_nd = COALESCE(n.ptovta_nd, c.ptovta),
+                        tipo_nd = COALESCE(n.tipo_nd, c.tipo),
+                        numero_nd = COALESCE(n.numero_nd, c.numero)
+                    FROM cabecera c
+                    WHERE n.idcabecera = c.id
+                      AND (n.letra_nd IS NULL OR n.ptovta_nd IS NULL OR n.tipo_nd IS NULL OR n.numero_nd IS NULL)
+                """);
+                if (ndSincronizadasAjuste > 0) {
+                    log.info("Migración automática aplicada: sincronizados datos de ND en {} registros de nd_ajustedeiva.", ndSincronizadasAjuste);
+                }
+            } catch (Exception e) {
+                log.debug("Aviso sincronización datos nd en nd_ajustedeiva: {}", e.getMessage());
+            }
+
             // Creación de índices estratégicos para alto rendimiento y concurrencia
             String[] indices = {
                 "CREATE INDEX IF NOT EXISTS idx_cabecera_tipo_fecha ON cabecera (tipo, fecha)",
@@ -95,7 +179,19 @@ public class DatabaseMigrationConfig {
                 "CREATE INDEX IF NOT EXISTS idx_notadedebito_id_notadecredito ON notadedebito (id_notadecredito)",
                 "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idcabecera ON amb_liquidado (idcabecera)",
                 "CREATE INDEX IF NOT EXISTS idx_nd_ajustedeiva_idcabecera ON nd_ajustedeiva (idcabecera)",
-                "CREATE INDEX IF NOT EXISTS idx_nc_ajustedeiva_idcabecera ON nc_ajustedeiva (idcabecera)"
+                "CREATE INDEX IF NOT EXISTS idx_nc_ajustedeiva_idcabecera ON nc_ajustedeiva (idcabecera)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_uppertrim_tipo_fecha ON cabecera ((UPPER(TRIM(tipo))), fecha)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_uppertrim_tipo_periodo ON cabecera ((UPPER(TRIM(tipo))), periodo)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_facturas_impagas ON cabecera (fecha, (debe - COALESCE(haber, 0))) WHERE (debe - COALESCE(haber, 0)) > 0",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_cobranzas_fecha ON cabecera (fecha, codigo_cobertura, haber, debe) WHERE UPPER(TRIM(tipo)) IN ('RC', 'RCA', 'RCB', 'REC', 'OP')",
+                "CREATE INDEX IF NOT EXISTS idx_notadecredito_usuario ON notadecredito (usuario)",
+                "CREATE INDEX IF NOT EXISTS idx_notadedebito_usuario ON notadedebito (usuario)",
+                "CREATE INDEX IF NOT EXISTS idx_notadecredito_motivo ON notadecredito (motivodedebito)",
+                "CREATE INDEX IF NOT EXISTS idx_notadecredito_debitoaceptado ON notadecredito (debitoaceptado)",
+                "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_medico ON amb_liquidado (medico)",
+                "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_operador ON amb_liquidado (operador)",
+                "CREATE INDEX IF NOT EXISTS idx_cabecera_coalesce_grupo ON cabecera ((COALESCE(asociadogrupo, grupo)))",
+                "CREATE INDEX IF NOT EXISTS idx_comprobantes_anulados_idcabecera ON comprobantes_anulados (idcabecera)"
             };
 
             for (String sqlIndex : indices) {

@@ -2340,6 +2340,54 @@ describe('AuditoriaComponent', () => {
       expect(component.montoIvaNdCalculado).toBe(0);
     });
 
+    it('calcula monto neto e iva de ND por ajuste de IVA a partir del Debe de la cabecera seleccionada de la lista', () => {
+      component.modoIngresoManualNdIva = false;
+      component.cabeceraSeleccionadaNdIvaObjeto = {
+        id: 210,
+        tipo: 'NDE',
+        letra: 'A',
+        ptovta: 30,
+        numero: 210,
+        debe: 1309096.07
+      };
+
+      // Selección de 10.5%
+      component.nuevaNotaDebitoIvaForm.patchValue({ porcIva: 10.5 });
+      component.onPorcIvaNdChange();
+      expect(component.netoAjusteIva).toBe(1184702.33);
+      expect(component.montoIvaNdCalculado).toBe(124393.74);
+
+      // Selección de 21%
+      component.nuevaNotaDebitoIvaForm.patchValue({ porcIva: 21 });
+      component.onPorcIvaNdChange();
+      expect(component.netoAjusteIva).toBe(1081897.58);
+      expect(component.montoIvaNdCalculado).toBe(227198.49);
+
+      // Selección de 0%
+      component.nuevaNotaDebitoIvaForm.patchValue({ porcIva: 0 });
+      component.onPorcIvaNdChange();
+      expect(component.netoAjusteIva).toBe(1309096.07);
+      expect(component.montoIvaNdCalculado).toBe(0);
+    });
+
+    it('permite ingresar monto neto manual en ND y calcula iva según porcentaje seleccionado', () => {
+      component.alternarModoIngresoManualNdIva(true);
+      expect(component.modoIngresoManualNdIva).toBe(true);
+      expect(component.nuevaNotaDebitoIvaForm.get('netoNd')?.validator).toBeTruthy();
+
+      component.nuevaNotaDebitoIvaForm.patchValue({ netoNd: 1000000, porcIva: 10.5 });
+      component.onNetoManualNdChange();
+
+      expect(component.netoAjusteIva).toBe(1000000);
+      expect(component.montoIvaNdCalculado).toBe(105000);
+
+      component.nuevaNotaDebitoIvaForm.patchValue({ porcIva: 21 });
+      component.onPorcIvaNdChange();
+
+      expect(component.netoAjusteIva).toBe(1000000);
+      expect(component.montoIvaNdCalculado).toBe(210000);
+    });
+
     it('guardarEdicionNcAjusteIva y guardarNotaDebitoAjusteIva ramas de error y finalizado', () => {
       const alertSpy = vi.spyOn(component, 'mostrarAlerta');
 

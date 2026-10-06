@@ -10,6 +10,7 @@ import java.util.Arrays;
  */
 public class MatrizRecaudacionFilaDTO {
 
+    private String codigoFinanciador;
     private String financiador;
     private BigDecimal[] meses;
     private BigDecimal totalAnual;
@@ -25,7 +26,21 @@ public class MatrizRecaudacionFilaDTO {
         this.totalAnual = BigDecimal.ZERO;
     }
 
+    public MatrizRecaudacionFilaDTO(String codigoFinanciador, String financiador) {
+        this.codigoFinanciador = codigoFinanciador;
+        this.financiador = financiador;
+        this.meses = inicializarArrayMeses();
+        this.totalAnual = BigDecimal.ZERO;
+    }
+
     public MatrizRecaudacionFilaDTO(String financiador, BigDecimal[] meses, BigDecimal totalAnual) {
+        this.financiador = financiador;
+        this.meses = meses != null ? meses : inicializarArrayMeses();
+        this.totalAnual = totalAnual != null ? totalAnual : BigDecimal.ZERO;
+    }
+
+    public MatrizRecaudacionFilaDTO(String codigoFinanciador, String financiador, BigDecimal[] meses, BigDecimal totalAnual) {
+        this.codigoFinanciador = codigoFinanciador;
         this.financiador = financiador;
         this.meses = meses != null ? meses : inicializarArrayMeses();
         this.totalAnual = totalAnual != null ? totalAnual : BigDecimal.ZERO;
@@ -35,6 +50,14 @@ public class MatrizRecaudacionFilaDTO {
         BigDecimal[] arr = new BigDecimal[12];
         Arrays.fill(arr, BigDecimal.ZERO);
         return arr;
+    }
+
+    public String getCodigoFinanciador() {
+        return codigoFinanciador;
+    }
+
+    public void setCodigoFinanciador(String codigoFinanciador) {
+        this.codigoFinanciador = codigoFinanciador;
     }
 
     public String getFinanciador() {

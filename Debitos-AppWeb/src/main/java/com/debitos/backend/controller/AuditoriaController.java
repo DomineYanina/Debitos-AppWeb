@@ -10,6 +10,7 @@ import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.model.RegistroUsabilidad;
 import com.debitos.backend.repository.RegistroUsabilidadRepository;
 import com.debitos.backend.service.AuditoriaService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,11 +24,19 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:4200")
 public class AuditoriaController {
 
+    @Value("${app.auditoria.permitir-nc-conjunta:true}")
+    private boolean permitirNcConjunta;
+
     @Autowired
     private AuditoriaService auditoriaService;
 
     @Autowired
     private RegistroUsabilidadRepository registroUsabilidadRepository;
+
+    @GetMapping("/configuracion")
+    public ResponseEntity<Map<String, Object>> obtenerConfiguracion() {
+        return ResponseEntity.ok(Map.of("permitirNcConjunta", permitirNcConjunta));
+    }
 
     // Regla 1: devuelve la lista completa de NC creadas para una FC
     @GetMapping("/tiene-nc")

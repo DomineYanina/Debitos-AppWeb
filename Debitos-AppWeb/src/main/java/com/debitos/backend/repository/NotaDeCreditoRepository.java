@@ -20,7 +20,19 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
     @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n JOIN n.cabecera c WHERE c.tipo = :tipo AND c.letra = :letra AND c.ptovta = :ptovta AND c.numero = :numero")
     boolean existsByTipoAndLetraAndPtovtaAndNumero(@Param("tipo") String tipo, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
-    @Query("SELECT COUNT(n) > 0 FROM NotaDeCredito n JOIN n.prestacion p JOIN p.cabecera c WHERE UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero AND LOWER(TRIM(n.motivoDebito)) = 'iva mal facturado'")
+    @Query("""
+        SELECT COUNT(n) > 0 
+        FROM NotaDeCredito n 
+        JOIN n.prestacion p 
+        JOIN p.cabecera c 
+        JOIN n.cabecera c_nc 
+        WHERE UPPER(c.letra) = UPPER(:letra) 
+          AND c.ptovta = :ptovta 
+          AND c.numero = :numero 
+          AND LOWER(TRIM(n.motivoDebito)) = 'iva mal facturado' 
+          AND n.cargadocompletamente = true 
+          AND c_nc.id > 0
+    """)
     boolean existsByFacturaAndIvaMalFacturado(@Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 
     List<NotaDeCredito> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(String letra, Integer ptovta, Integer numero);

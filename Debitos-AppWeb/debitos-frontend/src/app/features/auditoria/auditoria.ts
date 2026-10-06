@@ -101,6 +101,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     this.inactividadService.iniciarSeguimiento();
 
+    this.auditoriaService.obtenerConfiguracion().subscribe({
+      next: (cfg) => {
+        if (cfg && cfg.permitirNcConjunta !== undefined) {
+          this.permitirNcConjunta = cfg.permitirNcConjunta;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => console.warn('[Configuración] No se pudo obtener configuración:', err)
+    });
+
     this.notifSub = this.notificacionService.notificacionSeleccionada$.subscribe(notif => {
       if (notif) {
         const tipo = notif.tipoDoc || 'FC';
@@ -530,6 +540,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   modalHistorialVisible: boolean = false;
   filasHistorialComprobantes: any[] = [];
   cantidadHistorial: number = 1;
+  permitirNcConjunta: boolean = true;
+  tieneAjusteIvaNcConjunta: boolean = false;
+  tieneNdAjusteIvaCreada: boolean = false;
+  filaNcParaCrearNdAjuste: any = null;
 
   obtenerFechaHoy(): string {
     return new Date().toISOString().split('T')[0];
@@ -556,6 +570,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]],
     fecha: [this.obtenerFechaHoy(), Validators.required],
+    netoNd: [null as number | null],
     porcIva: [null as number | null, Validators.required],
     ivaNd: [null as number | null]
   });
@@ -581,13 +596,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     } else {
       this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
     }
-    this.netoAjusteIva = this.montoNetoPrestacional;
+    if (!this.cabeceraSeleccionadaNdIvaObjeto && !this.modoIngresoManualNdIva) {
+      this.netoAjusteIva = this.montoNetoPrestacional;
+    }
     this.onPorcIvaNdChange();
     this.cdr.detectChanges();
   }
 
   onRadioOptionClick(event: MouseEvent, opcion: string) {
-    if (opcion === 'Por ajuste de IVA' && this.deshabilitarPorAjusteIva) {
+    if ((opcion === 'Por ajuste de IVA' || opcion === 'Prestacional y Ajuste de IVA') && this.deshabilitarPorAjusteIva) {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -596,7 +613,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   onTipoNcChange() {
     const tipoNc = this.nuevaNotaForm.get('tipoNc')?.value;
 
-    if (this.deshabilitarPorAjusteIva && tipoNc === 'Por ajuste de IVA') {
+    if (this.deshabilitarPorAjusteIva && (tipoNc === 'Por ajuste de IVA' || tipoNc === 'Prestacional y Ajuste de IVA')) {
       this.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
       this.cdr.detectChanges();
       return;
@@ -608,6 +625,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.nuevaNotaForm.patchValue({ subtipoIva: '', netoNc: null, porcIva: null, ivaNc: null });
       this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
       this.onSubtipoIvaChange();
+    } else if (tipoNc === 'Prestacional y Ajuste de IVA') {
+      this.nuevaNotaForm.get('subtipoIva')?.clearValidators();
+      this.nuevaNotaForm.patchValue({ subtipoIva: 'No prestacional', netoNc: null, porcIva: null, ivaNc: null });
+      this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('netoNc')?.setValidators([Validators.required, Validators.min(0.01)]);
+      this.nuevaNotaForm.get('porcIva')?.setValidators([Validators.required]);
+      this.nuevaNotaForm.get('netoNc')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('porcIva')?.updateValueAndValidity();
     } else {
       // Refactura
       this.nuevaNotaForm.get('subtipoIva')?.clearValidators();
@@ -626,7 +651,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     const netoCtrl = this.nuevaNotaForm.get('netoNc');
     const porcCtrl = this.nuevaNotaForm.get('porcIva');
 
-    if (subtipoIva === 'No prestacional') {
+    if (subtipoIva === 'No prestacional' || this.nuevaNotaForm.get('tipoNc')?.value === 'Prestacional y Ajuste de IVA') {
       this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
       netoCtrl?.setValidators([Validators.required, Validators.min(0.01)]);
       porcCtrl?.setValidators([Validators.required]);
@@ -659,7 +684,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.nuevaNotaForm.patchValue({ ivaNc: null }, { emitEvent: false });
       this.montoIvaCalculado = 0;
     }
-    this.netoAjusteIva = neto;
+    if (!this.cabeceraSeleccionadaNdIvaObjeto && !this.modoIngresoManualNdIva) {
+      this.netoAjusteIva = neto;
+    }
     this.onPorcIvaNdChange();
     this.cdr.detectChanges();
   }
@@ -699,8 +726,45 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    if (this.netoAjusteIva > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
-      this.montoIvaNdCalculado = Number((this.netoAjusteIva * (Number(porcNd) / 100)).toFixed(2));
+    if (!this.modoIngresoManualNdIva && this.cabeceraSeleccionadaNdIvaObjeto) {
+      // Caso 1: ND seleccionada de la lista -> Se calcula desglosando el DEBE de la ND
+      const debe = Number(this.cabeceraSeleccionadaNdIvaObjeto.debe) || 0;
+      if (debe > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+        const factor = 1 + (Number(porcNd) / 100);
+        this.netoAjusteIva = Number((debe / factor).toFixed(2));
+        this.montoIvaNdCalculado = Number((debe - this.netoAjusteIva).toFixed(2));
+      } else {
+        this.montoIvaNdCalculado = 0;
+        this.netoAjusteIva = debe;
+      }
+      this.nuevaNotaDebitoIvaForm.patchValue({ netoNd: this.netoAjusteIva, ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    } else if (this.modoIngresoManualNdIva) {
+      // Caso 2: ND ingresada manualmente -> Se calcula a partir del neto manual ingresado
+      const netoManual = Number(this.nuevaNotaDebitoIvaForm.get('netoNd')?.value) || 0;
+      this.netoAjusteIva = netoManual;
+      if (netoManual > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+        this.montoIvaNdCalculado = Number((netoManual * (Number(porcNd) / 100)).toFixed(2));
+      } else {
+        this.montoIvaNdCalculado = 0;
+      }
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    } else {
+      if (this.netoAjusteIva > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+        this.montoIvaNdCalculado = Number((this.netoAjusteIva * (Number(porcNd) / 100)).toFixed(2));
+      } else {
+        this.montoIvaNdCalculado = 0;
+      }
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    }
+    this.cdr.detectChanges();
+  }
+
+  onNetoManualNdChange() {
+    const netoManual = Number(this.nuevaNotaDebitoIvaForm.get('netoNd')?.value) || 0;
+    this.netoAjusteIva = netoManual;
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    if (netoManual > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+      this.montoIvaNdCalculado = Number((netoManual * (Number(porcNd) / 100)).toFixed(2));
     } else {
       this.montoIvaNdCalculado = 0;
     }
@@ -814,7 +878,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       ptovtaNd: this.nuevaNotaDebitoIvaForm.value.puntoVenta,
       numeroNd: this.nuevaNotaDebitoIvaForm.value.numero,
 
-      neto: this.netoAjusteIva,
+      neto: this.modoIngresoManualNdIva ? (Number(this.nuevaNotaDebitoIvaForm.value.netoNd) || this.netoAjusteIva) : this.netoAjusteIva,
       iva: this.montoIvaNdCalculado,
       porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
       fecha: this.nuevaNotaDebitoIvaForm.value.fecha,
@@ -1270,6 +1334,22 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
         this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
+
+        if (this.tipoBusquedaRealizada === 'NC' || this.tipoBusquedaRealizada === 'NCE') {
+          this.tieneAjusteIvaNcConjunta = !!(res && res.resumenAjusteIva && res.resumenAjusteIva.length > 1);
+          this.filasResumenAjusteIva = (res && res.resumenAjusteIva) ? res.resumenAjusteIva : [];
+          if (this.filasHistorialComprobantes && this.filasHistorialComprobantes.length > 0) {
+            this.tieneNdAjusteIvaCreada = this.filasHistorialComprobantes.some(f =>
+              (f.tipoDocumento === 'ND' || f.tipoDocumento === 'NDE') &&
+              f.origenTipo === 'IVA' && !f.placeholderNdAjusteIva
+            );
+          } else {
+            this.tieneNdAjusteIvaCreada = false;
+          }
+        } else {
+          this.tieneAjusteIvaNcConjunta = false;
+          this.tieneNdAjusteIvaCreada = false;
+        }
 
         if (this.esTipoRecibo()) {
           this.esTablaAjusteIva = false;
@@ -2143,6 +2223,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         puntoVenta: null,
         numero: null,
         fecha: this.obtenerFechaHoy(),
+        netoNd: null,
         porcIva: null,
         ivaNd: null
       });
@@ -2157,7 +2238,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.auditoriaService.verificarTieneNcAjusteIva('FC', letra, ptoVta, numero).subscribe({
           next: (existe) => {
             this.deshabilitarPorAjusteIva = existe;
-            if (existe && this.nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA') {
+            if (existe && (this.nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA' || this.nuevaNotaForm.get('tipoNc')?.value === 'Prestacional y Ajuste de IVA')) {
               this.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
               this.onTipoNcChange();
             }
@@ -2420,43 +2501,65 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       numero: cab.numero || '',
       fecha: cab.fecha || this.obtenerFechaHoy()
     });
+    this.nuevaNotaDebitoIvaForm.get('netoNd')?.clearValidators();
+    this.nuevaNotaDebitoIvaForm.get('netoNd')?.updateValueAndValidity();
+    this.onPorcIvaNdChange();
     this.cdr.detectChanges();
   }
 
   alternarModoIngresoManualNdIva(manual: boolean) {
     this.modoIngresoManualNdIva = manual;
+    const netoCtrl = this.nuevaNotaDebitoIvaForm.get('netoNd');
     if (manual) {
       this.cabeceraSeleccionadaIdNdIva = null;
       this.cabeceraSeleccionadaNdIvaObjeto = null;
+      netoCtrl?.setValidators([Validators.required, Validators.min(0.01)]);
       this.nuevaNotaDebitoIvaForm.patchValue({
         tipo: 'ND',
         letra: '',
         puntoVenta: null,
         numero: null,
-        fecha: this.obtenerFechaHoy()
+        fecha: this.obtenerFechaHoy(),
+        netoNd: null,
+        ivaNd: null
       });
+      this.netoAjusteIva = 0;
+      this.montoIvaNdCalculado = 0;
     } else {
+      netoCtrl?.clearValidators();
       if (this.cabecerasDisponiblesNdIva.length > 0 && this.cabeceraSeleccionadaIdNdIva) {
         const cab = this.cabecerasDisponiblesNdIva.find(c => c.id === this.cabeceraSeleccionadaIdNdIva);
         if (cab) {
           this.cabeceraSeleccionadaNdIvaObjeto = cab;
         }
       }
+      this.onPorcIvaNdChange();
     }
+    netoCtrl?.updateValueAndValidity();
     this.cdr.detectChanges();
   }
 
-  abrirModalCrearNdAjusteIvaDesdeTabla() {
+  abrirModalCrearNdAjusteIvaDesdeTabla(filaDoc?: any) {
     if (this.idEstadoActual === 2) {
       this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
       return;
     }
 
-    if (!this.filasResumenAjusteIva || this.filasResumenAjusteIva.length < 2) return;
+    let filaNc: any = null;
+    if (filaDoc) {
+      filaNc = filaDoc;
+    } else if (this.filasResumenAjusteIva && this.filasResumenAjusteIva.length > 1) {
+      filaNc = this.filasResumenAjusteIva[1];
+    } else if (this.filasHistorialComprobantes && this.filasHistorialComprobantes.length > 0) {
+      filaNc = this.filasHistorialComprobantes.find(f => (f.tipoDocumento === 'NC' || f.tipoDocumento === 'NCE') && f.porcentajeIva != null);
+    }
 
-    const filaNc = this.filasResumenAjusteIva[1];
-    if (!filaNc) return;
+    if (!filaNc) {
+      this.mostrarAlerta('No se encontraron los datos de la Nota de Crédito por Ajuste de IVA.', undefined, 'error');
+      return;
+    }
 
+    this.filaNcParaCrearNdAjuste = filaNc;
     this.soloCrearNdAjusteIva = true;
     this.modalNuevaNotaVisible = true;
     this.tipoNuevaNota = 'NC';
@@ -2494,6 +2597,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdr.detectChanges();
   }
 
+  abrirModalCrearNdAjusteIvaDesdeNcConjunta() {
+    this.abrirModalCrearNdAjusteIvaDesdeTabla();
+  }
+
   guardarNdAjusteIvaSolo() {
     if (this.nuevaNotaDebitoIvaForm.invalid) {
       this.nuevaNotaDebitoIvaForm.markAllAsTouched();
@@ -2501,7 +2608,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const filaNc = this.filasResumenAjusteIva && this.filasResumenAjusteIva.length > 1 ? this.filasResumenAjusteIva[1] : null;
+    const filaNc = this.filaNcParaCrearNdAjuste ||
+      (this.filasResumenAjusteIva && this.filasResumenAjusteIva.length > 1 ? this.filasResumenAjusteIva[1] : null);
     if (!filaNc) {
       this.mostrarAlerta('No se encontraron los datos de la Nota de Crédito padre.', undefined, 'error');
       return;
@@ -2518,7 +2626,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       ptovtaNd: this.nuevaNotaDebitoIvaForm.value.puntoVenta,
       numeroNd: this.nuevaNotaDebitoIvaForm.value.numero,
 
-      neto: this.netoAjusteIva,
+      neto: this.modoIngresoManualNdIva ? (Number(this.nuevaNotaDebitoIvaForm.value.netoNd) || this.netoAjusteIva) : this.netoAjusteIva,
       iva: this.montoIvaNdCalculado,
       porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
       fecha: this.nuevaNotaDebitoIvaForm.value.fecha,
@@ -2792,6 +2900,25 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
           }
         }
+      } else if (tipoNc === 'Prestacional y Ajuste de IVA') {
+        registrosParaGuardar = this.prestaciones.filter(p => {
+          if (this.esTipoFactura() && p.ncNumero) {
+            return false;
+          }
+          return p.motivoDebito && p.motivoDebito.trim() !== '';
+        });
+
+        if (registrosParaGuardar.length === 0) {
+          this.mostrarAlerta('No hay prestaciones pendientes (sin NC previa) con Motivo de Débito cargado para generar una nueva NC.', undefined, 'error');
+          return;
+        }
+
+        const netoNc = Number(this.nuevaNotaForm.get('netoNc')?.value) || 0;
+        const porcIva = this.nuevaNotaForm.get('porcIva')?.value;
+        if (netoNc <= 0 || porcIva === null || porcIva === undefined || String(porcIva) === '') {
+          this.mostrarAlerta('Debe ingresar un Monto Neto y Porcentaje de IVA válidos para el Ajuste de IVA.', undefined, 'error');
+          return;
+        }
       } else {
         // Refactura
         registrosParaGuardar = this.prestaciones.filter(p => {
@@ -2829,6 +2956,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         datosNotaForm.iva = this.montoIvaCalculado;
         datosNotaForm.porcIva = datosNotaForm.porcIva;
       }
+    } else if (this.tipoNuevaNota === 'NC' && datosNotaForm.tipoNc === 'Prestacional y Ajuste de IVA') {
+      datosNotaForm.neto = datosNotaForm.netoNc;
+      datosNotaForm.iva = datosNotaForm.ivaNc;
+      datosNotaForm.porcIva = datosNotaForm.porcIva;
     } else if (tipoNdSeleccionado === 'Por ajuste de IVA') {
       datosNotaForm.importeRefactura = datosNotaForm.importeNd;
     }

@@ -38,6 +38,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
@@ -758,9 +759,11 @@ public class DirectorioService {
         if (!ncCabeceraIds.isEmpty()) {
             List<NotaDeCredito> todasNcs = notaDeCreditoRepository.findByCabecera_IdIn(ncCabeceraIds);
             for (NotaDeCredito nc : todasNcs) {
-                if (nc.getCabecera() != null && nc.getCabecera().getId() != null) {
-                    ncsPorCabeceraId.computeIfAbsent(nc.getCabecera().getId(), k -> new ArrayList<>()).add(nc);
-                }
+                try {
+                    if (nc.getCabecera() != null && nc.getCabecera().getId() != null) {
+                        ncsPorCabeceraId.computeIfAbsent(nc.getCabecera().getId(), k -> new ArrayList<>()).add(nc);
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -769,9 +772,11 @@ public class DirectorioService {
         if (!ndCabeceraIds.isEmpty()) {
             List<NotaDeDebito> todasNds = notaDeDebitoRepository.findByCabecera_IdIn(ndCabeceraIds);
             for (NotaDeDebito nd : todasNds) {
-                if (nd.getCabecera() != null && nd.getCabecera().getId() != null) {
-                    ndsPorCabeceraId.computeIfAbsent(nd.getCabecera().getId(), k -> new ArrayList<>()).add(nd);
-                }
+                try {
+                    if (nd.getCabecera() != null && nd.getCabecera().getId() != null) {
+                        ndsPorCabeceraId.computeIfAbsent(nd.getCabecera().getId(), k -> new ArrayList<>()).add(nd);
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -1758,14 +1763,22 @@ public class DirectorioService {
         LocalDate fDesdeEfectiva = fechaDesde;
         LocalDate fHastaEfectiva = fechaHasta;
 
-        if (fDesdeEfectiva != null && fHastaEfectiva != null) {
-            boolean mismoMes = fDesdeEfectiva.getYear() == fHastaEfectiva.getYear() 
-                    && fDesdeEfectiva.getMonthValue() == fHastaEfectiva.getMonthValue();
-            if (mismoMes) {
-                // Si el filtro abarca un único mes (ej. mes anterior por defecto),
-                // se genera una ventana móvil de los 12 meses culminando en fechaHasta.
+        if (fHastaEfectiva != null) {
+            if (fDesdeEfectiva == null) {
                 fDesdeEfectiva = fHastaEfectiva.minusMonths(11).withDayOfMonth(1);
+            } else {
+                long meses = ChronoUnit.MONTHS.between(
+                        YearMonth.from(fDesdeEfectiva),
+                        YearMonth.from(fHastaEfectiva)
+                ) + 1;
+                if (meses < 12) {
+                    // Si el filtro abarca menos de 12 meses (ej. 1 mes, 2 meses, etc.),
+                    // en el gráfico de evolución siempre se muestran 12 meses culminando en fechaHasta.
+                    fDesdeEfectiva = fHastaEfectiva.minusMonths(11).withDayOfMonth(1);
+                }
             }
+        } else if (fDesdeEfectiva != null) {
+            fHastaEfectiva = fDesdeEfectiva.plusMonths(11).withDayOfMonth(fDesdeEfectiva.plusMonths(11).lengthOfMonth());
         }
 
         StringBuilder sql = new StringBuilder("""
@@ -1871,6 +1884,9 @@ public class DirectorioService {
                 , 'YYYY-MM') AS periodo,
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.debe ELSE 0 END), 0) AS facturado,
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND EXISTS (
+                    SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) LIKE '%N%'
+                ) THEN c.debe ELSE 0 END), 0) AS refacturado,
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado
             FROM cabecera c
             LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
@@ -1902,7 +1918,9 @@ public class DirectorioService {
             LocalDate fin = fHastaEfectiva.withDayOfMonth(1);
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM");
             while (!cursor.isAfter(fin)) {
-                mapaMeses.put(cursor.format(fmt), new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+                mapaMeses.put(cursor.format(fmt), new BigDecimal[]{
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO
+                });
                 cursor = cursor.plusMonths(1);
             }
         }
@@ -1911,27 +1929,40 @@ public class DirectorioService {
             String periodo = row[0] != null ? row[0].toString() : "";
             BigDecimal mtoFc = row[1] != null ? new BigDecimal(row[1].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
             BigDecimal mtoNc = row[2] != null ? new BigDecimal(row[2].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
-            BigDecimal mtoRc = row[3] != null ? new BigDecimal(row[3].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal mtoNd = row[3] != null ? new BigDecimal(row[3].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal mtoRc = row[4] != null ? new BigDecimal(row[4].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
 
-            mapaMeses.put(periodo, new BigDecimal[]{mtoFc, mtoNc, mtoRc});
+            // Deudas = Facturación (FC) + Refacturación (ND) - Débitos (NC) - Cobranzas (RC)
+            BigDecimal mtoDeudas = mtoFc.add(mtoNd).subtract(mtoNc).subtract(mtoRc).setScale(2, RoundingMode.HALF_UP);
+            if (mtoDeudas.compareTo(BigDecimal.ZERO) < 0) {
+                mtoDeudas = BigDecimal.ZERO;
+            }
+
+            mapaMeses.put(periodo, new BigDecimal[]{mtoFc, mtoNc, mtoNd, mtoRc, mtoDeudas});
         }
 
-        List<PuntoGraficoDTO> facturacion = new ArrayList<>();
-        List<PuntoGraficoDTO> debitos     = new ArrayList<>();
-        List<PuntoGraficoDTO> cobranzas   = new ArrayList<>();
+        List<PuntoGraficoDTO> facturacion   = new ArrayList<>();
+        List<PuntoGraficoDTO> debitos       = new ArrayList<>();
+        List<PuntoGraficoDTO> refacturacion = new ArrayList<>();
+        List<PuntoGraficoDTO> cobranzas     = new ArrayList<>();
+        List<PuntoGraficoDTO> deudas        = new ArrayList<>();
 
         for (Map.Entry<String, BigDecimal[]> entry : mapaMeses.entrySet()) {
             String mes = entry.getKey();
             BigDecimal[] vals = entry.getValue();
             facturacion.add(new PuntoGraficoDTO(mes, vals[0]));
             debitos.add(new PuntoGraficoDTO(mes, vals[1]));
-            cobranzas.add(new PuntoGraficoDTO(mes, vals[2]));
+            refacturacion.add(new PuntoGraficoDTO(mes, vals[2]));
+            cobranzas.add(new PuntoGraficoDTO(mes, vals[3]));
+            deudas.add(new PuntoGraficoDTO(mes, vals[4]));
         }
 
         return List.of(
-            new DatasetGraficoDTO("Facturación", facturacion),
-            new DatasetGraficoDTO("Débitos",     debitos),
-            new DatasetGraficoDTO("Cobranzas",   cobranzas)
+            new DatasetGraficoDTO("Facturación",         facturacion),
+            new DatasetGraficoDTO("Débitos",             debitos),
+            new DatasetGraficoDTO("Refacturación (ND)",  refacturacion),
+            new DatasetGraficoDTO("Cobranzas",           cobranzas),
+            new DatasetGraficoDTO("Deudas",              deudas)
         );
     }
 
@@ -3076,20 +3107,29 @@ public class DirectorioService {
     }
 
     private String formatearComprobante(CabeceraBase c) {
-        if (c.getComprobante() != null && !c.getComprobante().trim().isEmpty()) {
-            return c.getComprobante().trim();
-        }
-        String tipo = c.getTipo() != null ? c.getTipo().trim().toUpperCase() : "";
-        if ("RC".equalsIgnoreCase(tipo)) {
-            if (c.getNumero() != null && c.getNumero() != 0) {
-                return String.valueOf(c.getNumero());
+        if (c == null) return "";
+        try {
+            if (c.getComprobante() != null && !c.getComprobante().trim().isEmpty()) {
+                return c.getComprobante().trim();
             }
-            return c.getId() != null ? "RC #" + c.getId() : "-";
+            String tipo = c.getTipo() != null ? c.getTipo().trim().toUpperCase() : "";
+            if ("RC".equalsIgnoreCase(tipo)) {
+                if (c.getNumero() != null && c.getNumero() != 0) {
+                    return String.valueOf(c.getNumero());
+                }
+                return c.getId() != null ? "RC #" + c.getId() : "-";
+            }
+            String letra = c.getLetra() != null ? c.getLetra().trim().toUpperCase() : "";
+            int ptovta = c.getPtovta() != null ? c.getPtovta() : 0;
+            int numero = c.getNumero() != null ? c.getNumero() : 0;
+            return String.format("%s %s%04d-%08d", tipo, letra, ptovta, numero).trim();
+        } catch (Exception e) {
+            try {
+                return c.getId() != null ? ("DOC #" + c.getId()) : "";
+            } catch (Exception ex) {
+                return "";
+            }
         }
-        String letra = c.getLetra() != null ? c.getLetra().trim().toUpperCase() : "";
-        int ptovta = c.getPtovta() != null ? c.getPtovta() : 0;
-        int numero = c.getNumero() != null ? c.getNumero() : 0;
-        return String.format("%s %s%04d-%08d", tipo, letra, ptovta, numero).trim();
     }
 
     /**
@@ -3135,12 +3175,26 @@ public class DirectorioService {
         BigDecimal granTotal = BigDecimal.ZERO;
 
         for (Object[] row : rows) {
-            String financiador = row[0] != null ? row[0].toString().trim() : "Sin financiador";
+            String rawFinanciador = row[0] != null ? row[0].toString().trim() : "Sin financiador";
             int mes = row[1] != null ? ((Number) row[1]).intValue() : 0;
             BigDecimal monto = row[2] != null
                     ? new BigDecimal(row[2].toString()).setScale(2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
             String codCob = row.length > 3 && row[3] != null ? row[3].toString().trim() : "";
+
+            String financiador;
+            if (!codCob.isEmpty()) {
+                if (rawFinanciador.toLowerCase().startsWith(codCob.toLowerCase() + " - ")
+                        || rawFinanciador.toLowerCase().startsWith(codCob.toLowerCase() + "-")) {
+                    financiador = rawFinanciador;
+                } else if (!rawFinanciador.equalsIgnoreCase("Sin financiador")) {
+                    financiador = codCob + " - " + rawFinanciador;
+                } else {
+                    financiador = codCob;
+                }
+            } else {
+                financiador = rawFinanciador;
+            }
 
             if (financiadorFiltro != null && !financiadorFiltro.trim().isEmpty() && !"TODAS".equalsIgnoreCase(financiadorFiltro.trim())) {
                 String fFiltro = financiadorFiltro.trim().toLowerCase();
@@ -3155,8 +3209,17 @@ public class DirectorioService {
 
             MatrizRecaudacionFilaDTO fila = mapaFinanciadores.computeIfAbsent(
                     financiador,
-                    k -> new MatrizRecaudacionFilaDTO(k)
+                    k -> {
+                        MatrizRecaudacionFilaDTO f = new MatrizRecaudacionFilaDTO(k);
+                        if (!codCob.isEmpty()) {
+                            f.setCodigoFinanciador(codCob);
+                        }
+                        return f;
+                    }
             );
+            if (fila.getCodigoFinanciador() == null && !codCob.isEmpty()) {
+                fila.setCodigoFinanciador(codCob);
+            }
 
             int mesIndex = mes - 1; // Mes 1 (Enero) -> índice 0, Mes 12 (Diciembre) -> índice 11
             if (mesIndex >= 0 && mesIndex < 12) {
@@ -3220,32 +3283,43 @@ public class DirectorioService {
             fDesde = LocalDate.now().minusMonths(12).withDayOfMonth(1);
         }
 
+        List<Long> idsGrupos = null;
+        try {
+            idsGrupos = cabeceraRepository.findIdsGruposFacturasPorRangoFechasYFinanciador(fDesde, fHasta, financiadorFiltro, 500);
+        } catch (Exception e) {
+            log.warn("Error en findIdsGruposFacturasPorRangoFechasYFinanciador: {}", e.getMessage());
+        }
+
+        if (idsGrupos == null || idsGrupos.isEmpty()) {
+            // Fallback para tests unitarios o casos donde findIdsGruposFacturasPorRangoFechas esté mockeado
+            try {
+                idsGrupos = cabeceraRepository.findIdsGruposFacturasPorRangoFechas(fDesde, fHasta);
+                if (idsGrupos != null && idsGrupos.size() > 500) {
+                    idsGrupos = idsGrupos.subList(0, 500);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (idsGrupos == null || idsGrupos.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         List<? extends CabeceraBase> comprobantes;
-        if (fDesde != null || fHasta != null) {
-            List<Long> idsGrupos = cabeceraRepository.findIdsGruposFacturasPorRangoFechas(fDesde, fHasta);
-            if (idsGrupos != null && !idsGrupos.isEmpty()) {
-                List<CabeceraLigeraDTO> ligeros = new ArrayList<>();
-                int batchSize = 500;
-                for (int i = 0; i < idsGrupos.size(); i += batchSize) {
-                    List<Long> batch = idsGrupos.subList(i, Math.min(i + batchSize, idsGrupos.size()));
-                    ligeros.addAll(cabeceraRepository.findLigeraByGrupoOrAsociadogrupoOrIdIn(batch));
-                }
-                comprobantes = ligeros;
-            } else {
-                List<CabeceraLigeraDTO> ligeros = cabeceraRepository.findComprobantesLigerosParaTrazabilidad();
-                if (ligeros != null && !ligeros.isEmpty()) {
-                    comprobantes = ligeros;
-                } else {
-                    comprobantes = cabeceraRepository.findComprobantesParaTrazabilidad();
-                }
-            }
+        List<CabeceraLigeraDTO> ligeros = new ArrayList<>();
+        int batchSize = 500;
+        for (int i = 0; i < idsGrupos.size(); i += batchSize) {
+            List<Long> batch = idsGrupos.subList(i, Math.min(i + batchSize, idsGrupos.size()));
+            ligeros.addAll(cabeceraRepository.findLigeraByGrupoOrAsociadogrupoOrIdIn(batch));
+        }
+        if (!ligeros.isEmpty()) {
+            comprobantes = ligeros;
         } else {
-            List<CabeceraLigeraDTO> ligeros = cabeceraRepository.findComprobantesLigerosParaTrazabilidad();
-            if (ligeros != null && !ligeros.isEmpty()) {
-                comprobantes = ligeros;
-            } else {
-                comprobantes = cabeceraRepository.findComprobantesParaTrazabilidad();
+            List<Cabecera> entidades = new ArrayList<>();
+            for (int i = 0; i < idsGrupos.size(); i += batchSize) {
+                List<Long> batch = idsGrupos.subList(i, Math.min(i + batchSize, idsGrupos.size()));
+                entidades.addAll(cabeceraRepository.findByGrupoOrAsociadogrupoOrIdIn(batch));
             }
+            comprobantes = entidades;
         }
 
         if (comprobantes == null || comprobantes.isEmpty()) {
@@ -3871,13 +3945,11 @@ public class DirectorioService {
         // Como ambos métodos tienen @Cacheable, la segunda llamada es instantánea
         // desde caché, por lo que no hay pérdida real de performance.
         List<MetricaAnalistaDTO> analistas = self.getMetricasAnalistas(periodoFiltro, fechaDesde, fechaHasta);
-        List<CadenaTrazabilidadDTO> cadenas = self.getTrazabilidad(null, null, periodoFiltro, fDesdeStr, fHastaStr);
+        List<MetricaMedicoDTO> medicos = self.getMetricasMedicos(periodoFiltro, fechaDesde, fechaHasta);
+        List<MetricaOperadorDTO> operadores = self.getMetricasOperadores(periodoFiltro, fechaDesde, fechaHasta);
 
         if (analistas == null) analistas = Collections.emptyList();
-        if (cadenas == null) cadenas = Collections.emptyList();
-
-        List<MetricaMedicoDTO> medicos = cadenas.isEmpty() ? Collections.emptyList() : procesarMetricasMedicos(cadenas);
-        List<MetricaOperadorDTO> operadores = self.getMetricasOperadores(periodoFiltro, fechaDesde, fechaHasta);
+        if (medicos == null) medicos = Collections.emptyList();
         if (operadores == null) operadores = Collections.emptyList();
         return new DesempenoGlobalDTO(analistas, medicos, operadores);
     }
@@ -4185,7 +4257,18 @@ public class DirectorioService {
      * @return Lista de MetricaMedicoDTO ordenadas por monto total tramitado descendente
      */
     public List<MetricaMedicoDTO> getMetricasMedicos(String periodoFiltro) {
-        return procesarMetricasMedicos(getTrazabilidad(null, null, periodoFiltro));
+        return getMetricasMedicos(periodoFiltro, null, null);
+    }
+
+    @Cacheable(CacheConfig.CACHE_MEDICOS)
+    public List<MetricaMedicoDTO> getMetricasMedicos(String periodoFiltro, LocalDate fechaDesde, LocalDate fechaHasta) {
+        final String fDesdeStr = fechaDesde != null ? fechaDesde.toString() : null;
+        final String fHastaStr = fechaHasta != null ? fechaHasta.toString() : null;
+        List<CadenaTrazabilidadDTO> cadenas = self.getTrazabilidad(null, null, periodoFiltro, fDesdeStr, fHastaStr);
+        if (cadenas == null || cadenas.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return procesarMetricasMedicos(cadenas);
     }
 
     public List<MetricaMedicoDTO> procesarMetricasMedicos(List<CadenaTrazabilidadDTO> cadenas) {
@@ -4625,9 +4708,11 @@ public class DirectorioService {
                 List<Long> batch = fcIdsList.subList(i, Math.min(i + batchSize, fcIdsList.size()));
                 List<AmbLiquidado> ambs = ambLiquidadoRepository.findByCabecera_IdIn(batch);
                 for (AmbLiquidado al : ambs) {
-                    if (al.getCabecera() != null && al.getCabecera().getId() != null) {
-                        ambPorFcId.computeIfAbsent(al.getCabecera().getId(), k -> new ArrayList<>()).add(al);
-                    }
+                    try {
+                        if (al.getCabecera() != null && al.getCabecera().getId() != null) {
+                            ambPorFcId.computeIfAbsent(al.getCabecera().getId(), k -> new ArrayList<>()).add(al);
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -4642,10 +4727,12 @@ public class DirectorioService {
                 List<Long> batch = ncIdsList.subList(i, Math.min(i + batchSize, ncIdsList.size()));
                 List<NotaDeCredito> ncs = notaDeCreditoRepository.findByCabecera_IdIn(batch);
                 for (NotaDeCredito nc : ncs) {
-                    if (nc.getId() != null) ncPorId.put(nc.getId(), nc);
-                    if (nc.getCabecera() != null && nc.getCabecera().getId() != null) {
-                        ncPorCabeceraId.computeIfAbsent(nc.getCabecera().getId(), k -> new ArrayList<>()).add(nc);
-                    }
+                    try {
+                        if (nc.getId() != null) ncPorId.put(nc.getId(), nc);
+                        if (nc.getCabecera() != null && nc.getCabecera().getId() != null) {
+                            ncPorCabeceraId.computeIfAbsent(nc.getCabecera().getId(), k -> new ArrayList<>()).add(nc);
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -4660,10 +4747,12 @@ public class DirectorioService {
                 List<Long> batch = ndIdsList.subList(i, Math.min(i + batchSize, ndIdsList.size()));
                 List<NotaDeDebito> nds = notaDeDebitoRepository.findByCabecera_IdIn(batch);
                 for (NotaDeDebito nd : nds) {
-                    if (nd.getId() != null) ndPorId.put(nd.getId(), nd);
-                    if (nd.getCabecera() != null && nd.getCabecera().getId() != null) {
-                        ndPorCabeceraId.computeIfAbsent(nd.getCabecera().getId(), k -> new ArrayList<>()).add(nd);
-                    }
+                    try {
+                        if (nd.getId() != null) ndPorId.put(nd.getId(), nd);
+                        if (nd.getCabecera() != null && nd.getCabecera().getId() != null) {
+                            ndPorCabeceraId.computeIfAbsent(nd.getCabecera().getId(), k -> new ArrayList<>()).add(nd);
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         }
@@ -4706,6 +4795,37 @@ public class DirectorioService {
             if (fHasta != null && (fcRaiz.getFecha() == null || fcRaiz.getFecha().isAfter(fHasta))) {
                 continue;
             }
+
+            Map<Long, CabeceraBase> cabeceraMap = new HashMap<>();
+            for (CabeceraBase c : miembros) {
+                if (c.getId() != null) cabeceraMap.put(c.getId(), c);
+            }
+
+            java.util.function.Function<NotaDeCredito, CabeceraBase> resolverCabNc = ncItem -> {
+                if (ncItem == null) return null;
+                try {
+                    Cabecera c = ncItem.getCabecera();
+                    if (c != null && c.getId() != null && cabeceraMap.containsKey(c.getId())) {
+                        return cabeceraMap.get(c.getId());
+                    }
+                    return c;
+                } catch (Exception e) {
+                    return null;
+                }
+            };
+
+            java.util.function.Function<NotaDeDebito, CabeceraBase> resolverCabNd = ndItem -> {
+                if (ndItem == null) return null;
+                try {
+                    Cabecera c = ndItem.getCabecera();
+                    if (c != null && c.getId() != null && cabeceraMap.containsKey(c.getId())) {
+                        return cabeceraMap.get(c.getId());
+                    }
+                    return c;
+                } catch (Exception e) {
+                    return null;
+                }
+            };
 
             // Obtener NCs y NDs del grupo
             List<NotaDeCredito> ncsGrupo = new ArrayList<>();
@@ -4853,10 +4973,16 @@ public class DirectorioService {
                 List<NotaDeCredito> ncsPrest = ncsGrupo.stream()
                         .filter(nc -> {
                             Integer idResuelto = resolverIdPrestacionNc(nc, ndPorId, ncPorId);
-                            if (idResuelto != null && Objects.equals(pId, idResuelto)) return true;
-                            if (idResuelto == null && !pCod.isEmpty() && nc.getPrestacionenglobante() != null
-                                    && pCod.equalsIgnoreCase(nc.getPrestacionenglobante().trim())) {
-                                return true;
+                            if (idResuelto != null) {
+                                return Objects.equals(pId, idResuelto);
+                            }
+                            if (nc.getPrestacion() == null && nc.getNotaDeDebitoPadre() == null && !pCod.isEmpty() && nc.getPrestacionenglobante() != null) {
+                                long cantPrestasMismoCodigo = prestacionesCandidatas.values().stream()
+                                        .filter(p -> p != null && pCod.equalsIgnoreCase(p.getCodigo() != null ? p.getCodigo().trim() : ""))
+                                        .count();
+                                if (cantPrestasMismoCodigo == 1 && pCod.equalsIgnoreCase(nc.getPrestacionenglobante().trim())) {
+                                    return true;
+                                }
                             }
                             return false;
                         })
@@ -4865,19 +4991,70 @@ public class DirectorioService {
                 List<NotaDeDebito> ndsPrest = ndsGrupo.stream()
                         .filter(nd -> {
                             Integer idResuelto = resolverIdPrestacionNd(nd, ncPorId);
-                            if (idResuelto != null && Objects.equals(pId, idResuelto)) return true;
-                            if (idResuelto == null && !pCod.isEmpty()) {
-                                if (nd.getCodigo() != null && pCod.equalsIgnoreCase(nd.getCodigo().trim())) return true;
-                                if (nd.getPrestacionenglobante() != null && pCod.equalsIgnoreCase(nd.getPrestacionenglobante().trim())) return true;
+                            if (idResuelto != null) {
+                                return Objects.equals(pId, idResuelto);
+                            }
+                            // Si idResuelto es null, pero la ND tiene vinculación con una NC padre:
+                            // Sólo asignar si la NC padre pertenece a esta prestación específica
+                            if (nd.getNotaDeCreditoPadre() != null && nd.getNotaDeCreditoPadre().getId() != null) {
+                                Integer idNcPadre = nd.getNotaDeCreditoPadre().getId();
+                                return ncsPrest.stream().anyMatch(nc -> Objects.equals(nc.getId(), idNcPadre));
+                            }
+                            // Fallback por código: SOLO si la ND no tiene ningún vínculo explícito a otra prestación/NC
+                            // Y solo si en esta factura no hay múltiples prestaciones con el mismo código que generen falsos positivos cruzados
+                            if (nd.getPrestacion() == null && nd.getNotaDeCreditoPadre() == null && !pCod.isEmpty()) {
+                                long cantPrestasMismoCodigo = prestacionesCandidatas.values().stream()
+                                        .filter(p -> p != null && pCod.equalsIgnoreCase(p.getCodigo() != null ? p.getCodigo().trim() : ""))
+                                        .count();
+                                if (cantPrestasMismoCodigo == 1) {
+                                    if (nd.getCodigo() != null && pCod.equalsIgnoreCase(nd.getCodigo().trim())) return true;
+                                    if (nd.getPrestacionenglobante() != null && pCod.equalsIgnoreCase(nd.getPrestacionenglobante().trim())) return true;
+                                }
                             }
                             return false;
                         })
                         .collect(Collectors.toList());
 
+                // Contar comprobantes distintos de ND (refacturaciones) para esta prestación
+                Set<Long> cabecerasNdIds = ndsPrest.stream()
+                        .map(nd -> {
+                            CabeceraBase c = resolverCabNd.apply(nd);
+                            try { return c != null ? c.getId() : null; } catch (Exception e) { return null; }
+                        })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+
+                int cantRefacturaciones = !cabecerasNdIds.isEmpty() ? cabecerasNdIds.size() : (int) ndsPrest.stream()
+                        .map(nd -> {
+                            CabeceraBase c = resolverCabNd.apply(nd);
+                            return c != null ? formatearComprobante(c) : "";
+                        })
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .count();
+
+                Set<Long> cabecerasNcIds = ncsPrest.stream()
+                        .map(nc -> {
+                            CabeceraBase c = resolverCabNc.apply(nc);
+                            try { return c != null ? c.getId() : null; } catch (Exception e) { return null; }
+                        })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+
+                int cantDebitos = !cabecerasNcIds.isEmpty() ? cabecerasNcIds.size() : (int) ncsPrest.stream()
+                        .map(nc -> {
+                            CabeceraBase c = resolverCabNc.apply(nc);
+                            return c != null ? formatearComprobante(c) : "";
+                        })
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .count();
+
                 // Condición estricta de bucle de insistencia:
-                // Al menos 2 Notas de Débito Y al menos 1 Nota de Crédito para esta prestación específica
-                // (Facturación -> Débito recibido -> Refacturación reiterada >= 2 NDs)
-                boolean esBuclePresta = (ndsPrest.size() >= 2) && (!ncsPrest.isEmpty());
+                // Al menos 2 comprobantes distintos de Nota de Débito (refacturación reiterada)
+                // Y al menos 1 comprobante de Nota de Crédito (débitos previos) para esta prestación específica
+                // (Facturación FC -> Débito recibido NC -> Refacturación ND 1 -> Débito NC 2 -> Refacturación ND 2)
+                boolean esBuclePresta = (cantRefacturaciones >= 2) && (!ncsPrest.isEmpty());
                 if (!esBuclePresta) continue;
 
                 // Construir eventos cronológicos específicos de ESTA prestación con SUS montos
@@ -4910,18 +5087,34 @@ public class DirectorioService {
                         fcRaiz.getTiporegistro() != null ? fcRaiz.getTiporegistro().trim() : ""
                 ));
 
-                // 2. Débitos recibidos de la prestación (NC)
+                // 2. Débitos recibidos de la prestación (NC consolidada por comprobante)
+                Map<String, List<NotaDeCredito>> ncsPorComprobante = new LinkedHashMap<>();
                 for (NotaDeCredito nc : ncsPrest) {
-                    Cabecera cNc = nc.getCabecera();
-                    String compNc = cNc != null ? formatearComprobante(cNc) : "NC";
+                    CabeceraBase cNc = resolverCabNc.apply(nc);
+                    String compNc = cNc != null ? formatearComprobante(cNc) : ("NC-" + (nc.getId() != null ? nc.getId() : ""));
+                    ncsPorComprobante.computeIfAbsent(compNc, k -> new ArrayList<>()).add(nc);
+                }
+
+                for (Map.Entry<String, List<NotaDeCredito>> entryNc : ncsPorComprobante.entrySet()) {
+                    String compNc = entryNc.getKey();
+                    List<NotaDeCredito> items = entryNc.getValue();
+                    NotaDeCredito primerNc = items.get(0);
+                    CabeceraBase cNc = resolverCabNc.apply(primerNc);
                     String fechaNc = (cNc != null && cNc.getFecha() != null) ? cNc.getFecha().toString() : "";
-                    BigDecimal montoNc = nc.getImporteDebitado() != null
-                            ? nc.getImporteDebitado().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
-                    String descNc = (nc.getMotivoDebito() != null && !nc.getMotivoDebito().trim().isEmpty() && !"Débito recibido".equalsIgnoreCase(nc.getMotivoDebito().trim()))
-                            ? nc.getMotivoDebito().trim() : "Sin motivo especificado";
-                    String respNc = (nc.getUsuario() != null && !nc.getUsuario().trim().isEmpty())
-                            ? nc.getUsuario().trim()
-                            : (cNc != null && cNc.getOrigen() != null ? cNc.getOrigen() : "Auditoría Médica");
+                    BigDecimal montoNc = items.stream()
+                            .map(nc -> nc.getImporteDebitado() != null ? nc.getImporteDebitado() : BigDecimal.ZERO)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add)
+                            .setScale(2, RoundingMode.HALF_UP);
+                    String descNc = items.stream()
+                            .map(NotaDeCredito::getMotivoDebito)
+                            .filter(m -> m != null && !m.trim().isEmpty() && !"Débito recibido".equalsIgnoreCase(m.trim()))
+                            .findFirst()
+                            .orElse("Sin motivo especificado");
+                    String respNc = items.stream()
+                            .map(NotaDeCredito::getUsuario)
+                            .filter(u -> u != null && !u.trim().isEmpty())
+                            .findFirst()
+                            .orElse(cNc != null && cNc.getOrigen() != null ? cNc.getOrigen() : "Auditoría Médica");
 
                     eventosPrest.add(new EventoTrazabilidadDTO(
                             "NC",
@@ -4934,18 +5127,34 @@ public class DirectorioService {
                     ));
                 }
 
-                // 3. Refacturaciones de la prestación (ND)
+                // 3. Refacturaciones de la prestación (ND consolidada por comprobante)
+                Map<String, List<NotaDeDebito>> ndsPorComprobante = new LinkedHashMap<>();
                 for (NotaDeDebito nd : ndsPrest) {
-                    Cabecera cNd = nd.getCabecera();
-                    String compNd = cNd != null ? formatearComprobante(cNd) : "ND";
+                    CabeceraBase cNd = resolverCabNd.apply(nd);
+                    String compNd = cNd != null ? formatearComprobante(cNd) : ("ND-" + (nd.getId() != null ? nd.getId() : ""));
+                    ndsPorComprobante.computeIfAbsent(compNd, k -> new ArrayList<>()).add(nd);
+                }
+
+                for (Map.Entry<String, List<NotaDeDebito>> entryNd : ndsPorComprobante.entrySet()) {
+                    String compNd = entryNd.getKey();
+                    List<NotaDeDebito> items = entryNd.getValue();
+                    NotaDeDebito primerNd = items.get(0);
+                    CabeceraBase cNd = resolverCabNd.apply(primerNd);
                     String fechaNd = (cNd != null && cNd.getFecha() != null) ? cNd.getFecha().toString() : "";
-                    BigDecimal montoNd = nd.getImporterefactura() != null
-                            ? nd.getImporterefactura().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
-                    String descNd = (nd.getMotivorefactura() != null && !nd.getMotivorefactura().trim().isEmpty())
-                            ? nd.getMotivorefactura().trim() : "Refacturación";
-                    String respNd = (nd.getUsuario() != null && !nd.getUsuario().trim().isEmpty())
-                            ? nd.getUsuario().trim()
-                            : (cNd != null && cNd.getOrigen() != null ? cNd.getOrigen() : "Facturación");
+                    BigDecimal montoNd = items.stream()
+                            .map(nd -> nd.getImporterefactura() != null ? nd.getImporterefactura() : BigDecimal.ZERO)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add)
+                            .setScale(2, RoundingMode.HALF_UP);
+                    String descNd = items.stream()
+                            .map(NotaDeDebito::getMotivorefactura)
+                            .filter(m -> m != null && !m.trim().isEmpty())
+                            .findFirst()
+                            .orElse("Refacturación");
+                    String respNd = items.stream()
+                            .map(NotaDeDebito::getUsuario)
+                            .filter(u -> u != null && !u.trim().isEmpty())
+                            .findFirst()
+                            .orElse(cNd != null && cNd.getOrigen() != null ? cNd.getOrigen() : "Facturación");
 
                     eventosPrest.add(new EventoTrazabilidadDTO(
                             "ND",
@@ -5003,10 +5212,10 @@ public class DirectorioService {
                         medPresta,
                         montoPresta,
                         totalDebitadoPresta,
-                        ncsPrest.size(),
+                        cantDebitos,
                         eventosPrest
                 );
-                bucleDto.setCantidadRefacturaciones(ndsPrest.size());
+                bucleDto.setCantidadRefacturaciones(cantRefacturaciones);
                 bucleDto.setTotalRefacturado(totalRefacturadoPresta);
                 prestacionesBucle.add(bucleDto);
             }

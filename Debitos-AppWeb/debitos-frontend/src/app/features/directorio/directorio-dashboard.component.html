@@ -332,11 +332,11 @@
                     <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                     <span class="filtro-tooltip-popup tooltip-wide">
                       <strong>Evolución de Flujos:</strong> Correlación cronológica entre Facturación FC (azul), Débitos
-                      Recibidos NC (rojo) y Cobranzas RC (verde) imputados al período de atención de la Factura Madre.
+                      Recibidos NC (rojo), Refacturación ND (naranja), Cobranzas RC (verde) y Deudas pendientes a cobrar (violeta) imputados al período de atención de la Factura Madre.
                     </span>
                   </span>
                 </div>
-                <p class="grafico-subtitle">Facturación FC · Débitos Recibidos NC · Cobranzas RC</p>
+                <p class="grafico-subtitle">Facturación FC · Débitos Recibidos NC · Refacturación ND · Cobranzas RC · Deudas</p>
               </div>
             </div>
             <div class="header-badge-container">
@@ -835,12 +835,12 @@
         <!-- Columna 2: Tarjeta Gráfico Aging Vertical -->
         <div class="tiempos-box grafico-aging-box">
           <div class="tiempos-box-header">
-            <span class="tiempos-box-icon">
+            <!--<span class="tiempos-box-icon">
               <svg viewBox="0 0 20 20" fill="currentColor">
                 <path
                   d="M2 10a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1v-6zM8 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1H9a1 1 0 01-1-1V4zM14 8a1 1 0 011-1h2a1 1 0 011 1v8a1 1 0 01-1 1h-2a1 1 0 01-1-1V8z" />
               </svg>
-            </span>
+            </span>-->
             <div style="display: flex; align-items: center; gap: 8px;">
               <h3 class="tiempos-box-title">Distribución por Plazo de Cobro y Saldo Pendiente</h3>
               <span class="filtro-info-wrapper">
@@ -872,11 +872,11 @@
       <!-- Fila 2: Tabla Inferior -->
       <div class="tiempos-box tabla-aging-box">
         <div class="tiempos-box-header">
-          <span class="tiempos-box-icon">
+          <!--<span class="tiempos-box-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-          </span>
+          </span>-->
           <div style="display: flex; align-items: center; gap: 8px;">
             <h3 class="tiempos-box-title">Detalle de Cobranzas por Rango y Saldo Pendiente</h3>
             <span class="filtro-info-wrapper">
@@ -1001,6 +1001,19 @@
               </tr>
             </thead>
             <tbody>
+              <!-- Fila Superior de Totales por Mes (Fondo Celeste Claro, no se altera con ordenamientos de columnas) -->
+              <tr class="tr-matriz-total-superior">
+                <td class="td-matriz-financiador td-total-superior-financiador font-weight-bold">
+                  <span>TOTAL GENERAL</span>
+                </td>
+                <td *ngFor="let totalMes of matrizRecaudacion?.totalesMes; trackBy: trackByMes"
+                  class="td-mes-total-superior font-weight-bold" [class.valor-cero]="totalMes === 0">
+                  {{ totalMes > 0 ? ('$' + (totalMes | number:'1.0-0':'es-AR')) : '-' }}
+                </td>
+                <td class="td-gran-total-superior font-weight-bold">
+                  ${{ (matrizRecaudacion?.granTotal || 0) | number:'1.0-0':'es-AR' }}
+                </td>
+              </tr>
               <tr *ngFor="let fila of matrizRecaudacion?.filas; trackBy: trackByFinanciadorFila" class="tr-matriz-fila">
                 <td class="td-matriz-financiador font-weight-bold">
                   <span>{{ fila.financiador }}</span>
@@ -1235,34 +1248,36 @@
           <!-- Leyenda y Ranking de Motivos con Clic para Drill-Down -->
           <div class="legend-container">
             <div class="legend-header">
-              <span class="legend-th-motivo sortable-col"
-                [class.col-sorted]="columnaOrdenMotivos === 'motivo'"
-                (click)="ordenarMotivos('motivo')"
-                title="Ordenar por Motivo / Causa de Rechazo">
+              <span class="legend-th-motivo sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'motivo'"
+                (click)="ordenarMotivos('motivo')" title="Ordenar por Motivo / Causa de Rechazo">
                 Motivo / Causa de Rechazo
                 <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'motivo'">{{
                   columnaOrdenMotivos === 'motivo' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
-                }}</span>
+                  }}</span>
               </span>
 
-              <span class="legend-th-monto sortable-col"
-                [class.col-sorted]="columnaOrdenMotivos === 'monto'"
-                (click)="ordenarMotivos('monto')"
-                title="Ordenar por Monto ($)">
+              <span class="legend-th-casos sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'casos'"
+                (click)="ordenarMotivos('casos')" title="Ordenar por Cantidad de Casos">
+                Casos
+                <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'casos'">{{
+                  columnaOrdenMotivos === 'casos' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
+                  }}</span>
+              </span>
+
+              <span class="legend-th-monto sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'monto'"
+                (click)="ordenarMotivos('monto')" title="Ordenar por Monto ($)">
                 Monto ($)
                 <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'monto'">{{
                   columnaOrdenMotivos === 'monto' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
-                }}</span>
+                  }}</span>
               </span>
 
-              <span class="legend-th-porc sortable-col"
-                [class.col-sorted]="columnaOrdenMotivos === 'porcentaje'"
-                (click)="ordenarMotivos('porcentaje')"
-                title="Ordenar por % Participación">
+              <span class="legend-th-porc sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'porcentaje'"
+                (click)="ordenarMotivos('porcentaje')" title="Ordenar por % Participación">
                 % Part.
                 <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'porcentaje'">{{
                   columnaOrdenMotivos === 'porcentaje' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
-                }}</span>
+                  }}</span>
               </span>
 
               <span class="legend-th-accion">Acción</span>
@@ -1277,8 +1292,12 @@
 
                 <div class="legend-col-motivo">
                   <span class="color-dot" [style.background-color]="item.color"></span>
-                  <span class="motivo-nombre">{{ item.motivo }}</span>
-                  <span class="casos-badge">{{ item.cantidadCasos }} casos</span>
+                  <span class="motivo-nombre" [title]="item.motivo">{{ item.motivo }}</span>
+                </div>
+
+                <div class="legend-col-casos">
+                  <span class="casos-badge">{{ item.cantidadCasos | number }} {{ item.cantidadCasos === 1 ? 'caso' :
+                    'casos' }}</span>
                 </div>
 
                 <div class="legend-col-monto">
@@ -1399,6 +1418,12 @@
                     [class.active]="columnaOrdenAnalista === 'analista'">{{ columnaOrdenAnalista === 'analista' ?
                     (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
+                <th class="text-center th-financiadores sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'financiadores'"
+                  (click)="ordenarAnalistas('financiadores')" title="Ordenar por Cantidad de Financiadores">
+                  FINANCIADORES <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'financiadores'">{{
+                    columnaOrdenAnalista === 'financiadores' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
+                </th>
                 <th class="text-center th-casos sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'documentos'"
                   (click)="ordenarAnalistas('documentos')" title="Ordenar por Documentos">
                   DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{
@@ -1455,6 +1480,9 @@
                   </div>
                 </td>
                 <td class="text-center font-weight-bold">
+                  <span class="badge-fin-analista">{{ a.cantidadFinanciadores || 0 }}</span>
+                </td>
+                <td class="text-center font-weight-bold">
                   <span class="badge-docs-analista">{{ a.cantidadRegistros }}</span>
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
@@ -1488,6 +1516,12 @@
                     ↳ Motivo de Débito <span class="sort-indicator"
                       [class.active]="columnaOrdenMotivoAnalista === 'motivo'">{{ columnaOrdenMotivoAnalista ===
                       'motivo' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-center td-sub-header-col sortable-sub-col"
+                    (click)="ordenarMotivosAnalistas('financiadores')" title="Ordenar por Financiadores">
+                    Financ. <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'financiadores'">{{
+                      columnaOrdenMotivoAnalista === 'financiadores' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕'
+                      }}</span>
                   </th>
                   <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('casos')"
                     title="Ordenar por Casos">
@@ -1535,8 +1569,10 @@
                           {{ m.expanded ? '▼' : '▶' }}
                         </button>
                         <span class="motivo-tag">{{ m.motivo }}</span>
-                        <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                       </div>
+                    </td>
+                    <td class="text-center font-weight-bold">
+                      <span class="badge-count">{{ m.financiadores?.length || 0 }}</span>
                     </td>
                     <td class="text-center font-weight-bold">{{ m.casos }}</td>
                     <td class="text-right font-weight-bold color-facturado">
@@ -1567,7 +1603,7 @@
                   <!-- NIVEL 3: Financiadores Afectados (solo si motivo y analista están expandidos) -->
                   <ng-container *ngIf="m.expanded">
                     <tr class="tr-sub-header tr-sub-header-financiador">
-                      <th colspan="2" class="td-sub-header-sub-title">└── Financiador Afectado</th>
+                      <th colspan="3" class="td-sub-header-sub-title">└── Financiador Afectado</th>
                       <th class="text-center td-sub-header-col">Casos</th>
                       <th class="text-right td-sub-header-col">Monto Debitado</th>
                       <th class="text-right td-sub-header-col">Aceptado</th>
@@ -1578,7 +1614,7 @@
 
                     <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
                       class="tr-financiador-sub">
-                      <td colspan="2" class="td-tree-node td-financiador-sub-item">
+                      <td colspan="3" class="td-tree-node td-financiador-sub-item">
                         <div class="financiador-cell-wrapper">
                           <span class="tree-branch">└─</span>
                           <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
@@ -1638,12 +1674,14 @@
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
                   <strong>Ciclos de Insistencia Recurrente:</strong> Detecta prestaciones que tras ser debitadas (NC)
-                  fueron refacturadas sucesivamente (≥ 2 NDs), señalando insistencia sistemática de cobro ante objeciones
+                  fueron refacturadas sucesivamente (≥ 2 NDs), señalando insistencia sistemática de cobro ante
+                  objeciones
                   o convenios en disputa.
                 </span>
               </span>
             </div>
-            <p class="section-subtitle">Prestaciones críticas con 2 o más refacturaciones (ND) tras débitos recibidos.</p>
+            <p class="section-subtitle">Prestaciones críticas con 2 o más refacturaciones (ND) tras débitos recibidos.
+            </p>
           </div>
         </div>
 
@@ -1655,7 +1693,8 @@
 
         <!-- Estado Vacío -->
         <div *ngIf="!cargandoBucles && buclesDatos.length === 0" class="empty-state">
-          <p>No se detectaron bucles de insistencia (expedientes con 2 o más refacturaciones ND) para los filtros seleccionados.
+          <p>No se detectaron bucles de insistencia (expedientes con 2 o más refacturaciones ND) para los filtros
+            seleccionados.
           </p>
         </div>
 
@@ -1774,7 +1813,9 @@
                               </strong>
                             </div>
                             <span class="bucle-badge-debitos-count">
-                              {{ prestacion.cantidadRefacturaciones ? (prestacion.cantidadRefacturaciones + ' refacturaciones (ND)') : ((prestacion.cantidadDebitos || prestacion.historialEventos.length) + ' débitos / eventos') }}
+                              {{ prestacion.cantidadRefacturaciones ? (prestacion.cantidadRefacturaciones + '
+                              refacturaciones (ND)') : ((prestacion.cantidadDebitos ||
+                              prestacion.historialEventos.length) + ' débitos / eventos') }}
                             </span>
                           </div>
                         </div>
@@ -1887,39 +1928,51 @@
           <table class="table-sanatorial table-bordered table-analistas">
             <thead>
               <tr>
-                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'"
+                <th class="th-operador sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'"
                   (click)="ordenarOperadores('operador')" title="Ordenar por Operador">
-                  Operador / Motivo / Financiador <span class="sort-indicator"
+                  OPERADOR <span class="sort-indicator"
                     [class.active]="columnaOrdenOperador === 'operador'">{{ columnaOrdenOperador === 'operador' ?
+                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="th-motivo-col sortable-col" [class.col-sorted]="columnaOrdenOperador === 'motivo'"
+                  (click)="ordenarOperadores('motivo')" title="Ordenar por Motivo">
+                  MOTIVO <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'motivo'">{{ columnaOrdenOperador === 'motivo' ?
+                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="th-financiador-col sortable-col" [class.col-sorted]="columnaOrdenOperador === 'financiador'"
+                  (click)="ordenarOperadores('financiador')" title="Ordenar por Financiador">
+                  FINANCIADOR <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'financiador'">{{ columnaOrdenOperador === 'financiador' ?
                     (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenOperador === 'documentos'"
                   (click)="ordenarOperadores('documentos')" title="Ordenar por Documentos">
-                  Documentos <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{
+                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{
                     columnaOrdenOperador === 'documentos' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'aceptados'"
                   (click)="ordenarOperadores('aceptados')" title="Ordenar por Débitos Aceptados">
-                  Aceptados (Pérdida) <span class="sort-indicator"
+                  ACEPTADOS (PÉRDIDA) <span class="sort-indicator"
                     [class.active]="columnaOrdenOperador === 'aceptados'">{{ columnaOrdenOperador === 'aceptados' ?
                     (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col"
                   [class.col-sorted]="columnaOrdenOperador === 'refacturados'"
                   (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturados">
-                  Refacturados <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{
+                  REFACTURADOS <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{
                     columnaOrdenOperador === 'refacturados' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'ticket'"
                   (click)="ordenarOperadores('ticket')" title="Ordenar por Ticket Promedio">
-                  Ticket Promedio <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'ticket'">{{
+                  TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'ticket'">{{
                     columnaOrdenOperador === 'ticket' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenOperador === 'recupero'"
                   (click)="ordenarOperadores('recupero')" title="Ordenar por % Recupero">
-                  % Recupero <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'recupero'">{{
+                  % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'recupero'">{{
                     columnaOrdenOperador === 'recupero' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
@@ -1937,6 +1990,8 @@
                     <span class="badge-count">{{ op.motivos.length }} motivos</span>
                   </div>
                 </td>
+                <td class="text-center text-muted">—</td>
+                <td class="text-center text-muted">—</td>
                 <td class="text-right font-weight-bold">
                   {{ op.cantidadRegistros }}
                 </td>
@@ -1961,23 +2016,38 @@
               <!-- NIVEL 2: Motivos (solo si operador está expandido) -->
               <ng-container *ngIf="op.expanded">
                 <tr class="tr-sub-header tr-sub-header-motivo">
-                  <th class="td-sub-header-title sortable-sub-col" (click)="ordenarOperadores('operador')"
-                    title="Ordenar por Motivo">↳ Motivo de Débito</th>
+                  <th class="td-sub-header-title text-center text-muted">↳</th>
+                  <th class="td-sub-header-title sortable-sub-col" (click)="ordenarOperadores('motivo')"
+                    title="Ordenar por Motivo">Motivo de Débito <span class="sort-indicator"
+                      [class.active]="columnaOrdenOperador === 'motivo'">{{ columnaOrdenOperador === 'motivo' ?
+                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
+                  <th class="td-sub-header-col text-center text-muted">—</th>
                   <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('documentos')"
-                    title="Ordenar por Casos">Casos</th>
+                    title="Ordenar por Casos">Casos <span class="sort-indicator"
+                      [class.active]="columnaOrdenOperador === 'documentos'">{{ columnaOrdenOperador === 'documentos' ?
+                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
                   <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('ticket')"
-                    title="Ordenar por Monto Debitado">Monto Debitado</th>
+                    title="Ordenar por Monto Debitado">Monto Debitado <span class="sort-indicator"
+                      [class.active]="columnaOrdenOperador === 'ticket'">{{ columnaOrdenOperador === 'ticket' ?
+                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
                   <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('aceptados')"
-                    title="Ordenar por Aceptado">Aceptado</th>
+                    title="Ordenar por Aceptado">Aceptado <span class="sort-indicator"
+                      [class.active]="columnaOrdenOperador === 'aceptados'">{{ columnaOrdenOperador === 'aceptados' ?
+                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
                   <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('refacturados')"
-                    title="Ordenar por Refacturado">Refacturado</th>
+                    title="Ordenar por Refacturado">Refacturado <span class="sort-indicator"
+                      [class.active]="columnaOrdenOperador === 'refacturados'">{{ columnaOrdenOperador === 'refacturados' ?
+                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
                   <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('recupero')"
-                    title="Ordenar por % Recupero">% Rec.</th>
+                    title="Ordenar por % Recupero">% Rec. <span class="sort-indicator"
+                      [class.active]="columnaOrdenOperador === 'recupero'">{{ columnaOrdenOperador === 'recupero' ?
+                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
                 </tr>
 
                 <ng-container *ngFor="let m of op.motivos; trackBy: trackByMotivo">
                   <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
-                    <td class="td-tree-node td-motivo">
+                    <td class="text-center text-muted"></td>
+                    <td class="td-tree-node td-motivo-col-cell">
                       <div class="motivo-cell-wrapper">
                         <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
                           {{ m.expanded ? '▼' : '▶' }}
@@ -1986,6 +2056,7 @@
                         <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                       </div>
                     </td>
+                    <td class="text-center text-muted">—</td>
                     <td class="text-right">{{ m.casos }}</td>
                     <td class="text-right font-weight-bold color-facturado">
                       {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
@@ -2009,8 +2080,12 @@
                   <!-- NIVEL 3: Financiadores Afectados (solo si motivo y operador están expandidos) -->
                   <ng-container *ngIf="m.expanded">
                     <tr class="tr-sub-header tr-sub-header-financiador">
-                      <th class="td-sub-header-sub-title sortable-sub-col" (click)="ordenarOperadores('operador')"
-                        title="Ordenar por Financiador">└── Financiador Afectado</th>
+                      <th class="text-muted"></th>
+                      <th class="td-sub-header-sub-title text-center text-muted">└──</th>
+                      <th class="td-sub-header-sub-title sortable-sub-col" (click)="ordenarOperadores('financiador')"
+                        title="Ordenar por Financiador">Financiador Afectado <span class="sort-indicator"
+                          [class.active]="columnaOrdenOperador === 'financiador'">{{ columnaOrdenOperador === 'financiador' ?
+                          (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
                       <th class="text-right td-sub-header-col sortable-sub-col"
                         (click)="ordenarOperadores('documentos')" title="Ordenar por Casos">Casos</th>
                       <th colspan="3" class="text-right td-sub-header-col sortable-sub-col"
@@ -2020,7 +2095,9 @@
 
                     <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
                       class="tr-financiador-sub">
-                      <td class="td-tree-node td-financiador-sub-item">
+                      <td></td>
+                      <td></td>
+                      <td class="td-tree-node td-financiador-col-cell">
                         <div class="financiador-cell-wrapper">
                           <span class="tree-branch">└─</span>
                           <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
@@ -2353,7 +2430,7 @@
                 </th>
               </tr>
             </thead>
-            <tbody *ngFor="let cadena of trazabilidadDatos; trackBy: trackByCadena">
+            <tbody *ngFor="let cadena of trazabilidadDatosPaginados; trackBy: trackByCadena">
               <!-- Fila Principal (Nivel 1) -->
               <tr class="tr-parent-nivel1" (click)="toggleCadena(cadena)" [class.is-expanded]="cadena.expanded">
                 <td class="text-center">
@@ -2422,6 +2499,48 @@
               </tr>
             </tbody>
           </table>
+
+          <!-- Paginación de Trazabilidad -->
+          <div class="trazabilidad-pagination-bar" *ngIf="trazabilidadDatos.length > 0">
+            <div class="pagination-info">
+              Mostrando
+              <strong>{{ (trazabilidadPaginaActual - 1) * trazabilidadItemsPorPagina + 1 }}</strong>
+              -
+              <strong>{{ (trazabilidadPaginaActual * trazabilidadItemsPorPagina) > trazabilidadDatos.length ? trazabilidadDatos.length : (trazabilidadPaginaActual * trazabilidadItemsPorPagina) }}</strong>
+              de <strong>{{ trazabilidadDatos.length }}</strong> expedientes
+            </div>
+
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="trazabilidadPaginaActual <= 1"
+                (click)="cambiarPaginaTrazabilidad(1)" title="Primera página">
+                ⏮
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="trazabilidadPaginaActual <= 1"
+                (click)="cambiarPaginaTrazabilidad(trazabilidadPaginaActual - 1)" title="Página anterior">
+                ◀
+              </button>
+              <span class="page-current-indicator">Página {{ trazabilidadPaginaActual }} de {{ totalPaginasTrazabilidad }}</span>
+              <button type="button" class="btn-page-nav" [disabled]="trazabilidadPaginaActual >= totalPaginasTrazabilidad"
+                (click)="cambiarPaginaTrazabilidad(trazabilidadPaginaActual + 1)" title="Página siguiente">
+                ▶
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="trazabilidadPaginaActual >= totalPaginasTrazabilidad"
+                (click)="cambiarPaginaTrazabilidad(totalPaginasTrazabilidad)" title="Última página">
+                ⏭
+              </button>
+            </div>
+
+            <div class="pagination-page-size">
+              <label for="page-size-trazabilidad">Ver:</label>
+              <select id="page-size-trazabilidad" class="page-size-select"
+                [ngModel]="trazabilidadItemsPorPagina"
+                (ngModelChange)="onTrazabilidadItemsPorPaginaChange($event)">
+                <option *ngFor="let opt of trazabilidadOpcionesItemsPorPagina" [value]="opt">
+                  {{ opt }} por pág.
+                </option>
+              </select>
+            </div>
+          </div>
         </div>
 
       </div>

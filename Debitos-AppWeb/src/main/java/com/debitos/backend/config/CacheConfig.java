@@ -31,6 +31,7 @@ public class CacheConfig {
     public static final String CACHE_DESEMPENO = "directorio_desempeno";
     public static final String CACHE_ANALISTAS = "directorio_analistas";
     public static final String CACHE_OPERADORES = "directorio_operadores";
+    public static final String CACHE_MEDICOS = "directorio_medicos";
     public static final String CACHE_TRAZABILIDAD = "directorio_trazabilidad";
     public static final String CACHE_BUCLES = "directorio_bucles";
     public static final String CACHE_CUENTA_CORRIENTE = "directorio_cuenta_corriente";
@@ -54,13 +55,14 @@ public class CacheConfig {
                 CACHE_DESEMPENO,
                 CACHE_ANALISTAS,
                 CACHE_OPERADORES,
+                CACHE_MEDICOS,
                 CACHE_TRAZABILIDAD,
                 CACHE_BUCLES,
                 CACHE_CUENTA_CORRIENTE
         );
         manager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(500)
-                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .expireAfterWrite(15, TimeUnit.MINUTES)
                 .recordStats());
         this.cacheManager = manager;
         return manager;
@@ -100,6 +102,7 @@ public class CacheConfig {
                     CACHE_DESEMPENO,
                     CACHE_ANALISTAS,
                     CACHE_OPERADORES,
+                    CACHE_MEDICOS,
                     CACHE_TRAZABILIDAD,
                     CACHE_BUCLES,
                     CACHE_CUENTA_CORRIENTE)) {

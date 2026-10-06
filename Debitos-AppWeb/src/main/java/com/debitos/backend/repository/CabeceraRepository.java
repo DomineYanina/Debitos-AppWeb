@@ -780,13 +780,22 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
      */
     @Query(value = """
         SELECT
-            COALESCE(NULLIF(TRIM(c.cobertura), ''), COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'Sin financiador')) AS financiador,
+            CASE
+                WHEN c.codigo_cobertura IS NOT NULL AND TRIM(c.codigo_cobertura) <> '' 
+                     AND c.cobertura IS NOT NULL AND TRIM(c.cobertura) <> ''
+                     AND TRIM(c.cobertura) NOT LIKE TRIM(c.codigo_cobertura) || ' - %'
+                THEN TRIM(c.codigo_cobertura) || ' - ' || TRIM(c.cobertura)
+                WHEN c.codigo_cobertura IS NOT NULL AND TRIM(c.codigo_cobertura) <> ''
+                THEN TRIM(c.codigo_cobertura)
+                ELSE COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador')
+            END AS financiador,
             CAST(EXTRACT(MONTH FROM c.fecha) AS INTEGER) AS mes,
             SUM(CASE WHEN c.haber IS NOT NULL AND c.haber > 0 THEN c.haber WHEN c.debe IS NOT NULL AND c.debe > 0 THEN c.debe ELSE 0 END) AS monto,
             COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), '') AS codigo_cobertura
         FROM cabecera c
         WHERE c.fecha IS NOT NULL
-          AND CAST(EXTRACT(YEAR FROM c.fecha) AS INTEGER) = :anio
+          AND c.fecha >= MAKE_DATE(:anio, 1, 1)
+          AND c.fecha <= MAKE_DATE(:anio, 12, 31)
           AND UPPER(TRIM(c.tipo)) IN ('RC', 'RCA', 'RCB', 'REC', 'OP')
         GROUP BY 1, 2, 4
         ORDER BY 1 ASC, 2 ASC
@@ -1013,6 +1022,34 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
           AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
         """, nativeQuery = true)
     List<Long> findIdsGruposFacturasPorRangoFechas(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
+
+    /**
+     * Obtiene los IDs de grupo (asociadogrupo, grupo, asociado o id) de las facturas origen (FC)
+     * ordenadas por fecha más reciente descendente, filtrando opcionalmente por financiador y acotando por límite.
+     */
+    @Query(value = """
+        SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
+        FROM cabecera c
+        WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
+          AND c.fecha IS NOT NULL
+          AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
+          AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+          AND (
+              :financiador IS NULL 
+              OR TRIM(:financiador) = '' 
+              OR UPPER(TRIM(:financiador)) = 'TODAS'
+              OR UPPER(TRIM(c.codigo_cobertura)) = UPPER(TRIM(:financiador))
+              OR UPPER(TRIM(c.cobertura)) LIKE UPPER(CONCAT('%', TRIM(:financiador), '%'))
+          )
+        GROUP BY COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
+        ORDER BY MAX(c.fecha) DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<Long> findIdsGruposFacturasPorRangoFechasYFinanciador(
+            @Param("desde") LocalDate desde,
+            @Param("hasta") LocalDate hasta,
+            @Param("financiador") String financiador,
+            @Param("limit") int limit);
 
     /**
      * Obtiene los IDs de grupo (asociadogrupo, grupo, asociado o id) de las facturas origen (FC)

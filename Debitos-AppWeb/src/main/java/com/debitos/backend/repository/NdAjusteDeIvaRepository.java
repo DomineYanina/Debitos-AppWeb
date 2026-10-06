@@ -11,7 +11,7 @@ import java.util.Optional;
 @Repository
 public interface NdAjusteDeIvaRepository extends JpaRepository<NdAjusteDeIva, Integer> {
 
-    @Query("SELECT COUNT(n) > 0 FROM NdAjusteDeIva n JOIN n.cabecera c WHERE c.tipo = :tipoNd AND c.letra = :letraNd AND c.ptovta = :ptovtaNd AND c.numero = :numeroNd")
+    @Query("SELECT COUNT(n) > 0 FROM NdAjusteDeIva n LEFT JOIN n.cabecera c WHERE (c.id IS NOT NULL AND c.tipo = :tipoNd AND c.letra = :letraNd AND c.ptovta = :ptovtaNd AND c.numero = :numeroNd) OR (n.tipoNd = :tipoNd AND n.letraNd = :letraNd AND n.ptovtaNd = :ptovtaNd AND n.numeroNd = :numeroNd)")
     boolean existsByTipoNdAndLetraNdAndPtovtaNdAndNumeroNd(
             @Param("tipoNd") String tipoNd,
             @Param("letraNd") String letraNd,
@@ -26,7 +26,7 @@ public interface NdAjusteDeIvaRepository extends JpaRepository<NdAjusteDeIva, In
             @Param("numeroNc") Integer numeroNc
     );
 
-    @Query("SELECT n FROM NdAjusteDeIva n JOIN n.cabecera c WHERE UPPER(c.letra) = UPPER(:letraNd) AND c.ptovta = :ptovtaNd AND c.numero = :numeroNd")
+    @Query("SELECT n FROM NdAjusteDeIva n LEFT JOIN n.cabecera c WHERE (c.id IS NOT NULL AND UPPER(c.letra) = UPPER(:letraNd) AND c.ptovta = :ptovtaNd AND c.numero = :numeroNd) OR (UPPER(n.letraNd) = UPPER(:letraNd) AND n.ptovtaNd = :ptovtaNd AND n.numeroNd = :numeroNd)")
     Optional<NdAjusteDeIva> findByLetraNdAndPtovtaNdAndNumeroNd(
             @Param("letraNd") String letraNd,
             @Param("ptovtaNd") Integer ptovtaNd,

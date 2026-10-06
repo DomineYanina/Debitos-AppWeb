@@ -311,5 +311,26 @@ public class GraficosController {
         List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta);
         return ResponseEntity.ok(resultado);
     }
+
+    /**
+     * GET /api/graficos/desempeno/medicos
+     *
+     * Retorna únicamente las métricas de desempeño por Prestadores / Médicos,
+     * permitiendo una carga ultrarrápida e independiente para la solapa de Prestadores / Médicos
+     * sin calcular analistas ni operadores.
+     *
+     * @param periodo filtro opcional por período YYYY-MM
+     * @param fechaDesde fecha límite inferior opcional (YYYY-MM-DD)
+     * @param fechaHasta fecha límite superior opcional (YYYY-MM-DD)
+     * @return Lista de MetricaMedicoDTO
+     */
+    @GetMapping("/desempeno/medicos")
+    public ResponseEntity<List<MetricaMedicoDTO>> getDesempenoMedicos(
+            @RequestParam(required = false) String periodo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        List<MetricaMedicoDTO> resultado = directorioService.getMetricasMedicos(periodo, fechaDesde, fechaHasta);
+        return ResponseEntity.ok(resultado);
+    }
 }
 

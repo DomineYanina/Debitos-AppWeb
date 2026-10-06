@@ -1504,6 +1504,19 @@ tr.row-selected {
   /* Pequeño efecto 3D de elevación */
 }
 
+/* Estilo para botón Nueva ND por Ajuste de IVA (en NC conjunta) */
+.btn-nueva-nota-iva {
+  background-color: #0d9488;
+  color: white;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.25);
+}
+
+.btn-nueva-nota-iva:hover {
+  background-color: #0f766e;
+  box-shadow: 0 4px 6px rgba(13, 148, 136, 0.35);
+  transform: translateY(-1px);
+}
+
 /* Estilos para el formulario del Modal */
 .form-modal {
   display: flex;

@@ -313,5 +313,19 @@ export class DirectorioService {
 
     return this.http.get<MetricaOperadorDTO[]>(`${this.apiGraficosUrl}/desempeno/operadores`, { params });
   }
+
+  /**
+   * GET /api/graficos/desempeno/medicos
+   * Retorna únicamente las métricas de desempeño por Prestadores / Médicos
+   * de forma directa y optimizada.
+   */
+  getDesempenoMedicos(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<MetricaMedicoDTO[]> {
+    let params = new HttpParams();
+    if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<MetricaMedicoDTO[]>(`${this.apiGraficosUrl}/desempeno/medicos`, { params });
+  }
 }
 

@@ -951,8 +951,15 @@ class AuditoriaServiceTest {
         assertFalse(auditoriaService.tieneNcAjusteIva("FC", null, 1, 1000));
         assertFalse(auditoriaService.tieneNcAjusteIva("FC", "", 1, 1000));
 
-        when(ncAjusteDeIvaRepository.existsByTipoFcAndLetraFcAndPtovtaFcAndNumeroFc("FC", "A", 1, 1000)).thenReturn(true);
+        when(ncAjusteDeIvaRepository.existsByLetraFcAndPtovtaFcAndNumeroFc("A", 1, 1000)).thenReturn(true);
         assertTrue(auditoriaService.tieneNcAjusteIva("FC", "A", 1, 1000));
+
+        when(ncAjusteDeIvaRepository.existsByLetraFcAndPtovtaFcAndNumeroFc("A", 1, 1000)).thenReturn(false);
+        when(notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado("A", 1, 1000)).thenReturn(true);
+        assertTrue(auditoriaService.tieneNcAjusteIva("FC", "A", 1, 1000));
+
+        when(notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado("A", 1, 1000)).thenReturn(false);
+        assertFalse(auditoriaService.tieneNcAjusteIva("FC", "A", 1, 1000));
     }
 
     // ==========================================
@@ -2028,6 +2035,136 @@ class AuditoriaServiceTest {
                 auditoriaService.procesarNuevaNotaCredito(reqNc)
         );
         assertTrue(ex2.getMessage().contains("El trámite se encuentra finalizado"));
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaCredito - NC Conjunta (Prestacional y Ajuste de IVA) guarda NcAjusteDeIva y prestaciones")
+    void testProcesarNuevaNotaCredito_Conjunta() {
+        NuevaNotaCreditoRequest req = new NuevaNotaCreditoRequest();
+        req.setOrigen("FC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(1000);
+        req.setUsuario("auditor.conjunta");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("NC");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(2500);
+        datos.setFecha("2026-03-15");
+        datos.setTipoNc("Prestacional y Ajuste de IVA");
+        datos.setSubtipoIva("No prestacional");
+        datos.setNeto(new BigDecimal("1000.00"));
+        datos.setPorcIva(new BigDecimal("21.00"));
+        datos.setIva(new BigDecimal("210.00"));
+        datos.setCreadoManualmente(true);
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(60);
+        reg.setMotivoDebito("Prestación incorrecta");
+        reg.setImporteDebitado(new BigDecimal("500.00"));
+        reg.setDebitoAceptado("SI");
+        req.setRegistros(List.of(reg));
+
+        Cabecera cabFC = new Cabecera("FC", "A", 1, 1000, LocalDate.of(2026, 1, 1), null, "BDD", "OS", "Obra Social");
+        cabFC.setId(10L);
+        cabFC.setGrupo(100L);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabFC));
+        when(cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero("NC", "A", 1, 2500))
+                .thenReturn(Optional.empty());
+
+        Cabecera cabGuardada = new Cabecera("NC", "A", 1, 2500, LocalDate.of(2026, 3, 15), null, "APP_MANUAL", "OS", "Obra Social");
+        cabGuardada.setId(250L);
+        when(cabeceraRepository.save(any(Cabecera.class))).thenAnswer(invocation -> {
+            Cabecera c = invocation.getArgument(0);
+            c.setId(250L);
+            return c;
+        });
+
+        AmbLiquidado amb = new AmbLiquidado();
+        amb.setId(60);
+        amb.setCabecera(cabFC);
+        amb.setTotalNeto(new BigDecimal("500.00"));
+        when(ambLiquidadoRepository.findAllById(List.of(60))).thenReturn(List.of(amb));
+        when(notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(60)).thenReturn(Optional.empty());
+
+        auditoriaService.procesarNuevaNotaCredito(req);
+
+        // Verifica que se guardó NcAjusteDeIva
+        verify(ncAjusteDeIvaRepository, times(1)).save(any(NcAjusteDeIva.class));
+
+        // Verifica que se guardó la prestación de débito en notaDeCreditoRepository
+        verify(notaDeCreditoRepository, times(1)).saveAll(anyList());
+
+        // Verifica que la imputación se registró con tipo NC_CONJUNTA
+        ArgumentCaptor<RegistroImputacion> captorImp = ArgumentCaptor.forClass(RegistroImputacion.class);
+        verify(registroImputacionRepository, times(1)).save(captorImp.capture());
+        assertEquals("NC_CONJUNTA", captorImp.getValue().getTipoImputacion());
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaDebito - Regla 4: Bloquea segunda ND prestacional para una misma NC")
+    void testProcesarNuevaNotaDebito_Regla4_BloqueaSegundaNdPrestacional() {
+        NuevaNotaDebitoRequest req = new NuevaNotaDebitoRequest();
+        req.setOrigen("NC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(2000);
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("ND");
+        datos.setLetra("A");
+        datos.setPuntoVenta(1);
+        datos.setNumero(3002);
+        datos.setTipoNd("Por Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO reg = new RegistroAuditoriaDTO();
+        reg.setId(70);
+        req.setRegistros(List.of(reg));
+
+        Cabecera cabNC = new Cabecera("NC", "A", 1, 2000, LocalDate.now(), null, "BDD", "OS", "OS");
+        cabNC.setId(300L);
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(2000)))
+                .thenReturn(List.of(cabNC));
+
+        // Ya existe una ND prestacional asociada con número 3001
+        Object[] rowNdExistente = new Object[]{"ND", "A", 1, 3001, "2026-03-01", "Por Refactura"};
+        when(notaDeDebitoRepository.findNdCompletaParaNotaCreditoRaw("A", 1, 2000))
+                .thenReturn(List.<Object[]>of(rowNdExistente));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                auditoriaService.procesarNuevaNotaDebito(req)
+        );
+        assertTrue(ex.getMessage().contains("Ya existe una Nota de Débito Prestacional para la Nota de Crédito seleccionada"));
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaDebitoAjusteIva - Regla 4: Bloquea segunda ND por Ajuste de IVA para una misma NC")
+    void testProcesarNuevaNotaDebitoAjusteIva_Regla4_BloqueaSegundaNdAjusteIva() {
+        NuevaNotaDebitoAjusteIvaRequest req = new NuevaNotaDebitoAjusteIvaRequest();
+        req.setLetraNc("A");
+        req.setPtovtaNc(1);
+        req.setNumeroNc(2000);
+        req.setTipoNd("ND");
+        req.setLetraNd("A");
+        req.setPtovtaNd(1);
+        req.setNumeroNd(4001);
+        req.setNeto(new BigDecimal("1000"));
+        req.setPorcIva(new BigDecimal("21"));
+        req.setIva(new BigDecimal("210"));
+
+        when(ndAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc("A", 1, 2000))
+                .thenReturn(Optional.of(new NdAjusteDeIva()));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                auditoriaService.procesarNuevaNotaDebitoAjusteIva(req)
+        );
+        assertTrue(ex.getMessage().contains("Ya existe una Nota de Débito por Ajuste de IVA para la Nota de Crédito seleccionada"));
     }
 }
 

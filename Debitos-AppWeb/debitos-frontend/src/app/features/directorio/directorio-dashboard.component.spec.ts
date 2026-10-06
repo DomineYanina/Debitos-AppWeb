@@ -1126,6 +1126,43 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.columnaOrdenTrazabilidad).toBe('');
       expect(component.trazabilidadDatos[0].montoFacturadoOriginal).toBe(5000);
     });
+
+    it('paginación de trazabilidad debe paginar y navegar correctamente', () => {
+      component.trazabilidadDatos = Array.from({ length: 55 }, (_, i) => ({
+        idPrestacion: `FAC-${i + 1}`,
+        descripcion: `Detalle ${i + 1}`,
+        financiador: 'OSDE',
+        medico: 'Dr. Test',
+        montoFacturadoOriginal: 1000,
+        totalDebitado: 0,
+        historialEventos: []
+      }));
+      component.trazabilidadItemsPorPagina = 25;
+      component.trazabilidadPaginaActual = 1;
+
+      expect(component.totalPaginasTrazabilidad).toBe(3);
+      expect(component.trazabilidadDatosPaginados.length).toBe(25);
+      expect(component.trazabilidadDatosPaginados[0].idPrestacion).toBe('FAC-1');
+
+      component.cambiarPaginaTrazabilidad(2);
+      expect(component.trazabilidadPaginaActual).toBe(2);
+      expect(component.trazabilidadDatosPaginados.length).toBe(25);
+      expect(component.trazabilidadDatosPaginados[0].idPrestacion).toBe('FAC-26');
+
+      component.cambiarPaginaTrazabilidad(3);
+      expect(component.trazabilidadPaginaActual).toBe(3);
+      expect(component.trazabilidadDatosPaginados.length).toBe(5);
+
+      // Fuera de rango
+      component.cambiarPaginaTrazabilidad(99);
+      expect(component.trazabilidadPaginaActual).toBe(3);
+
+      component.onTrazabilidadItemsPorPaginaChange(50);
+      expect(component.trazabilidadItemsPorPagina).toBe(50);
+      expect(component.trazabilidadPaginaActual).toBe(1);
+      expect(component.totalPaginasTrazabilidad).toBe(2);
+      expect(component.trazabilidadDatosPaginados.length).toBe(50);
+    });
   });
 
   describe('Filtros de Fecha Dinámicos (Opción D)', () => {

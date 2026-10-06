@@ -240,7 +240,10 @@ class DtoAndModelTest {
         ncIva.setTipoFc("FC");
         ncIva.setLetraFc("A");
         ncIva.setPtovtaFc(1);
-        ncIva.setNumeroFc(1000);
+        ncIva.setTipoNc("NC");
+        ncIva.setLetraNc("A");
+        ncIva.setPtovtaNc(2);
+        ncIva.setNumeroNc(2000);
         ncIva.setNeto(new BigDecimal("1000.00"));
         ncIva.setPorcIva(new BigDecimal("21.00"));
         ncIva.setIva(new BigDecimal("210.00"));
@@ -252,6 +255,10 @@ class DtoAndModelTest {
         assertEquals("A", ncIva.getLetraFc());
         assertEquals(1, ncIva.getPtovtaFc());
         assertEquals(1000, ncIva.getNumeroFc());
+        assertEquals("NC", ncIva.getTipoNc());
+        assertEquals("A", ncIva.getLetraNc());
+        assertEquals(2, ncIva.getPtovtaNc());
+        assertEquals(2000, ncIva.getNumeroNc());
         assertEquals(new BigDecimal("1000.00"), ncIva.getNeto());
         assertEquals(new BigDecimal("21.00"), ncIva.getPorcIva());
         assertEquals(new BigDecimal("210.00"), ncIva.getIva());
@@ -263,7 +270,10 @@ class DtoAndModelTest {
         ndIva.setTipoNc("NC");
         ndIva.setLetraNc("A");
         ndIva.setPtovtaNc(1);
-        ndIva.setNumeroNc(2000);
+        ndIva.setTipoNd("ND");
+        ndIva.setLetraNd("A");
+        ndIva.setPtovtaNd(1);
+        ndIva.setNumeroNd(3000);
         ndIva.setNeto(new BigDecimal("1000.00"));
         ndIva.setPorcIva(new BigDecimal("21.00"));
         ndIva.setIva(new BigDecimal("210.00"));
@@ -276,6 +286,10 @@ class DtoAndModelTest {
         assertEquals("A", ndIva.getLetraNc());
         assertEquals(1, ndIva.getPtovtaNc());
         assertEquals(2000, ndIva.getNumeroNc());
+        assertEquals("ND", ndIva.getTipoNd());
+        assertEquals("A", ndIva.getLetraNd());
+        assertEquals(1, ndIva.getPtovtaNd());
+        assertEquals(3000, ndIva.getNumeroNd());
         assertEquals(new BigDecimal("1000.00"), ndIva.getNeto());
         assertEquals(new BigDecimal("21.00"), ndIva.getPorcIva());
         assertEquals(new BigDecimal("210.00"), ndIva.getIva());
