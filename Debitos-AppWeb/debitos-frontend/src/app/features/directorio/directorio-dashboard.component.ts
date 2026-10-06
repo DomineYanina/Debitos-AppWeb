@@ -156,6 +156,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     switch (solapa) {
       case 'tablero':
         this.cargarTotales();
+        this.cargarGrupos();
+        this.cargarMotivos();
         this.cargarBalanceFinanciero();
         this.cargarDistribucionCartera();
         this.cargarEvolucionMensual();

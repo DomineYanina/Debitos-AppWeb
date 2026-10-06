@@ -40,7 +40,8 @@ describe('AuditoriaComponent', () => {
       obtenerHistorialComprobantes: () => of([]),
       obtenerCabecerasDisponibles: () => of([]),
       guardarNuevaNotaDebitoAjusteIva: () => of({}),
-      cambiarEstadoGrupo: () => of({ requiereConfirmacion: false, exito: true })
+      cambiarEstadoGrupo: () => of({ requiereConfirmacion: false, exito: true }),
+      obtenerConfiguracion: () => of({ permitirNcConjunta: false })
     };
     authServiceSpy = {
       obtenerUsuario: () => 'tester',
@@ -1804,6 +1805,7 @@ describe('AuditoriaComponent', () => {
 
       // Error status 500
       alertSpy.mockClear();
+      component.modificadosSinGuardar.add(1);
       auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(throwError(() => ({ status: 500 })));
       component.guardarParcialmente(false);
       expect(alertSpy.mock.calls[0][0]).toContain('Ocurrió un error al intentar guardar');

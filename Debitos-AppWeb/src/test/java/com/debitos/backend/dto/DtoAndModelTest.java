@@ -1,6 +1,8 @@
 package com.debitos.backend.dto;
 
 import com.debitos.backend.model.*;
+import com.debitos.backend.dto.reportes.MatrizRecaudacionDTO;
+import com.debitos.backend.dto.reportes.MatrizRecaudacionFilaDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -240,6 +242,7 @@ class DtoAndModelTest {
         ncIva.setTipoFc("FC");
         ncIva.setLetraFc("A");
         ncIva.setPtovtaFc(1);
+        ncIva.setNumeroFc(1000);
         ncIva.setTipoNc("NC");
         ncIva.setLetraNc("A");
         ncIva.setPtovtaNc(2);
@@ -270,6 +273,7 @@ class DtoAndModelTest {
         ndIva.setTipoNc("NC");
         ndIva.setLetraNc("A");
         ndIva.setPtovtaNc(1);
+        ndIva.setNumeroNc(2000);
         ndIva.setTipoNd("ND");
         ndIva.setLetraNd("A");
         ndIva.setPtovtaNd(1);
@@ -611,5 +615,40 @@ class DtoAndModelTest {
         assertEquals("FC A-0001-00001000", ru.getDocumentoReferencia());
         assertEquals("LOGIN", ru.getEvento());
         assertEquals(5, ru.getCantidadRegistrosPendientes());
+    }
+
+    @Test
+    @DisplayName("Test MatrizRecaudacionDTO y MatrizRecaudacionFilaDTO")
+    void testMatrizRecaudacionDTOAndFila() {
+        MatrizRecaudacionFilaDTO fila = new MatrizRecaudacionFilaDTO();
+        fila.setCodigoFinanciador("446");
+        fila.setFinanciador("446 - SANCOR");
+        fila.setTotalAnual(new BigDecimal("1000.00"));
+        fila.getMeses()[0] = new BigDecimal("500.00");
+        fila.getMeses()[1] = new BigDecimal("500.00");
+
+        assertEquals("446", fila.getCodigoFinanciador());
+        assertEquals("446 - SANCOR", fila.getFinanciador());
+        assertEquals(new BigDecimal("1000.00"), fila.getTotalAnual());
+        assertEquals(12, fila.getMeses().length);
+        assertEquals(new BigDecimal("500.00"), fila.getMeses()[0]);
+
+        MatrizRecaudacionFilaDTO filaConstruct = new MatrizRecaudacionFilaDTO("OSDE", "OSDE - OSDE", MatrizRecaudacionFilaDTO.inicializarArrayMeses(), BigDecimal.TEN);
+        assertEquals("OSDE", filaConstruct.getCodigoFinanciador());
+        assertEquals("OSDE - OSDE", filaConstruct.getFinanciador());
+        assertEquals(BigDecimal.TEN, filaConstruct.getTotalAnual());
+
+        MatrizRecaudacionDTO matriz = new MatrizRecaudacionDTO(
+                2026,
+                List.of(2025, 2026),
+                List.of(fila),
+                MatrizRecaudacionDTO.inicializarArrayMeses(),
+                new BigDecimal("1000.00")
+        );
+        assertEquals(2026, matriz.getAnioSeleccionado());
+        assertEquals(2, matriz.getAniosDisponibles().size());
+        assertEquals(1, matriz.getFilas().size());
+        assertEquals(12, matriz.getTotalesMes().length);
+        assertEquals(new BigDecimal("1000.00"), matriz.getGranTotal());
     }
 }
