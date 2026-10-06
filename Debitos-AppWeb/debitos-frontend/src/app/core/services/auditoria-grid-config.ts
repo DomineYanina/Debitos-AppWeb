@@ -12,17 +12,18 @@ export class AuditoriaGridConfigService {
     tieneComentariosPrevios: boolean,
     motivosDebito: any[],
     motivosRefactura: any[],
-    editorComponent: any // Recibe el GroupedSelectEditor por parámetro
+    editorComponent: any, // Recibe el GroupedSelectEditor por parámetro
+    tramiteFinalizado: boolean = false
   ): ColDef[] {
-    const esSoloLectura = tipo === 'NC';
+    const esSoloLectura = tipo === 'NC' || tipo === 'NCE' || tramiteFinalizado;
 
     let columnas: ColDef[] = [
-      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, width: 50, pinned: 'left' },
+      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, headerTooltip: 'Seleccionar o deseleccionar todas las filas cargadas', width: 50, pinned: 'left' },
       { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
-      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => params.value ? new Date(params.value).toLocaleDateString() : '' },
+      { headerName: 'Fecha', field: 'fecha', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 105, minWidth: 105, suppressAutoSize: true, valueFormatter: params => { if (!params.value) return ''; const [anio, mes, dia] = params.value.split('-'); return `${dia}/${mes}/${anio}`; } },
       { headerName: 'Código', field: 'codigo', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 84, minWidth: 84, suppressAutoSize: true },
       { headerName: 'Descripción', field: 'descripcion', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Cant.', field: 'cantidad', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 67, minWidth: 67, suppressAutoSize: true },
@@ -31,8 +32,18 @@ export class AuditoriaGridConfigService {
       { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
     ];
 
-    if (tipo === 'ND' || (tipo === 'NC' && tieneComentariosPrevios)) {
-      columnas.push({ headerName: 'Comentarios\nPrevios', field: 'comentarioPrevio', editable: false, cellClass: 'bg-azul-auditoria', headerClass: 'bg-azul-auditoria' });
+    const esNd = tipo === 'ND' || tipo === 'NDE';
+    const esNc = tipo === 'NC' || tipo === 'NCE';
+    if (esNd || (esNc && tieneComentariosPrevios)) {
+      columnas.push({
+        headerName: 'Comentarios\nPrevios',
+        field: 'comentarioPrevio',
+        headerTooltip: 'Historial de comentarios y observaciones de auditorías anteriores',
+        tooltipValueGetter: params => params.value || '',
+        editable: false,
+        cellClass: 'bg-azul-auditoria',
+        headerClass: 'bg-azul-auditoria'
+      });
     }
 
     columnas.push(
@@ -52,7 +63,17 @@ export class AuditoriaGridConfigService {
 
     columnas.push({
       headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
+      headerTooltip: 'Observaciones específicas sobre el débito aplicado a esta prestación',
+      tooltipValueGetter: params => params.value || '',
       editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+      cellEditor: 'agLargeTextCellEditor',
+      cellEditorPopup: true,
+      cellEditorPopupPosition: 'under',
+      cellEditorParams: {
+        maxLength: 2000,
+        rows: 4,
+        cols: 30
+      },
       cellClassRules: {
         'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
         'bg-naranja': params => esSoloLectura || (!params.data.motivoDebito || params.data.motivoDebito === '')
@@ -60,12 +81,47 @@ export class AuditoriaGridConfigService {
     });
 
     columnas.push(
-      { headerName: 'Motivo\nRefactura', field: 'motivoRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: editorComponent, cellEditorParams: { grupos: motivosRefactura } },
-      { headerName: 'Imp.\nRefactura', field: 'importeRefactura', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 94,
-        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+      {
+        headerName: 'Motivo\nRefactura',
+        field: 'motivoRefactura',
+        editable: params => !esSoloLectura && params.data.debitoAceptado !== 'SI',
+        cellClass: 'bg-gris',
+        headerClass: 'bg-gris',
+        cellEditor: editorComponent,
+        cellEditorParams: { grupos: motivosRefactura },
+        cellClassRules: {
+          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado === 'SI',
+          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado !== 'SI'
+        }
       },
-      { headerName: 'Comentarios', field: 'comentarios', headerClass: 'bg-naranja',
+      {
+        headerName: 'Imp.\nRefactura',
+        field: 'importeRefactura',
+        editable: params => !esSoloLectura && params.data.debitoAceptado !== 'SI',
+        cellClass: 'bg-gris',
+        headerClass: 'bg-gris',
+        width: 94,
+        valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
+        cellClassRules: {
+          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado === 'SI',
+          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado !== 'SI'
+        }
+      },
+      {
+        headerName: 'Comentarios\nRefactura',
+        field: 'comentarios',
+        headerClass: 'bg-naranja',
+        headerTooltip: 'Notas y aclaraciones sobre el proceso de refacturación',
+        tooltipValueGetter: params => params.value || '',
         editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
+        cellEditor: 'agLargeTextCellEditor',
+        cellEditorPopup: true,
+        cellEditorPopupPosition: 'under',
+        cellEditorParams: {
+          maxLength: 2000,
+          rows: 4,
+          cols: 30
+        },
         cellClassRules: {
           'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
           'bg-naranja': params => esSoloLectura || params.data.debitoAceptado !== 'NO'

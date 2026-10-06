@@ -1,29 +1,91 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Prestacion } from '../models/prestacion'; // Asegurate de que la ruta sea correcta
+import { Prestacion } from '../models/prestacion';
+import { DocumentoAsociado } from '../models/documento-asociado';
+import { CambioEstadoResponse } from '../models/cambio-estado-response';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuditoriaService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:8080/api/auditoria'; // La URL de tu nuevo controlador en Java
+  private apiUrl = `${environment.apiUrl}/api/auditoria`;
 
   buscarPrestaciones(filtros: any): Observable<Prestacion[]> {
     return this.http.get<Prestacion[]>(`${this.apiUrl}/buscar`, { params: filtros });
   }
 
-  guardarParcialmente(payload: any) {
-    return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload);
+  guardarParcialmente(payload: any, silencioso: boolean = false) {
+    const options = silencioso
+      ? { headers: new HttpHeaders({ 'X-Skip-Loading': 'true' }) }
+      : {};
+    return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload, options);
   }
 
   guardarNuevaNotaCredito(payload: any) {
     return this.http.post(`${this.apiUrl}/nueva-nota-credito`, payload);
   }
 
+  editarNcAjusteIva(payload: any) {
+    return this.http.put(`${this.apiUrl}/editar-nc-ajuste-iva`, payload);
+  }
+
   guardarNuevaNotaDebito(payload: any) {
     return this.http.post(`${this.apiUrl}/nueva-nota-debito`, payload);
+  }
+
+  guardarNuevaNotaDebitoAjusteIva(payload: any) {
+    return this.http.post(`${this.apiUrl}/nueva-nota-debito-ajuste-iva`, payload);
+  }
+
+  // Regla 1: ahora devuelve un array (una FC puede tener múltiples NC)
+  verificarTieneNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado[]> {
+    return this.http.get<DocumentoAsociado[]>(`${this.apiUrl}/tiene-nc`, {
+      params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  verificarTieneNcAjusteIva(tipo: string, letra: string, puntoVenta: string | number, numero: string | number): Observable<boolean> {
+    return this.http.get<boolean>(`${this.apiUrl}/tiene-nc-ajuste-iva`, {
+      params: { tipo, letra: String(letra).toUpperCase(), puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  // Regla 2: ahora devuelve un array (una NC hija de FC puede tener múltiples ND)
+  verificarTieneND(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado[]> {
+    return this.http.get<DocumentoAsociado[]>(`${this.apiUrl}/tiene-nd`, {
+      params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  verificarTieneNCParaND(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
+    return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/tiene-nc-para-nd`, {
+      params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  obtenerDocumentoAsociadoNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado | null> {
+    return this.http.get<DocumentoAsociado | null>(`${this.apiUrl}/documento-asociado-nc`, {
+      params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
+  obtenerCabecerasDisponibles(tipo: string, origen?: string, letra?: string, puntoVenta?: string | number, numero?: string | number): Observable<any[]> {
+    const params: any = { tipo };
+    if (origen) params.origen = origen;
+    if (letra) params.letra = letra;
+    if (puntoVenta != null && puntoVenta !== '') params.puntoVenta = String(puntoVenta);
+    if (numero != null && numero !== '') params.numero = String(numero);
+    return this.http.get<any[]>(`${this.apiUrl}/cabeceras-disponibles`, { params });
+  }
+
+  obtenerHistorialComprobantes(tipo: string, letra?: string, puntoVenta?: string | number, numero?: string | number): Observable<any[]> {
+    const params: any = { tipo: tipo || 'FC', numero: String(numero) };
+    if (letra) params.letra = String(letra).toUpperCase();
+    if (puntoVenta != null && puntoVenta !== '') params.puntoVenta = String(puntoVenta);
+    return this.http.get<any[]>(`${this.apiUrl}/historial-comprobantes`, { params });
   }
 
   registrarMetricaUsabilidad(payload: any) {
@@ -32,5 +94,15 @@ export class AuditoriaService {
 
   registrarMetricasLote(payloads: any[]) {
     return this.http.post(`${this.apiUrl}/telemetria/usabilidad/lote`, payloads);
+  }
+
+  cambiarEstadoGrupo(idGrupo: number | string, nuevoEstado: number, forzarCierre: boolean = false): Observable<CambioEstadoResponse> {
+    return this.http.put<CambioEstadoResponse>(`${this.apiUrl}/grupo/${idGrupo}/estado/${nuevoEstado}`, null, {
+      params: { forzarCierre }
+    });
+  }
+
+  obtenerConfiguracion(): Observable<{ permitirNcConjunta: boolean }> {
+    return this.http.get<{ permitirNcConjunta: boolean }>(`${this.apiUrl}/configuracion`);
   }
 }

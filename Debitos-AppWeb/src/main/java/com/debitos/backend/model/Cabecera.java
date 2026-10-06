@@ -1,0 +1,288 @@
+package com.debitos.backend.model;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "cabecera")
+public class Cabecera implements CabeceraBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String tipo;
+
+    @Column(length = 1)
+    private String letra;
+
+    private Integer ptovta;
+    private Integer numero;
+    private LocalDate fecha;
+    private LocalDate periodo;
+    private String tiporegistro;
+
+    @Column(name = "codigo_cobertura")
+    private String codigoCobertura;
+
+    @Column(name = "cobertura")
+    private String cobertura;
+
+    @Column(name = "origen")
+    private String origen = "APP";
+
+    @Column(name = "grupo")
+    private Long grupo;
+
+    @Column(name = "asociado")
+    private Long asociado;
+
+    @Column(name = "asociadogrupo")
+    private Long asociadogrupo;
+
+    @Column(name = "debe")
+    private BigDecimal debe;
+
+    @Column(name = "haber")
+    private BigDecimal haber;
+
+    @Column(name = "id_estado")
+    private Integer idEstado = 1;
+
+    @Column(name = "comprobante")
+    private String comprobante;
+
+    @PrePersist
+    @PreUpdate
+    public void prePersist() {
+        if (this.origen == null || this.origen.trim().isEmpty()) {
+            this.origen = "APP";
+        }
+        this.comprobante = calcularComprobante();
+        asignarPeriodoRecibo();
+    }
+
+    private void asignarPeriodoRecibo() {
+        if (this.fecha != null && esRecibo(this.tipo)) {
+            this.periodo = this.fecha.withDayOfMonth(1);
+        }
+    }
+
+    public static boolean esRecibo(String tipo) {
+        if (tipo == null) return false;
+        String t = tipo.trim().toUpperCase();
+        return "RC".equals(t) || "RCA".equals(t) || "RCB".equals(t) || "REC".equals(t) || "OP".equals(t);
+    }
+
+    /**
+     * Calcula el valor de la columna comprobante:
+     * - Si tipo es RC: solo el número.
+     * - En otro caso: "tipo letra XXXX-YYYYYYYY" donde XXXX es ptovta con padding 4 dígitos
+     *   e YYYYYYYY es numero con padding 8 dígitos.
+     */
+    private String calcularComprobante() {
+        if ("RC".equalsIgnoreCase(this.tipo != null ? this.tipo.trim() : "")) {
+            return this.numero != null ? String.valueOf(this.numero) : null;
+        }
+        if (this.tipo == null || this.letra == null || this.ptovta == null || this.numero == null) {
+            return null;
+        }
+        return String.format("%s %s%04d-%08d",
+                this.tipo.trim().toUpperCase(),
+                this.letra.trim().toUpperCase(),
+                this.ptovta,
+                this.numero);
+    }
+
+    public Cabecera() {
+        this.origen = "APP";
+    }
+
+    public Cabecera(String tipo, String letra, Integer ptovta, Integer numero, LocalDate fecha, LocalDate periodo, String tiporegistro, String codigoCobertura) {
+        this.tipo = tipo;
+        this.letra = letra;
+        this.ptovta = ptovta;
+        this.numero = numero;
+        this.fecha = fecha;
+        this.periodo = (esRecibo(tipo) && fecha != null) ? fecha.withDayOfMonth(1) : periodo;
+        this.tiporegistro = tiporegistro;
+        this.codigoCobertura = codigoCobertura;
+        this.origen = "APP";
+    }
+
+    public Cabecera(String tipo, String letra, Integer ptovta, Integer numero, LocalDate fecha, LocalDate periodo, String tiporegistro, String codigoCobertura, String cobertura) {
+        this.tipo = tipo;
+        this.letra = letra;
+        this.ptovta = ptovta;
+        this.numero = numero;
+        this.fecha = fecha;
+        this.periodo = periodo;
+        this.tiporegistro = tiporegistro;
+        this.codigoCobertura = codigoCobertura;
+        this.cobertura = cobertura;
+        this.origen = "APP";
+    }
+
+    public Cabecera(String tipo, String letra, Integer ptovta, Integer numero, LocalDate fecha, LocalDate periodo, String tiporegistro, String codigoCobertura, String cobertura, String origen) {
+        this.tipo = tipo;
+        this.letra = letra;
+        this.ptovta = ptovta;
+        this.numero = numero;
+        this.fecha = fecha;
+        this.periodo = periodo;
+        this.tiporegistro = tiporegistro;
+        this.codigoCobertura = codigoCobertura;
+        this.cobertura = cobertura;
+        this.origen = (origen != null && !origen.trim().isEmpty()) ? origen : "APP";
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTipo() {
+        return tipo;
+    }
+
+    public void setTipo(String tipo) {
+        this.tipo = tipo;
+        asignarPeriodoRecibo();
+    }
+
+    public String getLetra() {
+        return letra;
+    }
+
+    public void setLetra(String letra) {
+        this.letra = letra;
+    }
+
+    public Integer getPtovta() {
+        return ptovta;
+    }
+
+    public void setPtovta(Integer ptovta) {
+        this.ptovta = ptovta;
+    }
+
+    public Integer getNumero() {
+        return numero;
+    }
+
+    public void setNumero(Integer numero) {
+        this.numero = numero;
+    }
+
+    public LocalDate getFecha() {
+        return fecha;
+    }
+
+    public void setFecha(LocalDate fecha) {
+        this.fecha = fecha;
+        asignarPeriodoRecibo();
+    }
+
+    public LocalDate getPeriodo() {
+        if (this.periodo == null && this.fecha != null && esRecibo(this.tipo)) {
+            return this.fecha.withDayOfMonth(1);
+        }
+        return periodo;
+    }
+
+    public void setPeriodo(LocalDate periodo) {
+        this.periodo = periodo;
+    }
+
+    public String getTiporegistro() {
+        return tiporegistro;
+    }
+
+    public void setTiporegistro(String tiporegistro) {
+        this.tiporegistro = tiporegistro;
+    }
+
+    public String getCodigoCobertura() {
+        return codigoCobertura;
+    }
+
+    public void setCodigoCobertura(String codigoCobertura) {
+        this.codigoCobertura = codigoCobertura;
+    }
+
+    public String getCobertura() {
+        return cobertura;
+    }
+
+    public void setCobertura(String cobertura) {
+        this.cobertura = cobertura;
+    }
+
+    public String getOrigen() {
+        return origen;
+    }
+
+    public void setOrigen(String origen) {
+        this.origen = (origen != null && !origen.trim().isEmpty()) ? origen : "APP";
+    }
+
+    public Long getGrupo() {
+        return grupo;
+    }
+
+    public void setGrupo(Long grupo) {
+        this.grupo = grupo;
+    }
+
+    public Long getAsociado() {
+        return asociado;
+    }
+
+    public void setAsociado(Long asociado) {
+        this.asociado = asociado;
+    }
+
+    public Long getAsociadogrupo() {
+        return asociadogrupo;
+    }
+
+    public void setAsociadogrupo(Long asociadogrupo) {
+        this.asociadogrupo = asociadogrupo;
+    }
+
+    public BigDecimal getDebe() {
+        return debe;
+    }
+
+    public void setDebe(BigDecimal debe) {
+        this.debe = debe;
+    }
+
+    public BigDecimal getHaber() {
+        return haber;
+    }
+
+    public void setHaber(BigDecimal haber) {
+        this.haber = haber;
+    }
+
+    public Integer getIdEstado() {
+        return idEstado;
+    }
+
+    public void setIdEstado(Integer idEstado) {
+        this.idEstado = idEstado;
+    }
+
+    public String getComprobante() {
+        return comprobante;
+    }
+
+    public void setComprobante(String comprobante) {
+        this.comprobante = comprobante;
+    }
+}

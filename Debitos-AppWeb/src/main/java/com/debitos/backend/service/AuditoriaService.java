@@ -1,24 +1,66 @@
 package com.debitos.backend.service;
 
+import com.debitos.backend.dto.CabeceraCandidataDTO;
+import com.debitos.backend.dto.CambioEstadoResponse;
+import com.debitos.backend.dto.DatosNotaDTO;
+import com.debitos.backend.dto.DocumentoAsociadoDTO;
+import com.debitos.backend.dto.FilaAjusteIvaResumenDTO;
+import com.debitos.backend.dto.FilaHistorialDTO;
+import com.debitos.backend.dto.GuardarParcialRequest;
+import com.debitos.backend.dto.NuevaNotaCreditoRequest;
+import com.debitos.backend.dto.NuevaNotaDebitoAjusteIvaRequest;
+import com.debitos.backend.dto.NuevaNotaDebitoRequest;
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
+import com.debitos.backend.dto.RegistroAuditoriaDTO;
+import com.debitos.backend.dto.ResultadoBusquedaDTO;
 import com.debitos.backend.model.AmbLiquidado;
+import com.debitos.backend.model.Cabecera;
+import com.debitos.backend.model.NcAjusteDeIva;
+import com.debitos.backend.model.NdAjusteDeIva;
 import com.debitos.backend.model.NotaDeCredito;
 import com.debitos.backend.model.NotaDeDebito;
+import com.debitos.backend.model.RegistroImputacion;
+import com.debitos.backend.model.RegistroUsabilidad;
 import com.debitos.backend.repository.AmbLiquidadoRepository;
+import com.debitos.backend.repository.CabeceraRepository;
+import com.debitos.backend.repository.NcAjusteDeIvaRepository;
+import com.debitos.backend.repository.NdAjusteDeIvaRepository;
 import com.debitos.backend.repository.NotaDeCreditoRepository;
 import com.debitos.backend.repository.NotaDeDebitoRepository;
-import jakarta.transaction.Transactional;
+import com.debitos.backend.repository.RegistroImputacionRepository;
+import com.debitos.backend.repository.RegistroUsabilidadRepository;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 public class AuditoriaService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditoriaService.class);
+
+    @Autowired
+    private CabeceraRepository cabeceraRepository;
 
     @Autowired
     private AmbLiquidadoRepository ambLiquidadoRepository;
@@ -29,320 +71,1476 @@ public class AuditoriaService {
     @Autowired
     private NotaDeDebitoRepository notaDeDebitoRepository;
 
-    public String obtenerTipoRegistro(String tipoFactura, String letra, int ptovta, int numero) {
-        return switch (tipoFactura) {
-            case "FC" -> ambLiquidadoRepository.findDistinctTipoRegistro(letra, ptovta, numero);
-            case "NC" -> notaDeCreditoRepository.findDistinctTipoRegistro(letra, ptovta, numero);
-            case "ND" -> notaDeDebitoRepository.findDistinctTipoRegistro(letra, ptovta, numero);
-            default -> throw new IllegalArgumentException("Tipo de factura desconocido: " + tipoFactura);
+    @Autowired
+    private NotificacionService notificacionService;
+
+    @Autowired
+    private NcAjusteDeIvaRepository ncAjusteDeIvaRepository;
+
+
+    @Autowired
+    private NdAjusteDeIvaRepository ndAjusteDeIvaRepository;
+
+    @Autowired
+    private RegistroUsabilidadRepository registroUsabilidadRepository;
+
+    @Autowired
+    private RegistroImputacionRepository registroImputacionRepository;
+
+    @Autowired(required = false)
+    private com.debitos.backend.config.CacheConfig cacheConfig;
+
+    private void invalidarCacheTablero() {
+        if (cacheConfig != null) {
+            cacheConfig.desalojarCacheTablero();
+        }
+    }
+
+    public static List<String> resolverTiposEquivalentes(String tipo) {
+        if (tipo == null || tipo.trim().isEmpty()) return List.of();
+        String t = tipo.trim().toUpperCase();
+        return switch (t) {
+            case "FC", "FAC", "FCE", "FCA", "FCB" -> List.of("FC", "FAC", "FCE", "FCA", "FCB");
+            case "NC", "NCE", "NCA", "NCB" -> List.of("NC", "NCE", "NCA", "NCB");
+            case "ND", "NDE", "NDA", "NDB" -> List.of("ND", "NDE", "NDA", "NDB");
+            case "RC", "REC", "RCA", "RCB" -> List.of("RC", "REC", "RCA", "RCB");
+            default -> List.of(t);
         };
     }
 
-    public List<PrestacionAuditoriaDTO> obtenerPrestaciones(String facturaTipo, String tipoRegistro, String letra,
-            int ptovta, int numero) {
-        return switch (facturaTipo) {
-            case "FC" -> ambLiquidadoRepository.findPrestacionesPorFactura(letra, ptovta, numero);
-            case "NC" -> notaDeCreditoRepository.findPrestacionesPorNotaCredito(letra, ptovta, numero);
-            case "ND" -> notaDeDebitoRepository.findPrestacionesPorNotaDebito(letra, ptovta, numero);
+    public String obtenerTipoRegistro(String tipoFactura, String letra, int ptovta, int numero) {
+        if (tipoFactura == null || tipoFactura.trim().isEmpty()) {
+            return null;
+        }
+        List<String> tipos = resolverTiposEquivalentes(tipoFactura);
+        return cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tipos, letra, ptovta, numero)
+                .stream()
+                .findFirst()
+                .map(Cabecera::getTiporegistro)
+                .orElse(null);
+    }
+
+    public List<PrestacionAuditoriaDTO> obtenerPrestaciones(String facturaTipo, String letra, int ptovta, int numero) {
+        String tipoUpper = facturaTipo != null ? facturaTipo.trim().toUpperCase() : "";
+        List<String> tipos = resolverTiposEquivalentes(tipoUpper);
+        return switch (tipoUpper) {
+            case "FC", "FAC", "FCE" -> ambLiquidadoRepository.findPrestacionesPorFactura(tipos, letra, ptovta, numero);
+            case "NC", "NCE" -> notaDeCreditoRepository.findPrestacionesPorNotaCredito(tipos, letra, ptovta, numero);
+            case "ND", "NDE" -> notaDeDebitoRepository.findPrestacionesPorNotaDebito(tipos, letra, ptovta, numero);
             default -> throw new IllegalArgumentException("Tipo de documento desconocido: " + facturaTipo);
         };
     }
 
+    public ResultadoBusquedaDTO buscarUnificado(String tipo, String letra, Integer ptovta, int numero) {
+        ResultadoBusquedaDTO resultado = null;
+        String tipoUpper = tipo != null ? tipo.trim().toUpperCase() : "";
+        List<String> tiposEquivalentes = resolverTiposEquivalentes(tipoUpper);
+        int puntoVentaInt = ptovta != null ? ptovta : 0;
+        String letraStr = letra != null ? letra.trim().toUpperCase() : "";
+
+        if ("RC".equals(tipoUpper)) {
+            Optional<Cabecera> rcOpt = cabeceraRepository.findByTipoRcAndNumero(numero).stream().findFirst();
+            if (rcOpt.isEmpty()) {
+                return null;
+            }
+            resultado = new ResultadoBusquedaDTO();
+            resultado.setTipoVista("ESTANDAR");
+            resultado.setPrestaciones(Collections.emptyList());
+        } else if ("NC".equals(tipoUpper) || "NCE".equals(tipoUpper)) {
+            // 1. Primero busca en notadecredito
+            try {
+                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+                if (cabOpt.isPresent()) {
+                    List<PrestacionAuditoriaDTO> resultadosNc = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
+                    if (resultadosNc != null && !resultadosNc.isEmpty()) {
+                        resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNc);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // Si se encontró en notadecredito, verificar si también tiene nc_ajustedeiva (NC Conjunta)
+            if (resultado != null) {
+                Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(letraStr, puntoVentaInt, numero);
+                if (ncIvaOpt.isPresent()) {
+                    List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenAjusteIva(ncIvaOpt.get());
+                    resultado.setResumenAjusteIva(filas);
+                }
+            } else {
+                // 2. Si no se encontró en notadecredito, busca en nc_ajustedeiva
+                Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(letraStr, puntoVentaInt, numero);
+                if (ncIvaOpt.isPresent()) {
+                    NcAjusteDeIva ncIva = ncIvaOpt.get();
+                    List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenAjusteIva(ncIva);
+                    resultado = ResultadoBusquedaDTO.deAjusteIva(filas);
+                }
+            }
+        } else if ("ND".equals(tipoUpper) || "NDE".equals(tipoUpper)) {
+            // 1. Primero busca en notadedebito
+            try {
+                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+                if (cabOpt.isPresent()) {
+                    List<PrestacionAuditoriaDTO> resultadosNd = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
+                    if (resultadosNd != null && !resultadosNd.isEmpty()) {
+                        resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNd);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            // 2. Si no se encontró en notadedebito, busca en nd_ajustedeiva
+            if (resultado == null) {
+                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(letraStr, puntoVentaInt, numero);
+                if (ndIvaOpt.isPresent()) {
+                    NdAjusteDeIva ndIva = ndIvaOpt.get();
+                    Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(
+                            ndIva.getLetraNc(), ndIva.getPtovtaNc(), ndIva.getNumeroNc()
+                    );
+                    if (ncIvaOpt.isPresent()) {
+                        List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenAjusteIva(ncIvaOpt.get());
+                        resultado = ResultadoBusquedaDTO.deAjusteIva(filas);
+                    } else {
+                        List<FilaAjusteIvaResumenDTO> filas = construirTablaResumenDesdeNdIva(ndIva);
+                        resultado = ResultadoBusquedaDTO.deAjusteIva(filas);
+                    }
+                }
+            }
+        }
+
+        // Búsqueda para FC (FAC, FCE) u otros comprobantes
+        if (resultado == null) {
+            Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+            if (cabOpt.isPresent()) {
+                List<PrestacionAuditoriaDTO> resultados = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
+                if (resultados != null && !resultados.isEmpty()) {
+                    resultado = ResultadoBusquedaDTO.dePrestaciones(resultados);
+                }
+            }
+        }
+
+        return adjuntarVerificacionesEHistorial(resultado, tipoUpper, letraStr, puntoVentaInt, numero);
+    }
+
+    private ResultadoBusquedaDTO adjuntarVerificacionesEHistorial(ResultadoBusquedaDTO dto, String tipo, String letra, int ptovta, int numero) {
+        if (dto == null) return null;
+
+        try {
+            if ("FC".equalsIgnoreCase(tipo) || "FAC".equalsIgnoreCase(tipo) || "FCE".equalsIgnoreCase(tipo)) {
+                dto.setDocumentosCreadosInfo(obtenerNotasDeCreditoCreadasParaFC(letra, ptovta, numero));
+            } else if ("NC".equalsIgnoreCase(tipo) || "NCE".equalsIgnoreCase(tipo)) {
+                dto.setDocumentosCreadosInfo(obtenerNotasDeDebitoCreadasParaNC(letra, ptovta, numero));
+            } else if ("ND".equalsIgnoreCase(tipo) || "NDE".equalsIgnoreCase(tipo)) {
+                dto.setDocumentoCreadoInfo(obtenerNotaDeCreditoCreadaParaND(letra, ptovta, numero));
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            dto.setHistorialComprobantes(obtenerHistorialComprobantes(tipo, letra, ptovta, numero));
+        } catch (Exception ignored) {}
+
+        return dto;
+    }
+
+    private List<FilaAjusteIvaResumenDTO> construirTablaResumenAjusteIva(NcAjusteDeIva ncIva) {
+        List<FilaAjusteIvaResumenDTO> filas = new ArrayList<>();
+
+        // 1. Fila FC (Factura madre)
+        Object[] totalesFcObj = ambLiquidadoRepository.findTotalesFacturaMadre(ncIva.getLetraFc(), ncIva.getPtovtaFc(), ncIva.getNumeroFc());
+        String periodoFcStr = "";
+        BigDecimal netoFc = BigDecimal.ZERO;
+        BigDecimal ivaFc = BigDecimal.ZERO;
+
+        if (totalesFcObj != null && totalesFcObj.length > 0) {
+            Object rowObj = totalesFcObj[0];
+            if (rowObj instanceof Object[] row) {
+                if (row[0] != null) periodoFcStr = row[0].toString();
+                if (row[1] != null) netoFc = new BigDecimal(row[1].toString());
+                if (row[2] != null) ivaFc = new BigDecimal(row[2].toString());
+            }
+        }
+
+        FilaAjusteIvaResumenDTO filaFc = new FilaAjusteIvaResumenDTO(
+                ncIva.getTipoFc(),
+                ncIva.getLetraFc(),
+                ncIva.getPtovtaFc(),
+                ncIva.getNumeroFc(),
+                periodoFcStr,
+                netoFc,
+                ncIva.getPorcIva(),
+                ivaFc
+        );
+        filas.add(filaFc);
+
+        // 2. Fila NC (Nota de Crédito) - obtenida de su Cabecera
+        Cabecera cabNc = ncIva.getCabecera();
+        String tipoNc = cabNc != null ? cabNc.getTipo() : "NC";
+        String letraNc = cabNc != null ? cabNc.getLetra() : "";
+        Integer ptovtaNc = cabNc != null ? cabNc.getPtovta() : null;
+        Integer numeroNc = cabNc != null ? cabNc.getNumero() : null;
+        String fechaNcStr = (cabNc != null && cabNc.getFecha() != null)
+                ? cabNc.getFecha().toString()
+                : (ncIva.getFechaRegistro() != null ? ncIva.getFechaRegistro().toString().split("T")[0] : "");
+
+        FilaAjusteIvaResumenDTO filaNc = new FilaAjusteIvaResumenDTO(
+                tipoNc,
+                letraNc,
+                ptovtaNc,
+                numeroNc,
+                fechaNcStr,
+                ncIva.getNeto(),
+                ncIva.getPorcIva(),
+                ncIva.getIva()
+        );
+        filas.add(filaNc);
+
+        // 3. Fila ND (Nota de Débito)
+        Optional<NdAjusteDeIva> ndOpt = (letraNc != null && ptovtaNc != null && numeroNc != null)
+                ? ndAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(letraNc, ptovtaNc, numeroNc)
+                : Optional.empty();
+
+        if (ndOpt.isPresent()) {
+            NdAjusteDeIva ndIva = ndOpt.get();
+            Cabecera cabNd = ndIva.getCabecera();
+            String tipoNd = cabNd != null ? cabNd.getTipo() : "ND";
+            String letraNd = cabNd != null ? cabNd.getLetra() : "";
+            Integer ptovtaNd = cabNd != null ? cabNd.getPtovta() : null;
+            Integer numeroNd = cabNd != null ? cabNd.getNumero() : null;
+            String fechaNdStr = (cabNd != null && cabNd.getFecha() != null)
+                    ? cabNd.getFecha().toString()
+                    : (ndIva.getFechaRegistro() != null ? ndIva.getFechaRegistro().toString().split("T")[0] : "");
+
+            FilaAjusteIvaResumenDTO filaNd = new FilaAjusteIvaResumenDTO(
+                    tipoNd,
+                    letraNd,
+                    ptovtaNd,
+                    numeroNd,
+                    fechaNdStr,
+                    ndIva.getNeto(),
+                    ndIva.getPorcIva(),
+                    ndIva.getIva()
+            );
+            filas.add(filaNd);
+        } else {
+            FilaAjusteIvaResumenDTO filaNd = new FilaAjusteIvaResumenDTO(
+                    "ND", "", null, null, "", null, null, null
+            );
+            filas.add(filaNd);
+        }
+
+        return filas;
+    }
+
+    private List<FilaAjusteIvaResumenDTO> construirTablaResumenDesdeNdIva(NdAjusteDeIva ndIva) {
+        List<FilaAjusteIvaResumenDTO> filas = new ArrayList<>();
+
+        // 1. Fila FC vacía
+        filas.add(new FilaAjusteIvaResumenDTO("FC", "", null, null, "", null, null, null));
+
+        // 2. Fila NC con datos mínimos de la NC padre almacenados en ndIva
+        filas.add(new FilaAjusteIvaResumenDTO(ndIva.getTipoNc(), ndIva.getLetraNc(), ndIva.getPtovtaNc(), ndIva.getNumeroNc(), "", null, null, null));
+
+        // 3. Fila ND
+        Cabecera cabNd = ndIva.getCabecera();
+        String tipoNd = cabNd != null ? cabNd.getTipo() : "ND";
+        String letraNd = cabNd != null ? cabNd.getLetra() : "";
+        Integer ptovtaNd = cabNd != null ? cabNd.getPtovta() : null;
+        Integer numeroNd = cabNd != null ? cabNd.getNumero() : null;
+        String fechaNdStr = (cabNd != null && cabNd.getFecha() != null)
+                ? cabNd.getFecha().toString()
+                : (ndIva.getFechaRegistro() != null ? ndIva.getFechaRegistro().toString().split("T")[0] : "");
+
+        filas.add(new FilaAjusteIvaResumenDTO(
+                tipoNd,
+                letraNd,
+                ptovtaNd,
+                numeroNd,
+                fechaNdStr,
+                ndIva.getNeto(),
+                ndIva.getPorcIva(),
+                ndIva.getIva()
+        ));
+
+        return filas;
+    }
+
+    public List<FilaHistorialDTO> obtenerHistorialComprobantes(String tipo, String letra, Integer ptovta, int numero) {
+        List<FilaHistorialDTO> historial = new ArrayList<>();
+        String tipoUpper = tipo != null ? tipo.trim().toUpperCase() : "";
+
+        Optional<Cabecera> cabeceraActualOpt;
+        if ("RC".equalsIgnoreCase(tipoUpper)) {
+            cabeceraActualOpt = cabeceraRepository.findByTipoRcAndNumero(numero).stream().findFirst();
+        } else {
+            List<String> tiposEquivalentes = resolverTiposEquivalentes(tipoUpper);
+            String letraStr = letra != null ? letra.trim().toUpperCase() : "";
+            int puntoVentaInt = ptovta != null ? ptovta : 0;
+            cabeceraActualOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero)
+                    .stream().findFirst();
+        }
+
+        if (cabeceraActualOpt.isEmpty()) {
+            return historial;
+        }
+
+        Cabecera cabeceraActual = cabeceraActualOpt.get();
+        Long grupoId = cabeceraActual.getAsociadogrupo();
+        if (grupoId == null || grupoId == 0L) {
+            grupoId = cabeceraActual.getGrupo();
+        }
+        if (grupoId == null || grupoId == 0L) {
+            grupoId = cabeceraActual.getAsociado();
+        }
+        if (grupoId == null || grupoId == 0L) {
+            grupoId = cabeceraActual.getId();
+        }
+
+        List<Cabecera> familia = (grupoId != null && grupoId != 0L)
+                ? new ArrayList<>(cabeceraRepository.findByAsociadogrupo(grupoId))
+                : new ArrayList<>();
+
+        if (familia.isEmpty() && grupoId != null && grupoId != 0L) {
+            familia = new ArrayList<>(cabeceraRepository.findByGrupoOrAsociadogrupoOrId(grupoId));
+        }
+
+        if (familia.stream().noneMatch(c -> Objects.equals(c.getId(), cabeceraActual.getId()))) {
+            familia.add(cabeceraActual);
+        }
+
+        // Buscar la Cabecera Raíz (Factura Madre Nivel 0): FC / FAC / FCE
+        Cabecera raiz = familia.stream()
+                .filter(c -> "FC".equalsIgnoreCase(resolverTipoBase(c.getTipo())))
+                .min((c1, c2) -> {
+                    boolean c1Self = c1.getAsociado() != null && c1.getAsociado().equals(c1.getId());
+                    boolean c2Self = c2.getAsociado() != null && c2.getAsociado().equals(c2.getId());
+                    if (c1Self != c2Self) return c1Self ? -1 : 1;
+                    if (c1.getFecha() != null && c2.getFecha() != null) {
+                        int comp = c1.getFecha().compareTo(c2.getFecha());
+                        if (comp != 0) return comp;
+                    }
+                    return c1.getId().compareTo(c2.getId());
+                })
+                .orElse(null);
+
+        if (raiz == null) {
+            raiz = "FC".equalsIgnoreCase(resolverTipoBase(cabeceraActual.getTipo())) ? cabeceraActual :
+                    familia.stream()
+                            .filter(c -> !"RC".equalsIgnoreCase(resolverTipoBase(c.getTipo())))
+                            .min((c1, c2) -> {
+                                if (c1.getFecha() != null && c2.getFecha() != null) {
+                                    int comp = c1.getFecha().compareTo(c2.getFecha());
+                                    if (comp != 0) return comp;
+                                }
+                                return c1.getId().compareTo(c2.getId());
+                            })
+                            .orElse(cabeceraActual);
+        }
+
+        // 1. Fila FC (Factura madre) — Nivel 0
+        Object[] totalesFcObj = ambLiquidadoRepository.findTotalesFacturaMadre(raiz.getLetra(), raiz.getPtovta(), raiz.getNumero());
+        String periodoFcStr = raiz.getPeriodo() != null ? raiz.getPeriodo().toString() : "";
+        BigDecimal netoFc = BigDecimal.ZERO;
+        BigDecimal ivaFc = BigDecimal.ZERO;
+        if (totalesFcObj != null && totalesFcObj.length > 0) {
+            Object rowObj = totalesFcObj[0];
+            if (rowObj instanceof Object[] row) {
+                if (row[0] != null && periodoFcStr.isEmpty()) periodoFcStr = row[0].toString();
+                if (row[1] != null) netoFc = new BigDecimal(row[1].toString());
+                if (row.length > 2 && row[2] != null) ivaFc = new BigDecimal(row[2].toString());
+            } else {
+                if (totalesFcObj[0] != null && periodoFcStr.isEmpty()) periodoFcStr = totalesFcObj[0].toString();
+                if (totalesFcObj.length > 1 && totalesFcObj[1] != null) netoFc = new BigDecimal(totalesFcObj[1].toString());
+                if (totalesFcObj.length > 2 && totalesFcObj[2] != null) ivaFc = new BigDecimal(totalesFcObj[2].toString());
+            }
+        }
+        if (netoFc.compareTo(BigDecimal.ZERO) == 0 && raiz.getDebe() != null && raiz.getDebe().compareTo(BigDecimal.ZERO) > 0) {
+            netoFc = raiz.getDebe();
+        }
+
+        FilaHistorialDTO filaFc = new FilaHistorialDTO(
+                raiz.getTipo() != null ? raiz.getTipo() : "FC",
+                raiz.getLetra(),
+                raiz.getPtovta(),
+                raiz.getNumero(),
+                periodoFcStr,
+                netoFc
+        );
+        filaFc.setNivel(0);
+        filaFc.setMontoIva(ivaFc);
+        filaFc.setIdGrupo(grupoId != null && grupoId != 0L ? grupoId : (raiz.getAsociadogrupo() != null ? raiz.getAsociadogrupo() : (raiz.getGrupo() != null ? raiz.getGrupo() : raiz.getId())));
+        filaFc.setIdEstado(raiz.getIdEstado() != null ? raiz.getIdEstado() : 1);
+        boolean tienePrestacionesFc = raiz.getId() != null && !ambLiquidadoRepository.findByCabecera_Id(raiz.getId()).isEmpty();
+        if (!tienePrestacionesFc && raiz.getLetra() != null && raiz.getPtovta() != null && raiz.getNumero() != null) {
+            tienePrestacionesFc = !ambLiquidadoRepository.findPrestacionesPorFactura(raiz.getLetra(), raiz.getPtovta(), raiz.getNumero()).isEmpty();
+        }
+        filaFc.setTienePrestaciones(tienePrestacionesFc);
+        historial.add(filaFc);
+
+        // 2. Construir mapa de hijos directos en memoria usando la columna asociado
+        Map<Long, List<Cabecera>> hijosPorPadre = new LinkedHashMap<>();
+
+        for (Cabecera c : familia) {
+            if (Objects.equals(c.getId(), raiz.getId())) continue;
+
+            Long padreId = c.getAsociado();
+            // Si el asociado apunta a sí mismo:
+            if (padreId != null && padreId.equals(c.getId())) {
+                padreId = null;
+            }
+
+            if (padreId != null) {
+                hijosPorPadre.computeIfAbsent(padreId, k -> new ArrayList<>()).add(c);
+            } else {
+                // Si asociado es nulo:
+                // 1) Si es un RC sin asociado explícito, es hijo directo de la raíz (Factura Madre o ND raíz)
+                if ("RC".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
+                    hijosPorPadre.computeIfAbsent(raiz.getId(), k -> new ArrayList<>()).add(c);
+                } else {
+                    // 2) Fallback relacional si asociado es null (para compatibilidad de registros históricos):
+                    Long padreRelacional = null;
+                    if ("ND".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
+                        for (Cabecera candNc : familia) {
+                            if ("NC".equalsIgnoreCase(resolverTipoBase(candNc.getTipo()))) {
+                                boolean vinculadoPorNd = notaDeDebitoRepository.findByCabecera_Id(c.getId()).stream()
+                                        .anyMatch(ndItem -> {
+                                            try {
+                                                return ndItem.getNotaDeCreditoPadre() != null
+                                                        && ndItem.getNotaDeCreditoPadre().getCabecera() != null
+                                                        && Objects.equals(ndItem.getNotaDeCreditoPadre().getCabecera().getId(), candNc.getId());
+                                            } catch (Exception e) {
+                                                return false;
+                                            }
+                                        });
+                                if (vinculadoPorNd) {
+                                    padreRelacional = candNc.getId();
+                                    break;
+                                }
+                                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                                if (ndIvaOpt.isPresent()) {
+                                    NdAjusteDeIva ndIva = ndIvaOpt.get();
+                                    if (Objects.equals(ndIva.getLetraNc(), candNc.getLetra())
+                                            && Objects.equals(ndIva.getPtovtaNc(), candNc.getPtovta())
+                                            && Objects.equals(ndIva.getNumeroNc(), candNc.getNumero())) {
+                                        padreRelacional = candNc.getId();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else if ("NC".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
+                        for (Cabecera candNd : familia) {
+                            if ("ND".equalsIgnoreCase(resolverTipoBase(candNd.getTipo()))) {
+                                boolean vinculadoPorNcNd = notaDeCreditoRepository.findByCabecera_Id(c.getId()).stream()
+                                        .anyMatch(ncItem -> {
+                                            try {
+                                                return ncItem.getNotaDeDebitoPadre() != null
+                                                        && ncItem.getNotaDeDebitoPadre().getCabecera() != null
+                                                        && Objects.equals(ncItem.getNotaDeDebitoPadre().getCabecera().getId(), candNd.getId());
+                                            } catch (Exception e) {
+                                                return false;
+                                            }
+                                        });
+                                if (vinculadoPorNcNd) {
+                                    padreRelacional = candNd.getId();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (padreRelacional != null) {
+                        hijosPorPadre.computeIfAbsent(padreRelacional, k -> new ArrayList<>()).add(c);
+                    } else {
+                        // 3) Si no tiene asociado ni relación específica, es hijo directo de la raíz (Factura Madre / Comprobante Raíz)
+                        hijosPorPadre.computeIfAbsent(raiz.getId(), k -> new ArrayList<>()).add(c);
+                    }
+                }
+            }
+        }
+
+        // Ordenar hijos por fecha ASC, número ASC, id ASC dentro de cada padre
+        for (List<Cabecera> listaHijos : hijosPorPadre.values()) {
+            listaHijos.sort((c1, c2) -> {
+                if (c1.getFecha() != null && c2.getFecha() != null) {
+                    int comp = c1.getFecha().compareTo(c2.getFecha());
+                    if (comp != 0) return comp;
+                }
+                if (c1.getNumero() != null && c2.getNumero() != null) {
+                    int comp = c1.getNumero().compareTo(c2.getNumero());
+                    if (comp != 0) return comp;
+                }
+                if (c1.getId() != null && c2.getId() != null) {
+                    return c1.getId().compareTo(c2.getId());
+                }
+                return 0;
+            });
+        }
+
+        // 3. Recorrido en profundidad recursivo a partir de la raíz
+        Set<Long> visitados = new HashSet<>();
+        if (raiz.getId() != null) {
+            visitados.add(raiz.getId());
+        }
+
+        recorrerHistorialRecursivo(raiz.getId(), 1, hijosPorPadre, historial, visitados, familia);
+
+        // Seguridad: agregar cualquier miembro de la familia no visitado
+        for (Cabecera c : familia) {
+            if (c.getId() != null && !visitados.contains(c.getId())) {
+                visitados.add(c.getId());
+                FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(c, 1);
+                historial.add(fila);
+            }
+        }
+
+        return historial;
+    }
+
+    private void recorrerHistorialRecursivo(Long padreId, int nivel,
+                                            Map<Long, List<Cabecera>> hijosPorPadre,
+                                            List<FilaHistorialDTO> historial,
+                                            Set<Long> visitados,
+                                            List<Cabecera> familia) {
+        if (padreId == null) return;
+        List<Cabecera> hijos = hijosPorPadre.get(padreId);
+        if (hijos == null || hijos.isEmpty()) return;
+
+        for (Cabecera hijo : hijos) {
+            if (hijo.getId() != null && visitados.contains(hijo.getId())) continue;
+            if (hijo.getId() != null) visitados.add(hijo.getId());
+
+            FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(hijo, nivel);
+            historial.add(fila);
+
+            // Si es una NC con Ajuste de IVA (exclusiva o conjunta), verificar si tiene ND de ajuste IVA hija en memoria o repositorio
+            boolean tieneAjusteIvaNc = "NC".equalsIgnoreCase(resolverTipoBase(hijo.getTipo())) && (
+                    "IVA".equalsIgnoreCase(fila.getOrigenTipo()) ||
+                    (fila.getPorcentajeIva() != null && fila.getMontoIva() != null && fila.getMontoIva().compareTo(BigDecimal.ZERO) > 0)
+            );
+            if (tieneAjusteIvaNc) {
+                boolean tieneNdIvaHija = familia.stream().anyMatch(c -> {
+                    if (!"ND".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) return false;
+                    Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                    if (ndIvaOpt.isPresent()) {
+                        NdAjusteDeIva ndIva = ndIvaOpt.get();
+                        return Objects.equals(ndIva.getLetraNc(), hijo.getLetra())
+                                && Objects.equals(ndIva.getPtovtaNc(), hijo.getPtovta())
+                                && Objects.equals(ndIva.getNumeroNc(), hijo.getNumero());
+                    }
+                    return false;
+                });
+
+                if (!tieneNdIvaHija && hijo.getLetra() != null && hijo.getPtovta() != null && hijo.getNumero() != null) {
+                    tieneNdIvaHija = ndAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(hijo.getLetra(), hijo.getPtovta(), hijo.getNumero()).isPresent();
+                }
+
+                if (!tieneNdIvaHija) {
+                    // Agregar placeholder de ND de ajuste IVA pendiente
+                    FilaHistorialDTO placeholderNd = new FilaHistorialDTO("ND", "", null, null, "", null);
+                    placeholderNd.setNivel(nivel + 1);
+                    placeholderNd.setOrigenTipo("IVA");
+                    placeholderNd.setPlaceholderNdAjusteIva(true);
+                    placeholderNd.setPorcentajeIva(fila.getPorcentajeIva());
+                    placeholderNd.setMontoIva(fila.getMontoIva());
+                    historial.add(placeholderNd);
+                }
+            }
+
+            // Continuar navegando los hijos de este comprobante
+            if (hijo.getId() != null) {
+                recorrerHistorialRecursivo(hijo.getId(), nivel + 1, hijosPorPadre, historial, visitados, familia);
+            }
+        }
+    }
+
+    private FilaHistorialDTO mapearCabeceraAFilaHistorial(Cabecera cab, int nivel) {
+        String tipoBase = resolverTipoBase(cab.getTipo());
+        String fechaStr = cab.getFecha() != null ? cab.getFecha().toString() : "";
+        String origenTipo = "REF";
+        BigDecimal montoNeto = BigDecimal.ZERO;
+        BigDecimal montoIva = BigDecimal.ZERO;
+        BigDecimal porcIva = null;
+
+        if ("RC".equalsIgnoreCase(tipoBase)) {
+            origenTipo = "COB";
+            if (cab.getHaber() != null && cab.getHaber().compareTo(BigDecimal.ZERO) > 0) {
+                montoNeto = cab.getHaber();
+            } else if (cab.getDebe() != null && cab.getDebe().compareTo(BigDecimal.ZERO) > 0) {
+                montoNeto = cab.getDebe();
+            }
+        } else if ("NC".equalsIgnoreCase(tipoBase)) {
+            Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByCabecera_Id(cab.getId());
+            if (ncIvaOpt.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+            }
+
+            List<NotaDeCredito> ncs = (cab.getId() != null) ? notaDeCreditoRepository.findByCabecera_Id(cab.getId()) : Collections.emptyList();
+            if (ncs.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                ncs = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+            }
+
+            boolean tienePrestacionesNc = !ncs.isEmpty();
+
+            if (ncIvaOpt.isPresent() && !tienePrestacionesNc) {
+                NcAjusteDeIva ncIva = ncIvaOpt.get();
+                origenTipo = "IVA";
+                montoNeto = ncIva.getNeto() != null ? ncIva.getNeto() : BigDecimal.ZERO;
+                montoIva = ncIva.getIva() != null ? ncIva.getIva() : BigDecimal.ZERO;
+                porcIva = ncIva.getPorcIva();
+            } else if (ncIvaOpt.isPresent() && tienePrestacionesNc) {
+                NcAjusteDeIva ncIva = ncIvaOpt.get();
+                origenTipo = "DEB";
+                montoNeto = ncs.stream()
+                        .map(NotaDeCredito::getImporteDebitado)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (montoNeto.compareTo(BigDecimal.ZERO) == 0 && cab.getHaber() != null && cab.getHaber().compareTo(BigDecimal.ZERO) > 0) {
+                    montoNeto = cab.getHaber();
+                }
+                montoIva = ncIva.getIva() != null ? ncIva.getIva() : BigDecimal.ZERO;
+                porcIva = ncIva.getPorcIva();
+            } else {
+                origenTipo = "DEB";
+                montoNeto = ncs.stream()
+                        .map(NotaDeCredito::getImporteDebitado)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (montoNeto.compareTo(BigDecimal.ZERO) == 0 && cab.getHaber() != null && cab.getHaber().compareTo(BigDecimal.ZERO) > 0) {
+                    montoNeto = cab.getHaber();
+                }
+            }
+        } else if ("ND".equalsIgnoreCase(tipoBase)) {
+            Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(cab.getId());
+            if (ndIvaOpt.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                ndIvaOpt = ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+            }
+
+            if (ndIvaOpt.isPresent()) {
+                NdAjusteDeIva ndIva = ndIvaOpt.get();
+                origenTipo = "IVA";
+                montoNeto = ndIva.getNeto() != null ? ndIva.getNeto() : BigDecimal.ZERO;
+                montoIva = ndIva.getIva() != null ? ndIva.getIva() : BigDecimal.ZERO;
+                porcIva = ndIva.getPorcIva();
+            } else {
+                origenTipo = "REF";
+                List<NotaDeDebito> nds = notaDeDebitoRepository.findByCabecera_Id(cab.getId());
+                if (nds.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                    nds = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                }
+                montoNeto = nds.stream()
+                        .map(NotaDeDebito::getImporterefactura)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (montoNeto.compareTo(BigDecimal.ZERO) == 0 && cab.getDebe() != null && cab.getDebe().compareTo(BigDecimal.ZERO) > 0) {
+                    montoNeto = cab.getDebe();
+                }
+            }
+        }
+
+        boolean tienePrestaciones = false;
+        if ("NC".equalsIgnoreCase(tipoBase)) {
+            boolean enNcIva = cab.getId() != null && ncAjusteDeIvaRepository.findByCabecera_Id(cab.getId()).isPresent();
+            boolean enNc = cab.getId() != null && !notaDeCreditoRepository.findByCabecera_Id(cab.getId()).isEmpty();
+            if (!enNc && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                enNc = !notaDeCreditoRepository.findPrestacionesPorNotaCredito(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
+            }
+            tienePrestaciones = enNcIva || enNc;
+        } else if ("ND".equalsIgnoreCase(tipoBase)) {
+            boolean enNdIva = cab.getId() != null && ndAjusteDeIvaRepository.findByCabecera_Id(cab.getId()).isPresent();
+            boolean enNd = cab.getId() != null && !notaDeDebitoRepository.findByCabecera_Id(cab.getId()).isEmpty();
+            if (!enNd && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                enNd = !notaDeDebitoRepository.findPrestacionesPorNotaDebito(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
+            }
+            tienePrestaciones = enNdIva || enNd;
+        } else if ("FC".equalsIgnoreCase(tipoBase)) {
+            tienePrestaciones = cab.getId() != null && !ambLiquidadoRepository.findByCabecera_Id(cab.getId()).isEmpty();
+            if (!tienePrestaciones && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
+                tienePrestaciones = !ambLiquidadoRepository.findPrestacionesPorFactura(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
+            }
+        }
+
+        Integer num = cab.getNumero();
+        if (num == null && cab.getComprobante() != null && !cab.getComprobante().trim().isEmpty()) {
+            try {
+                String digits = cab.getComprobante().trim().replaceAll("[^0-9]", "");
+                if (!digits.isEmpty()) {
+                    num = Integer.parseInt(digits);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        FilaHistorialDTO fila = new FilaHistorialDTO(
+                cab.getTipo() != null ? cab.getTipo() : tipoBase,
+                cab.getLetra(),
+                cab.getPtovta(),
+                num,
+                fechaStr,
+                montoNeto
+        );
+        fila.setNivel(nivel);
+        fila.setOrigenTipo(origenTipo);
+        fila.setPorcentajeIva(porcIva);
+        fila.setMontoIva(montoIva);
+        fila.setTienePrestaciones(tienePrestaciones);
+        fila.setIdGrupo(cab.getAsociadogrupo() != null ? cab.getAsociadogrupo() : (cab.getGrupo() != null ? cab.getGrupo() : cab.getId()));
+        fila.setIdEstado(cab.getIdEstado() != null ? cab.getIdEstado() : 1);
+        return fila;
+    }
+
+    public static String resolverTipoBase(String tipo) {
+        if (tipo == null || tipo.trim().isEmpty()) return "";
+        String t = tipo.trim().toUpperCase();
+        if ("NC".equals(t) || "NCE".equals(t)) return "NC";
+        if ("ND".equals(t) || "NDE".equals(t)) return "ND";
+        if ("FC".equals(t) || "FAC".equals(t) || "FCE".equals(t) || "FCA".equals(t) || "FCB".equals(t)) return "FC";
+        if ("RC".equals(t) || "REC".equals(t)) return "RC";
+        return t;
+    }
+
+    public boolean tieneNotaDeCreditoCreada(String letra, int ptovta, int numero) {
+        return notaDeCreditoRepository.existeNcCompletaParaFactura(letra, ptovta, numero);
+    }
+
+    public List<DocumentoAsociadoDTO> obtenerNotasDeCreditoCreadasParaFC(String letra, int ptovta, int numero) {
+        return notaDeCreditoRepository.findNcCompletaParaFactura(letra, ptovta, numero);
+    }
+
+    public boolean tieneNotaDeDebitoCreada(String letra, int ptovta, int numero) {
+        return notaDeDebitoRepository.existeNdCompletaParaNotaCredito(letra, ptovta, numero);
+    }
+
+    public List<DocumentoAsociadoDTO> obtenerNotasDeDebitoCreadasParaNC(String letra, int ptovta, int numero) {
+        List<Object[]> rows = notaDeDebitoRepository.findNdCompletaParaNotaCreditoRaw(letra, ptovta, numero);
+        if (rows == null || rows.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<DocumentoAsociadoDTO> lista = new ArrayList<>();
+        for (Object[] row : rows) {
+            String tipo = row[0] != null ? row[0].toString() : "";
+            String l = row[1] != null ? row[1].toString() : "";
+            Integer p = row[2] != null ? ((Number) row[2]).intValue() : 0;
+            Integer n = row[3] != null ? ((Number) row[3]).intValue() : 0;
+            LocalDate f = null;
+            if (row[4] != null) {
+                if (row[4] instanceof java.sql.Date sqlDate) f = sqlDate.toLocalDate();
+                else if (row[4] instanceof LocalDate localDate) f = localDate;
+                else try { f = LocalDate.parse(row[4].toString()); } catch (Exception ignored) {}
+            }
+            String tipoNd = row[5] != null ? row[5].toString() : null;
+            lista.add(new DocumentoAsociadoDTO(tipo, l, p, n, f, tipoNd));
+        }
+        return lista;
+    }
+
+    public boolean tieneNotaDeCreditoCreadaParaND(String letra, int ptovta, int numero) {
+        return notaDeCreditoRepository.existeNcCompletaParaNotaDebito(letra, ptovta, numero);
+    }
+
+    public DocumentoAsociadoDTO obtenerNotaDeCreditoCreadaParaND(String letra, int ptovta, int numero) {
+        if (notaDeCreditoRepository.existeNcCompletaParaNotaDebito(letra, ptovta, numero)) {
+            return notaDeCreditoRepository.findNcCompletaParaNotaDebito(letra, ptovta, numero)
+                    .stream().findFirst().orElse(null);
+        }
+        return null;
+    }
+
+    private NotaDeCredito obtenerOCrearNotaCreditoPrimaria(Integer idPrestacion) {
+        return notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(idPrestacion)
+                .orElse(new NotaDeCredito());
+    }
+
+    @Async
     @Transactional
-    public void procesarGuardadoParcial(Map<String, Object> payload) {
-        String documentoOrigen = (String) payload.get("documentoOrigen");
-        String letra = (String) payload.get("letra");
-        Integer ptovta = Integer.valueOf(payload.get("ptovta").toString());
-        Integer numero = Integer.valueOf(payload.get("numero").toString());
-        String usuario = (String) payload.get("usuario");
+    public void procesarGuardadoParcialAsincrono(GuardarParcialRequest request) {
+        try {
+            procesarGuardadoParcial(request);
+        } catch (Exception e) {
+            log.error("Error al procesar guardado parcial asíncrono", e);
+        }
+    }
 
-        String tipoRegistro = obtenerTipoRegistro(documentoOrigen, letra, ptovta, numero);
-        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
+    @Transactional
+    public void procesarGuardadoParcial(GuardarParcialRequest request) {
+        if (request == null) return;
+        String documentoOrigen = request.getDocumentoOrigen();
+        String letra = request.getLetra();
+        Integer ptovta = request.getPtovta() != null ? Integer.valueOf(request.getPtovta().toString()) : 0;
+        Integer numero = request.getNumero() != null ? Integer.valueOf(request.getNumero().toString()) : 0;
+        String usuario = request.getUsuario();
 
-        if (registros == null || registros.isEmpty())
-            return;
+        List<RegistroAuditoriaDTO> registros = request.getRegistros();
+        if (registros == null || registros.isEmpty()) return;
 
-        // 1. LECTURA EN LOTE: Extraemos todos los IDs y hacemos un solo SELECT
-        List<Integer> idsPrestaciones = registros.stream()
-                .map(p -> ((Number) p.get("id")).intValue())
-                .toList();
+        Optional<Cabecera> cabeceraOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
+                resolverTiposEquivalentes(documentoOrigen), letra, ptovta, numero)
+                .stream()
+                .findFirst();
+
+        if (cabeceraOrigenOpt.isPresent() && cabeceraOrigenOpt.get().getIdEstado() != null && cabeceraOrigenOpt.get().getIdEstado() == 2) {
+            throw new IllegalStateException("El trámite se encuentra finalizado. Debe reabrir el trámite para poder guardar modificaciones.");
+        }
+
+        Set<Cabecera> cabecerasImputadasModificadas = new HashSet<>();
+
+        // Deduplicar registros por ID de prestación para evitar procesar la misma prestación múltiples veces en el mismo lote
+        Map<Integer, RegistroAuditoriaDTO> registrosUnicos = new LinkedHashMap<>();
+        for (RegistroAuditoriaDTO reg : registros) {
+            if (reg != null && reg.getId() != null) {
+                registrosUnicos.put(reg.getId(), reg);
+            }
+        }
+        if (registrosUnicos.isEmpty() && (request.getIdsParaBorrar() == null || request.getIdsParaBorrar().isEmpty())) return;
+
+        // ── Borrado de prestaciones limpiadas por el usuario (Batch Delete) ─────────
+        if (request.getIdsParaBorrar() != null && !request.getIdsParaBorrar().isEmpty()) {
+            List<NotaDeCredito> ncsABorrar = notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(request.getIdsParaBorrar());
+            if (!ncsABorrar.isEmpty()) {
+                log.info("Eliminando {} NotaDeCredito por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
+                notaDeCreditoRepository.deleteAll(ncsABorrar);
+            }
+        }
+
+        List<Integer> idsPrestaciones = new ArrayList<>(registrosUnicos.keySet());
 
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
-        // 2. LISTAS DE ACUMULACIÓN: Para evitar escribir de a uno
+        // Optimización Batch: Precargar Notas de Crédito existentes en memoria para evitar N+1 queries
+        Map<Integer, NotaDeCredito> notasCreditoExistentesMap = new HashMap<>();
+        if (!idsPrestaciones.isEmpty()) {
+            List<NotaDeCredito> ncExistentes = notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(idsPrestaciones);
+            for (NotaDeCredito nc : ncExistentes) {
+                if (nc.getPrestacion() != null && nc.getPrestacion().getId() != null) {
+                    notasCreditoExistentesMap.putIfAbsent(nc.getPrestacion().getId(), nc);
+                }
+            }
+        }
+
         List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
         List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
 
-        for (Map<String, Object> p : registros) {
-            Integer idPrestacion = ((Number) p.get("id")).intValue();
+        for (RegistroAuditoriaDTO p : registrosUnicos.values()) {
+            Integer idPrestacion = p.getId();
+            if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
 
             if (prestacion == null) {
                 throw new RuntimeException("Prestación no encontrada: " + idPrestacion);
             }
 
-            BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
-            BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
-            Boolean debitoAceptadoBool = parsearBooleano(p.get("debitoAceptado"));
-            Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
-            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante")
-                    : "";
+            BigDecimal importeDebitado = parsearMonto(p.getImporteDebitado());
+            BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+            Boolean debitoAceptadoBool = parsearBooleano(p.getDebitoAceptado());
+            Integer diasFacturados = parsearEntero(p.getDiasFacturados());
+            String prestacionEnglobante = p.getPrestacionEnglobante() != null ? p.getPrestacionEnglobante() : "";
 
-            if ("FC".equals(documentoOrigen)) {
-                NotaDeCredito nc = notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(idPrestacion)
-                        .orElse(new NotaDeCredito());
+            String origenBase = resolverTipoBase(documentoOrigen);
+            if ("FC".equals(origenBase)) {
+                NotaDeCredito nc = notasCreditoExistentesMap.get(idPrestacion);
+                if (nc == null) {
+                    nc = new NotaDeCredito();
+                }
+                if (nc.getCabecera() != null) {
+                    cabecerasImputadasModificadas.add(nc.getCabecera());
+                }
 
                 nc.setPrestacion(prestacion);
-                nc.setMotivoDebito((String) p.get("motivoDebito"));
+                nc.setMotivoDebito(p.getMotivoDebito());
                 nc.setImporteDebitado(importeDebitado);
                 nc.setDebitoaceptado(debitoAceptadoBool);
-                nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                nc.setMotivoderefactura(p.getMotivoRefactura());
                 nc.setImportederefactura(importeRefactura);
-                nc.setComentarios((String) p.get("comentarios"));
+                nc.setComentarios(p.getComentarios());
                 nc.setDiasfacturados(diasFacturados);
                 nc.setPrestacionenglobante(prestacionEnglobante);
                 nc.setUsuario(usuario);
-                nc.setComentariosDebito((String) p.get("comentariosDebito"));
-                nc.setTiporegistro(tipoRegistro);
+                nc.setComentariosDebito(p.getComentariosDebito());
 
                 if (nc.getId() == null)
                     nc.setCargadocompletamente(false);
 
-                notasCreditoAGuardar.add(nc); // ACUMULAMOS
-            } else if ("NC".equals(documentoOrigen)) {
+                notasCreditoAGuardar.add(nc);
+            } else if ("NC".equals(origenBase)) {
                 notaDeCreditoRepository
-                        .findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
+                        .findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ncPadre -> {
                             NotaDeDebito nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
-                                    .orElse(new NotaDeDebito());
+                                     .orElse(new NotaDeDebito());
+                            if (nd.getCabecera() != null) {
+                                cabecerasImputadasModificadas.add(nd.getCabecera());
+                            }
 
                             nd.setPrestacion(prestacion);
                             nd.setNotaDeCreditoPadre(ncPadre);
-                            nd.setMotivorefactura((String) p.get("motivoRefactura"));
+                            nd.setMotivorefactura(p.getMotivoRefactura());
                             nd.setImporterefactura(importeRefactura);
-                            nd.setComentarios((String) p.get("comentarios"));
+                            nd.setComentarios(p.getComentarios());
                             nd.setDiasfacturados(diasFacturados);
                             nd.setUsuario(usuario);
-                            nd.setCodigo((String) p.get("codigo"));
-                            nd.setTiporegistro(tipoRegistro);
+                            nd.setCodigo(p.getCodigo());
 
                             if (nd.getId() == null) {
                                 nd.setCargadocompletamente(false);
                                 nd.setCargarcompletamente(false);
                             }
 
-                            notasDebitoAGuardar.add(nd); // ACUMULAMOS
+                            notasDebitoAGuardar.add(nd);
                         });
-            } else if ("ND".equals(documentoOrigen)) {
-                notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
+            } else if ("ND".equals(origenBase)) {
+                notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(letra, ptovta, numero, idPrestacion)
                         .ifPresent(ndPadre -> {
                             NotaDeCredito nc = notaDeCreditoRepository.findByNotaDeDebitoPadreId(ndPadre.getId())
                                     .orElse(new NotaDeCredito());
+                            if (nc.getCabecera() != null) {
+                                cabecerasImputadasModificadas.add(nc.getCabecera());
+                            }
 
                             nc.setPrestacion(prestacion);
                             nc.setNotaDeDebitoPadre(ndPadre);
-                            nc.setMotivoDebito((String) p.get("motivoDebito"));
+                            nc.setMotivoDebito(p.getMotivoDebito());
                             nc.setImporteDebitado(importeDebitado);
                             nc.setDebitoaceptado(debitoAceptadoBool);
-                            nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                            nc.setMotivoderefactura(p.getMotivoRefactura());
                             nc.setImportederefactura(importeRefactura);
-                            nc.setComentarios((String) p.get("comentarios"));
+                            nc.setComentarios(p.getComentarios());
                             nc.setDiasfacturados(diasFacturados);
                             nc.setPrestacionenglobante(prestacionEnglobante);
                             nc.setUsuario(usuario);
-                            nc.setComentariosDebito((String) p.get("comentariosDebito"));
-                            nc.setTiporegistro(tipoRegistro);
+                            nc.setComentariosDebito(p.getComentariosDebito());
 
                             if (nc.getId() == null)
                                 nc.setCargadocompletamente(false);
 
-                            notasCreditoAGuardar.add(nc); // ACUMULAMOS
+                            notasCreditoAGuardar.add(nc);
                         });
             }
         }
 
-        // 3. ESCRITURA EN LOTE: Guardamos todo junto
         if (!notasCreditoAGuardar.isEmpty()) {
             notaDeCreditoRepository.saveAll(notasCreditoAGuardar);
         }
         if (!notasDebitoAGuardar.isEmpty()) {
             notaDeDebitoRepository.saveAll(notasDebitoAGuardar);
         }
+
+        for (Cabecera cabDestino : cabecerasImputadasModificadas) {
+            registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabDestino, "Modificación de prestaciones ya imputadas");
+        }
     }
 
     @Transactional
-    public void procesarNuevaNotaDebito(Map<String, Object> payload) {
-        String usuario = (String) payload.get("usuario");
-        Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
-        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
+    public void procesarNuevaNotaDebito(NuevaNotaDebitoRequest request) {
+        if (request == null) return;
+        String usuario = request.getUsuario();
+        DatosNotaDTO datosNota = request.getDatosNota();
+        List<RegistroAuditoriaDTO> registros = request.getRegistros();
 
-        String tipoRegistro = obtenerTipoRegistro((String) payload.get("origen"), (String) payload.get("letraOriginal"),
-                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                Integer.valueOf(payload.get("numeroOriginal").toString()));
+        Integer puntoVenta = Integer.valueOf(datosNota.getPuntoVenta().toString());
+        Integer numero = Integer.valueOf(datosNota.getNumero().toString());
+        LocalDate fechaDoc = (datosNota.getFecha() != null && !datosNota.getFecha().toString().trim().isEmpty())
+                ? java.sql.Date.valueOf(datosNota.getFecha().toString().trim()).toLocalDate()
+                : LocalDate.now();
+        String tipoDoc = datosNota.getTipo();
+        String letraDoc = datosNota.getLetra();
+        String tipoNd = datosNota.getTipoNd();
+
+        String tipoRegistro = obtenerTipoRegistro(request.getOrigen(), request.getLetraOriginal(),
+                Integer.valueOf(request.getPtovtaOriginal().toString()),
+                Integer.valueOf(request.getNumeroOriginal().toString()));
+
+        // Obtener código y nombre de cobertura del comprobante origen
+        Optional<Cabecera> cabeceraOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
+                resolverTiposEquivalentes(request.getOrigen()), request.getLetraOriginal(),
+                Integer.valueOf(request.getPtovtaOriginal().toString()),
+                Integer.valueOf(request.getNumeroOriginal().toString()))
+                .stream()
+                .findFirst();
+
+        if (cabeceraOrigenOpt.isEmpty()) {
+            cabeceraOrigenOpt = cabeceraRepository.findByLetraAndPtovtaAndNumero(
+                    request.getLetraOriginal(),
+                    Integer.valueOf(request.getPtovtaOriginal().toString()),
+                    Integer.valueOf(request.getNumeroOriginal().toString()));
+        }
+
+        String codigoCobertura = cabeceraOrigenOpt.map(Cabecera::getCodigoCobertura).orElse(null);
+        String cobertura = cabeceraOrigenOpt.map(Cabecera::getCobertura).orElse(null);
+
+        if (cabeceraOrigenOpt.isPresent() && cabeceraOrigenOpt.get().getIdEstado() != null && cabeceraOrigenOpt.get().getIdEstado() == 2) {
+            throw new IllegalStateException("El trámite se encuentra finalizado. Debe reabrir el trámite para poder agregar prestaciones a un comprobante.");
+        }
+
+        // 1. Calcular el Debe en caso de creación manual de Cabecera (ND)
+        BigDecimal totalDebeCalculado = null;
+        if (!"Por ajuste de IVA".equals(tipoNd) && registros != null && !registros.isEmpty()) {
+            List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
+            Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
+                    .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
+
+            BigDecimal sumaDebe = BigDecimal.ZERO;
+            boolean huboPrestacionCalculada = false;
+
+            for (RegistroAuditoriaDTO p : registros) {
+                if (p.getId() == null) continue;
+                BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+                if (importeRefactura != null && importeRefactura.compareTo(BigDecimal.ZERO) > 0) {
+                    AmbLiquidado prest = prestacionesMap.get(p.getId());
+                    BigDecimal totalNeto = (prest != null && prest.getTotalNeto() != null) ? prest.getTotalNeto() : BigDecimal.ZERO;
+                    BigDecimal iva = (prest != null && prest.getIva() != null) ? prest.getIva() : BigDecimal.ZERO;
+
+                    BigDecimal ivaRefactura = BigDecimal.ZERO;
+                    if (totalNeto.compareTo(BigDecimal.ZERO) > 0 && iva.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal porcIva = iva.multiply(new BigDecimal("100")).divide(totalNeto, 6, java.math.RoundingMode.HALF_UP);
+                        ivaRefactura = importeRefactura.multiply(porcIva).divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+                    }
+
+                    BigDecimal totalPrestacionConIva = importeRefactura.add(ivaRefactura).setScale(2, java.math.RoundingMode.HALF_UP);
+                    sumaDebe = sumaDebe.add(totalPrestacionConIva);
+                    huboPrestacionCalculada = true;
+                }
+            }
+            if (huboPrestacionCalculada) {
+                totalDebeCalculado = sumaDebe.setScale(2, java.math.RoundingMode.HALF_UP);
+            }
+        }
+
+        // 2. Obtener o crear Cabecera
+        Cabecera cabecera = resolverOCrearCabecera(datosNota, usuario, request.getOrigen(),
+                request.getLetraOriginal(), request.getPtovtaOriginal(), request.getNumeroOriginal(),
+                tipoRegistro, codigoCobertura, cobertura, cabeceraOrigenOpt,
+                totalDebeCalculado != null ? totalDebeCalculado : BigDecimal.ZERO,
+                BigDecimal.ZERO);
+
+        boolean yaTeniaPrestaciones = (cabecera != null && cabecera.getId() != null) &&
+                (!notaDeDebitoRepository.findByCabecera_Id(cabecera.getId()).isEmpty() ||
+                 ndAjusteDeIvaRepository.findByCabecera_Id(cabecera.getId()).isPresent());
+
+        if ("Por ajuste de IVA".equals(tipoNd)) {
+            BigDecimal importeRefactura = parsearMonto(datosNota.getImporteRefactura());
+            if (importeRefactura == null || importeRefactura.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Debe ingresar un importe válido para la Nota de Débito por ajuste de IVA.");
+            }
+            if (notaDeDebitoRepository.existsByTiporegistroAndTipoNd(tipoRegistro, "Por ajuste de IVA")) {
+                throw new IllegalArgumentException("Ya existe una Nota de Débito por ajuste de IVA para este comprobante.");
+            }
+
+            // 2. Guardar NotaDeDebito vinculada a Cabecera
+            NotaDeDebito nd = new NotaDeDebito();
+            nd.setCabecera(cabecera);
+            nd.setTipoNd("Por ajuste de IVA");
+            nd.setImporterefactura(importeRefactura);
+            nd.setUsuario(usuario);
+            nd.setCargadocompletamente(true);
+            nd.setCargarcompletamente(true);
+
+            notaDeDebitoRepository.save(nd);
+            String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "ND_AJUSTE_IVA";
+            registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
+            return;
+        }
 
         if (registros == null || registros.isEmpty())
             return;
 
-        List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
+        // Regla 4: Como máximo 1 ND Prestacional a partir de una NC
+        if ("NC".equalsIgnoreCase(resolverTipoBase(request.getOrigen()))) {
+            List<DocumentoAsociadoDTO> ndsExistentes = obtenerNotasDeDebitoCreadasParaNC(
+                    request.getLetraOriginal(),
+                    Integer.valueOf(request.getPtovtaOriginal().toString()),
+                    Integer.valueOf(request.getNumeroOriginal().toString())
+            );
+            boolean yaTieneNdPrestacional = ndsExistentes.stream().anyMatch(d -> !"Por ajuste de IVA".equalsIgnoreCase(d.getTipoNd()));
+            if (yaTieneNdPrestacional) {
+                boolean esMismaCabecera = ndsExistentes.stream().anyMatch(d ->
+                        Objects.equals(d.getLetra(), letraDoc) &&
+                        Objects.equals(d.getPtovta(), puntoVenta) &&
+                        Objects.equals(d.getNumero(), numero));
+                if (!esMismaCabecera) {
+                    throw new IllegalArgumentException("Ya existe una Nota de Débito Prestacional para la Nota de Crédito seleccionada.");
+                }
+            }
+        }
+
+        List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
         List<NotaDeDebito> notasDebitoAGuardar = new ArrayList<>();
 
-        Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
-        Integer numero = Integer.valueOf(datosNota.get("numero").toString());
-        java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.get("fecha").toString()).toLocalDate();
-        String tipoDoc = (String) datosNota.get("tipo");
-        String letraDoc = (String) datosNota.get("letra");
-
-        for (Map<String, Object> p : registros) {
-            Integer idPrestacion = ((Number) p.get("id")).intValue();
+        for (RegistroAuditoriaDTO p : registros) {
+            Integer idPrestacion = p.getId();
+            if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
             if (prestacion == null)
                 continue;
 
-            BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
-            Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
+            BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+            Integer diasFacturados = parsearEntero(p.getDiasFacturados());
 
-            notaDeCreditoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionIdAndDebitoaceptadoFalse(
-                    (String) payload.get("letraOriginal"),
-                    Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                    Integer.valueOf(payload.get("numeroOriginal").toString()),
+            notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(
+                    request.getLetraOriginal(),
+                    Integer.valueOf(request.getPtovtaOriginal().toString()),
+                    Integer.valueOf(request.getNumeroOriginal().toString()),
                     idPrestacion).ifPresent(ncPadre -> {
-                        NotaDeDebito nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
-                                .orElse(new NotaDeDebito());
+                        if (ncPadre.getCabecera() != null) {
+                            Cabecera ncCab = ncPadre.getCabecera();
+                            Long targetGrupo = ncCab.getAsociadogrupo() != null && ncCab.getAsociadogrupo() != 0
+                                    ? ncCab.getAsociadogrupo()
+                                    : (ncCab.getGrupo() != null && ncCab.getGrupo() != 0
+                                            ? ncCab.getGrupo()
+                                            : (ncCab.getAsociado() != null && ncCab.getAsociado() != 0
+                                                    ? ncCab.getAsociado()
+                                                    : ncCab.getId()));
+                            if (targetGrupo != null && (cabecera.getAsociadogrupo() == null || !targetGrupo.equals(cabecera.getAsociadogrupo()))) {
+                                cabecera.setAsociadogrupo(targetGrupo);
+                                if (cabecera.getAsociado() == null) {
+                                    cabecera.setAsociado(ncCab.getId());
+                                }
+                                if (cabecera.getGrupo() == null || cabecera.getGrupo() == 0) {
+                                    cabecera.setGrupo(ncCab.getGrupo() != null && ncCab.getGrupo() != 0 ? ncCab.getGrupo() : targetGrupo);
+                                }
+                                cabeceraRepository.save(cabecera);
+                            }
+                        }
 
+                        final NotaDeDebito nd;
+                        if (ncPadre.getNotaDeDebitoPadre() == null) {
+                            if (tipoNd == null || tipoNd.trim().isEmpty()) {
+                                throw new IllegalArgumentException("Debe especificar el tipo de Nota de Débito (Por ajuste de IVA o Por Refactura).");
+                            }
+                            if (notaDeDebitoRepository.existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(ncPadre.getId(), tipoNd)) {
+                                throw new IllegalArgumentException("Ya existe una Nota de Débito de tipo '" + tipoNd + "' para la Nota de Crédito seleccionada.");
+                            }
+                            nd = new NotaDeDebito();
+                        } else {
+                            nd = notaDeDebitoRepository.findByNotaDeCreditoPadreId(ncPadre.getId())
+                                    .orElse(new NotaDeDebito());
+                        }
+
+                        nd.setCabecera(cabecera);
                         nd.setPrestacion(prestacion);
                         nd.setNotaDeCreditoPadre(ncPadre);
-                        nd.setTipo(tipoDoc);
-                        nd.setLetra(letraDoc);
-                        nd.setPtovta(puntoVenta);
-                        nd.setNumero(numero);
-                        nd.setFecha(fechaDoc);
-                        nd.setMotivorefactura((String) p.get("motivoRefactura"));
+                        nd.setTipoNd(tipoNd);
+                        nd.setMotivorefactura(p.getMotivoRefactura());
                         nd.setImporterefactura(importeRefactura);
-                        nd.setComentarios((String) p.get("comentarios"));
-                        nd.setComentariosDebito((String) p.get("comentariosDebito"));
+                        nd.setComentarios(p.getComentarios());
+                        nd.setComentariosDebito(p.getComentariosDebito());
                         nd.setDiasfacturados(diasFacturados);
                         nd.setUsuario(usuario);
-                        nd.setTiporegistro(tipoRegistro);
-                        nd.setCodigo((String) p.get("codigo"));
+                        nd.setCodigo(p.getCodigo());
                         nd.setCargadocompletamente(true);
 
                         if (nd.getId() == null)
                             nd.setCargarcompletamente(true);
 
-                        notasDebitoAGuardar.add(nd); // ACUMULAMOS
+                        notasDebitoAGuardar.add(nd);
                     });
         }
 
         if (!notasDebitoAGuardar.isEmpty()) {
-            notaDeDebitoRepository.saveAll(notasDebitoAGuardar); // GUARDAMOS EN LOTE
+            notaDeDebitoRepository.saveAll(notasDebitoAGuardar);
+            String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "ND";
+            registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
         }
+        // invalidarCacheTablero(); // Parche de rendimiento: el autoguardado parcial/silencioso no debe purgar la caché global del tablero
     }
 
     @Transactional
-    public void procesarNuevaNotaCredito(Map<String, Object> payload) {
-        String origen = (String) payload.get("origen");
-        String usuario = (String) payload.get("usuario");
-        Map<String, Object> datosNota = (Map<String, Object>) payload.get("datosNota");
-        List<Map<String, Object>> registros = (List<Map<String, Object>>) payload.get("registros");
+    public void procesarNuevaNotaCredito(NuevaNotaCreditoRequest request) {
+        if (request == null) return;
+        String origen = request.getOrigen();
+        String usuario = request.getUsuario();
+        DatosNotaDTO datosNota = request.getDatosNota();
+        List<RegistroAuditoriaDTO> registros = request.getRegistros();
 
-        String tipoRegistro = obtenerTipoRegistro(origen, (String) payload.get("letraOriginal"),
-                Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                Integer.valueOf(payload.get("numeroOriginal").toString()));
+        if (datosNota == null) return;
+
+        String tipoRegistro = obtenerTipoRegistro(origen, request.getLetraOriginal(),
+                Integer.valueOf(request.getPtovtaOriginal().toString()),
+                Integer.valueOf(request.getNumeroOriginal().toString()));
+
+        // Obtener código y nombre de cobertura del comprobante origen
+        Optional<Cabecera> cabeceraOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
+                resolverTiposEquivalentes(origen), request.getLetraOriginal(),
+                Integer.valueOf(request.getPtovtaOriginal().toString()),
+                Integer.valueOf(request.getNumeroOriginal().toString()))
+                .stream()
+                .findFirst();
+
+        String codigoCobertura = cabeceraOrigenOpt.map(Cabecera::getCodigoCobertura).orElse(null);
+        String cobertura = cabeceraOrigenOpt.map(Cabecera::getCobertura).orElse(null);
+
+        if (cabeceraOrigenOpt.isPresent() && cabeceraOrigenOpt.get().getIdEstado() != null && cabeceraOrigenOpt.get().getIdEstado() == 2) {
+            throw new IllegalStateException("El trámite se encuentra finalizado. Debe reabrir el trámite para poder agregar prestaciones a un comprobante.");
+        }
+
+        boolean esConjunta = "Prestacional y Ajuste de IVA".equalsIgnoreCase(datosNota.getTipoNc())
+                || "Mixta".equalsIgnoreCase(datosNota.getTipoNc());
+
+        // 1. Calcular el Haber en caso de creación manual de Cabecera (NC)
+        BigDecimal totalHaberCalculado = null;
+        if (!"Por ajuste de IVA".equals(datosNota.getTipoNc()) && registros != null && !registros.isEmpty()) {
+            List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
+            Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
+                    .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
+
+            BigDecimal sumaHaber = BigDecimal.ZERO;
+            boolean huboPrestacionCalculada = false;
+
+            for (RegistroAuditoriaDTO p : registros) {
+                if (p.getId() == null) continue;
+                String debitoAceptadoStr = p.getDebitoAceptado() != null ? p.getDebitoAceptado().toString().trim().toUpperCase() : "";
+                if ("SI".equals(debitoAceptadoStr) || "NO".equals(debitoAceptadoStr) || "TRUE".equals(debitoAceptadoStr) || "FALSE".equals(debitoAceptadoStr)) {
+                    BigDecimal importeDebitado = parsearMonto(p.getImporteDebitado());
+                    if (importeDebitado != null && importeDebitado.compareTo(BigDecimal.ZERO) > 0) {
+                        AmbLiquidado prest = prestacionesMap.get(p.getId());
+                        BigDecimal totalNeto = (prest != null && prest.getTotalNeto() != null) ? prest.getTotalNeto() : BigDecimal.ZERO;
+                        BigDecimal iva = (prest != null && prest.getIva() != null) ? prest.getIva() : BigDecimal.ZERO;
+
+                        BigDecimal ivaDebitado = BigDecimal.ZERO;
+                        if (totalNeto.compareTo(BigDecimal.ZERO) > 0 && iva.compareTo(BigDecimal.ZERO) > 0) {
+                            BigDecimal porcIva = iva.multiply(new BigDecimal("100")).divide(totalNeto, 6, java.math.RoundingMode.HALF_UP);
+                            ivaDebitado = importeDebitado.multiply(porcIva).divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+                        }
+
+                        BigDecimal totalPrestacionConIva = importeDebitado.add(ivaDebitado).setScale(2, java.math.RoundingMode.HALF_UP);
+                        sumaHaber = sumaHaber.add(totalPrestacionConIva);
+                        huboPrestacionCalculada = true;
+                    }
+                }
+            }
+            if (huboPrestacionCalculada) {
+                totalHaberCalculado = sumaHaber.setScale(2, java.math.RoundingMode.HALF_UP);
+            }
+        }
+
+        if (esConjunta) {
+            BigDecimal ivaAjuste = parsearMonto(datosNota.getIva());
+            if (ivaAjuste != null && ivaAjuste.compareTo(BigDecimal.ZERO) > 0) {
+                totalHaberCalculado = (totalHaberCalculado != null ? totalHaberCalculado : BigDecimal.ZERO)
+                        .add(ivaAjuste).setScale(2, java.math.RoundingMode.HALF_UP);
+            }
+        }
+
+        // 2. Obtener o crear Cabecera
+        Cabecera cabecera = resolverOCrearCabecera(datosNota, usuario, origen,
+                request.getLetraOriginal(), request.getPtovtaOriginal(), request.getNumeroOriginal(),
+                tipoRegistro, codigoCobertura, cobertura, cabeceraOrigenOpt,
+                BigDecimal.ZERO,
+                totalHaberCalculado != null ? totalHaberCalculado : BigDecimal.ZERO);
+
+        boolean yaTeniaPrestaciones = (cabecera != null && cabecera.getId() != null) &&
+                (!notaDeCreditoRepository.findByCabecera_Id(cabecera.getId()).isEmpty() ||
+                 ncAjusteDeIvaRepository.findByCabecera_Id(cabecera.getId()).isPresent());
+
+        // Manejo especial para NC por Ajuste de IVA No prestacional (por concepto)
+        if ("Por ajuste de IVA".equals(datosNota.getTipoNc()) && "No prestacional".equals(datosNota.getSubtipoIva())) {
+            BigDecimal neto = parsearMonto(datosNota.getNeto());
+            BigDecimal iva = parsearMonto(datosNota.getIva());
+            BigDecimal porcIva = parsearMonto(datosNota.getPorcIva());
+
+            if (neto == null || iva == null || porcIva == null) {
+                throw new IllegalArgumentException("Debe ingresar el neto, IVA y porcentaje de IVA válidos para la NC por Ajuste de IVA No prestacional.");
+            }
+
+            // 2. Guardar exclusivamente en NcAjusteDeIva vinculada a la Cabecera
+            NcAjusteDeIva ncIva = new NcAjusteDeIva();
+            ncIva.setCabecera(cabecera);
+            if (cabecera != null) {
+                ncIva.setLetraNc(cabecera.getLetra());
+                ncIva.setPtovtaNc(cabecera.getPtovta());
+                ncIva.setTipoNc(cabecera.getTipo());
+                ncIva.setNumeroNc(cabecera.getNumero());
+            }
+            ncIva.setLetraFc(request.getLetraOriginal());
+            ncIva.setPtovtaFc(Integer.valueOf(request.getPtovtaOriginal().toString()));
+            ncIva.setTipoFc(origen);
+            ncIva.setNumeroFc(Integer.valueOf(request.getNumeroOriginal().toString()));
+            ncIva.setNeto(neto);
+            ncIva.setIva(iva);
+            ncIva.setPorcIva(porcIva);
+
+            ncAjusteDeIvaRepository.save(ncIva);
+            String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "NC_AJUSTE_IVA";
+            registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
+            return;
+        }
+
+        if (esConjunta) {
+            BigDecimal neto = parsearMonto(datosNota.getNeto());
+            BigDecimal iva = parsearMonto(datosNota.getIva());
+            BigDecimal porcIva = parsearMonto(datosNota.getPorcIva());
+
+            if (neto == null || iva == null || porcIva == null) {
+                throw new IllegalArgumentException("Debe ingresar el neto, IVA y porcentaje de IVA válidos para el Ajuste de IVA.");
+            }
+
+            NcAjusteDeIva ncIva = new NcAjusteDeIva();
+            ncIva.setCabecera(cabecera);
+            if (cabecera != null) {
+                ncIva.setLetraNc(cabecera.getLetra());
+                ncIva.setPtovtaNc(cabecera.getPtovta());
+                ncIva.setTipoNc(cabecera.getTipo());
+                ncIva.setNumeroNc(cabecera.getNumero());
+            }
+            ncIva.setLetraFc(request.getLetraOriginal());
+            ncIva.setPtovtaFc(Integer.valueOf(request.getPtovtaOriginal().toString()));
+            ncIva.setTipoFc(origen);
+            ncIva.setNumeroFc(Integer.valueOf(request.getNumeroOriginal().toString()));
+            ncIva.setNeto(neto);
+            ncIva.setIva(iva);
+            ncIva.setPorcIva(porcIva);
+
+            ncAjusteDeIvaRepository.save(ncIva);
+        }
 
         if (registros == null || registros.isEmpty())
             return;
 
-        List<Integer> idsPrestaciones = registros.stream().map(p -> ((Number) p.get("id")).intValue()).toList();
+        List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                 .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
         List<NotaDeCredito> notasCreditoAGuardar = new ArrayList<>();
 
-        Integer puntoVenta = Integer.valueOf(datosNota.get("puntoVenta").toString());
-        Integer numero = Integer.valueOf(datosNota.get("numero").toString());
-        java.time.LocalDate fechaDoc = java.sql.Date.valueOf(datosNota.get("fecha").toString()).toLocalDate();
-        String tipoDoc = (String) datosNota.get("tipo");
-        String letraDoc = (String) datosNota.get("letra");
-
-        for (Map<String, Object> p : registros) {
-            Integer idPrestacion = ((Number) p.get("id")).intValue();
+        for (RegistroAuditoriaDTO p : registros) {
+            Integer idPrestacion = p.getId();
+            if (idPrestacion == null) continue;
             AmbLiquidado prestacion = prestacionesMap.get(idPrestacion);
             if (prestacion == null)
                 continue;
 
-            BigDecimal importeDebitado = parsearMonto(p.get("importeDebitado"));
-            BigDecimal importeRefactura = parsearMonto(p.get("importeRefactura"));
-            Boolean debitoAceptadoBool = parsearBooleano(p.get("debitoAceptado"));
-            Integer diasFacturados = parsearEntero(p.get("diasFacturados"));
-            String prestacionEnglobante = p.get("prestacionEnglobante") != null ? (String) p.get("prestacionEnglobante")
-                    : "";
+            BigDecimal importeDebitado = parsearMonto(p.getImporteDebitado());
+            BigDecimal importeRefactura = parsearMonto(p.getImporteRefactura());
+            Boolean debitoAceptadoBool = parsearBooleano(p.getDebitoAceptado());
+            Integer diasFacturados = parsearEntero(p.getDiasFacturados());
+            String prestacionEnglobante = p.getPrestacionEnglobante() != null ? p.getPrestacionEnglobante() : "";
 
-            if ("FC".equals(origen)) {
-                NotaDeCredito nc = notaDeCreditoRepository.findByPrestacionIdAndNotaDeDebitoPadreIsNull(idPrestacion)
-                        .orElse(new NotaDeCredito());
+            String origenBase = resolverTipoBase(origen);
+            if ("FC".equals(origenBase)) {
+                NotaDeCredito nc = obtenerOCrearNotaCreditoPrimaria(idPrestacion);
 
+                nc.setCabecera(cabecera);
                 nc.setPrestacion(prestacion);
-                nc.setTipo(tipoDoc);
-                nc.setLetra(letraDoc);
-                nc.setPtovta(puntoVenta);
-                nc.setNumero(numero);
-                nc.setFecha(fechaDoc);
-                nc.setMotivoDebito((String) p.get("motivoDebito"));
+                nc.setMotivoDebito(p.getMotivoDebito());
                 nc.setImporteDebitado(importeDebitado);
                 nc.setDebitoaceptado(debitoAceptadoBool);
-                nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                nc.setMotivoderefactura(p.getMotivoRefactura());
                 nc.setImportederefactura(importeRefactura);
                 nc.setPrestacionenglobante(prestacionEnglobante);
-                nc.setComentarios((String) p.get("comentarios"));
-                nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                nc.setComentarios(p.getComentarios());
+                nc.setComentariosDebito(p.getComentariosDebito());
                 nc.setDiasfacturados(diasFacturados);
                 nc.setUsuario(usuario);
-                nc.setTiporegistro(tipoRegistro);
                 nc.setCargadocompletamente(true);
 
-                notasCreditoAGuardar.add(nc); // ACUMULAMOS
+                notasCreditoAGuardar.add(nc);
 
-            } else if ("ND".equals(origen)) {
-                notaDeDebitoRepository.findByLetraAndPtovtaAndNumeroAndPrestacionId(
-                        (String) payload.get("letraOriginal"),
-                        Integer.valueOf(payload.get("ptovtaOriginal").toString()),
-                        Integer.valueOf(payload.get("numeroOriginal").toString()),
+            } else if ("ND".equals(origenBase)) {
+                notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_NumeroAndPrestacionId(
+                        request.getLetraOriginal(),
+                        Integer.valueOf(request.getPtovtaOriginal().toString()),
+                        Integer.valueOf(request.getNumeroOriginal().toString()),
                         idPrestacion).ifPresent(ndPadre -> {
+                            String motivoNd = ndPadre.getMotivorefactura();
+                            if ("Por ajuste de IVA".equals(motivoNd)) {
+                                throw new IllegalArgumentException(
+                                        "No se puede generar una NC a partir de un ajuste de IVA");
+                            }
+
                             NotaDeCredito nc = notaDeCreditoRepository.findByNotaDeDebitoPadreId(ndPadre.getId())
                                     .orElse(new NotaDeCredito());
 
+                            nc.setCabecera(cabecera);
                             nc.setPrestacion(prestacion);
                             nc.setNotaDeDebitoPadre(ndPadre);
-                            nc.setTipo(tipoDoc);
-                            nc.setLetra(letraDoc);
-                            nc.setPtovta(puntoVenta);
-                            nc.setNumero(numero);
-                            nc.setFecha(fechaDoc);
-                            nc.setMotivoDebito((String) p.get("motivoDebito"));
+                            nc.setMotivoDebito(p.getMotivoDebito());
                             nc.setImporteDebitado(importeDebitado);
                             nc.setDebitoaceptado(debitoAceptadoBool);
-                            nc.setMotivoderefactura((String) p.get("motivoRefactura"));
+                            nc.setMotivoderefactura(p.getMotivoRefactura());
                             nc.setImportederefactura(importeRefactura);
                             nc.setPrestacionenglobante(prestacionEnglobante);
-                            nc.setComentarios((String) p.get("comentarios"));
-                            nc.setComentariosDebito((String) p.get("comentariosDebito"));
+                            nc.setComentarios(p.getComentarios());
+                            nc.setComentariosDebito(p.getComentariosDebito());
                             nc.setDiasfacturados(diasFacturados);
                             nc.setUsuario(usuario);
-                            nc.setTiporegistro(tipoRegistro);
                             nc.setCargadocompletamente(true);
 
-                            notasCreditoAGuardar.add(nc); // ACUMULAMOS
+                            notasCreditoAGuardar.add(nc);
                         });
             }
         }
 
         if (!notasCreditoAGuardar.isEmpty()) {
-            notaDeCreditoRepository.saveAll(notasCreditoAGuardar); // GUARDAMOS EN LOTE
+            notaDeCreditoRepository.saveAll(notasCreditoAGuardar);
+            String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : (esConjunta ? "NC_CONJUNTA" : "NC");
+            registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
         }
+        invalidarCacheTablero();
+    }
+
+    @Transactional
+    public void editarNcAjusteDeIva(NuevaNotaCreditoRequest request) {
+        if (request == null || request.getDatosNota() == null) return;
+
+        DatosNotaDTO datosNota = request.getDatosNota();
+        String letraFc = request.getLetraOriginal();
+        Integer ptovtaFc = Integer.valueOf(request.getPtovtaOriginal().toString());
+        Integer numeroFc = Integer.valueOf(request.getNumeroOriginal().toString());
+
+        Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByLetraFcAndPtovtaFcAndNumeroFc(letraFc, ptovtaFc, numeroFc);
+        if (ncIvaOpt.isEmpty()) {
+            throw new IllegalArgumentException("No se encontró la Nota de Crédito por Ajuste de IVA asociada a la Factura.");
+        }
+
+        NcAjusteDeIva ncIva = ncIvaOpt.get();
+        Cabecera cabNc = ncIva.getCabecera();
+
+        Integer nuevoPtovta = Integer.valueOf(datosNota.getPuntoVenta().toString());
+        Integer nuevoNumero = Integer.valueOf(datosNota.getNumero().toString());
+        String nuevoTipo = datosNota.getTipo();
+        String nuevaLetra = datosNota.getLetra();
+
+        // Validar si cambió identificador y si colisiona con otro comprobante
+        if (cabNc != null) {
+            boolean cambioIdentificador = !nuevoTipo.equalsIgnoreCase(cabNc.getTipo()) ||
+                                          !nuevaLetra.equalsIgnoreCase(cabNc.getLetra()) ||
+                                          !nuevoPtovta.equals(cabNc.getPtovta()) ||
+                                          !nuevoNumero.equals(cabNc.getNumero());
+
+            if (cambioIdentificador && cabeceraRepository.existsByTipoAndLetraAndPtovtaAndNumero(nuevoTipo, nuevaLetra, nuevoPtovta, nuevoNumero)) {
+                throw new IllegalArgumentException(
+                    String.format("Ya existe otra Nota de Crédito registrada con los datos especificados (%s %s-%04d-%08d).",
+                        nuevoTipo, nuevaLetra, nuevoPtovta, nuevoNumero)
+                );
+            }
+
+            cabNc.setTipo(nuevoTipo);
+            cabNc.setLetra(nuevaLetra);
+            cabNc.setPtovta(nuevoPtovta);
+            cabNc.setNumero(nuevoNumero);
+
+            if (datosNota.getFecha() != null && !datosNota.getFecha().toString().trim().isEmpty()) {
+                try {
+                    cabNc.setFecha(java.sql.Date.valueOf(datosNota.getFecha().toString()).toLocalDate());
+                } catch (Exception ignored) {}
+            }
+            cabeceraRepository.save(cabNc);
+        }
+
+        BigDecimal neto = parsearMonto(datosNota.getNeto());
+        BigDecimal iva = parsearMonto(datosNota.getIva());
+        BigDecimal porcIva = parsearMonto(datosNota.getPorcIva());
+
+        ncIva.setNeto(neto != null ? neto : BigDecimal.ZERO);
+        ncIva.setIva(iva != null ? iva : BigDecimal.ZERO);
+        ncIva.setPorcIva(porcIva != null ? porcIva : BigDecimal.ZERO);
+        if (cabNc != null) {
+            ncIva.setLetraNc(cabNc.getLetra());
+            ncIva.setPtovtaNc(cabNc.getPtovta());
+            ncIva.setTipoNc(cabNc.getTipo());
+            ncIva.setNumeroNc(cabNc.getNumero());
+        }
+
+        ncAjusteDeIvaRepository.save(ncIva);
+        invalidarCacheTablero();
     }
 
     private BigDecimal parsearMonto(Object valor) {
@@ -367,4 +1565,443 @@ public class AuditoriaService {
         return Integer.valueOf(valor.toString());
     }
 
+    public DocumentoAsociadoDTO obtenerDocumentoAsociadoParaNC(String letra, int ptovta, int numero) {
+        List<Object[]> rows = notaDeCreditoRepository.findDocumentoAsociadoPadreRaw(letra, ptovta, numero);
+        if (rows != null && !rows.isEmpty()) {
+            Object[] row = rows.get(0);
+            String tipo = row[0] != null ? row[0].toString() : "FC";
+            String l = row[1] != null ? row[1].toString() : "";
+            Integer p = row[2] != null ? ((Number) row[2]).intValue() : 0;
+            Integer n = row[3] != null ? ((Number) row[3]).intValue() : 0;
+            LocalDate f = null;
+            if (row[4] != null) {
+                if (row[4] instanceof java.sql.Date sqlDate) {
+                    f = sqlDate.toLocalDate();
+                } else if (row[4] instanceof LocalDate localDate) {
+                    f = localDate;
+                } else {
+                    try {
+                        f = LocalDate.parse(row[4].toString());
+                    } catch (Exception e) {
+                        f = null;
+                    }
+                }
+            }
+            return new DocumentoAsociadoDTO(tipo, l, p, n, f);
+        }
+        return null;
+    }
+
+    @Transactional
+    public void procesarNuevaNotaDebitoAjusteIva(NuevaNotaDebitoAjusteIvaRequest request) {
+        if (request == null) return;
+
+        String tipoNd = request.getTipoNd();
+        String letraNd = request.getLetraNd();
+        Integer ptovtaNd = Integer.valueOf(request.getPtovtaNd().toString());
+        Integer numeroNd = Integer.valueOf(request.getNumeroNd().toString());
+        String usuario = request.getUsuario();
+
+        BigDecimal neto = parsearMonto(request.getNeto());
+        BigDecimal iva = parsearMonto(request.getIva());
+        BigDecimal porcIva = parsearMonto(request.getPorcIva());
+
+        if (neto == null || iva == null || porcIva == null) {
+            throw new IllegalArgumentException("Debe ingresar valores de Neto, IVA y Porcentaje de IVA válidos para la Nota de Débito por Ajuste de IVA.");
+        }
+
+        // Regla 4: Como máximo 1 ND por Ajuste de IVA para una misma NC
+        Integer ptovtaNcInt = Integer.valueOf(request.getPtovtaNc().toString());
+        Integer numeroNcInt = Integer.valueOf(request.getNumeroNc().toString());
+        if (ndAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(request.getLetraNc(), ptovtaNcInt, numeroNcInt).isPresent()) {
+            throw new IllegalArgumentException("Ya existe una Nota de Débito por Ajuste de IVA para la Nota de Crédito seleccionada.");
+        }
+
+        LocalDate fechaDoc = (request.getFecha() != null && !request.getFecha().toString().trim().isEmpty())
+                ? java.sql.Date.valueOf(request.getFecha().toString().trim()).toLocalDate()
+                : LocalDate.now();
+
+        String tipoNcOrigen = request.getTipoNc() != null ? request.getTipoNc() : "NC";
+        String tipoRegistro = obtenerTipoRegistro(tipoNcOrigen, request.getLetraNc(),
+                Integer.valueOf(request.getPtovtaNc().toString()),
+                Integer.valueOf(request.getNumeroNc().toString()));
+
+        // Obtener código y nombre de cobertura del comprobante origen (NC)
+        Optional<Cabecera> cabeceraOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
+                resolverTiposEquivalentes(tipoNcOrigen), request.getLetraNc(),
+                Integer.valueOf(request.getPtovtaNc().toString()),
+                Integer.valueOf(request.getNumeroNc().toString()))
+                .stream()
+                .findFirst();
+
+        String codigoCobertura = cabeceraOrigenOpt.map(Cabecera::getCodigoCobertura).orElse(null);
+        String cobertura = cabeceraOrigenOpt.map(Cabecera::getCobertura).orElse(null);
+
+        if (cabeceraOrigenOpt.isPresent() && cabeceraOrigenOpt.get().getIdEstado() != null && cabeceraOrigenOpt.get().getIdEstado() == 2) {
+            throw new IllegalStateException("El trámite se encuentra finalizado. Debe reabrir el trámite para poder agregar prestaciones a un comprobante.");
+        }
+
+        // 1. Obtener o crear Cabecera
+        DatosNotaDTO mockDatos = new DatosNotaDTO();
+        mockDatos.setTipo(tipoNd);
+        mockDatos.setLetra(letraNd);
+        mockDatos.setPuntoVenta(ptovtaNd);
+        mockDatos.setNumero(numeroNd);
+        mockDatos.setFecha(request.getFecha());
+        mockDatos.setIdCabeceraSeleccionada(request.getIdCabeceraSeleccionada());
+        mockDatos.setCreadoManualmente(request.isCreadoManualmente());
+
+        BigDecimal totalDebe = (neto != null ? neto : BigDecimal.ZERO).add(iva != null ? iva : BigDecimal.ZERO);
+        Cabecera cabecera = resolverOCrearCabecera(mockDatos, usuario, tipoNcOrigen,
+                request.getLetraNc(), request.getPtovtaNc(), request.getNumeroNc(),
+                tipoRegistro, codigoCobertura, cobertura, cabeceraOrigenOpt, totalDebe, BigDecimal.ZERO);
+
+        boolean yaTeniaPrestaciones = (cabecera != null && cabecera.getId() != null) &&
+                (!notaDeDebitoRepository.findByCabecera_Id(cabecera.getId()).isEmpty() ||
+                 ndAjusteDeIvaRepository.findByCabecera_Id(cabecera.getId()).isPresent());
+
+        // 2. Guardar NdAjusteDeIva vinculada a Cabecera
+        NdAjusteDeIva ndIva = new NdAjusteDeIva();
+        ndIva.setCabecera(cabecera);
+        if (cabecera != null) {
+            ndIva.setLetraNd(cabecera.getLetra());
+            ndIva.setPtovtaNd(cabecera.getPtovta());
+            ndIva.setTipoNd(cabecera.getTipo());
+            ndIva.setNumeroNd(cabecera.getNumero());
+        }
+        ndIva.setTipoNc(request.getTipoNc());
+        ndIva.setLetraNc(request.getLetraNc());
+        ndIva.setPtovtaNc(Integer.valueOf(request.getPtovtaNc().toString()));
+        ndIva.setNumeroNc(Integer.valueOf(request.getNumeroNc().toString()));
+        ndIva.setNeto(neto);
+        ndIva.setIva(iva);
+        ndIva.setPorcIva(porcIva);
+
+        ndAjusteDeIvaRepository.save(ndIva);
+        String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "ND_AJUSTE_IVA";
+        registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
+        invalidarCacheTablero();
+    }
+
+    public List<CabeceraCandidataDTO> obtenerCabecerasDisponibles(String tipoRequerido, String origen, String letraOriginal, Integer ptovtaOriginal, Integer numeroOriginal) {
+        List<String> tipos = resolverTiposEquivalentes(tipoRequerido);
+        java.util.Set<Long> grupos = new java.util.HashSet<>();
+
+        if (origen != null && letraOriginal != null && ptovtaOriginal != null && numeroOriginal != null) {
+            String letraUpper = letraOriginal.trim().toUpperCase();
+            Optional<Cabecera> cabOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
+                    resolverTiposEquivalentes(origen), letraUpper, ptovtaOriginal, numeroOriginal
+            ).stream().findFirst();
+
+            if (cabOrigenOpt.isEmpty()) {
+                cabOrigenOpt = cabeceraRepository.findByLetraAndPtovtaAndNumero(letraUpper, ptovtaOriginal, numeroOriginal);
+            }
+
+            if (cabOrigenOpt.isPresent()) {
+                Cabecera origenCab = cabOrigenOpt.get();
+                if (origenCab.getId() != null) grupos.add(origenCab.getId());
+                if (origenCab.getGrupo() != null) grupos.add(origenCab.getGrupo());
+                if (origenCab.getAsociadogrupo() != null) grupos.add(origenCab.getAsociadogrupo());
+                if (origenCab.getAsociado() != null) grupos.add(origenCab.getAsociado());
+            }
+        }
+
+        List<Cabecera> candidatos;
+        if (!grupos.isEmpty()) {
+            candidatos = cabeceraRepository.findCandidatosPorTipoYGrupos(tipos, grupos);
+        } else if (origen == null && letraOriginal == null && ptovtaOriginal == null && numeroOriginal == null) {
+            candidatos = cabeceraRepository.findTop50ByTipoInOrderByFechaDescNumeroDesc(tipos);
+        } else {
+            candidatos = Collections.emptyList();
+        }
+
+
+        return candidatos.stream()
+                .filter(c -> c.getId() != null)
+                .map(c -> {
+                    String tipoDoc = c.getTipo() != null ? c.getTipo().trim().toUpperCase() : "";
+                    boolean esNc = "NC".equals(tipoDoc) || "NCE".equals(tipoDoc) || "NC".equalsIgnoreCase(tipoRequerido);
+                    boolean tienePrestaciones;
+                    if (esNc) {
+                        boolean enNotadecredito = !notaDeCreditoRepository.findByCabecera_Id(c.getId()).isEmpty();
+                        boolean enNcIva = ncAjusteDeIvaRepository.findByCabecera_Id(c.getId()).isPresent();
+                        tienePrestaciones = enNotadecredito || enNcIva;
+                    } else {
+                        boolean enNotadedebito = !notaDeDebitoRepository.findByCabecera_Id(c.getId()).isEmpty();
+                        boolean enNdIva = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId()).isPresent();
+                        tienePrestaciones = enNotadedebito || enNdIva;
+                    }
+
+                    CabeceraCandidataDTO dto = new CabeceraCandidataDTO(
+                            c.getId(),
+                            c.getTipo(),
+                            c.getLetra(),
+                            c.getPtovta(),
+                            c.getNumero(),
+                            c.getFecha(),
+                            c.getDebe(),
+                            c.getHaber(),
+                            c.getGrupo(),
+                            c.getAsociadogrupo(),
+                            c.getCobertura(),
+                            c.getCodigoCobertura()
+                    );
+                    dto.setTienePrestacionesImputadas(tienePrestaciones);
+                    return dto;
+                })
+                .toList();
+    }
+
+    private Cabecera resolverOCrearCabecera(DatosNotaDTO datosNota, String usuario, String origen,
+                                           String letraOriginal, Object ptovtaOriginal, Object numeroOriginal,
+                                           String tipoRegistro, String codigoCobertura, String cobertura,
+                                           Optional<Cabecera> cabeceraOrigenOpt,
+                                           BigDecimal debeCalculado, BigDecimal haberCalculado) {
+        Integer puntoVenta = datosNota.getPuntoVenta() != null ? Integer.valueOf(datosNota.getPuntoVenta().toString()) : 0;
+        Integer numero = datosNota.getNumero() != null ? Integer.valueOf(datosNota.getNumero().toString()) : 0;
+        String tipoDoc = datosNota.getTipo();
+        String letraDoc = datosNota.getLetra();
+        LocalDate fechaDoc = (datosNota.getFecha() != null && !datosNota.getFecha().toString().trim().isEmpty())
+                ? java.sql.Date.valueOf(datosNota.getFecha().toString().trim()).toLocalDate()
+                : LocalDate.now();
+
+        Cabecera cabecera = null;
+        if (datosNota.getIdCabeceraSeleccionada() != null) {
+            cabecera = cabeceraRepository.findById(datosNota.getIdCabeceraSeleccionada()).orElse(null);
+        }
+        if (cabecera == null && tipoDoc != null && letraDoc != null && puntoVenta > 0 && numero > 0) {
+            cabecera = cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero(tipoDoc, letraDoc, puntoVenta, numero).orElse(null);
+        }
+
+        if (cabecera == null) {
+            // Se crea una nueva Cabecera marcada como ingresada manualmente con debe/haber calculado
+            cabecera = new Cabecera(tipoDoc, letraDoc, puntoVenta, numero, fechaDoc, null, tipoRegistro, codigoCobertura, cobertura);
+            cabecera.setOrigen("APP_MANUAL");
+            cabecera.setDebe(debeCalculado != null ? debeCalculado : BigDecimal.ZERO);
+            cabecera.setHaber(haberCalculado != null ? haberCalculado : BigDecimal.ZERO);
+            if (cabeceraOrigenOpt.isPresent()) {
+                Cabecera origenCab = cabeceraOrigenOpt.get();
+                Long asociadogrupoDestino = origenCab.getAsociadogrupo() != null && origenCab.getAsociadogrupo() != 0
+                        ? origenCab.getAsociadogrupo()
+                        : (origenCab.getGrupo() != null && origenCab.getGrupo() != 0
+                                ? origenCab.getGrupo()
+                                : (origenCab.getAsociado() != null && origenCab.getAsociado() != 0
+                                        ? origenCab.getAsociado()
+                                        : origenCab.getId()));
+
+                cabecera.setAsociado(origenCab.getId());
+                cabecera.setGrupo(origenCab.getGrupo() != null && origenCab.getGrupo() != 0 ? origenCab.getGrupo() : asociadogrupoDestino);
+                cabecera.setAsociadogrupo(asociadogrupoDestino);
+            }
+            Cabecera cabeceraGuardada = cabeceraRepository.save(cabecera);
+            if (cabeceraGuardada != null) {
+                cabecera = cabeceraGuardada;
+            }
+
+            // Registrar evento de telemetría/auditoría para notificar al Admin
+            registrarEventoCreacionManual(usuario, origen, letraOriginal, ptovtaOriginal, numeroOriginal, tipoDoc, letraDoc, puntoVenta, numero);
+        } else {
+            // Si la cabecera ya existía en la base de datos:
+            boolean modificado = false;
+            if ("APP_MANUAL".equals(cabecera.getOrigen())) {
+                if ((cabecera.getDebe() == null || cabecera.getDebe().compareTo(BigDecimal.ZERO) == 0) && debeCalculado != null) {
+                    cabecera.setDebe(debeCalculado);
+                    modificado = true;
+                }
+                if ((cabecera.getHaber() == null || cabecera.getHaber().compareTo(BigDecimal.ZERO) == 0) && haberCalculado != null) {
+                    cabecera.setHaber(haberCalculado);
+                    modificado = true;
+                }
+            }
+            if (cabeceraOrigenOpt.isPresent()) {
+                Cabecera origenCab = cabeceraOrigenOpt.get();
+                Long asociadogrupoDestino = origenCab.getAsociadogrupo() != null && origenCab.getAsociadogrupo() != 0
+                        ? origenCab.getAsociadogrupo()
+                        : (origenCab.getGrupo() != null && origenCab.getGrupo() != 0
+                                ? origenCab.getGrupo()
+                                : (origenCab.getAsociado() != null && origenCab.getAsociado() != 0
+                                        ? origenCab.getAsociado()
+                                        : origenCab.getId()));
+
+                if (cabecera.getAsociado() == null) {
+                    cabecera.setAsociado(origenCab.getId());
+                    modificado = true;
+                }
+                if (cabecera.getGrupo() == null || cabecera.getGrupo() == 0) {
+                    cabecera.setGrupo(origenCab.getGrupo() != null && origenCab.getGrupo() != 0 ? origenCab.getGrupo() : asociadogrupoDestino);
+                    modificado = true;
+                }
+                if (asociadogrupoDestino != null && (cabecera.getAsociadogrupo() == null || cabecera.getAsociadogrupo() == 0 || !asociadogrupoDestino.equals(cabecera.getAsociadogrupo()))) {
+                    cabecera.setAsociadogrupo(asociadogrupoDestino);
+                    modificado = true;
+                }
+                if (cabecera.getCodigoCobertura() == null && codigoCobertura != null) {
+                    cabecera.setCodigoCobertura(codigoCobertura);
+                    cabecera.setCobertura(cobertura);
+                    modificado = true;
+                }
+            }
+            if (modificado) {
+                Cabecera cabeceraGuardada = cabeceraRepository.save(cabecera);
+                if (cabeceraGuardada != null) {
+                    cabecera = cabeceraGuardada;
+                }
+            }
+        }
+
+        return cabecera;
+    }
+
+    private void registrarEventoCreacionManual(String usuario, String origen, String letraOriginal, Object ptovtaOriginal, Object numeroOriginal,
+                                              String tipoDoc, String letraDoc, Integer puntoVenta, Integer numero) {
+        try {
+            RegistroUsabilidad ru = new RegistroUsabilidad();
+            ru.setUsuario(usuario != null ? usuario : "Sistema");
+            ru.setFechaHora(ZonedDateTime.now());
+            ru.setDocumentoReferencia(String.format("%s %s-%04d-%08d", tipoDoc, letraDoc, puntoVenta != null ? puntoVenta : 0, numero != null ? numero : 0));
+            ru.setEvento("COMPROBANTE_CREADO_MANUALMENTE_FALTANTE_EN_CABECERA");
+            ru.setCantidadRegistrosPendientes(0);
+            registroUsabilidadRepository.save(ru);
+
+            // Guardar en la tabla dedicada de notificaciones para el Administrador
+            notificacionService.registrarNotificacionIngresoManual(usuario, tipoDoc, letraDoc, puntoVenta, numero, "Ingreso manual de comprobante faltante en cabecera");
+        } catch (Exception ignored) {}
+    }
+
+    private void registrarImputacion(String usuarioRequest, Cabecera cabeceraOrigen, Cabecera cabeceraDestino, String tipoImputacion) {
+        try {
+            Long idDestino = cabeceraDestino != null ? cabeceraDestino.getId() : null;
+            Long idOrigen = cabeceraOrigen != null ? cabeceraOrigen.getId() : null;
+
+            if (idOrigen == null && cabeceraDestino != null && cabeceraDestino.getAsociado() != null) {
+                idOrigen = cabeceraDestino.getAsociado();
+            }
+
+            if (idDestino == null || idOrigen == null) {
+                return;
+            }
+
+            String usuario = usuarioRequest;
+            if (usuario == null || usuario.trim().isEmpty()) {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getName() != null && !auth.getName().trim().isEmpty()) {
+                    usuario = auth.getName();
+                } else {
+                    usuario = "Desconocido";
+                }
+            }
+
+            String comprobanteOrigen = cabeceraOrigen != null
+                    ? String.format("%s %s-%04d-%08d",
+                        cabeceraOrigen.getTipo() != null ? cabeceraOrigen.getTipo() : "",
+                        cabeceraOrigen.getLetra() != null ? cabeceraOrigen.getLetra() : "",
+                        cabeceraOrigen.getPtovta() != null ? cabeceraOrigen.getPtovta() : 0,
+                        cabeceraOrigen.getNumero() != null ? cabeceraOrigen.getNumero() : 0)
+                    : null;
+
+            String comprobanteDestino = cabeceraDestino != null
+                    ? String.format("%s %s-%04d-%08d",
+                        cabeceraDestino.getTipo() != null ? cabeceraDestino.getTipo() : "",
+                        cabeceraDestino.getLetra() != null ? cabeceraDestino.getLetra() : "",
+                        cabeceraDestino.getPtovta() != null ? cabeceraDestino.getPtovta() : 0,
+                        cabeceraDestino.getNumero() != null ? cabeceraDestino.getNumero() : 0)
+                    : null;
+
+            RegistroImputacion registro = new RegistroImputacion();
+            registro.setUsuario(usuario);
+            registro.setFechaHora(ZonedDateTime.now());
+            registro.setIdCabeceraOrigen(idOrigen);
+            registro.setIdCabeceraDestino(idDestino);
+            registro.setTipoImputacion(tipoImputacion);
+            registro.setOrigenCabecera(cabeceraDestino != null ? cabeceraDestino.getOrigen() : null);
+            registro.setComprobanteOrigen(comprobanteOrigen);
+            registro.setComprobanteDestino(comprobanteDestino);
+
+            registroImputacionRepository.save(registro);
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    public boolean tieneNcAjusteIva(String tipoFc, String letraFc, int ptovtaFc, int numeroFc) {
+        if (letraFc == null || letraFc.trim().isEmpty()) {
+            return false;
+        }
+        String tipoUpper = (tipoFc != null && !tipoFc.trim().isEmpty()) ? tipoFc.trim().toUpperCase() : "FC";
+        String letraUpper = letraFc.trim().toUpperCase();
+
+        boolean existeEnNcAjusteIva = ncAjusteDeIvaRepository.existsByLetraFcAndPtovtaFcAndNumeroFc(letraUpper, ptovtaFc, numeroFc);
+        boolean existeEnNotaCredito = notaDeCreditoRepository.existsByFacturaAndIvaMalFacturado(letraUpper, ptovtaFc, numeroFc);
+        return existeEnNcAjusteIva || existeEnNotaCredito;
+    }
+
+    @Transactional
+    public CambioEstadoResponse cambiarEstadoGrupo(Long idGrupo, int nuevoEstado, boolean forzarCierre) {
+        if (idGrupo == null) {
+            throw new IllegalArgumentException("El ID de grupo no puede ser nulo.");
+        }
+
+        List<Cabecera> cabeceras = cabeceraRepository.findByGrupoOrAsociadogrupoOrId(idGrupo);
+        if (cabeceras.isEmpty()) {
+            Optional<Cabecera> cabOpt = cabeceraRepository.findById(idGrupo);
+            if (cabOpt.isPresent()) {
+                Cabecera c = cabOpt.get();
+                Long gId = c.getAsociadogrupo() != null ? c.getAsociadogrupo() : c.getGrupo();
+                if (gId != null && gId != 0L) {
+                    cabeceras = cabeceraRepository.findByGrupoOrAsociadogrupoOrId(gId);
+                }
+                if (cabeceras.isEmpty()) {
+                    cabeceras = List.of(c);
+                }
+            }
+        }
+
+        if (nuevoEstado == 1) {
+            // Reabrir: Actualiza a 1 sin validaciones
+            for (Cabecera c : cabeceras) {
+                c.setIdEstado(1);
+            }
+            cabeceraRepository.saveAll(cabeceras);
+            return new CambioEstadoResponse(false, null, true);
+        } else if (nuevoEstado == 2) {
+            // Finalizar:
+            // Regla de Negocio: Los débitos "No Aceptados" se identifican en la tabla notadecredito cuando la columna debitoaceptado es NULL.
+            // Validación: Calculá si hay diferencias entre la suma total de los débitos no aceptados (debitoaceptado IS NULL) y el total refacturado en la ND2 vinculada.
+            List<Long> cabeceraIds = cabeceras.stream()
+                    .map(Cabecera::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            List<NotaDeCredito> ncs = cabeceraIds.isEmpty() ? List.of() : notaDeCreditoRepository.findByCabecera_IdIn(cabeceraIds);
+            List<NotaDeDebito> nds = cabeceraIds.isEmpty() ? List.of() : notaDeDebitoRepository.findByCabecera_IdIn(cabeceraIds);
+
+            BigDecimal totalDebitosNoAceptados = ncs.stream()
+                    .filter(nc -> nc.getDebitoaceptado() == null)
+                    .map(nc -> nc.getImporteDebitado() != null ? nc.getImporteDebitado() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalRefacturado = nds.stream()
+                    .map(nd -> nd.getImporterefactura() != null ? nd.getImporterefactura() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal diferencia = totalDebitosNoAceptados.subtract(totalRefacturado).abs();
+            boolean montosCuadran = totalDebitosNoAceptados.compareTo(totalRefacturado) == 0;
+
+            if (!forzarCierre && !montosCuadran) {
+                String mensaje = String.format(
+                        "El total de débitos no aceptados ($ %.2f) no coincide con el total refacturado en la Nota de Débito ($ %.2f). Diferencia de saldo: $ %.2f. ¿Desea forzar el cierre del trámite?",
+                        totalDebitosNoAceptados, totalRefacturado, diferencia
+                );
+                return new CambioEstadoResponse(true, mensaje, false);
+            }
+
+            for (Cabecera c : cabeceras) {
+                c.setIdEstado(2);
+            }
+            cabeceraRepository.saveAll(cabeceras);
+            return new CambioEstadoResponse(false, null, true);
+        } else {
+            throw new IllegalArgumentException("Estado no reconocido: " + nuevoEstado);
+        }
+    }
 }

@@ -1,5 +1,5 @@
-import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
+import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
@@ -7,30 +7,41 @@ import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
 import { AuditoriaService } from '../../core/services/auditoria';
-import {ExcelExportService} from '../../core/services/excel-export';
+import { DocumentoAsociado } from '../../core/models/documento-asociado';
+import { ExcelExportService } from '../../core/services/excel-export';
 import { AgGridModule } from 'ag-grid-angular';
 import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
 import { GroupedSelectEditor } from '../../core/components/grouped-select-editor/grouped-select-editor';
-import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA} from '../../core/constants/motivos';
+import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
+
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-import {AuditoriaMathService} from '../../core/services/auditoria-math';
-import {AuditoriaGridConfigService} from '../../core/services/auditoria-grid-config';
-import {InactividadService} from '../../core/services/InactividadService';
+import { AuditoriaMathService } from '../../core/services/auditoria-math';
+import { AuditoriaGridConfigService } from '../../core/services/auditoria-grid-config';
+import { InactividadService } from '../../core/services/InactividadService';
+import { TourService } from '../../core/services/tour.service';
+import { HelpDrawerComponent } from '../../core/components/help-drawer/help-drawer.component';
+import { NotificacionService } from '../../core/services/notificacion.service';
 
 @Component({
   selector: 'app-auditoria',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule],
+  imports: [ReactiveFormsModule, CommonModule, FormsModule, AgGridModule, HelpDrawerComponent],
   templateUrl: './auditoria.html',
+
   styleUrl: './auditoria.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class AuditoriaComponent implements OnInit, OnDestroy {
+export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
+  isHelpDrawerOpen = false;
   modificadosSinGuardar = new Set<number>(); // Guarda los IDs de las filas tocadas
+  prestacionesParaBorrar = new Set<number>(); // Filas con NC ya guardada que fueron limpiadas
   guardandoSilencioso = false;
+
+  // ── Tour guiado ─────────────────────────────────────────────────────────────
+  private readonly tourService = inject(TourService);
   private autoguardado$ = new Subject<void>();
   private autoguardadoSub?: Subscription;
 
@@ -68,7 +79,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(60000)).subscribe(() => {
+    this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
       if (this.modificadosSinGuardar.size > 0) {
         this.guardarParcialmente(true);
       }
@@ -89,15 +100,129 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       }
     }
     this.inactividadService.iniciarSeguimiento();
+
+    this.auditoriaService.obtenerConfiguracion().subscribe({
+      next: (cfg) => {
+        if (cfg && cfg.permitirNcConjunta !== undefined) {
+          this.permitirNcConjunta = cfg.permitirNcConjunta;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => console.warn('[Configuración] No se pudo obtener configuración:', err)
+    });
+
+    this.notifSub = this.notificacionService.notificacionSeleccionada$.subscribe(notif => {
+      if (notif) {
+        const tipo = notif.tipoDoc || 'FC';
+        const letra = notif.letra || 'A';
+        const puntoVenta = notif.puntoVenta ? String(notif.puntoVenta) : '';
+        const numero = notif.numero ? String(notif.numero) : '';
+
+        this.busquedaForm.patchValue({
+          tipo,
+          letra,
+          puntoVenta,
+          numero
+        });
+        this.actualizarValidadoresTipo(tipo);
+
+        if (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') {
+          const docRef = `${tipo} ${letra}-${('0000' + puntoVenta).slice(-4)}-${('00000000' + numero).slice(-8)}`;
+          this.docAusenteDetalle = {
+            documentoCompleto: notif.documentoReferencia || docRef,
+            tipo,
+            letra,
+            puntoVenta,
+            numero,
+            usuario: notif.usuario || 'Operador',
+            fechaHora: notif.fechaHora,
+            mensaje: notif.mensaje
+          };
+          this.textoCopiadoFeedback = false;
+          this.modalReporteDocAusenteVisible = true;
+          this.cdr.detectChanges();
+        } else {
+          this.onBuscar();
+        }
+      }
+    });
+
+    this.busquedaForm.get('tipo')?.valueChanges.subscribe(tipo => {
+      this.actualizarValidadoresTipo(tipo);
+    });
+  }
+
+  actualizarValidadoresTipo(tipo: string | null) {
+    const letraControl = this.busquedaForm.get('letra');
+    const ptoVtaControl = this.busquedaForm.get('puntoVenta');
+
+    if (tipo === 'RC') {
+      letraControl?.disable({ emitEvent: false });
+      letraControl?.setValue('', { emitEvent: false });
+      letraControl?.clearValidators();
+      letraControl?.updateValueAndValidity({ emitEvent: false });
+
+      ptoVtaControl?.disable({ emitEvent: false });
+      ptoVtaControl?.setValue('', { emitEvent: false });
+      ptoVtaControl?.clearValidators();
+      ptoVtaControl?.updateValueAndValidity({ emitEvent: false });
+    } else {
+      if (letraControl?.disabled) {
+        letraControl.enable({ emitEvent: false });
+      }
+      letraControl?.setValidators([Validators.required, Validators.maxLength(1)]);
+      letraControl?.updateValueAndValidity({ emitEvent: false });
+
+      if (ptoVtaControl?.disabled) {
+        ptoVtaControl.enable({ emitEvent: false });
+      }
+      ptoVtaControl?.setValidators([Validators.required, Validators.min(1)]);
+      ptoVtaControl?.updateValueAndValidity({ emitEvent: false });
+    }
+    this.cdr.detectChanges();
+  }
+
+
+  /**
+   * Se ejecuta UNA VEZ, después de que Angular renderizó el HTML del componente.
+   * Es el momento seguro para iniciar el tour, ya que todos los selectores
+   * CSS (.busqueda-section, .btn-buscar, .grilla-section) ya existen en el DOM.
+   *
+   * El setTimeout de 300 ms le da tiempo a AG Grid para terminar
+   * su propia inicialización interna antes de que Shepherd tome el control.
+   */
+  ngAfterViewInit(): void {
+    setTimeout(() => this.tourService.startSearchTour(), 300);
+  }
+
+  /**
+   * Permite al usuario volver a reproducir el tour guiado completo por toda la plataforma
+   * en cualquier momento desde el botón de la cabecera.
+   */
+  reproducirTourCompleto(): void {
+    const tieneResultados = this.prestaciones.length > 0;
+    this.tourService.startFullTour(tieneResultados);
+  }
+
+  /**
+   * Cierra el panel de ayuda y desencadena la reproducción del tour guiado.
+   */
+  reproducirTourDesdeAyuda(): void {
+    this.isHelpDrawerOpen = false;
+    this.reproducirTourCompleto();
   }
 
   ngOnDestroy() {
     if (this.autoguardadoSub) this.autoguardadoSub.unsubscribe();
+    if (this.notifSub) this.notifSub.unsubscribe();
     this.inactividadService.pararSeguimiento();
   }
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
   private excelService = inject(ExcelExportService);
+  private notificacionService = inject(NotificacionService);
+  private notifSub?: Subscription;
+
 
   listaMotivosAgrupados = LISTA_MOTIVOS_DEBITO;
   listaMotivosRefacturaAgrupados = LISTA_MOTIVOS_REFACTURA;
@@ -113,11 +238,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   comentariosMasivo: string = '';
   comentariosDebitoMasivo: string = '';
 
-  cargando : boolean = false;
+  cargando: boolean = false;
   private fb = inject(FormBuilder);
   cdr = inject(ChangeDetectorRef);
-  private authService = inject(AuthService);
+  public authService = inject(AuthService);
   private router = inject(Router);
+
+  get esAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
   prestaciones: Prestacion[] = [];
   prestacionesFiltradas: Prestacion[] = [];
   columnaOrden: string = '';
@@ -134,6 +263,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   modalAlertaMensaje: string = '';
   modalAlertaCallback: any = null;
   modalAlertaTipo: 'exito' | 'error' | 'peligro' | 'normal' = 'normal';
+  esDocumentoNoEncontrado: boolean = false;
+  enviandoNotificacionAdmin: boolean = false;
+  notificacionAdminEnviada: boolean = false;
+  documentoBuscadoNoEncontrado: { tipo: string; letra: string; puntoVenta: number; numero: number } | null = null;
+
+  modalReporteDocAusenteVisible: boolean = false;
+  docAusenteDetalle: any = null;
+  textoCopiadoFeedback: boolean = false;
+
+  modalDocumentosAsociadosVisible: boolean = false;
 
   filtroPaciente: string = '';
   filtroProfesional: string = '';
@@ -141,10 +280,154 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   filtroGrupo: string = '';
   filtroFecha: string = '';
   tipoBusquedaRealizada: string = '';
+  notaDeCreditoYaCreada: boolean = false; // solo se usa para ND (relación 1:1)
+  notaDeDebitoYaCreada: boolean = false;  // solo se usa para ND→NC (relación 1:1)
+
+  // Regla 1/2: listas de documentos asociados ya creados
+  documentosCreadosInfo: DocumentoAsociado[] = [];
+  ndsCreadasDesdeNc: DocumentoAsociado[] = [];
+
+  // Regla 2: indica si la NC buscada es hija de una ND (true) → bloquea nueva ND
+  ncEsHijaDeND: boolean = false;
+
+  // Mantener por compatibilidad con /tiene-nc-para-nd (relación 1:1 ND→NC)
+  documentoCreadoInfo: DocumentoAsociado | null = null;
+
+  esTipoFactura(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'FC' || t === 'FAC' || t === 'FCE';
+  }
+
+  esTipoNotaCredito(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'NC' || t === 'NCE';
+  }
+
+  esTipoNotaDebito(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'ND' || t === 'NDE';
+  }
+
+  esTipoRecibo(tipo?: string): boolean {
+    const t = (tipo || this.tipoBusquedaRealizada || '').toUpperCase();
+    return t === 'RC' || t === 'REC';
+  }
 
   soloSinMotivoDebito: boolean = false;
   soloSinMotivoRefactura: boolean = false;
   soloValorizadas: boolean = false;
+  soloSinNC: boolean = false;
+  soloConDebitoAceptado: boolean = false;
+
+  get hayFiltrosActivos(): boolean {
+    return !!(
+      this.filtroPaciente ||
+      this.filtroProfesional ||
+      this.filtroPrestacion ||
+      this.filtroGrupo ||
+      this.filtroFecha ||
+      this.soloValorizadas ||
+      this.soloSinMotivoDebito ||
+      this.soloSinMotivoRefactura ||
+      this.soloSinNC ||
+      this.soloConDebitoAceptado
+    );
+  }
+
+  get haRealizadoBusqueda(): boolean {
+    return !!(
+      this.tipoBusquedaRealizada ||
+      this.prestaciones.length > 0 ||
+      this.filasHistorialComprobantes.length > 0 ||
+      this.busquedaForm.get('tipo')?.value ||
+      this.busquedaForm.get('letra')?.value ||
+      this.busquedaForm.get('puntoVenta')?.value ||
+      this.busquedaForm.get('numero')?.value
+    );
+  }
+
+  onLimpiarBusqueda(): void {
+    if (this.modificadosSinGuardar.size > 0) {
+      this.mostrarAlerta(
+        'Tenés registros sin guardar del documento actual. Por favor, guardá los cambios antes de limpiar la búsqueda.',
+        undefined,
+        'peligro'
+      );
+      return;
+    }
+
+    // 1. Limpiar campos del formulario
+    this.busquedaForm.reset({
+      tipo: '',
+      letra: '',
+      puntoVenta: '',
+      numero: ''
+    });
+    this.actualizarValidadoresTipo('');
+
+    // 2. Limpiar datos del documento y resultados
+    this.prestaciones = [];
+    this.prestacionesFiltradas = [];
+    this.prestacionesPaginadas = [];
+    this.tipoBusquedaRealizada = '';
+    this.documentosCreadosInfo = [];
+    this.documentoCreadoInfo = null;
+    this.notaDeCreditoYaCreada = false;
+    this.notaDeDebitoYaCreada = false;
+    this.ndsCreadasDesdeNc = [];
+    this.ncEsHijaDeND = false;
+    this.filasHistorialComprobantes = [];
+    this.cantidadHistorial = 1;
+    this.esTablaAjusteIva = false;
+    this.filasResumenAjusteIva = [];
+    this.registrosSeleccionados = [];
+    this.todasSeleccionadas = false;
+
+    // 3. Limpiar filtros dinámicos
+    this.filtroPaciente = '';
+    this.filtroProfesional = '';
+    this.filtroPrestacion = '';
+    this.filtroGrupo = '';
+    this.filtroFecha = '';
+    this.soloSinMotivoDebito = false;
+    this.soloSinMotivoRefactura = false;
+    this.soloValorizadas = false;
+    this.soloSinNC = false;
+    this.soloConDebitoAceptado = false;
+    this.pacientesList = [];
+    this.profesionalesList = [];
+    this.prestacionesList = [];
+    this.gruposList = [];
+    this.fechasList = [];
+
+    // 4. Limpiar totales
+    this.totalFacturado = 0;
+    this.totalDebitado = 0;
+    this.totalCantidad = 0;
+    this.totalNetoGlobal = 0;
+    this.totalCoseguroGlobal = 0;
+    this.totalRefacturadoGlobal = 0;
+    this.cantAceptados = 0;
+    this.totalDebitadoAceptado = 0;
+    this.totalRefacturarRechazado = 0;
+
+    // 5. Limpiar paginación y candados
+    this.paginaActual = 1;
+    this.totalPaginas = 1;
+    this.modificadosSinGuardar.clear();
+    this.prestacionesParaBorrar.clear();
+
+    this.cdr.detectChanges();
+  }
+
+
+  // Formatea una fecha ISO 'YYYY-MM-DD' a 'DD/MM/YYYY' sin usar el constructor Date,
+  // evitando el desplazamiento de un día causado por la conversión UTC → local.
+  formatearFecha(fechaIso: string): string {
+    if (!fechaIso) return '';
+    const [anio, mes, dia] = fechaIso.split('-');
+    return `${dia}/${mes}/${anio}`;
+  }
 
   prestacionesPaginadas: Prestacion[] = []; // Esta es la que va a leer el HTML
   paginaActual: number = 1;
@@ -177,6 +460,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   configurarColumnas() {
     const englobante = this.debeMostrarEnglobante();
     const tieneComentariosPrevios = this.prestacionesFiltradas.some(p => p.comentarioPrevio && p.comentarioPrevio.trim() !== '');
+    const tramiteFinalizado = this.idEstadoActual === 2;
 
     // Delegamos la configuración de AG-Grid al servicio
     this.columnDefs = this.gridConfigService.getConfiguracionColumnas(
@@ -185,11 +469,17 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       tieneComentariosPrevios,
       this.listaMotivosAgrupados,
       this.listaMotivosRefacturaAgrupados,
-      GroupedSelectEditor // Pasamos el componente editor para que el servicio pueda inyectarlo
+      GroupedSelectEditor, // Pasamos el componente editor para que el servicio pueda inyectarlo
+      tramiteFinalizado
     );
   }
 
-// Configuración por defecto para no repetir código en cada columna
+  public overlayNoRowsTemplate: string = '<span class="ag-overlay-no-rows-center">Sin resultados</span>';
+  public localeText: { [key: string]: string } = {
+    noRowsToShow: 'Sin resultados'
+  };
+
+  // Configuración por defecto para no repetir código en cada columna
   public defaultColDef: ColDef = {
     sortable: true,
     filter: false,
@@ -201,11 +491,29 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   modalVisible: boolean = false;
   modalMensaje: string = '';
-  modalAceptarCb: () => void = () => {};
-  modalCancelarCb: () => void = () => {};
+  modalAceptarCb: () => void = () => { };
+  modalCancelarCb: () => void = () => { };
 
   modalNuevaNotaVisible: boolean = false;
   tipoNuevaNota: 'NC' | 'ND' = 'NC'; // Variable para saber qué estamos generando
+
+  cabecerasDisponibles: any[] = [];
+  cargandoCabeceras: boolean = false;
+  modoIngresoManual: boolean = false;
+  cabeceraSeleccionadaId: number | null = null;
+  cabeceraSeleccionadaObjeto: any = null;
+
+  cabecerasDisponiblesNdIva: any[] = [];
+  cargandoCabecerasNdIva: boolean = false;
+  modoIngresoManualNdIva: boolean = false;
+  cabeceraSeleccionadaIdNdIva: number | null = null;
+  cabeceraSeleccionadaNdIvaObjeto: any = null;
+
+  mostrarRadioTipoNd: boolean = false;
+  deshabilitarTipoIva: boolean = false;
+  deshabilitarTipoRefactura: boolean = false;
+  tooltipTipoIva: string = '';
+  tooltipTipoRefactura: string = '';
 
   busquedaForm = this.fb.group({
     tipo: ['', Validators.required],
@@ -214,13 +522,421 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     numero: ['', [Validators.required, Validators.min(1)]]
   });
 
+  montoNetoPrestacional: number = 0;
+  montoIvaPrestacionalOriginal: number = 0;
+  montoIvaCalculado: number = 0;
+  hasPrestacionesIvaMalFacturado: boolean = false;
+
+  ncGuardadaExitosamente: boolean = false;
+  editandoNcAjusteIva: boolean = false;
+  datosNcCreada: any = null;
+  netoAjusteIva: number = 0;
+  montoIvaNdCalculado: number = 0;
+  cargandoNdIva: boolean = false;
+  deshabilitarPorAjusteIva: boolean = false;
+  esTablaAjusteIva: boolean = false;
+  filasResumenAjusteIva: any[] = [];
+  soloCrearNdAjusteIva: boolean = false;
+  modalHistorialVisible: boolean = false;
+  filasHistorialComprobantes: any[] = [];
+  cantidadHistorial: number = 1;
+  permitirNcConjunta: boolean = true;
+  tieneAjusteIvaNcConjunta: boolean = false;
+  tieneNdAjusteIvaCreada: boolean = false;
+  filaNcParaCrearNdAjuste: any = null;
+
+  obtenerFechaHoy(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
   nuevaNotaForm = this.fb.group({
     tipo: ['', Validators.required],
     letra: ['', [Validators.required, Validators.maxLength(1)]],
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]],
-    fecha: ['', Validators.required]
+    fecha: ['', Validators.required],
+    tipoNc: ['Refactura'],
+    subtipoIva: [''],
+    netoNc: [null as number | null],
+    porcIva: [null as number | null],
+    ivaNc: [null as number | null],
+    tipoNd: [''],
+    importeNd: [null as number | null]
   });
+
+  nuevaNotaDebitoIvaForm = this.fb.group({
+    tipo: ['ND', Validators.required],
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]],
+    fecha: [this.obtenerFechaHoy(), Validators.required],
+    netoNd: [null as number | null],
+    porcIva: [null as number | null, Validators.required],
+    ivaNd: [null as number | null]
+  });
+
+  calcularTotalesIvaPrestacional() {
+    const prestIvaMalFacturado = this.prestaciones.filter(
+      p => p.motivoDebito && p.motivoDebito.trim().toLowerCase() === 'iva mal facturado'
+    );
+    this.hasPrestacionesIvaMalFacturado = prestIvaMalFacturado.length > 0;
+    this.montoNetoPrestacional = prestIvaMalFacturado.reduce((sum, p) => sum + (p.totalNeto || 0), 0);
+    this.montoIvaPrestacionalOriginal = prestIvaMalFacturado.reduce((sum, p) => sum + this.obtenerMontoIva(p), 0);
+
+    const porc = this.nuevaNotaForm.get('porcIva')?.value;
+    if (porc !== null && porc !== undefined && String(porc) !== '') {
+      this.montoIvaCalculado = Number((this.montoNetoPrestacional * (Number(porc) / 100)).toFixed(2));
+    } else {
+      this.montoIvaCalculado = Number(this.montoIvaPrestacionalOriginal.toFixed(2));
+    }
+    this.nuevaNotaForm.patchValue({ ivaNc: this.montoIvaCalculado }, { emitEvent: false });
+
+    if (!this.hasPrestacionesIvaMalFacturado) {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors({ sinIvaMalFacturado: true });
+    } else {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
+    }
+    if (!this.cabeceraSeleccionadaNdIvaObjeto && !this.modoIngresoManualNdIva) {
+      this.netoAjusteIva = this.montoNetoPrestacional;
+    }
+    this.onPorcIvaNdChange();
+    this.cdr.detectChanges();
+  }
+
+  onRadioOptionClick(event: MouseEvent, opcion: string) {
+    if ((opcion === 'Por ajuste de IVA' || opcion === 'Prestacional y Ajuste de IVA') && this.deshabilitarPorAjusteIva) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  onTipoNcChange() {
+    const tipoNc = this.nuevaNotaForm.get('tipoNc')?.value;
+
+    if (this.deshabilitarPorAjusteIva && (tipoNc === 'Por ajuste de IVA' || tipoNc === 'Prestacional y Ajuste de IVA')) {
+      this.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (tipoNc === 'Por ajuste de IVA') {
+      this.cargarCabecerasDisponiblesNdIva();
+      this.nuevaNotaForm.get('subtipoIva')?.setValidators([Validators.required]);
+      this.nuevaNotaForm.patchValue({ subtipoIva: '', netoNc: null, porcIva: null, ivaNc: null });
+      this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
+      this.onSubtipoIvaChange();
+    } else if (tipoNc === 'Prestacional y Ajuste de IVA') {
+      this.nuevaNotaForm.get('subtipoIva')?.clearValidators();
+      this.nuevaNotaForm.patchValue({ subtipoIva: 'No prestacional', netoNc: null, porcIva: null, ivaNc: null });
+      this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('netoNc')?.setValidators([Validators.required, Validators.min(0.01)]);
+      this.nuevaNotaForm.get('porcIva')?.setValidators([Validators.required]);
+      this.nuevaNotaForm.get('netoNc')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('porcIva')?.updateValueAndValidity();
+    } else {
+      // Refactura
+      this.nuevaNotaForm.get('subtipoIva')?.clearValidators();
+      this.nuevaNotaForm.get('netoNc')?.clearValidators();
+      this.nuevaNotaForm.get('porcIva')?.clearValidators();
+      this.nuevaNotaForm.patchValue({ subtipoIva: '', netoNc: null, porcIva: null, ivaNc: null });
+      this.nuevaNotaForm.get('subtipoIva')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('netoNc')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('porcIva')?.updateValueAndValidity();
+    }
+    this.cdr.detectChanges();
+  }
+
+  onSubtipoIvaChange() {
+    const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+    const netoCtrl = this.nuevaNotaForm.get('netoNc');
+    const porcCtrl = this.nuevaNotaForm.get('porcIva');
+
+    if (subtipoIva === 'No prestacional' || this.nuevaNotaForm.get('tipoNc')?.value === 'Prestacional y Ajuste de IVA') {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
+      netoCtrl?.setValidators([Validators.required, Validators.min(0.01)]);
+      porcCtrl?.setValidators([Validators.required]);
+      this.onNetoManualChange();
+    } else if (subtipoIva === 'Prestacional') {
+      netoCtrl?.clearValidators();
+      netoCtrl?.setValue(null);
+      porcCtrl?.clearValidators();
+      this.calcularTotalesIvaPrestacional();
+    } else {
+      this.nuevaNotaForm.get('subtipoIva')?.setErrors(null);
+      netoCtrl?.clearValidators();
+      netoCtrl?.setValue(null);
+      porcCtrl?.clearValidators();
+      this.nuevaNotaForm.patchValue({ porcIva: null, ivaNc: null });
+    }
+    netoCtrl?.updateValueAndValidity();
+    porcCtrl?.updateValueAndValidity();
+    this.cdr.detectChanges();
+  }
+
+  onNetoManualChange() {
+    const neto = Number(this.nuevaNotaForm.get('netoNc')?.value) || 0;
+    const porcVal = this.nuevaNotaForm.get('porcIva')?.value;
+    if (neto > 0 && porcVal !== null && porcVal !== undefined && String(porcVal) !== '') {
+      const ivaCalc = Number((neto * (Number(porcVal) / 100)).toFixed(2));
+      this.nuevaNotaForm.patchValue({ ivaNc: ivaCalc }, { emitEvent: false });
+      this.montoIvaCalculado = ivaCalc;
+    } else {
+      this.nuevaNotaForm.patchValue({ ivaNc: null }, { emitEvent: false });
+      this.montoIvaCalculado = 0;
+    }
+    if (!this.cabeceraSeleccionadaNdIvaObjeto && !this.modoIngresoManualNdIva) {
+      this.netoAjusteIva = neto;
+    }
+    this.onPorcIvaNdChange();
+    this.cdr.detectChanges();
+  }
+
+  esPorcIvaDeshabilitadoEnNc(porc: number): boolean {
+    if (this.nuevaNotaForm.get('tipoNc')?.value !== 'Por ajuste de IVA') return false;
+    if (this.nuevaNotaForm.get('subtipoIva')?.value !== 'No prestacional') return false;
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    return porcNd !== null && porcNd !== undefined && Number(porcNd) === porc;
+  }
+
+  esPorcIvaDeshabilitadoEnNd(porc: number): boolean {
+    if (this.nuevaNotaForm.get('tipoNc')?.value !== 'Por ajuste de IVA') return false;
+    if (this.nuevaNotaForm.get('subtipoIva')?.value !== 'No prestacional') return false;
+    const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+    return porcNc !== null && porcNc !== undefined && Number(porcNc) === porc;
+  }
+
+  prevenirClickSiDeshabilitado(event: MouseEvent, deshabilitado: boolean) {
+    if (deshabilitado) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  onPorcIvaNdChange() {
+    const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+
+    if (subtipoIva === 'No prestacional' && porcNd !== null && porcNd !== undefined && porcNc !== null && porcNc !== undefined && Number(porcNd) === Number(porcNc)) {
+      // Bloqueamos la selección del mismo porcentaje que tiene NC
+      this.nuevaNotaDebitoIvaForm.patchValue({ porcIva: null }, { emitEvent: false });
+      this.montoIvaNdCalculado = 0;
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: 0 }, { emitEvent: false });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (!this.modoIngresoManualNdIva && this.cabeceraSeleccionadaNdIvaObjeto) {
+      // Caso 1: ND seleccionada de la lista -> Se calcula desglosando el DEBE de la ND
+      const debe = Number(this.cabeceraSeleccionadaNdIvaObjeto.debe) || 0;
+      if (debe > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+        const factor = 1 + (Number(porcNd) / 100);
+        this.netoAjusteIva = Number((debe / factor).toFixed(2));
+        this.montoIvaNdCalculado = Number((debe - this.netoAjusteIva).toFixed(2));
+      } else {
+        this.montoIvaNdCalculado = 0;
+        this.netoAjusteIva = debe;
+      }
+      this.nuevaNotaDebitoIvaForm.patchValue({ netoNd: this.netoAjusteIva, ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    } else if (this.modoIngresoManualNdIva) {
+      // Caso 2: ND ingresada manualmente -> Se calcula a partir del neto manual ingresado
+      const netoManual = Number(this.nuevaNotaDebitoIvaForm.get('netoNd')?.value) || 0;
+      this.netoAjusteIva = netoManual;
+      if (netoManual > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+        this.montoIvaNdCalculado = Number((netoManual * (Number(porcNd) / 100)).toFixed(2));
+      } else {
+        this.montoIvaNdCalculado = 0;
+      }
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    } else {
+      if (this.netoAjusteIva > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+        this.montoIvaNdCalculado = Number((this.netoAjusteIva * (Number(porcNd) / 100)).toFixed(2));
+      } else {
+        this.montoIvaNdCalculado = 0;
+      }
+      this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    }
+    this.cdr.detectChanges();
+  }
+
+  onNetoManualNdChange() {
+    const netoManual = Number(this.nuevaNotaDebitoIvaForm.get('netoNd')?.value) || 0;
+    this.netoAjusteIva = netoManual;
+    const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+    if (netoManual > 0 && porcNd !== null && porcNd !== undefined && String(porcNd) !== '') {
+      this.montoIvaNdCalculado = Number((netoManual * (Number(porcNd) / 100)).toFixed(2));
+    } else {
+      this.montoIvaNdCalculado = 0;
+    }
+    this.nuevaNotaDebitoIvaForm.patchValue({ ivaNd: this.montoIvaNdCalculado }, { emitEvent: false });
+    this.cdr.detectChanges();
+  }
+
+  iniciarEdicionNcAjusteIva() {
+    this.editandoNcAjusteIva = true;
+    this.nuevaNotaForm.enable();
+    this.nuevaNotaDebitoIvaForm.disable();
+    this.cdr.detectChanges();
+  }
+
+  cancelarEdicionNcAjusteIva() {
+    if (this.datosNcCreada) {
+      this.nuevaNotaForm.patchValue(this.datosNcCreada);
+      this.onNetoManualChange();
+    }
+    this.editandoNcAjusteIva = false;
+    this.nuevaNotaForm.disable();
+    this.nuevaNotaDebitoIvaForm.enable();
+    this.cdr.detectChanges();
+  }
+
+  guardarEdicionNcAjusteIva() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder modificar un comprobante.', undefined, 'peligro');
+      return;
+    }
+
+    if (this.nuevaNotaForm.invalid) {
+      this.nuevaNotaForm.markAllAsTouched();
+      this.mostrarAlerta('Por favor, completá todos los campos requeridos de la Nota de Crédito.', undefined, 'error');
+      return;
+    }
+
+    const f = this.busquedaForm.value;
+    const datosNotaForm: any = { ...this.nuevaNotaForm.getRawValue() };
+    datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
+    if (datosNotaForm.subtipoIva === 'No prestacional') {
+      datosNotaForm.neto = datosNotaForm.netoNc;
+      datosNotaForm.iva = datosNotaForm.ivaNc;
+    } else {
+      datosNotaForm.neto = this.montoNetoPrestacional;
+      datosNotaForm.iva = this.montoIvaCalculado;
+    }
+
+    const payload = {
+      origen: this.tipoBusquedaRealizada,
+      usuario: this.authService.obtenerUsuario(),
+      letraOriginal: f.letra,
+      ptovtaOriginal: f.puntoVenta,
+      numeroOriginal: f.numero,
+      datosNota: datosNotaForm,
+      registros: []
+    };
+
+    this.cargando = true;
+    this.auditoriaService.editarNcAjusteIva(payload).subscribe({
+      next: () => {
+        this.cargando = false;
+        this.editandoNcAjusteIva = false;
+        this.datosNcCreada = datosNotaForm;
+        this.netoAjusteIva = Number(datosNotaForm.netoNc) || 0;
+        this.onPorcIvaNdChange();
+
+        this.nuevaNotaForm.disable();
+        this.nuevaNotaDebitoIvaForm.enable();
+
+        if (this.busquedaForm.valid) {
+          this.cargarHistorialComprobantes(f.tipo || 'FC', f.letra || '', f.puntoVenta || '', f.numero || '');
+        }
+
+        this.mostrarAlerta('¡Nota de Crédito por Ajuste de IVA modificada con éxito!', undefined, 'exito');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.cargando = false;
+        const mensajeServer = err.error?.message || err.error?.mensaje || 'Error al actualizar la Nota de Crédito.';
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  guardarNotaDebitoAjusteIva() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
+    if (this.soloCrearNdAjusteIva) {
+      this.guardarNdAjusteIvaSolo();
+      return;
+    }
+
+    if (this.nuevaNotaDebitoIvaForm.invalid || !this.datosNcCreada) {
+      this.mostrarAlerta('Por favor, complete todos los campos requeridos de la Nota de Débito.', undefined, 'error');
+      return;
+    }
+
+    const payload = {
+      tipoNc: this.datosNcCreada.tipo,
+      letraNc: this.datosNcCreada.letra,
+      ptovtaNc: this.datosNcCreada.puntoVenta,
+      numeroNc: this.datosNcCreada.numero,
+
+      tipoNd: this.nuevaNotaDebitoIvaForm.value.tipo,
+      letraNd: this.nuevaNotaDebitoIvaForm.value.letra?.toUpperCase(),
+      ptovtaNd: this.nuevaNotaDebitoIvaForm.value.puntoVenta,
+      numeroNd: this.nuevaNotaDebitoIvaForm.value.numero,
+
+      neto: this.modoIngresoManualNdIva ? (Number(this.nuevaNotaDebitoIvaForm.value.netoNd) || this.netoAjusteIva) : this.netoAjusteIva,
+      iva: this.montoIvaNdCalculado,
+      porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
+      fecha: this.nuevaNotaDebitoIvaForm.value.fecha,
+      idCabeceraSeleccionada: this.cabeceraSeleccionadaIdNdIva,
+      creadoManualmente: this.modoIngresoManualNdIva || !this.cabeceraSeleccionadaIdNdIva,
+      usuario: this.authService.obtenerUsuario()
+    };
+
+    this.cargandoNdIva = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaDebitoAjusteIva(payload).subscribe({
+      next: () => {
+        this.cargandoNdIva = false;
+        this.cerrarModalNuevaNota();
+        this.mostrarAlerta('¡Nota de Crédito y Nota de Débito por Ajuste de IVA generadas y guardadas con éxito!', undefined, 'exito');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        this.cargandoNdIva = false;
+        const mensajeServer = err.error?.message || err.error?.mensaje || 'Error al procesar la Nota de Débito por Ajuste de IVA.';
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onPorcIvaChange() {
+    const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+    if (subtipoIva === 'No prestacional') {
+      const porcNc = this.nuevaNotaForm.get('porcIva')?.value;
+      const porcNd = this.nuevaNotaDebitoIvaForm.get('porcIva')?.value;
+      if (porcNc !== null && porcNc !== undefined && porcNd !== null && porcNd !== undefined && Number(porcNc) === Number(porcNd)) {
+        // Bloqueamos la selección del mismo porcentaje que tiene ND
+        this.nuevaNotaForm.patchValue({ porcIva: null }, { emitEvent: false });
+        this.onNetoManualChange();
+        this.cdr.detectChanges();
+        return;
+      }
+      this.onNetoManualChange();
+    } else {
+      this.calcularTotalesIvaPrestacional();
+    }
+  }
+
+  onTipoNdChange() {
+    const val = this.nuevaNotaForm.get('tipoNd')?.value;
+    const ctrl = this.nuevaNotaForm.get('importeNd');
+    if (val === 'Por ajuste de IVA') {
+      ctrl?.setValidators([Validators.required, Validators.min(0.01)]);
+    } else {
+      ctrl?.clearValidators();
+      ctrl?.setValue(null);
+    }
+    ctrl?.updateValueAndValidity();
+    this.cdr.detectChanges();
+  }
 
   cerrarModal() {
     this.modalVisible = false;
@@ -274,9 +990,13 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'LIMPIEZA_FILAS_CONFIRMADA',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Cantidad de filas blanqueadas
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.registrosSeleccionados.forEach(p => {
+        // Si la prestación ya tiene una NC guardada en BD, la marcamos para borrar en el backend
+        if (p.id != null && p.ncNumero) {
+          this.prestacionesParaBorrar.add(p.id);
+        }
         p.debitoAceptado = '';
         p.motivoDebito = '';
         p.importeDebitado = undefined;  // Queda vacío en la grilla
@@ -284,7 +1004,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         p.motivoRefactura = '';
         p.importeRefactura = undefined;
         p.comentarios = '';
-        this.registrarCambio(p); // <-- CAMBIAR ACÁ
+        p.ncNumero = undefined;
+        p.ncLetra = undefined;
+        this.registrarCambio(p);
       });
       this.calcularTotales();
       this.cerrarModal();
@@ -299,7 +1021,17 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     if (this.registrosSeleccionados.length === 0 || !this.motivoRefacturaMasivoSeleccionado) return;
 
     const motivo = this.motivoRefacturaMasivoSeleccionado;
-    const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoRefactura && p.motivoRefactura !== '');
+    const filasConDebitoSi = this.registrosSeleccionados.filter(p => p.debitoAceptado === 'SI');
+
+    if (filasConDebitoSi.length === this.registrosSeleccionados.length) {
+      this.mostrarAlerta('No se puede asignar un Motivo de Refactura a prestaciones cuyo débito fue aceptado ("SI").', undefined, 'error');
+      this.motivoRefacturaMasivoSeleccionado = '';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const registrosAptos = this.registrosSeleccionados.filter(p => p.debitoAceptado !== 'SI');
+    const registrosConPrevio = registrosAptos.filter(p => p.motivoRefactura && p.motivoRefactura !== '');
 
     if (registrosConPrevio.length > 0) {
       this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de refactura.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
@@ -312,34 +1044,52 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_REFACTURA',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosConPrevio.length
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
-        this.ejecutarMasivoRefactura(motivo, true);
+        this.ejecutarMasivoRefactura(motivo, true, filasConDebitoSi.length);
         this.cerrarModal();
       };
 
       this.modalCancelarCb = () => {
-        this.ejecutarMasivoRefactura(motivo, false);
+        this.ejecutarMasivoRefactura(motivo, false, filasConDebitoSi.length);
         this.cerrarModal();
       };
 
       this.modalVisible = true;
     } else {
-      this.ejecutarMasivoRefactura(motivo, true);
+      this.ejecutarMasivoRefactura(motivo, true, filasConDebitoSi.length);
     }
   }
 
-  ejecutarMasivoRefactura(motivo: string, sobreescribirTodos: boolean) {
+  ejecutarMasivoRefactura(motivo: string, sobreescribirTodos: boolean, cantidadIgnoradosSi: number = 0) {
+    let aplicados = 0;
     this.registrosSeleccionados.forEach(p => {
+      if (p.debitoAceptado === 'SI') return;
       if (!sobreescribirTodos && p.motivoRefactura && p.motivoRefactura !== '') return;
-      p.motivoRefactura = motivo === 'Borrar' ? '' : motivo;
+      if (motivo === 'Borrar') {
+        p.motivoRefactura = '';
+        p.importeRefactura = undefined;
+      } else if (motivo === 'No aplica') {
+        p.motivoRefactura = motivo;
+        p.importeRefactura = undefined;
+      } else {
+        p.motivoRefactura = motivo;
+        if (p.debitoAceptado?.trim().toUpperCase() === 'NO') {
+          p.importeRefactura = p.total;
+        }
+      }
       this.registrarCambio(p);
+      aplicados++;
     });
 
     this.motivoRefacturaMasivoSeleccionado = '';
     this.calcularTotales();
     this.gridApi?.refreshCells();
     this.cdr.detectChanges();
+
+    if (cantidadIgnoradosSi > 0) {
+      this.mostrarAlerta(`El motivo de refactura se aplicó a ${aplicados} fila(s). Se ignoraron ${cantidadIgnoradosSi} fila(s) cuyo débito fue aceptado ("SI").`);
+    }
   }
 
   aplicarDebitoAceptadoMasivo() {
@@ -347,8 +1097,48 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
     const valor = this.debitoAceptadoMasivoSeleccionado === 'Borrar' ? '' : this.debitoAceptadoMasivoSeleccionado;
 
+    if (valor === 'NO') {
+      const filasConImporte = this.registrosSeleccionados.filter(p => p.importeDebitado != null && p.importeDebitado !== undefined);
+
+      if (filasConImporte.length > 0) {
+        this.modalMensaje = `Hay ${filasConImporte.length} registro(s) seleccionado(s) que ya tienen un importe debitado ingresado.\n\n¿Desea REEMPLAZAR los importes existentes al marcar el débito como 'NO'?\n\n(Si selecciona Cancelar, se aplicará el cambio conservando los importes ya ingresados)`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarMasivoDebitoAceptado(valor, true);
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          this.ejecutarMasivoDebitoAceptado(valor, false);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+        return;
+      }
+    }
+
+    this.ejecutarMasivoDebitoAceptado(valor, true);
+  }
+
+  ejecutarMasivoDebitoAceptado(valor: string, sobreescribirImporte: boolean = true) {
     this.registrosSeleccionados.forEach(p => {
       p.debitoAceptado = valor;
+      if (valor === 'NO') {
+        if (sobreescribirImporte || p.importeDebitado == null) {
+          p.importeDebitado = undefined;
+        }
+        if (p.motivoRefactura && p.motivoRefactura.trim() !== '' && p.motivoRefactura.trim() !== 'No aplica') {
+          p.importeRefactura = p.total;
+        }
+      } else if (valor === 'SI') {
+        p.motivoRefactura = '';
+        p.importeRefactura = undefined;
+        p.comentarios = '';
+      } else if (valor === '') {
+        p.comentarios = '';
+      }
       this.registrarCambio(p);
     });
 
@@ -374,27 +1164,53 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   aplicarImporteRefacturaMasivo() {
     if (this.registrosSeleccionados.length === 0 || this.importeRefacturaMasivo == null) return;
 
+    const filasConDebitoSi = this.registrosSeleccionados.filter(p => p.debitoAceptado === 'SI');
+
+    if (filasConDebitoSi.length === this.registrosSeleccionados.length) {
+      this.mostrarAlerta('No se puede asignar un Importe de Refactura a prestaciones cuyo débito fue aceptado ("SI").', undefined, 'error');
+      this.importeRefacturaMasivo = undefined;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    let aplicados = 0;
     this.registrosSeleccionados.forEach(p => {
+      if (p.debitoAceptado === 'SI') return;
       p.importeRefactura = this.importeRefacturaMasivo;
+      this.registrarCambio(p);
+      aplicados++;
     });
 
     this.importeRefacturaMasivo = undefined; // Limpiamos el input
     this.calcularTotales();
     this.gridApi?.refreshCells();
     this.cdr.detectChanges();
+
+    if (filasConDebitoSi.length > 0) {
+      this.mostrarAlerta(`El importe de refactura se aplicó a ${aplicados} fila(s). Se ignoraron ${filasConDebitoSi.length} fila(s) cuyo débito fue aceptado ("SI").`);
+    }
   }
 
   aplicarComentariosMasivo() {
     if (this.registrosSeleccionados.length === 0 || !this.comentariosMasivo) return;
+
+    const filasConDebitoSi = this.registrosSeleccionados.filter(p => p.debitoAceptado === 'SI');
+
+    if (filasConDebitoSi.length === this.registrosSeleccionados.length) {
+      this.mostrarAlerta('No se pueden asignar Comentarios de Refactura a prestaciones cuyo débito fue aceptado ("SI").', undefined, 'error');
+      this.comentariosMasivo = '';
+      this.cdr.detectChanges();
+      return;
+    }
 
     let aplicados = 0;
     this.registrosSeleccionados.forEach(p => {
       // REGLA DE ORO: Solo inyectamos el comentario si el débito NO fue aceptado
       if (p.debitoAceptado === 'NO') {
         p.comentarios = this.comentariosMasivo;
+        this.registrarCambio(p);
         aplicados++;
       }
-      this.registrarCambio(p);
     });
 
     if (aplicados === 0) {
@@ -404,10 +1220,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}...`,
         evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
         fechaHora: new Date().toISOString(),
-        cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
-      }).subscribe({ error: () => {} });
+        cantidadRegistrosPendientes: this.registrosSeleccionados.length
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta("No se aplicó el comentario porque ninguna de las filas seleccionadas tiene el Débito Aceptado marcado como 'NO'.", undefined, 'error');
+    } else if (filasConDebitoSi.length > 0) {
+      this.mostrarAlerta(`El comentario se aplicó a ${aplicados} fila(s) con Débito en 'NO'. Se ignoraron ${filasConDebitoSi.length} fila(s) cuyo débito fue aceptado ("SI").`);
     } else if (aplicados < this.registrosSeleccionados.length) {
       this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s) que tenían el Débito Aceptado en 'NO'. Las demás fueron ignoradas para no generar datos inconsistentes.`);
     }
@@ -437,10 +1255,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'ACCION_MASIVA_FALLIDA_COMENTARIOS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length // Guardamos cuántas filas seleccionó mal
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta("No se aplicó el comentario porque ninguna fila seleccionada tiene un Motivo de Débito cargado.", undefined, 'error');
-    }else if (aplicados < this.registrosSeleccionados.length) {
+    } else if (aplicados < this.registrosSeleccionados.length) {
       this.mostrarAlerta(`El comentario se aplicó solo a ${aplicados} fila(s). Las demás fueron ignoradas por no tener Motivo de Débito.`);
     }
 
@@ -486,7 +1304,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_BUSQUEDA_FORMULARIO_INVALIDO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Revise los datos de búsqueda, faltan campos obligatorios.', undefined, 'error');
       return; // Cortamos la ejecución
@@ -495,12 +1313,73 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     // 3. SI PASÓ LOS DOS CANDADOS, SE EJECUTA LA BÚSQUEDA
     this.cargando = true; // Bloqueamos la UI
 
-    const filtros = { ...this.busquedaForm.value };
-    filtros.letra = filtros.letra ? filtros.letra.toUpperCase() : '';
+    const rawVal = this.busquedaForm.getRawValue();
+    const filtros: any = {
+      tipo: rawVal.tipo || '',
+      numero: rawVal.numero || ''
+    };
+    if (rawVal.tipo !== 'RC') {
+      filtros.letra = rawVal.letra ? rawVal.letra.toUpperCase() : '';
+      filtros.puntoVenta = rawVal.puntoVenta;
+    }
 
     this.auditoriaService.buscarPrestaciones(filtros).subscribe({
-      next: (data) => {
-        this.tipoBusquedaRealizada = this.busquedaForm.value.tipo || '';
+      next: (res: any) => {
+        this.tipoBusquedaRealizada = rawVal.tipo || '';
+
+        // Asignación directa de datos consolidados recibidos en la respuesta única de /buscar
+        this.documentosCreadosInfo = (res && res.documentosCreadosInfo) ? res.documentosCreadosInfo : [];
+        this.documentoCreadoInfo = (res && res.documentoCreadoInfo) ? res.documentoCreadoInfo : null;
+        this.notaDeCreditoYaCreada = !!this.documentoCreadoInfo;
+
+        this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
+        this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
+
+        if (this.tipoBusquedaRealizada === 'NC' || this.tipoBusquedaRealizada === 'NCE') {
+          this.tieneAjusteIvaNcConjunta = !!(res && res.resumenAjusteIva && res.resumenAjusteIva.length > 1);
+          this.filasResumenAjusteIva = (res && res.resumenAjusteIva) ? res.resumenAjusteIva : [];
+          if (this.filasHistorialComprobantes && this.filasHistorialComprobantes.length > 0) {
+            this.tieneNdAjusteIvaCreada = this.filasHistorialComprobantes.some(f =>
+              (f.tipoDocumento === 'ND' || f.tipoDocumento === 'NDE') &&
+              f.origenTipo === 'IVA' && !f.placeholderNdAjusteIva
+            );
+          } else {
+            this.tieneNdAjusteIvaCreada = false;
+          }
+        } else {
+          this.tieneAjusteIvaNcConjunta = false;
+          this.tieneNdAjusteIvaCreada = false;
+        }
+
+        if (this.esTipoRecibo()) {
+          this.esTablaAjusteIva = false;
+          this.filasResumenAjusteIva = [];
+          this.prestaciones = [];
+          this.prestacionesFiltradas = [];
+          this.cargando = false;
+          this.modalHistorialVisible = true;
+          this.cdr.detectChanges();
+          return;
+        }
+
+        if (res && res.tipoVista === 'TABLA_AJUSTE_IVA') {
+          // Los documentos de ajuste de IVA ya vienen integrados en filasHistorialComprobantes
+          // (con sus campos origenTipo="IVA", nivel, porcentajeIva, montoIva).
+          // Abrimos directamente el modal de historial en lugar de mostrar la tabla separada.
+          this.esTablaAjusteIva = false;
+          this.filasResumenAjusteIva = [];
+          this.prestaciones = [];
+          this.prestacionesFiltradas = [];
+          this.cargando = false;
+          this.modalHistorialVisible = true;
+          this.cdr.detectChanges();
+          return;
+        }
+
+        this.esTablaAjusteIva = false;
+        this.filasResumenAjusteIva = [];
+
+        const data = (res && res.prestaciones) ? res.prestaciones : (Array.isArray(res) ? res : []);
 
         this.prestaciones = data.map((p: any) => {
           p.debitoAceptado = p.debitoAceptado || '';
@@ -512,18 +1391,28 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.prepararFiltros(this.prestaciones);
         this.aplicarFiltros();
         this.configurarColumnas();
-        this.cdr.detectChanges();
 
         this.cargando = false;
+        this.cdr.detectChanges();
+
+        // Disparar la Fase 2 del tour guiado cuando los datos están renderizados
+        if (this.prestaciones.length > 0) {
+          setTimeout(() => this.tourService.startResultsTour(), 400);
+        }
       },
       error: (err) => {
         console.error(err);
         this.cargando = false;
 
+        const tipoDoc = (rawVal.tipo || '').toUpperCase();
+        const docRef = tipoDoc === 'RC'
+          ? `RC-${rawVal.numero || ''}`
+          : `${tipoDoc}-${rawVal.letra || ''}-${rawVal.puntoVenta || ''}-${rawVal.numero || ''}`;
+
         if (err.status === 0) {
           this.guardarMetricaEnLocal({
             usuario: this.authService.obtenerUsuario(),
-            documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+            documentoReferencia: docRef,
             evento: 'ERROR_CONEXION_0_AL_BUSCAR',
             cantidadRegistrosPendientes: this.modificadosSinGuardar.size
           });
@@ -535,14 +1424,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
         this.auditoriaService.registrarMetricaUsabilidad({
           usuario: this.authService.obtenerUsuario(),
-          documentoReferencia: `${this.busquedaForm.value.tipo}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          documentoReferencia: docRef,
           evento: `ERROR_HTTP_${err.status}_AL_BUSCAR`,
           cantidadRegistrosPendientes: this.modificadosSinGuardar.size
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         if (err.status === 404) {
+          this.documentoBuscadoNoEncontrado = {
+            tipo: tipoDoc || 'FC',
+            letra: (rawVal.letra || '').toUpperCase(),
+            puntoVenta: Number(rawVal.puntoVenta) || 0,
+            numero: Number(rawVal.numero) || 0
+          };
+          this.esDocumentoNoEncontrado = true;
+          this.notificacionAdminEnviada = false;
           this.mostrarAlerta('Documento no encontrado. Verifique los datos ingresados.', undefined, 'error');
         } else {
+          this.esDocumentoNoEncontrado = false;
           this.mostrarAlerta(`Ocurrió un error (Código ${err.status}) al intentar comunicarse con el servidor.`, undefined, 'error');
         }
         this.cdr.detectChanges();
@@ -552,8 +1450,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   ejecutarIndividualRefactura(p: Prestacion, nuevoMotivo: string) {
     p.motivoRefactura = nuevoMotivo;
-    if (nuevoMotivo === 'Borrar') p.motivoRefactura = '';
+    if (nuevoMotivo === 'Borrar') {
+      p.motivoRefactura = '';
+      p.importeRefactura = undefined;
+    } else if (nuevoMotivo === 'No aplica') {
+      p.importeRefactura = undefined;
+    } else if (nuevoMotivo && p.debitoAceptado?.trim().toUpperCase() === 'NO') {
+      p.importeRefactura = p.total;
+    }
     (p as any)._motivoRefacturaPrevio = p.motivoRefactura;
+    this.registrarCambio(p);
     this.calcularTotales();
   }
 
@@ -590,7 +1496,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_ACCION_MASIVA_SIN_FILAS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Primero tenés que seleccionar al menos una fila en la grilla usando las casillas de verificación.', undefined, 'error');
       return;
@@ -604,7 +1510,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_ACCION_MASIVA_SIN_MOTIVO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.registrosSeleccionados.length
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Seleccioná un motivo de débito del menú desplegable antes de aplicar.', undefined, 'error');
       return;
@@ -613,6 +1519,37 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     // 3. Ejecución normal si pasa las validaciones
     const motivo = this.motivoMasivoSeleccionado;
     const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoDebito && p.motivoDebito !== '');
+
+    const verificarImportesMasivos = (sobreescribirMotivos: boolean) => {
+      const filasDestino = this.registrosSeleccionados.filter(p => sobreescribirMotivos || !p.motivoDebito || p.motivoDebito === '');
+      const esMotivoConImporte = motivo !== 'Borrar' && motivo !== 'No aplica';
+
+      const filasConImporte = esMotivoConImporte
+        ? filasDestino.filter(p => {
+          const nuevoImp = (motivo.trim().toLowerCase() === 'iva mal facturado') ? this.obtenerMontoIva(p) : p.total;
+          return p.importeDebitado != null && p.importeDebitado !== undefined && p.importeDebitado !== nuevoImp;
+        })
+        : [];
+
+      if (filasConImporte.length > 0) {
+        this.modalMensaje = `Hay ${filasConImporte.length} registro(s) seleccionado(s) que ya tienen un importe debitado ingresado.\n\n¿Desea REEMPLAZAR los importes existentes por el nuevo valor?\n\n(Si selecciona Cancelar, se aplicará el motivo conservando los importes ya ingresados)`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarMasivoDebito(motivo, sobreescribirMotivos, true);
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          this.ejecutarMasivoDebito(motivo, sobreescribirMotivos, false);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+      } else {
+        this.ejecutarMasivoDebito(motivo, sobreescribirMotivos, true);
+      }
+    };
 
     if (registrosConPrevio.length > 0) {
       this.modalMensaje = `Hay ${registrosConPrevio.length} registro(s) seleccionado(s) que ya tienen un motivo de débito.\n\n¿Desea REEMPLAZAR los motivos existentes?\n\n(Si selecciona Cancelar, se aplicará el nuevo motivo únicamente a las filas que estén vacías)`;
@@ -625,24 +1562,34 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'SOBREESCRIBIR_MASIVO_CONFIRMADO_DEBITO',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosConPrevio.length // Cantidad de celdas pisadas
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
-        this.ejecutarMasivoDebito(motivo, true);
         this.cerrarModal();
+        verificarImportesMasivos(true);
       };
 
       this.modalCancelarCb = () => {
-        this.ejecutarMasivoDebito(motivo, false);
         this.cerrarModal();
+        verificarImportesMasivos(false);
       };
 
       this.modalVisible = true;
     } else {
-      this.ejecutarMasivoDebito(motivo, true);
+      verificarImportesMasivos(true);
     }
   }
 
-  ejecutarMasivoDebito(motivo: string, sobreescribirTodos: boolean) {
+  private obtenerMontoIva(p: Prestacion): number {
+    if ((p as any).iva != null && !isNaN(Number((p as any).iva))) {
+      return Number((p as any).iva);
+    }
+    const total = p.total || 0;
+    const totalNeto = p.totalNeto || 0;
+    const diferencia = total - totalNeto;
+    return diferencia > 0 ? Number(diferencia.toFixed(2)) : 0;
+  }
+
+  ejecutarMasivoDebito(motivo: string, sobreescribirTodos: boolean, sobreescribirImporte: boolean = true) {
     this.registrosSeleccionados.forEach(p => {
       if (!sobreescribirTodos && p.motivoDebito && p.motivoDebito !== '') return;
 
@@ -652,7 +1599,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         p.comentariosDebito = ''; // <--- Agregamos la limpieza acá también
       } else {
         p.motivoDebito = motivo;
-        if (motivo !== 'No aplica') p.importeDebitado = p.total;
+        if (motivo !== 'No aplica') {
+          const nuevoImporte = (motivo.trim().toLowerCase() === 'iva mal facturado')
+            ? this.obtenerMontoIva(p)
+            : p.total;
+
+          if (sobreescribirImporte || p.importeDebitado == null) {
+            p.importeDebitado = nuevoImporte;
+          }
+        }
       }
       this.registrarCambio(p);
     });
@@ -675,12 +1630,42 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     const previo = (p as any)._motivoDebitoPrevio;
     const nuevo = p.motivoDebito || '';
 
+    const verificarImporteYSobreescribir = () => {
+      const esMotivoConImporte = nuevo && nuevo !== 'Borrar' && nuevo !== 'No aplica';
+      const nuevoImporte = esMotivoConImporte
+        ? (nuevo.trim().toLowerCase() === 'iva mal facturado' ? this.obtenerMontoIva(p) : p.total)
+        : undefined;
+
+      const tieneImportePrevio = esMotivoConImporte && p.importeDebitado != null && p.importeDebitado !== undefined && p.importeDebitado !== nuevoImporte;
+
+      if (tieneImportePrevio) {
+        const importeFormateado = p.importeDebitado?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? p.importeDebitado;
+        const nuevoImporteFormateado = nuevoImporte?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? nuevoImporte;
+
+        this.modalMensaje = `Este registro ya tiene un importe debitado ingresado ($${importeFormateado}).\n\n¿Desea REEMPLAZAR el importe existente por el nuevo valor ($${nuevoImporteFormateado})?\n\n(Si selecciona Cancelar, se mantendrá el importe ya ingresado)`;
+
+        this.modalAceptarCb = () => {
+          this.ejecutarIndividualDebito(p, nuevo, true);
+          this.cerrarModal();
+        };
+
+        this.modalCancelarCb = () => {
+          this.ejecutarIndividualDebito(p, nuevo, false);
+          this.cerrarModal();
+        };
+
+        this.modalVisible = true;
+      } else {
+        this.ejecutarIndividualDebito(p, nuevo, true);
+      }
+    };
+
     if (previo && previo !== '' && previo !== nuevo) {
       this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
 
       this.modalAceptarCb = () => {
-        this.ejecutarIndividualDebito(p, nuevo);
         this.cerrarModal();
+        verificarImporteYSobreescribir();
       };
 
       this.modalCancelarCb = () => {
@@ -690,18 +1675,24 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
       this.modalVisible = true;
     } else {
-      this.ejecutarIndividualDebito(p, nuevo);
+      verificarImporteYSobreescribir();
     }
   }
 
-  ejecutarIndividualDebito(p: Prestacion, nuevoMotivo: string) {
+  ejecutarIndividualDebito(p: Prestacion, nuevoMotivo: string, sobreescribirImporte: boolean = true) {
     p.motivoDebito = nuevoMotivo;
     if (nuevoMotivo === 'Borrar') {
       p.motivoDebito = '';
       p.importeDebitado = undefined;
       p.comentariosDebito = ''; // <--- Agregamos la limpieza acá
     } else if (nuevoMotivo && nuevoMotivo !== 'No aplica') {
-      p.importeDebitado = p.total;
+      const nuevoImporte = (nuevoMotivo.trim().toLowerCase() === 'iva mal facturado')
+        ? this.obtenerMontoIva(p)
+        : p.total;
+
+      if (sobreescribirImporte || p.importeDebitado == null) {
+        p.importeDebitado = nuevoImporte;
+      }
     }
     (p as any)._motivoDebitoPrevio = p.motivoDebito;
     this.calcularTotales();
@@ -742,8 +1733,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       const cumpleSinDebito = !this.soloSinMotivoDebito || (!p.motivoDebito || p.motivoDebito.trim() === '');
       const cumpleSinRefactura = !this.soloSinMotivoRefactura || (!p.motivoRefactura || p.motivoRefactura.trim() === '');
       const cumpleValorizadas = !this.soloValorizadas || (p.total > 0);
+      const cumpleSinNC = !this.soloSinNC || !p.ncNumero;
+      const cumpleConDebitoAceptado = !this.soloConDebitoAceptado || (!!p.debitoAceptado && p.debitoAceptado.trim() !== '');
 
-      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas;
+      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas && cumpleSinNC && cumpleConDebitoAceptado;
     });
 
     this.prepararFiltros(this.prestacionesFiltradas);
@@ -762,7 +1755,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'GRILLA_VACIA_POR_FILTROS_ACTIVOS',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
     }
   }
 
@@ -781,12 +1774,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.soloSinMotivoDebito = false;
     this.soloSinMotivoRefactura = false;
     this.soloValorizadas = false;
+    this.soloSinNC = false;
+    this.soloConDebitoAceptado = false;
     this.prepararFiltros(this.prestaciones);
     this.aplicarFiltros();
   }
 
-  getIcono(col:string){
-    if(this.columnaOrden === col){
+  getIcono(col: string) {
+    if (this.columnaOrden === col) {
       return this.direccionOrden === 'asc' ? '▲' : '▼';
     }
     return '';
@@ -850,7 +1845,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       evento: `GRILLA_ORDENADA_POR_${String(columna).toUpperCase()}_${this.direccionOrden.toUpperCase()}`,
       fechaHora: new Date().toISOString(),
       cantidadRegistrosPendientes: 0
-    }).subscribe({ error: () => {} });
+    }).subscribe({ error: () => { } });
   }
 
   toggleSelectAll(event: Event) {
@@ -900,10 +1895,31 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'INTENTO_EXPORTAR_EXCEL_VACIO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('No hay datos visibles en la grilla para exportar. Revisá los filtros aplicados.', undefined, 'error');
       return;
+    }
+
+    let datosAExportar = this.prestacionesFiltradas;
+    if (!this.esTipoNotaCredito()) {
+      datosAExportar = this.prestacionesFiltradas.filter(p => {
+        const deb = p.debitoAceptado ? p.debitoAceptado.trim().toUpperCase() : '';
+        return deb === 'SI' || deb === 'NO';
+      });
+
+      if (datosAExportar.length === 0) {
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'INTENTO_EXPORTAR_EXCEL_SIN_DEBITO_ACEPTADO',
+          fechaHora: new Date().toISOString(),
+          cantidadRegistrosPendientes: 0
+        }).subscribe({ error: () => { } });
+
+        this.mostrarAlerta('No hay prestaciones con Débito Aceptado (SI o NO) para exportar.', undefined, 'error');
+        return;
+      }
     }
 
     // Métrica opcional: Exportación exitosa (te sirve para saber qué tanto usan esta función)
@@ -912,27 +1928,40 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
       evento: 'EXPORTACION_EXCEL_EXITOSA',
       fechaHora: new Date().toISOString(),
-      cantidadRegistrosPendientes: this.prestacionesFiltradas.length
-    }).subscribe({ error: () => {} });
+      cantidadRegistrosPendientes: datosAExportar.length
+    }).subscribe({ error: () => { } });
 
     const f = this.busquedaForm.value;
     const nombreArchivo = `${f.tipo}-${f.letra}-${f.puntoVenta}-${f.numero}.xlsx`;
 
     this.excelService.exportarPrestaciones(
-      this.prestacionesFiltradas,
+      datosAExportar,
       this.tipoBusquedaRealizada,
       nombreArchivo
     );
   }
 
   guardarParcialmente(silencioso: boolean = false) {
+    if (this.cargando || this.guardandoSilencioso) {
+      return;
+    }
+
+    if (this.idEstadoActual === 2) {
+      if (!silencioso) {
+        this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder guardar modificaciones.', undefined, 'peligro');
+      }
+      return;
+    }
 
     const registrosParaGuardar = this.prestaciones.filter(p => {
-      if (this.tipoBusquedaRealizada === 'NC') return p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      if (p.id == null || !this.modificadosSinGuardar.has(p.id)) return false;
+      if (this.esTipoNotaCredito()) return p.motivoRefactura && p.motivoRefactura.trim() !== '';
       return p.motivoDebito && p.motivoDebito.trim() !== '';
     });
 
-    if (registrosParaGuardar.length === 0) {
+    const idsParaBorrar = Array.from(this.prestacionesParaBorrar);
+
+    if (registrosParaGuardar.length === 0 && idsParaBorrar.length === 0) {
       if (!silencioso) {
         // Disparar métrica
         this.auditoriaService.registrarMetricaUsabilidad({
@@ -941,7 +1970,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: 'INTENTO_GUARDAR_VACIO',
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: 0
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         this.mostrarAlerta('No hay registros con motivos asignados para guardar.', undefined, 'error');
       }
@@ -954,25 +1983,29 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
       ptovta: this.busquedaForm.value.puntoVenta,
       numero: this.busquedaForm.value.numero,
       usuario: this.authService.obtenerUsuario(),
-      registros: registrosParaGuardar
+      registros: registrosParaGuardar,
+      idsParaBorrar: idsParaBorrar
     };
 
-    if (silencioso) this.guardandoSilencioso = true;
-    else this.cargando = true;
+    if (silencioso) {
+      this.guardandoSilencioso = true;
+    } else {
+      this.cargando = true;
+      this.cdr.detectChanges();
+    }
 
-    this.cdr.detectChanges();
-
-    this.auditoriaService.guardarParcialmente(payload).subscribe({
+    this.auditoriaService.guardarParcialmente(payload, silencioso).subscribe({
       next: () => {
-        this.modificadosSinGuardar.clear(); // <-- ÉXITO: Limpiamos el contador
+        this.modificadosSinGuardar.clear(); // <-- ÉXITO: Limpiamos el contador tras respuesta 200/202
+        this.prestacionesParaBorrar.clear();  // <-- ÉXITO: Limpiamos los pendientes de borrado
 
         if (silencioso) {
           this.guardandoSilencioso = false;
         } else {
           this.cargando = false;
           this.mostrarAlerta('¡Los registros se guardaron parcialmente con éxito!', undefined, 'exito');
+          this.cdr.detectChanges();
         }
-        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error(err);
@@ -1004,15 +2037,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: `ERROR_HTTP_${err.status}_AL_GUARDAR`,
           fechaHora: new Date().toISOString(),
           cantidadRegistrosPendientes: registrosParaGuardar.length
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
         if (silencioso) {
           this.guardandoSilencioso = false;
         } else {
           this.cargando = false;
           this.mostrarAlerta('Ocurrió un error al intentar guardar en la base de datos.', undefined, 'error');
+          this.cdr.detectChanges();
         }
-        this.cdr.detectChanges();
       }
     });
   }
@@ -1031,6 +2064,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
   cerrarModalAlerta() {
     this.modalAlertaVisible = false;
+    this.esDocumentoNoEncontrado = false;
+    this.notificacionAdminEnviada = false;
+    this.documentoBuscadoNoEncontrado = null;
 
     // Si había una orden pendiente (como borrar un campo), la ejecutamos al cerrar
     if (this.modalAlertaCallback) {
@@ -1040,12 +2076,72 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota') {
+  notificarAdminDocumentoNoEncontrado() {
+    if (!this.documentoBuscadoNoEncontrado || this.enviandoNotificacionAdmin) return;
+    this.enviandoNotificacionAdmin = true;
+    this.cdr.detectChanges();
+
+    this.notificacionService.reportarDocumentoNoEncontrado(this.documentoBuscadoNoEncontrado).subscribe({
+      next: () => {
+        this.enviandoNotificacionAdmin = false;
+        this.notificacionAdminEnviada = true;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error al notificar al administrador:', err);
+        this.enviandoNotificacionAdmin = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  cerrarModalReporteDocAusente() {
+    this.modalReporteDocAusenteVisible = false;
+    this.docAusenteDetalle = null;
+    this.textoCopiadoFeedback = false;
+    this.cdr.detectChanges();
+  }
+
+  copiarDatosDocAusente() {
+    if (!this.docAusenteDetalle) return;
+    const info = `Comprobante Ausente: ${this.docAusenteDetalle.documentoCompleto} | Reportado por: ${this.docAusenteDetalle.usuario} | Fecha: ${this.formatearFechaHora(this.docAusenteDetalle.fechaHora)}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(info).then(() => {
+        this.textoCopiadoFeedback = true;
+        this.cdr.detectChanges();
+        setTimeout(() => {
+          this.textoCopiadoFeedback = false;
+          this.cdr.detectChanges();
+        }, 3000);
+      }).catch(() => {});
+    }
+  }
+
+  formatearFechaHora(fechaStr?: string): string {
+    if (!fechaStr) return '';
+    try {
+      const fecha = new Date(fechaStr);
+      if (isNaN(fecha.getTime())) return fechaStr;
+      return fecha.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return fechaStr;
+    }
+  }
+
+  validarLetraInput(event: Event, tipoFormulario: 'busqueda' | 'nuevaNota' | 'nuevaNotaDebitoIva') {
     const input = event.target as HTMLInputElement;
     const valor = input.value;
 
     // Identificamos dinámicamente cuál formulario estamos tocando
-    const formActual = tipoFormulario === 'busqueda' ? this.busquedaForm : this.nuevaNotaForm;
+    const formActual = tipoFormulario === 'busqueda'
+      ? this.busquedaForm
+      : (tipoFormulario === 'nuevaNotaDebitoIva' ? this.nuevaNotaDebitoIvaForm : this.nuevaNotaForm);
 
     // Si el valor contiene algún dígito del 0 al 9
     if (/[0-9]/.test(valor)) {
@@ -1057,7 +2153,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         evento: 'ERROR_TIPEO_LETRA_NUMERO',
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: this.modificadosSinGuardar.size // Dato real
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta(
         'El campo "Letra" no puede contener números. Por favor, ingrese una letra válida.',
@@ -1074,74 +2170,804 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
   }
 
   abrirModalNuevaNota(tipo: 'NC' | 'ND') {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     this.tipoNuevaNota = tipo;
 
     // Validación según el tipo de nota
     if (tipo === 'NC') {
-      const prestacionesConDebito = this.prestaciones.filter(p => p.motivoDebito && p.motivoDebito.trim() !== '');
-      if (prestacionesConDebito.length === 0) {
-        this.mostrarAlerta('No hay registros con Motivo de Débito cargado para generar una NC. Recuerde Guardar Parcialmente primero.', undefined, 'error');
-        return;
+      if (this.esTipoNotaDebito()) {
+        const motivosND = this.prestaciones.map(p => p.motivoRefactura?.trim()).filter(Boolean);
+        const esAjusteIVA = motivosND.some(m => m === 'Por ajuste de IVA');
+        if (esAjusteIVA) {
+          this.mostrarAlerta(
+            'No se puede generar una Nota de Crédito a partir de una Nota de Débito cuyo motivo sea "Por ajuste de IVA".',
+            undefined,
+            'error'
+          );
+          return;
+        }
       }
-      this.nuevaNotaForm.reset({ tipo: 'NC' });
+
+      this.mostrarRadioTipoNd = false;
+      this.nuevaNotaForm.get('tipoNd')?.clearValidators();
+      this.nuevaNotaForm.get('tipoNd')?.updateValueAndValidity();
+
+      this.ncGuardadaExitosamente = false;
+      this.datosNcCreada = null;
+      this.netoAjusteIva = 0;
+      this.montoIvaNdCalculado = 0;
+      this.nuevaNotaForm.enable();
+
+      this.nuevaNotaForm.reset({
+        tipo: 'NC',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        tipoNc: 'Refactura',
+        subtipoIva: '',
+        netoNc: null,
+        porcIva: null,
+        ivaNc: null,
+        tipoNd: '',
+        importeNd: null
+      });
+
+      this.nuevaNotaDebitoIvaForm.reset({
+        tipo: 'ND',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        netoNd: null,
+        porcIva: null,
+        ivaNd: null
+      });
+
+      this.deshabilitarPorAjusteIva = false;
+
+      if (this.esTipoFactura()) {
+        const letra = this.busquedaForm.value.letra ?? '';
+        const ptoVta = this.busquedaForm.value.puntoVenta ?? 0;
+        const numero = this.busquedaForm.value.numero ?? 0;
+
+        this.auditoriaService.verificarTieneNcAjusteIva('FC', letra, ptoVta, numero).subscribe({
+          next: (existe) => {
+            this.deshabilitarPorAjusteIva = existe;
+            if (existe && (this.nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA' || this.nuevaNotaForm.get('tipoNc')?.value === 'Prestacional y Ajuste de IVA')) {
+              this.nuevaNotaForm.patchValue({ tipoNc: 'Refactura' });
+              this.onTipoNcChange();
+            }
+            this.cdr.detectChanges();
+          },
+          error: (err) => console.error('Error al verificar NC por Ajuste de IVA previa:', err)
+        });
+      }
+
+      this.onTipoNcChange();
+      this.calcularTotalesIvaPrestacional();
     } else {
-      // Candado 1: Verificamos que haya registros con Débito Aceptado en "NO"
       const prestacionesConRefactura = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
 
       if (prestacionesConRefactura.length === 0) {
-        // Disparar métrica
-        this.auditoriaService.registrarMetricaUsabilidad({
-          usuario: this.authService.obtenerUsuario(),
-          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
-          evento: 'INTENTO_CREAR_ND_SIN_RECHAZOS',
-          fechaHora: new Date().toISOString(),
-          cantidadRegistrosPendientes: 0
-        }).subscribe({ error: () => {} });
-
-        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND', undefined, 'error');
+        this.mostrarAlerta('No hay registros con Débito Aceptado en "NO" para generar una ND por Refactura.', undefined, 'error');
         return;
       }
-      this.nuevaNotaForm.reset({ tipo: 'ND' });
+
+      this.mostrarRadioTipoNd = false;
+      this.deshabilitarTipoIva = false;
+      this.deshabilitarTipoRefactura = false;
+      this.tooltipTipoIva = '';
+      this.tooltipTipoRefactura = '';
+      this.nuevaNotaForm.get('tipoNd')?.clearValidators();
+      this.nuevaNotaForm.get('tipoNd')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('importeNd')?.clearValidators();
+      this.nuevaNotaForm.get('importeNd')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('netoNc')?.clearValidators();
+      this.nuevaNotaForm.get('porcIva')?.clearValidators();
+      this.nuevaNotaForm.get('netoNc')?.updateValueAndValidity();
+      this.nuevaNotaForm.get('porcIva')?.updateValueAndValidity();
+
+      this.nuevaNotaForm.reset({
+        tipo: 'ND',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        tipoNd: 'Por Refactura',
+        importeNd: null
+      });
     }
+
+    // Cargar comprobantes existentes en Cabecera
+    this.cargarCabecerasDisponibles(tipo);
 
     this.modalNuevaNotaVisible = true;
     this.cdr.detectChanges();
   }
 
-  cerrarModalNuevaNota() {
-    this.modalNuevaNotaVisible = false;
+  cargarCabecerasDisponibles(tipo: string) {
+    this.cargandoCabeceras = true;
+    this.cabecerasDisponibles = [];
+    this.cabeceraSeleccionadaId = null;
+
+    const origen = this.tipoBusquedaRealizada;
+    const letra = this.busquedaForm.value.letra ?? '';
+    const puntoVenta = this.busquedaForm.value.puntoVenta ?? '';
+    const numero = this.busquedaForm.value.numero ?? '';
+
+    this.auditoriaService.obtenerCabecerasDisponibles(tipo, origen, letra, puntoVenta, numero).subscribe({
+      next: (res) => {
+        this.cabecerasDisponibles = res || [];
+        this.cargandoCabeceras = false;
+        this.modoIngresoManual = false;
+        if (this.cabecerasDisponibles.length === 1 && !this.cabecerasDisponibles[0].tienePrestacionesImputadas) {
+          this.onSeleccionarCabecera(this.cabecerasDisponibles[0].id);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.warn('Error al obtener cabeceras disponibles:', err);
+        this.cargandoCabeceras = false;
+        this.modoIngresoManual = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onSeleccionarCabecera(event: any) {
+    const id = event && event.target ? event.target.value : event;
+    if (!id || id === 'MANUAL') {
+      this.cabeceraSeleccionadaId = null;
+      this.cabeceraSeleccionadaObjeto = null;
+      return;
+    }
+
+    const cab = this.cabecerasDisponibles.find(c => String(c.id) === String(id));
+    if (cab) {
+      if (cab.tienePrestacionesImputadas) {
+        const docLabel = cab.label || `${cab.tipo || ''} ${cab.letra || ''}-${cab.ptovta || ''}-${cab.numero || ''}`;
+        this.modalMensaje = `El documento ${docLabel} ya tiene prestaciones imputadas.\n¿Desea imputar nuevas prestaciones en este documento?`;
+        this.modalAceptarCb = () => {
+          this.modalVisible = false;
+          this.aplicarSeleccionCabecera(cab);
+        };
+        this.modalCancelarCb = () => {
+          this.modalVisible = false;
+          this.cabeceraSeleccionadaId = null;
+          this.cabeceraSeleccionadaObjeto = null;
+          this.nuevaNotaForm.patchValue({
+            tipo: this.tipoNuevaNota === 'NC' ? 'NC' : 'ND',
+            letra: '',
+            puntoVenta: null,
+            numero: null,
+            fecha: this.obtenerFechaHoy()
+          });
+          if (event && event.target) {
+            event.target.value = '';
+          }
+          this.cdr.detectChanges();
+        };
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+        return;
+      }
+      this.aplicarSeleccionCabecera(cab);
+    } else {
+      this.cabeceraSeleccionadaObjeto = null;
+    }
+  }
+
+  aplicarSeleccionCabecera(cab: any) {
+    this.cabeceraSeleccionadaId = cab.id;
+    this.cabeceraSeleccionadaObjeto = cab;
+    this.nuevaNotaForm.patchValue({
+      tipo: cab.tipo || (this.tipoNuevaNota === 'NC' ? 'NC' : 'ND'),
+      letra: cab.letra || '',
+      puntoVenta: cab.ptovta || '',
+      numero: cab.numero || '',
+      fecha: cab.fecha || this.obtenerFechaHoy()
+    });
     this.cdr.detectChanges();
   }
 
+  alternarModoIngresoManual(manual: boolean) {
+    this.modoIngresoManual = manual;
+    if (manual) {
+      this.cabeceraSeleccionadaId = null;
+      this.cabeceraSeleccionadaObjeto = null;
+      this.nuevaNotaForm.patchValue({
+        tipo: this.tipoNuevaNota === 'NC' ? 'NC' : 'ND',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy()
+      });
+    } else {
+      if (this.cabecerasDisponibles.length > 0 && this.cabeceraSeleccionadaId) {
+        const cab = this.cabecerasDisponibles.find(c => c.id === this.cabeceraSeleccionadaId);
+        if (cab) {
+          this.cabeceraSeleccionadaObjeto = cab;
+        }
+      }
+    }
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalNuevaNota() {
+    this.modalNuevaNotaVisible = false;
+    this.soloCrearNdAjusteIva = false;
+    this.ncGuardadaExitosamente = false;
+    this.editandoNcAjusteIva = false;
+    this.datosNcCreada = null;
+    this.cabeceraSeleccionadaId = null;
+    this.cabeceraSeleccionadaObjeto = null;
+    this.modoIngresoManual = false;
+    this.cabecerasDisponibles = [];
+    this.cabeceraSeleccionadaIdNdIva = null;
+    this.cabeceraSeleccionadaNdIvaObjeto = null;
+    this.modoIngresoManualNdIva = false;
+    this.cabecerasDisponiblesNdIva = [];
+    this.nuevaNotaForm.enable();
+    this.nuevaNotaDebitoIvaForm.enable();
+    this.nuevaNotaForm.reset();
+    this.nuevaNotaDebitoIvaForm.reset();
+    this.cdr.detectChanges();
+  }
+
+  cargarCabecerasDisponiblesNdIva() {
+    this.cargandoCabecerasNdIva = true;
+    this.cabecerasDisponiblesNdIva = [];
+    this.cabeceraSeleccionadaIdNdIva = null;
+    this.cabeceraSeleccionadaNdIvaObjeto = null;
+
+    const origen = 'NC';
+    const letra = this.busquedaForm.value.letra ?? '';
+    const puntoVenta = this.busquedaForm.value.puntoVenta ?? '';
+    const numero = this.busquedaForm.value.numero ?? '';
+
+    this.auditoriaService.obtenerCabecerasDisponibles('ND', origen, letra, puntoVenta, numero).subscribe({
+      next: (res) => {
+        this.cabecerasDisponiblesNdIva = res || [];
+        this.cargandoCabecerasNdIva = false;
+        this.modoIngresoManualNdIva = false;
+        if (this.cabecerasDisponiblesNdIva.length === 1 && !this.cabecerasDisponiblesNdIva[0].tienePrestacionesImputadas) {
+          this.onSeleccionarCabeceraNdIva(this.cabecerasDisponiblesNdIva[0].id);
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.cargandoCabecerasNdIva = false;
+        this.modoIngresoManualNdIva = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onSeleccionarCabeceraNdIva(event: any) {
+    const id = event && event.target ? event.target.value : event;
+    if (!id || id === 'MANUAL') {
+      this.cabeceraSeleccionadaIdNdIva = null;
+      this.cabeceraSeleccionadaNdIvaObjeto = null;
+      return;
+    }
+
+    const cab = this.cabecerasDisponiblesNdIva.find(c => String(c.id) === String(id));
+    if (cab) {
+      if (cab.tienePrestacionesImputadas) {
+        const docLabel = cab.label || `${cab.tipo || ''} ${cab.letra || ''}-${cab.ptovta || ''}-${cab.numero || ''}`;
+        this.modalMensaje = `El documento ${docLabel} ya tiene prestaciones imputadas.\n¿Desea imputar nuevas prestaciones en este documento?`;
+        this.modalAceptarCb = () => {
+          this.modalVisible = false;
+          this.aplicarSeleccionCabeceraNdIva(cab);
+        };
+        this.modalCancelarCb = () => {
+          this.modalVisible = false;
+          this.cabeceraSeleccionadaIdNdIva = null;
+          this.cabeceraSeleccionadaNdIvaObjeto = null;
+          this.nuevaNotaDebitoIvaForm.patchValue({
+            tipo: 'ND',
+            letra: '',
+            puntoVenta: null,
+            numero: null,
+            fecha: this.obtenerFechaHoy()
+          });
+          if (event && event.target) {
+            event.target.value = '';
+          }
+          this.cdr.detectChanges();
+        };
+        this.modalVisible = true;
+        this.cdr.detectChanges();
+        return;
+      }
+      this.aplicarSeleccionCabeceraNdIva(cab);
+    } else {
+      this.cabeceraSeleccionadaNdIvaObjeto = null;
+    }
+  }
+
+  aplicarSeleccionCabeceraNdIva(cab: any) {
+    this.cabeceraSeleccionadaIdNdIva = cab.id;
+    this.cabeceraSeleccionadaNdIvaObjeto = cab;
+    this.nuevaNotaDebitoIvaForm.patchValue({
+      tipo: cab.tipo || 'ND',
+      letra: cab.letra || '',
+      puntoVenta: cab.ptovta || '',
+      numero: cab.numero || '',
+      fecha: cab.fecha || this.obtenerFechaHoy()
+    });
+    this.nuevaNotaDebitoIvaForm.get('netoNd')?.clearValidators();
+    this.nuevaNotaDebitoIvaForm.get('netoNd')?.updateValueAndValidity();
+    this.onPorcIvaNdChange();
+    this.cdr.detectChanges();
+  }
+
+  alternarModoIngresoManualNdIva(manual: boolean) {
+    this.modoIngresoManualNdIva = manual;
+    const netoCtrl = this.nuevaNotaDebitoIvaForm.get('netoNd');
+    if (manual) {
+      this.cabeceraSeleccionadaIdNdIva = null;
+      this.cabeceraSeleccionadaNdIvaObjeto = null;
+      netoCtrl?.setValidators([Validators.required, Validators.min(0.01)]);
+      this.nuevaNotaDebitoIvaForm.patchValue({
+        tipo: 'ND',
+        letra: '',
+        puntoVenta: null,
+        numero: null,
+        fecha: this.obtenerFechaHoy(),
+        netoNd: null,
+        ivaNd: null
+      });
+      this.netoAjusteIva = 0;
+      this.montoIvaNdCalculado = 0;
+    } else {
+      netoCtrl?.clearValidators();
+      if (this.cabecerasDisponiblesNdIva.length > 0 && this.cabeceraSeleccionadaIdNdIva) {
+        const cab = this.cabecerasDisponiblesNdIva.find(c => c.id === this.cabeceraSeleccionadaIdNdIva);
+        if (cab) {
+          this.cabeceraSeleccionadaNdIvaObjeto = cab;
+        }
+      }
+      this.onPorcIvaNdChange();
+    }
+    netoCtrl?.updateValueAndValidity();
+    this.cdr.detectChanges();
+  }
+
+  abrirModalCrearNdAjusteIvaDesdeTabla(filaDoc?: any) {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
+    let filaNc: any = null;
+    if (filaDoc) {
+      filaNc = filaDoc;
+    } else if (this.filasResumenAjusteIva && this.filasResumenAjusteIva.length > 1) {
+      filaNc = this.filasResumenAjusteIva[1];
+    } else if (this.filasHistorialComprobantes && this.filasHistorialComprobantes.length > 0) {
+      filaNc = this.filasHistorialComprobantes.find(f => (f.tipoDocumento === 'NC' || f.tipoDocumento === 'NCE') && f.porcentajeIva != null);
+    }
+
+    if (!filaNc) {
+      this.mostrarAlerta('No se encontraron los datos de la Nota de Crédito por Ajuste de IVA.', undefined, 'error');
+      return;
+    }
+
+    this.filaNcParaCrearNdAjuste = filaNc;
+    this.soloCrearNdAjusteIva = true;
+    this.modalNuevaNotaVisible = true;
+    this.tipoNuevaNota = 'NC';
+
+    this.nuevaNotaForm.patchValue({
+      tipo: filaNc.tipoDocumento || 'NC',
+      letra: filaNc.letra || '',
+      puntoVenta: filaNc.puntoVenta || '',
+      numero: filaNc.numero || '',
+      fecha: filaNc.fechaDocumento || this.obtenerFechaHoy(),
+      tipoNc: 'Por ajuste de IVA',
+      subtipoIva: 'No prestacional',
+      netoNc: filaNc.montoNeto,
+      porcIva: filaNc.porcentajeIva,
+      ivaNc: filaNc.montoIva
+    });
+
+    this.nuevaNotaForm.disable();
+
+    this.nuevaNotaDebitoIvaForm.enable();
+    this.nuevaNotaDebitoIvaForm.patchValue({
+      tipo: 'ND',
+      letra: '',
+      puntoVenta: '',
+      numero: '',
+      fecha: this.obtenerFechaHoy(),
+      porcIva: filaNc.porcentajeIva
+    });
+
+    this.netoAjusteIva = filaNc.montoNeto || 0;
+    this.onPorcIvaNdChange();
+
+    this.cargarCabecerasDisponiblesNdIva();
+
+    this.cdr.detectChanges();
+  }
+
+  abrirModalCrearNdAjusteIvaDesdeNcConjunta() {
+    this.abrirModalCrearNdAjusteIvaDesdeTabla();
+  }
+
+  guardarNdAjusteIvaSolo() {
+    if (this.nuevaNotaDebitoIvaForm.invalid) {
+      this.nuevaNotaDebitoIvaForm.markAllAsTouched();
+      this.mostrarAlerta('Por favor, complete todos los campos obligatorios de la Nota de Débito por Ajuste de IVA.', undefined, 'error');
+      return;
+    }
+
+    const filaNc = this.filaNcParaCrearNdAjuste ||
+      (this.filasResumenAjusteIva && this.filasResumenAjusteIva.length > 1 ? this.filasResumenAjusteIva[1] : null);
+    if (!filaNc) {
+      this.mostrarAlerta('No se encontraron los datos de la Nota de Crédito padre.', undefined, 'error');
+      return;
+    }
+
+    const payload = {
+      tipoNc: filaNc.tipoDocumento || 'NC',
+      letraNc: filaNc.letra,
+      ptovtaNc: filaNc.puntoVenta,
+      numeroNc: filaNc.numero,
+
+      tipoNd: this.nuevaNotaDebitoIvaForm.value.tipo,
+      letraNd: this.nuevaNotaDebitoIvaForm.value.letra?.toUpperCase(),
+      ptovtaNd: this.nuevaNotaDebitoIvaForm.value.puntoVenta,
+      numeroNd: this.nuevaNotaDebitoIvaForm.value.numero,
+
+      neto: this.modoIngresoManualNdIva ? (Number(this.nuevaNotaDebitoIvaForm.value.netoNd) || this.netoAjusteIva) : this.netoAjusteIva,
+      iva: this.montoIvaNdCalculado,
+      porcIva: this.nuevaNotaDebitoIvaForm.value.porcIva,
+      fecha: this.nuevaNotaDebitoIvaForm.value.fecha,
+      idCabeceraSeleccionada: this.cabeceraSeleccionadaIdNdIva,
+      creadoManualmente: this.modoIngresoManualNdIva || !this.cabeceraSeleccionadaIdNdIva,
+      usuario: this.authService.obtenerUsuario()
+    };
+
+    this.cargandoNdIva = true;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.guardarNuevaNotaDebitoAjusteIva(payload).subscribe({
+      next: () => {
+        this.cargandoNdIva = false;
+        this.cerrarModalNuevaNota();
+        this.mostrarAlerta('¡Nota de Débito por Ajuste de IVA generada y guardada con éxito!', undefined, 'exito');
+        this.onBuscar();
+      },
+      error: (err) => {
+        console.error(err);
+        this.cargandoNdIva = false;
+        const mensajeServer = err.error?.message || err.error?.mensaje || 'Error al procesar la Nota de Débito por Ajuste de IVA.';
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  abrirModalDocumentosAsociados() {
+    this.abrirModalHistorialComprobantes();
+  }
+
+  cerrarModalDocumentosAsociados() {
+    this.cerrarModalHistorialComprobantes();
+  }
+
+  cargarHistorialComprobantes(tipo: string, letra?: string, puntoVenta?: string | number, numero?: string | number) {
+    this.auditoriaService.obtenerHistorialComprobantes(tipo, letra, puntoVenta, numero).subscribe({
+      next: (res) => {
+        this.filasHistorialComprobantes = res || [];
+        this.cantidadHistorial = this.filasHistorialComprobantes.length;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.warn('Error al obtener historial de comprobantes', err);
+      }
+    });
+  }
+
+  abrirModalHistorialComprobantes() {
+    if (this.filasHistorialComprobantes.length === 0 && this.busquedaForm.valid) {
+      const rawVal = this.busquedaForm.getRawValue();
+      this.cargarHistorialComprobantes(rawVal.tipo || 'FC', rawVal.letra || '', rawVal.puntoVenta || '', rawVal.numero || '');
+    }
+    this.modalHistorialVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalHistorialComprobantes() {
+    this.modalHistorialVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  exportarHistorialAExcel() {
+    if (!this.filasHistorialComprobantes || this.filasHistorialComprobantes.length === 0) {
+      this.mostrarAlerta('No hay comprobantes en el historial para exportar.', undefined, 'error');
+      return;
+    }
+
+    const rawVal = this.busquedaForm?.getRawValue() || {};
+    const tipo = (rawVal.tipo || 'FC').toUpperCase();
+    const letra = (rawVal.letra || '').toUpperCase();
+    const ptovta = rawVal.puntoVenta || '';
+    const numero = rawVal.numero || '';
+    const fechaHoy = new Date().toISOString().split('T')[0];
+
+    const filename = tipo === 'RC'
+      ? `Historial_Comprobantes_${tipo}_${numero}_${fechaHoy}.xlsx`
+      : `Historial_Comprobantes_${tipo}_${letra}_${ptovta}_${numero}_${fechaHoy}.xlsx`;
+
+    const infoBuscado = {
+      tipo,
+      letra,
+      puntoVenta: ptovta,
+      numero
+    };
+
+    // Telemetría / Usabilidad
+    this.auditoriaService.registrarMetricaUsabilidad({
+      usuario: this.authService.obtenerUsuario(),
+      documentoReferencia: tipo === 'RC' ? `RC-${numero}` : `${tipo}-${letra}-${ptovta}-${numero}`,
+      evento: 'EXPORTACION_EXCEL_HISTORIAL',
+      fechaHora: new Date().toISOString(),
+      cantidadRegistrosPendientes: this.filasHistorialComprobantes.length
+    }).subscribe({ error: () => { } });
+
+    this.excelService.exportarHistorialComprobantes(this.filasHistorialComprobantes, infoBuscado, filename);
+  }
+
+  obtenerTipoDisplay(tipo: string): string {
+    if (!tipo) return 'FC';
+    const t = tipo.trim();
+    if (t === 'Internados' || t === 'Ambulatorios' || t === 'FAC' || t === 'FCE') return 'FC';
+    return t;
+  }
+
+  esDocumentoBuscado(fila: any): boolean {
+    if (!fila || !this.busquedaForm) return false;
+    // Los placeholders de ND de ajuste IVA nunca se resaltan
+    if (fila.placeholderNdAjusteIva) return false;
+
+    const rawVal = this.busquedaForm.getRawValue();
+    const tipo = (rawVal.tipo || '').toUpperCase();
+    const numero = Number(rawVal.numero);
+    const filaTipo = this.obtenerTipoDisplay(fila.tipoDocumento).toUpperCase();
+    const filaNumero = Number(fila.numero);
+
+    if (tipo === 'RC') {
+      return (filaTipo === 'RC' || (fila.tipoDocumento || '').toUpperCase() === 'RC') && filaNumero === numero;
+    }
+
+    const letra = (rawVal.letra || '').toUpperCase();
+    const ptovta = Number(rawVal.puntoVenta);
+    const filaLetra = (fila.letra || '').toUpperCase();
+    const filaPtovta = Number(fila.puntoVenta);
+
+    if (filaLetra !== letra || filaPtovta !== ptovta || filaNumero !== numero) {
+      return false;
+    }
+
+    if ((tipo === 'FC' || tipo === 'FAC' || tipo === 'FCE') && (filaTipo === 'FC' || filaTipo === 'FAC' || filaTipo === 'FCE')) return true;
+    if ((tipo === 'NC' || tipo === 'NCE') && (filaTipo === 'NC' || filaTipo === 'NCE')) return true;
+    if ((tipo === 'ND' || tipo === 'NDE') && (filaTipo === 'ND' || filaTipo === 'NDE')) return true;
+
+    return tipo === filaTipo;
+  }
+
+  cargarDocumentoDesdeHistorial(fila: any) {
+    if (!fila || fila.tienePrestaciones === false) return;
+
+    // Si es el placeholder de ND de ajuste IVA pendiente de crear → abrir modal de crear ND
+    if (fila.placeholderNdAjusteIva) {
+      this.cerrarModalHistorialComprobantes();
+      this.abrirModalCrearNdAjusteIvaDesdeTabla();
+      return;
+    }
+
+    // Si es una fila de ajuste de IVA ya existente (NC o ND con número real) → no tiene prestaciones
+    if (fila.origenTipo === 'IVA') {
+      return;
+    }
+
+    this.cerrarModalHistorialComprobantes();
+
+    // Usar el tipo original del documento (sin normalizar a través de obtenerTipoDisplay),
+    // para no perder variantes como FAC, FCE, NDE, NCE que sí existen en la BD.
+    const tipoOriginal = (fila.tipoDocumento || 'FC').trim().toUpperCase();
+
+    this.busquedaForm.patchValue({
+      tipo: tipoOriginal,
+      letra: fila.letra || '',
+      puntoVenta: fila.puntoVenta || '',
+      numero: fila.numero || ''
+    });
+    this.actualizarValidadoresTipo(tipoOriginal);
+
+    this.onBuscar();
+  }
+
+  get filaFacturaRaiz(): any {
+    if (!this.filasHistorialComprobantes || this.filasHistorialComprobantes.length === 0) return null;
+    return this.filasHistorialComprobantes.find(f => f.nivel === 0) || this.filasHistorialComprobantes[0] || null;
+  }
+
+  get idGrupoActual(): number | string | null {
+    return this.filaFacturaRaiz?.idGrupo || null;
+  }
+
+  get idEstadoActual(): number {
+    return this.filaFacturaRaiz?.idEstado ?? 1;
+  }
+
+  get puedeOperarConciliacion(): boolean {
+    return this.authService.hasAnyRole(['ADMIN']);
+  }
+
+  cambiarEstadoGrupo(idGrupo: number | string, nuevoEstado: number, forzar: boolean = false) {
+    if (!idGrupo) {
+      this.mostrarAlerta('No se identificó el ID de grupo para este comprobante.', undefined, 'error');
+      return;
+    }
+
+    this.auditoriaService.cambiarEstadoGrupo(idGrupo, nuevoEstado, forzar).subscribe({
+      next: (res) => {
+        if (res.requiereConfirmacion) {
+          this.modalMensaje = res.mensajeAlerta || 'Los débitos no aceptados no coinciden con los importes refacturados. ¿Desea forzar el cierre del trámite de todas formas?';
+          this.modalAceptarCb = () => {
+            this.cerrarModal();
+            this.cambiarEstadoGrupo(idGrupo, nuevoEstado, true);
+          };
+          this.modalCancelarCb = () => this.cerrarModal();
+          this.modalVisible = true;
+          this.cdr.detectChanges();
+        } else if (res.exito) {
+          const accion = nuevoEstado === 2 ? 'finalizado' : 'reabierto';
+          this.mostrarAlerta(`El trámite fue ${accion} exitosamente.`, undefined, 'exito');
+          if (this.filaFacturaRaiz) {
+            this.filaFacturaRaiz.idEstado = nuevoEstado;
+          }
+          this.configurarColumnas();
+          const rawVal = this.busquedaForm.getRawValue();
+          this.cargarHistorialComprobantes(rawVal.tipo || 'FC', rawVal.letra || '', rawVal.puntoVenta || '', rawVal.numero || '');
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        const errorMsg = err?.error?.mensaje || err?.message || 'Ocurrió un error al cambiar el estado del trámite.';
+        this.mostrarAlerta(errorMsg, undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   guardarNuevaNotaBD() {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
     if (this.nuevaNotaForm.invalid) {
-      // Métrica: Se trabó porque no llenó bien los campos
       this.auditoriaService.registrarMetricaUsabilidad({
         usuario: this.authService.obtenerUsuario(),
         documentoReferencia: 'MODAL_NUEVA_NOTA',
         evento: `INTENTO_CREAR_NOTA_FORMULARIO_INVALIDO`,
         fechaHora: new Date().toISOString(),
         cantidadRegistrosPendientes: 0
-      }).subscribe({ error: () => {} });
+      }).subscribe({ error: () => { } });
 
       this.mostrarAlerta('Por favor, complete todos los campos correctamente.', undefined, 'error');
       return;
     }
 
-    const registrosParaGuardar = this.prestaciones.filter(p => {
-      if (this.tipoNuevaNota === 'NC') {
-        return p.motivoDebito && p.motivoDebito.trim() !== '';
-      } else {
-        // Candado 2: Solo enviamos al backend los que dicen estrictamente "NO"
-        return p.debitoAceptado === 'NO';
+    if (this.esTipoFactura() && this.tipoNuevaNota === 'NC') {
+      const modificadosConNcPrevia = this.prestaciones.filter(p => p.ncNumero && this.modificadosSinGuardar.has(p.id!));
+      if (modificadosConNcPrevia.length > 0) {
+        this.guardarParcialmente(true);
       }
-    });
+    }
 
-    // 2. Preparamos los datos del formulario (Letra en Mayúscula)
-    const datosNotaForm = { ...this.nuevaNotaForm.value };
+    const tipoNdSeleccionado = this.nuevaNotaForm.get('tipoNd')?.value;
+    let registrosParaGuardar: Prestacion[] = [];
+
+    if (this.tipoNuevaNota === 'NC') {
+      const tipoNc = this.nuevaNotaForm.get('tipoNc')?.value;
+      const subtipoIva = this.nuevaNotaForm.get('subtipoIva')?.value;
+
+      if (tipoNc === 'Por ajuste de IVA') {
+        if (subtipoIva === 'No prestacional') {
+          registrosParaGuardar = [];
+        } else {
+          // Prestacional
+          registrosParaGuardar = this.prestaciones.filter(p => {
+            if (this.esTipoFactura() && p.ncNumero) {
+              return false;
+            }
+            return p.motivoDebito && p.motivoDebito.trim().toLowerCase() === 'iva mal facturado';
+          });
+
+          if (registrosParaGuardar.length === 0) {
+            this.mostrarAlerta('No hay prestaciones con Motivo de Débito "Iva mal facturado" para generar una NC por Ajuste de IVA Prestacional.', undefined, 'error');
+            return;
+          }
+        }
+      } else if (tipoNc === 'Prestacional y Ajuste de IVA') {
+        registrosParaGuardar = this.prestaciones.filter(p => {
+          if (this.esTipoFactura() && p.ncNumero) {
+            return false;
+          }
+          return p.motivoDebito && p.motivoDebito.trim() !== '';
+        });
+
+        if (registrosParaGuardar.length === 0) {
+          this.mostrarAlerta('No hay prestaciones pendientes (sin NC previa) con Motivo de Débito cargado para generar una nueva NC.', undefined, 'error');
+          return;
+        }
+
+        const netoNc = Number(this.nuevaNotaForm.get('netoNc')?.value) || 0;
+        const porcIva = this.nuevaNotaForm.get('porcIva')?.value;
+        if (netoNc <= 0 || porcIva === null || porcIva === undefined || String(porcIva) === '') {
+          this.mostrarAlerta('Debe ingresar un Monto Neto y Porcentaje de IVA válidos para el Ajuste de IVA.', undefined, 'error');
+          return;
+        }
+      } else {
+        // Refactura
+        registrosParaGuardar = this.prestaciones.filter(p => {
+          if (this.esTipoFactura() && p.ncNumero) {
+            return false;
+          }
+          return p.motivoDebito && p.motivoDebito.trim() !== '';
+        });
+
+        if (registrosParaGuardar.length === 0) {
+          this.mostrarAlerta('No hay prestaciones pendientes (sin NC previa) con Motivo de Débito cargado para generar una nueva NC.', undefined, 'error');
+          return;
+        }
+      }
+    } else if (tipoNdSeleccionado === 'Por ajuste de IVA') {
+      registrosParaGuardar = [];
+    } else {
+      registrosParaGuardar = this.prestaciones.filter(p => p.debitoAceptado === 'NO');
+
+      if (registrosParaGuardar.length === 0) {
+        this.mostrarAlerta('No hay prestaciones con Débito Aceptado en "NO" para generar una ND por Refactura.', undefined, 'error');
+        return;
+      }
+    }
+
+    const datosNotaForm: any = { ...this.nuevaNotaForm.getRawValue() };
     datosNotaForm.letra = datosNotaForm.letra ? datosNotaForm.letra.toUpperCase() : '';
+    if (this.tipoNuevaNota === 'NC' && datosNotaForm.tipoNc === 'Por ajuste de IVA') {
+      if (datosNotaForm.subtipoIva === 'No prestacional') {
+        datosNotaForm.neto = datosNotaForm.netoNc;
+        datosNotaForm.iva = datosNotaForm.ivaNc;
+        datosNotaForm.porcIva = datosNotaForm.porcIva;
+      } else {
+        datosNotaForm.neto = this.montoNetoPrestacional;
+        datosNotaForm.iva = this.montoIvaCalculado;
+        datosNotaForm.porcIva = datosNotaForm.porcIva;
+      }
+    } else if (this.tipoNuevaNota === 'NC' && datosNotaForm.tipoNc === 'Prestacional y Ajuste de IVA') {
+      datosNotaForm.neto = datosNotaForm.netoNc;
+      datosNotaForm.iva = datosNotaForm.ivaNc;
+      datosNotaForm.porcIva = datosNotaForm.porcIva;
+    } else if (tipoNdSeleccionado === 'Por ajuste de IVA') {
+      datosNotaForm.importeRefactura = datosNotaForm.importeNd;
+    }
 
-    // 3. Armamos el Payload "Todo en Uno"
+    datosNotaForm.idCabeceraSeleccionada = this.cabeceraSeleccionadaId;
+    datosNotaForm.creadoManualmente = this.modoIngresoManual || !this.cabeceraSeleccionadaId;
+
+    // 4. Armamos el Payload "Todo en Uno"
     const payload = {
       // Datos del documento que está cargado en la grilla (Original)
       origen: this.tipoBusquedaRealizada,
@@ -1164,11 +2990,56 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
     request$.subscribe({
       next: () => {
+        this.modificadosSinGuardar.clear(); // <-- Limpiamos PRIMERO la lista de pendientes sin guardar
+        this.cargando = false;
+
+        // Construimos el objeto del documento recién creado
+        const nuevaEntrada: DocumentoAsociado = {
+          tipo: datosNotaForm.tipo ?? '',
+          letra: datosNotaForm.letra ?? '',
+          ptovta: Number(datosNotaForm.puntoVenta) || 0,
+          numero: Number(datosNotaForm.numero) || 0,
+          fecha: datosNotaForm.fecha ?? '',
+          tipoNd: datosNotaForm.tipoNd || undefined
+        };
+
+        if (this.tipoNuevaNota === 'NC') {
+          // Actualizamos en memoria local del frontend solo los registros que NO pertenecían a una NC previa
+          registrosParaGuardar.forEach(p => {
+            if (!p.ncNumero) {
+              p.ncNumero = Number(datosNotaForm.numero) || 0;
+              p.ncTipo = datosNotaForm.tipo ?? '';
+              p.ncLetra = datosNotaForm.letra ?? '';
+              p.ncPtoVenta = Number(datosNotaForm.puntoVenta) || 0;
+              p.ncFecha = datosNotaForm.fecha ?? '';
+            }
+          });
+
+          // Regla 1: agregamos al historial sin reemplazar (puede haber varias NC)
+          this.documentosCreadosInfo = [...this.documentosCreadosInfo, nuevaEntrada];
+          // Para FC el botón nunca se bloquea; para ND sí (relación 1:1)
+          if (this.esTipoNotaDebito()) {
+            this.notaDeCreditoYaCreada = true;
+            this.documentoCreadoInfo = nuevaEntrada;
+          }
+        } else if (this.tipoNuevaNota === 'ND') {
+          // Guardamos la ND creada en la lista interna para validar los radiobuttons
+          this.ndsCreadasDesdeNc = [...this.ndsCreadasDesdeNc, nuevaEntrada];
+        }
+
+        this.aplicarFiltros();
+
+        if (this.tipoNuevaNota === 'NC' && datosNotaForm.tipoNc === 'Por ajuste de IVA') {
+          this.datosNcCreada = datosNotaForm;
+          this.ncGuardadaExitosamente = true;
+          this.nuevaNotaForm.disable();
+          this.cdr.detectChanges();
+          return;
+        }
+
         this.cerrarModalNuevaNota();
         this.mostrarAlerta(`¡Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} generada y guardada con éxito!`, undefined, 'exito');
-        this.cargando = false;
         this.cdr.detectChanges();
-        this.modificadosSinGuardar.clear();
       },
       error: (err) => {
         console.error(err);
@@ -1196,9 +3067,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
           evento: `ERROR_HTTP_${err.status}_AL_CREAR_NOTA_${this.tipoNuevaNota}`,
           cantidadRegistrosPendientes: registrosParaGuardar.length,
           fechaHora: new Date().toISOString(),
-        }).subscribe({ error: () => {} });
+        }).subscribe({ error: () => { } });
 
-        this.mostrarAlerta(`Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`, undefined, 'error');
+        const mensajeServer = err.error?.message || err.error?.mensaje || `Error al procesar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'}.`;
+        this.mostrarAlerta(mensajeServer, undefined, 'error');
         this.cdr.detectChanges();
       }
     });
@@ -1239,25 +3111,112 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
 
     if (nuevo === previo) return;
 
-    // --- NUEVA LÓGICA PARA EL "NO" ---
     // --- LÓGICA PARA EL CAMBIO DE "DÉBITO ACEPTADO" ---
     if (colId === 'debitoAceptado') {
       if (nuevo === 'NO') {
-        p.importeDebitado = undefined; // Limpia el importe si NO acepta el débito
+        const tieneImportePrevio = p.importeDebitado != null && p.importeDebitado !== undefined;
+
+        if (tieneImportePrevio) {
+          const importeFormateado = p.importeDebitado?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? p.importeDebitado;
+
+          this.modalMensaje = `Este registro ya tiene un importe debitado ingresado ($${importeFormateado}).\n\n¿Desea REEMPLAZAR los importes existentes al marcar el débito como 'NO'?\n\n(Si selecciona Cancelar, se aplicará el cambio conservando los importes ya ingresados)`;
+
+          this.modalAceptarCb = () => {
+            p.importeDebitado = undefined;
+            if (p.motivoRefactura && p.motivoRefactura.trim() !== '' && p.motivoRefactura.trim() !== 'No aplica') {
+              p.importeRefactura = p.total;
+            }
+            this.calcularTotales();
+            this.registrarCambio(p);
+            event.api.refreshCells({ rowNodes: [event.node], force: true });
+            this.cerrarModal();
+          };
+
+          this.modalCancelarCb = () => {
+            if (p.motivoRefactura && p.motivoRefactura.trim() !== '' && p.motivoRefactura.trim() !== 'No aplica') {
+              p.importeRefactura = p.total;
+            }
+            this.calcularTotales();
+            this.registrarCambio(p);
+            event.api.refreshCells({ rowNodes: [event.node], force: true });
+            this.cerrarModal();
+          };
+
+          this.modalVisible = true;
+          this.cdr.detectChanges();
+          return;
+        } else {
+          p.importeDebitado = undefined;
+          if (p.motivoRefactura && p.motivoRefactura.trim() !== '' && p.motivoRefactura.trim() !== 'No aplica') {
+            p.importeRefactura = p.total;
+          }
+        }
+      } else if (nuevo === 'SI') {
+        // Al marcar "SI", limpiamos automáticamente cualquier motivo, importe o comentario de refactura
+        p.motivoRefactura = '';
+        p.importeRefactura = undefined;
+        p.comentarios = '';
       } else {
-        // Si cambió a "SI" o "Borrar", limpiamos los comentarios para no enviar basura al backend
+        // Si cambió a "Borrar" / '', limpiamos los comentarios
         p.comentarios = '';
       }
 
       this.calcularTotales();
       this.registrarCambio(p);
-      // Refrescamos la fila completa para que la celda de Comentarios se bloquee/desbloquee instantáneamente
+      // Refrescamos la fila completa para que la celda de Comentarios y Refactura se sincronicen instantáneamente
       event.api.refreshCells({ rowNodes: [event.node], force: true });
       return;
     }
 
+    // Si el débito fue aceptado ("SI"), no permitir editar Motivo, Importe ni Comentarios de Refactura
+    if (p.debitoAceptado === 'SI' && (colId === 'motivoRefactura' || colId === 'importeRefactura' || colId === 'comentarios')) {
+      p.motivoRefactura = '';
+      p.importeRefactura = undefined;
+      p.comentarios = '';
+      event.node.setDataValue(colId, colId === 'importeRefactura' ? undefined : '');
+      event.api.refreshCells({ rowNodes: [event.node], force: true });
+      this.mostrarAlerta('No se puede asignar Motivo, Importe ni Comentarios de Refactura a una prestación cuyo débito fue aceptado ("SI").', undefined, 'error');
+      return;
+    }
+
     if (colId === 'motivoDebito') {
-      if (previo && previo !== '' && previo !== nuevo) {
+      const tieneMotivoPrevio = previo && previo !== '' && previo !== nuevo;
+
+      const verificarImporteYSobreescribir = () => {
+        const esMotivoConImporte = nuevo && nuevo !== 'Borrar' && nuevo !== 'No aplica';
+        const nuevoImporte = esMotivoConImporte
+          ? (nuevo.trim().toLowerCase() === 'iva mal facturado' ? this.obtenerMontoIva(p) : p.total)
+          : undefined;
+
+        const tieneImportePrevio = esMotivoConImporte && p.importeDebitado != null && p.importeDebitado !== undefined && p.importeDebitado !== nuevoImporte;
+
+        if (tieneImportePrevio) {
+          const importeFormateado = p.importeDebitado?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? p.importeDebitado;
+          const nuevoImporteFormateado = nuevoImporte?.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? nuevoImporte;
+
+          this.modalMensaje = `Este registro ya tiene un importe debitado ingresado ($${importeFormateado}).\n\n¿Desea REEMPLAZAR el importe existente por el nuevo valor ($${nuevoImporteFormateado})?\n\n(Si selecciona Cancelar, se mantendrá el importe ya ingresado)`;
+
+          this.modalAceptarCb = () => {
+            this.ejecutarIndividualDebito(p, nuevo, true);
+            event.api.refreshCells({ rowNodes: [event.node] });
+            this.cerrarModal();
+          };
+
+          this.modalCancelarCb = () => {
+            this.ejecutarIndividualDebito(p, nuevo, false);
+            event.api.refreshCells({ rowNodes: [event.node] });
+            this.cerrarModal();
+          };
+
+          this.modalVisible = true;
+          this.cdr.detectChanges();
+        } else {
+          this.ejecutarIndividualDebito(p, nuevo, true);
+          event.api.refreshCells({ rowNodes: [event.node] });
+        }
+      };
+
+      if (tieneMotivoPrevio) {
         this.modalMensaje = `Este registro ya tenía un motivo de débito ("${previo}").\n¿Desea reemplazarlo?`;
 
         this.modalAceptarCb = () => {
@@ -1268,11 +3227,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
             evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_DEBITO',
             fechaHora: new Date().toISOString(),
             cantidadRegistrosPendientes: 1
-          }).subscribe({ error: () => {} });
+          }).subscribe({ error: () => { } });
 
-          this.ejecutarIndividualDebito(p, nuevo);
-          event.api.refreshCells({ rowNodes: [event.node] }); // Repinta la fila
           this.cerrarModal();
+          verificarImporteYSobreescribir();
         };
 
         this.modalCancelarCb = () => {
@@ -1284,8 +3242,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
         this.modalVisible = true;
         this.cdr.detectChanges();
       } else {
-        this.ejecutarIndividualDebito(p, nuevo);
-        event.api.refreshCells({ rowNodes: [event.node] });
+        verificarImporteYSobreescribir();
       }
     }
     else if (colId === 'motivoRefactura') {
@@ -1300,7 +3257,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy {
             evento: 'SOBREESCRIBIR_CELDA_CONFIRMADO_REFACTURA',
             fechaHora: new Date().toISOString(),
             cantidadRegistrosPendientes: 1
-          }).subscribe({ error: () => {} });
+          }).subscribe({ error: () => { } });
 
           this.ejecutarIndividualRefactura(p, nuevo);
           event.api.refreshCells({ rowNodes: [event.node] });
