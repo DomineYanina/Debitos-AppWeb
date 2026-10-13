@@ -64,6 +64,10 @@ export interface DirectorioMotivoDebito {
   montoTotal: number;
   porcentaje: number;
   cantidadCasos: number;
+  montoAceptado?: number;
+  montoRefacturado?: number;
+  porcentajeAceptados?: number;
+  porcentajeRefacturados?: number;
   color?: string;
   _originalIndex?: number;
 }
@@ -215,6 +219,8 @@ export interface DesgloseFinanciadorDTO {
   aceptado?: number;
   refacturado?: number;
   distribucionAtencion?: string;
+  porcentajeAmb?: number;
+  porcentajeInt?: number;
   tasaRecupero?: number;
   _originalIndex?: number;
 }

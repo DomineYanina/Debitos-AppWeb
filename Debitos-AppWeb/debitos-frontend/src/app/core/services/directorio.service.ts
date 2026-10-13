@@ -67,6 +67,10 @@ export class DirectorioService {
     return this.http.get<string[]>(`${this.apiUrl}/tipos-documento`);
   }
 
+  obtenerFechaMinimaFiltro(): Observable<{ fechaMinima: string }> {
+    return this.http.get<{ fechaMinima: string }>(`${this.apiUrl}/fecha-minima-filtro`);
+  }
+
   obtenerTotales(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DirectorioTotales> {
     let params = new HttpParams();
     if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);

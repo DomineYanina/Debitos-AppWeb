@@ -76,6 +76,7 @@ describe('DirectorioDashboardComponent', () => {
     directorioServiceSpy = {
       obtenerCoberturas: vi.fn().mockReturnValue(of(mockCoberturas)),
       obtenerTiposDocumento: vi.fn().mockReturnValue(of(['FAC', 'FC', 'FCA', 'FCE'])),
+      obtenerFechaMinimaFiltro: vi.fn().mockReturnValue(of({ fechaMinima: '2024-07-01' })),
       obtenerTotales: vi.fn().mockReturnValue(of(mockTotales)),
       obtenerGrupos: vi.fn().mockReturnValue(of(mockGrupos)),
       obtenerMotivos: vi.fn().mockReturnValue(of(mockMotivos)),
@@ -103,7 +104,8 @@ describe('DirectorioDashboardComponent', () => {
     expect(component.coberturas.length).toBe(2);
     expect(component.tiposDocumento.length).toBe(4);
     expect(component.totales.totalFacturado).toBe(1500000);
-    expect(component.gruposFacturas.length).toBe(1);
+    // Verificar que los motivos se cargan bajo demanda en la solapa motivos
+    component.cargarDatosSolapa('motivos', true);
     expect(component.motivosDebito.length).toBe(2);
     expect(component.slicesDonut.length).toBe(2);
   });
@@ -121,6 +123,7 @@ describe('DirectorioDashboardComponent', () => {
   });
 
   it('toggleGrupo y expandirTodos deberían alternar la visibilidad de comprobantes derivados', () => {
+    component.cargarGrupos();
     const grupo = component.gruposFacturas[0];
     expect(grupo.expandido).toBe(false);
 
@@ -213,6 +216,8 @@ describe('DirectorioDashboardComponent', () => {
     directorioServiceSpy.obtenerMotivos.mockReturnValue(throwError(() => new Error('error')));
 
     component.cargarDashboard();
+    component.cargarGrupos();
+    component.cargarMotivos();
 
     expect(component.cargandoTotales).toBe(false);
     expect(component.cargandoGrupos).toBe(false);
@@ -229,13 +234,17 @@ describe('DirectorioDashboardComponent', () => {
     expect(spyIrMes).toHaveBeenCalled();
   });
 
-  it('validarRangoFechas y aplicarFiltros no deberían permitir que fechaHasta sea menor a fechaDesde', () => {
+  it('validarRangoFechas y aplicarFiltros no deberían permitir filtrar si fechaHasta es menor a fechaDesde', () => {
+    const spyCargar = vi.spyOn(component, 'cargarDashboard');
     component.fechaDesde = '2026-08-01';
     component.fechaHasta = '2026-06-01';
 
     component.aplicarFiltros();
 
-    expect(component.fechaHasta).toBe('2026-08-01');
+    expect(component.fechaHasta).toBe('2026-06-01');
+    expect(component.errorRangoFechas).toBe('La Fecha Desde no puede ser posterior a la Fecha Hasta');
+    expect(component.esRangoFechasValido).toBe(false);
+    expect(spyCargar).not.toHaveBeenCalled();
   });
 
   it('validarRangoFechas debería mantener fechaHasta si es mayor o igual a fechaDesde', () => {
@@ -245,24 +254,29 @@ describe('DirectorioDashboardComponent', () => {
     component.validarRangoFechas();
 
     expect(component.fechaHasta).toBe('2026-08-31');
+    expect(component.esRangoFechasValido).toBe(true);
   });
 
-  it('onFechaDesdeChange no debería permitir que fechaDesde sea mayor a fechaHasta', () => {
+  it('onFechaDesdeChange no debería sobrescribir fechaDesde si es mayor a fechaHasta sino marcar error en rango', () => {
     component.fechaHasta = '2026-06-30';
     component.fechaDesde = '2026-08-01';
 
     component.onFechaDesdeChange();
 
-    expect(component.fechaDesde).toBe('2026-06-30');
+    expect(component.fechaDesde).toBe('2026-08-01');
+    expect(component.errorRangoFechas).toBe('La Fecha Desde no puede ser posterior a la Fecha Hasta');
+    expect(component.esRangoFechasValido).toBe(false);
   });
 
-  it('onFechaHastaChange no debería permitir que fechaHasta sea menor a fechaDesde', () => {
+  it('onFechaHastaChange no debería sobrescribir fechaHasta si es menor a fechaDesde sino marcar error en rango', () => {
     component.fechaDesde = '2026-08-01';
     component.fechaHasta = '2026-06-01';
 
     component.onFechaHastaChange();
 
-    expect(component.fechaHasta).toBe('2026-08-01');
+    expect(component.fechaHasta).toBe('2026-06-01');
+    expect(component.errorRangoFechas).toBe('La Fecha Desde no puede ser posterior a la Fecha Hasta');
+    expect(component.esRangoFechasValido).toBe(false);
   });
 
   it('validarFormatoFecha debería rechazar años de menos de 4 dígitos o anteriores a 2000', () => {
@@ -402,6 +416,7 @@ describe('DirectorioDashboardComponent', () => {
     directorioServiceSpy.obtenerMotivos.mockReturnValue(of(mockMotivos));
     const f3 = TestBed.createComponent(DirectorioDashboardComponent);
     f3.detectChanges();
+    f3.componentInstance.cargarDatosSolapa('motivos', true);
     (f3.componentInstance as any).cdr.detectChanges();
     f3.componentInstance.onHoverSector(f3.componentInstance.slicesDonut[0]);
     (f3.componentInstance as any).cdr.detectChanges();
@@ -522,6 +537,13 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.direccionOrdenAnalista).toBe('asc');
       expect(component.analistasDatos[0].analista).toBe('FernandaCortes');
       expect(component.analistasDatos[0].motivos[0].motivo).toBe('B-Motivo'); // B antes que X
+
+      // Ordenar por monto (descendente inicial)
+      component.ordenarAnalistas('monto');
+      expect(component.columnaOrdenAnalista).toBe('monto');
+      expect(component.direccionOrdenAnalista).toBe('desc');
+      expect(component.analistasDatos[0].analista).toBe('FernandaCortes'); // 40000 vs 7000
+      expect(component.analistasDatos[0].motivos[0].motivo).toBe('B-Motivo'); // 35000 vs 5000
     });
 
     it('ordenarMotivosAnalistas debe ordenar los motivos de forma independiente sin alterar la cabecera principal', () => {
@@ -678,6 +700,17 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.medicosDatos[1].medico).toBe('Dr. Alvarez');
     });
 
+    it('ordenarMedicos por motivos debe ordenar por cantidad de motivos', () => {
+      component.ordenarMedicos('motivos');
+      expect(component.columnaOrdenMedico).toBe('motivos');
+      expect(component.direccionOrdenMedico).toBe('desc');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Perez'); // 2 motivos vs 1 motivo
+
+      component.ordenarMedicos('motivos');
+      expect(component.direccionOrdenMedico).toBe('asc');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Alvarez'); // 1 motivo vs 2 motivos
+    });
+
     it('ordenarMedicos por documentos debe ordenar por cantidadRegistros', () => {
       component.ordenarMedicos('documentos');
       expect(component.columnaOrdenMedico).toBe('documentos');
@@ -701,6 +734,34 @@ describe('DirectorioDashboardComponent', () => {
 
       component.ordenarMedicos('recupero');
       expect(component.medicosDatos[0].medico).toBe('Dr. Alvarez'); // 40 vs 28.5
+    });
+
+    it('cuando un médico está desplegado, ordenar debe ordenar los motivos del médico sin mover la lista de médicos', () => {
+      component.medicosDatos[0].expanded = true;
+      component.ordenarMedicos('casos');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Perez');
+      expect(component.medicosDatos[1].medico).toBe('Dr. Alvarez');
+      expect(component.medicosDatos[0].motivos[0].motivo).toBe('Falta firma');
+      expect(component.medicosDatos[0].motivos[1].motivo).toBe('Autorización');
+
+      component.ordenarMedicos('casos');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Perez');
+      expect(component.medicosDatos[0].motivos[0].motivo).toBe('Autorización');
+      expect(component.medicosDatos[0].motivos[1].motivo).toBe('Falta firma');
+    });
+
+    it('cuando dentro de un médico desplegado hay un motivo desplegado, debe ordenar el tercer nivel (financiadores)', () => {
+      component.medicosDatos[0].expanded = true;
+      component.medicosDatos[0].motivos[0].expanded = true;
+      component.medicosDatos[0].motivos[0].financiadores = [
+        { financiador: 'OSDE', casos: 10, monto: 15000, montoDebitado: 15000, aceptado: 10000, refacturado: 5000 } as any,
+        { financiador: 'SWISS', casos: 20, monto: 25000, montoDebitado: 25000, aceptado: 20000, refacturado: 5000 } as any
+      ];
+
+      component.ordenarMedicos('casos');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Perez');
+      expect(component.medicosDatos[0].motivos[0].financiadores[0].financiador).toBe('SWISS');
+      expect(component.medicosDatos[0].motivos[0].financiadores[1].financiador).toBe('OSDE');
     });
   });
 

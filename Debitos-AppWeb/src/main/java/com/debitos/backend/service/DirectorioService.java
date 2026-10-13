@@ -82,6 +82,10 @@ public class DirectorioService {
     @org.springframework.context.annotation.Lazy
     private DirectorioService self;
 
+    private volatile LocalDate cachedFechaMinimaPermitida = null;
+    private volatile Integer cachedDsoPonderado = null;
+    private volatile long lastDsoCalculatedTime = 0L;
+
     /**
      * Identifica en memoria los IDs de comprobantes anulados y sus anuladores:
      * 1. Comprobantes presentes formalmente en la tabla comprobantes_anulados.
@@ -317,6 +321,10 @@ public class DirectorioService {
         }
     }
 
+    private List<DirectorioCoberturaDTO> getCoberturasDisponiblesProxy() {
+        return (self != null ? self : this).obtenerCoberturasDisponibles();
+    }
+
     @Cacheable(CacheConfig.CACHE_COBERTURAS)
     public List<DirectorioCoberturaDTO> obtenerCoberturasDisponibles() {
         String sql = """
@@ -358,6 +366,87 @@ public class DirectorioService {
             }
         }
         return lista;
+    }
+
+    public LocalDate obtenerFechaMinimaPermitida() {
+        if (cachedFechaMinimaPermitida != null) {
+            return cachedFechaMinimaPermitida;
+        }
+        String sql = """
+            SELECT MIN(COALESCE(c.periodo, c.fecha))
+            FROM cabecera c
+            WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
+              AND (c.periodo < DATE '2024-07-01' OR c.periodo IS NULL)
+              AND EXISTS (
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE c_hijo.asociado = c.id
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+                  UNION ALL
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                    AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                        COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+              )
+        """;
+        try {
+            Object res = entityManager.createNativeQuery(sql).getSingleResult();
+            LocalDate fechaMin = convertirALocalDate(res);
+            LocalDate julio2024 = LocalDate.of(2024, 7, 1);
+            if (fechaMin != null && fechaMin.isBefore(julio2024)) {
+                cachedFechaMinimaPermitida = fechaMin.withDayOfMonth(1);
+            } else {
+                cachedFechaMinimaPermitida = julio2024;
+            }
+            return cachedFechaMinimaPermitida;
+        } catch (Exception e) {
+            log.warn("Error al calcular fecha minima permitida: {}", e.getMessage());
+            return LocalDate.of(2024, 7, 1);
+        }
+    }
+
+    public int obtenerDsoPonderadoGlobal() {
+        long now = System.currentTimeMillis();
+        if (cachedDsoPonderado != null && (now - lastDsoCalculatedTime) < 3600000L) {
+            return cachedDsoPonderado;
+        }
+        try {
+            String sqlDso = """
+                SELECT CAST(ROUND(
+                    SUM(GREATEST(0, CAST(CURRENT_DATE - f.fecha_emision AS INTEGER)) * f.saldo_vivo) / NULLIF(SUM(f.saldo_vivo), 0)
+                ) AS INTEGER)
+                FROM (
+                    SELECT 
+                        MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') THEN c2.fecha END) AS fecha_emision,
+                        COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA','ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
+                        - COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('RC','RCA','RCB','REC','OP','NC','NCE','NCA','NCB') THEN COALESCE(c2.haber, c2.debe, 0) ELSE 0 END), 0) AS saldo_vivo
+                    FROM cabecera c2
+                    WHERE c2.fecha >= DATE '2024-01-01'
+                    GROUP BY COALESCE(c2.asociadogrupo, c2.grupo, c2.asociado, c2.id)
+                    HAVING MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') THEN c2.fecha END) IS NOT NULL
+                       AND (
+                            COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA','ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
+                            - COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('RC','RCA','RCB','REC','OP','NC','NCE','NCA','NCB') THEN COALESCE(c2.haber, c2.debe, 0) ELSE 0 END), 0)
+                       ) > 0
+                ) f
+            """;
+            Object res = entityManager.createNativeQuery(sqlDso).getSingleResult();
+            if (res != null) {
+                if (res instanceof Object[] arr && arr.length > 0) {
+                    res = arr[0];
+                }
+                if (res instanceof Number num) {
+                    cachedDsoPonderado = num.intValue();
+                    lastDsoCalculatedTime = now;
+                    return cachedDsoPonderado;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error al calcular DSO ponderado: {}", e.getMessage());
+        }
+        return 429;
     }
 
     @Cacheable(CacheConfig.CACHE_TOTALES)
@@ -436,6 +525,7 @@ public class DirectorioService {
                   AND c_fac.fecha IS NOT NULL
                   AND c_nc.fecha IS NOT NULL
                   AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND c_fac.fecha >= DATE '2024-01-01'
             ),
             ids_anulados_15d AS (
                 SELECT id FROM docs_anulados
@@ -447,15 +537,33 @@ public class DirectorioService {
                 SELECT id_nc AS id FROM pares_anulados_15d
             ),
             fc_madre AS (
-                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
-                    COALESCE(asociadogrupo, grupo) AS gid,
-                    periodo,
-                    fecha
-                FROM cabecera
-                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
-                  AND id NOT IN (SELECT id FROM ids_anulados_15d)
-                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+                SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
+                    COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
+                    c_fc.periodo,
+                    c_fc.fecha
+                FROM cabecera c_fc
+                WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
+                  AND c_fc.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND (
+                      (c_fc.periodo IS NOT NULL AND c_fc.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c_fc.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c_fc.asociadogrupo, 0), NULLIF(c_fc.grupo, 0), c_fc.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
+                ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
             )
             SELECT 
                 -- 0. Facturación Original (FC)
@@ -480,26 +588,7 @@ public class DirectorioService {
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobranzas_rc,
 
                 -- 6. DSO Ponderado por Saldo Vivo de Familias
-                COALESCE(
-                    CAST(ROUND(
-                        (SELECT SUM(GREATEST(0, CAST(CURRENT_DATE - f.fecha_emision AS INTEGER)) * f.saldo_vivo) / NULLIF(SUM(f.saldo_vivo), 0)
-                         FROM (
-                             SELECT 
-                                 MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') THEN c2.fecha END) AS fecha_emision,
-                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA','ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
-                                 - COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('RC','RCA','RCB','REC','OP','NC','NCE','NCA','NCB') THEN COALESCE(c2.haber, c2.debe, 0) ELSE 0 END), 0) AS saldo_vivo
-                             FROM cabecera c2
-                             WHERE c2.id NOT IN (SELECT id FROM ids_anulados_15d)
-                             GROUP BY COALESCE(c2.asociadogrupo, c2.grupo, c2.asociado, c2.id)
-                             HAVING MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') THEN c2.fecha END) IS NOT NULL
-                                AND (
-                                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA','ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
-                                     - COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('RC','RCA','RCB','REC','OP','NC','NCE','NCA','NCB') THEN COALESCE(c2.haber, c2.debe, 0) ELSE 0 END), 0)
-                                ) > 0
-                         ) f)
-                    ) AS INTEGER),
-                    429
-                ) AS dso_ponderado
+                429 AS dso_ponderado
 
             FROM cabecera c
             LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
@@ -509,6 +598,7 @@ public class DirectorioService {
                 END
             ) IS NOT NULL
               AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
+              AND fc.gid IS NOT NULL
         """);
 
         aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fechaDesde, fechaHasta);
@@ -559,7 +649,7 @@ public class DirectorioService {
         dto.setTotalCobranzas(cobranzasRc.setScale(2, RoundingMode.HALF_UP));
         dto.setEfectividadCobro(efectividadCobro);
         dto.setSaldoPendienteReal(saldoReal);
-        dto.setDsoPonderadoDias(dso);
+        dto.setDsoPonderadoDias(obtenerDsoPonderadoGlobal());
 
         // Campos legados por compatibilidad
         dto.setCobranzaEfectiva(dto.getTotalCobranzas());
@@ -669,6 +759,24 @@ public class DirectorioService {
         StringBuilder whereSql = new StringBuilder("""
             FROM cabecera c
             WHERE c.id NOT IN (SELECT id FROM ids_anulados_15d)
+              AND (
+                  (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+                  OR EXISTS (
+                      SELECT 1 FROM cabecera c_hijo
+                      WHERE c_hijo.asociado = c.id
+                        AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                        AND c_hijo.fecha >= DATE '2024-07-01'
+                        AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      UNION ALL
+                      SELECT 1 FROM cabecera c_hijo
+                      WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                        AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                            COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                        AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                        AND c_hijo.fecha >= DATE '2024-07-01'
+                        AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  )
+              )
         """);
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
             whereSql.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
@@ -946,6 +1054,7 @@ public class DirectorioService {
                   AND c_fac.fecha IS NOT NULL
                   AND c_nc.fecha IS NOT NULL
                   AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND c_fac.fecha >= DATE '2024-01-01'
             ),
             ids_anulados_15d AS (
                 SELECT id FROM docs_anulados
@@ -957,24 +1066,44 @@ public class DirectorioService {
                 SELECT id_nc AS id FROM pares_anulados_15d
             ),
             fc_madre AS (
-                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
-                    COALESCE(asociadogrupo, grupo) AS gid,
-                    periodo,
-                    fecha,
-                    codigo_cobertura,
-                    cobertura,
-                    tipo,
-                    letra,
-                    ptovta,
-                    numero
-                FROM cabecera
-                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
-                  AND id NOT IN (SELECT id FROM ids_anulados_15d)
-                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+                SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
+                    COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
+                    c_fc.id,
+                    c_fc.periodo,
+                    c_fc.fecha,
+                    c_fc.codigo_cobertura,
+                    c_fc.cobertura,
+                    c_fc.tipo,
+                    c_fc.letra,
+                    c_fc.ptovta,
+                    c_fc.numero
+                FROM cabecera c_fc
+                WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
+                  AND c_fc.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND (
+                      (c_fc.periodo IS NOT NULL AND c_fc.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c_fc.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c_fc.asociadogrupo, 0), NULLIF(c_fc.grupo, 0), c_fc.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
+                ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
             )
             """;
 
+    @Cacheable(CacheConfig.CACHE_MOTIVOS)
     public PaginatedResponseDTO<DirectorioMotivoDebitoDTO> obtenerDistribucionMotivosPaginado(
             String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta, int page, int size) {
         int pageIndex = Math.max(0, page);
@@ -983,7 +1112,7 @@ public class DirectorioService {
 
         String nombreCobertura = null;
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            for (DirectorioCoberturaDTO c : obtenerCoberturasDisponibles()) {
+            for (DirectorioCoberturaDTO c : getCoberturasDisponiblesProxy()) {
                 if (c.getCodigo().equalsIgnoreCase(codigoCobertura.trim())) {
                     nombreCobertura = c.getNombre() != null ? c.getNombre().trim().toLowerCase() : null;
                     break;
@@ -1014,6 +1143,7 @@ public class DirectorioService {
             whereSql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc OR UPPER(TRIM(fc.tipo)) = :tipoDoc)");
         }
         whereSql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+        whereSql.append(" AND fc.gid IS NOT NULL");
         if (fechaDesde != null) {
             whereSql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
         }
@@ -1048,7 +1178,23 @@ public class DirectorioService {
         String dataSql = CTE_ANULADOS_15D_CON_FC_MADRE + """
             SELECT TRIM(nc.motivodedebito) AS motivo, 
                    SUM(COALESCE(nc.importedebitado, 0)) AS montoTotal,
-                   COUNT(nc.id) AS cantidadCasos
+                   COUNT(nc.id) AS cantidadCasos,
+                   SUM(
+                     CASE 
+                       WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0)
+                       WHEN COALESCE(nc.importederefactura, 0) > 0 
+                            AND COALESCE(nc.importedebitado, 0) > COALESCE(nc.importederefactura, 0)
+                         THEN (COALESCE(nc.importedebitado, 0) - COALESCE(nc.importederefactura, 0))
+                       ELSE 0 
+                     END
+                   ) AS montoAceptado,
+                   SUM(
+                     CASE 
+                       WHEN COALESCE(nc.importederefactura, 0) > 0 THEN COALESCE(nc.importederefactura, 0)
+                       WHEN nc.debitoaceptado = false THEN COALESCE(nc.importedebitado, 0)
+                       ELSE 0 
+                     END
+                   ) AS montoRefacturado
         """ + whereSql + " GROUP BY TRIM(nc.motivodedebito) ORDER BY montoTotal DESC LIMIT :limit OFFSET :offset";
 
         Query q = crearQueryConFiltrosDetalle(dataSql, null, codigoCobertura, nombreCobertura, tipoDoc, fechaDesde, fechaHasta);
@@ -1066,8 +1212,30 @@ public class DirectorioService {
                 String motivo = r[0] != null ? r[0].toString() : "Sin Especificar";
                 BigDecimal monto = r[1] != null ? new BigDecimal(r[1].toString()) : BigDecimal.ZERO;
                 long casos = r[2] != null ? ((Number) r[2]).longValue() : 0L;
+                BigDecimal mtoAcep = r.length > 3 && r[3] != null ? new BigDecimal(r[3].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+                BigDecimal mtoRef = r.length > 4 && r[4] != null ? new BigDecimal(r[4].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+
                 sumaPagina = sumaPagina.add(monto);
-                lista.add(new DirectorioMotivoDebitoDTO(motivo, monto.setScale(2, RoundingMode.HALF_UP), BigDecimal.ZERO, casos));
+
+                BigDecimal porcAcep = BigDecimal.ZERO;
+                BigDecimal porcRef = BigDecimal.ZERO;
+                if (monto.compareTo(BigDecimal.ZERO) > 0) {
+                    porcAcep = mtoAcep
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(monto, 2, RoundingMode.HALF_UP)
+                            .min(BigDecimal.valueOf(100));
+                    porcRef = mtoRef
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(monto, 2, RoundingMode.HALF_UP)
+                            .min(BigDecimal.valueOf(100));
+                }
+
+                DirectorioMotivoDebitoDTO dto = new DirectorioMotivoDebitoDTO(motivo, monto.setScale(2, RoundingMode.HALF_UP), BigDecimal.ZERO, casos);
+                dto.setMontoAceptado(mtoAcep);
+                dto.setMontoRefacturado(mtoRef);
+                dto.setPorcentajeAceptados(porcAcep);
+                dto.setPorcentajeRefacturados(porcRef);
+                lista.add(dto);
             }
         }
 
@@ -1102,7 +1270,7 @@ public class DirectorioService {
         int offset = pageIndex * pageSize;
         String nombreCobertura = null;
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            for (DirectorioCoberturaDTO c : obtenerCoberturasDisponibles()) {
+            for (DirectorioCoberturaDTO c : getCoberturasDisponiblesProxy()) {
                 if (c.getCodigo().equalsIgnoreCase(codigoCobertura.trim())) {
                     nombreCobertura = c.getNombre() != null ? c.getNombre().trim().toLowerCase() : null;
                     break;
@@ -1247,6 +1415,7 @@ public class DirectorioService {
             sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc OR UPPER(TRIM(fc.tipo)) = :tipoDoc)");
         }
         sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+        sql.append(" AND fc.gid IS NOT NULL");
         if (fechaDesde != null) {
             sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
         }
@@ -1501,6 +1670,7 @@ public class DirectorioService {
                   AND c_fac.fecha IS NOT NULL
                   AND c_nc.fecha IS NOT NULL
                   AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND c_fac.fecha >= DATE '2024-01-01'
             ),
             ids_anulados_15d AS (
                 SELECT id FROM docs_anulados
@@ -1512,15 +1682,33 @@ public class DirectorioService {
                 SELECT id_nc AS id FROM pares_anulados_15d
             ),
             fc_madre AS (
-                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
-                    COALESCE(asociadogrupo, grupo) AS gid,
-                    periodo,
-                    fecha
-                FROM cabecera
-                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
-                  AND id NOT IN (SELECT id FROM ids_anulados_15d)
-                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+                SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
+                    COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
+                    c_fc.periodo,
+                    c_fc.fecha
+                FROM cabecera c_fc
+                WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
+                  AND c_fc.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND (
+                      (c_fc.periodo IS NOT NULL AND c_fc.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c_fc.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c_fc.asociadogrupo, 0), NULLIF(c_fc.grupo, 0), c_fc.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
+                ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
             )
             SELECT 
                 COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
@@ -1547,6 +1735,7 @@ public class DirectorioService {
                 END
             ) IS NOT NULL
               AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
+              AND fc.gid IS NOT NULL
         """);
 
         aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fechaDesde, fechaHasta);
@@ -1667,6 +1856,7 @@ public class DirectorioService {
                   AND c_fac.fecha IS NOT NULL
                   AND c_nc.fecha IS NOT NULL
                   AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND c_fac.fecha >= DATE '2024-01-01'
             ),
             ids_anulados_15d AS (
                 SELECT id FROM docs_anulados
@@ -1678,15 +1868,33 @@ public class DirectorioService {
                 SELECT id_nc AS id FROM pares_anulados_15d
             ),
             fc_madre AS (
-                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
-                    COALESCE(asociadogrupo, grupo) AS gid,
-                    periodo,
-                    fecha
-                FROM cabecera
-                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
-                  AND id NOT IN (SELECT id FROM ids_anulados_15d)
-                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+                SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
+                    COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
+                    c_fc.periodo,
+                    c_fc.fecha
+                FROM cabecera c_fc
+                WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
+                  AND c_fc.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND (
+                      (c_fc.periodo IS NOT NULL AND c_fc.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c_fc.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c_fc.asociadogrupo, 0), NULLIF(c_fc.grupo, 0), c_fc.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
+                ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
             )
             SELECT 
                 COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
@@ -1704,6 +1912,7 @@ public class DirectorioService {
                 END
             ) IS NOT NULL
               AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
+              AND fc.gid IS NOT NULL
         """);
 
         aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fechaDesde, fechaHasta);
@@ -1855,6 +2064,7 @@ public class DirectorioService {
                   AND c_fac.fecha IS NOT NULL
                   AND c_nc.fecha IS NOT NULL
                   AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND c_fac.fecha >= DATE '2024-01-01'
             ),
             ids_anulados_15d AS (
                 SELECT id FROM docs_anulados
@@ -1866,15 +2076,33 @@ public class DirectorioService {
                 SELECT id_nc AS id FROM pares_anulados_15d
             ),
             fc_madre AS (
-                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
-                    COALESCE(asociadogrupo, grupo) AS gid,
-                    periodo,
-                    fecha
-                FROM cabecera
-                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
-                  AND id NOT IN (SELECT id FROM ids_anulados_15d)
-                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+                SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
+                    COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
+                    c_fc.periodo,
+                    c_fc.fecha
+                FROM cabecera c_fc
+                WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
+                  AND c_fc.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND (
+                      (c_fc.periodo IS NOT NULL AND c_fc.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c_fc.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c_fc.asociadogrupo, 0), NULLIF(c_fc.grupo, 0), c_fc.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
+                ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
             )
             SELECT 
                 TO_CHAR(
@@ -1896,6 +2124,7 @@ public class DirectorioService {
                 END
             ) IS NOT NULL
               AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
+              AND fc.gid IS NOT NULL
         """);
 
         aplicarFiltrosCabeceraPeriodo(sql, "c", "fc", codigoCobertura, fDesdeEfectiva, fHastaEfectiva);
@@ -1997,12 +2226,45 @@ public class DirectorioService {
     public TiemposCobranzaDTO getTiemposCobranza(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         String nombreCobertura = null;
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            for (DirectorioCoberturaDTO c : obtenerCoberturasDisponibles()) {
+            for (DirectorioCoberturaDTO c : getCoberturasDisponiblesProxy()) {
                 if (c.getCodigo().equalsIgnoreCase(codigoCobertura.trim())) {
                     nombreCobertura = c.getNombre() != null ? c.getNombre().trim().toLowerCase() : null;
                     break;
                 }
             }
+        }
+
+        // Predicados tempranos (Predicate Pushdown) para filtrar la CTE 'facturas' y podar familias de raíz
+        StringBuilder sqlFilterFacturasWhere = new StringBuilder();
+        StringBuilder sqlFilterFacturasHaving = new StringBuilder();
+        StringBuilder sqlFilterF = new StringBuilder();
+        StringBuilder sqlFilterFs = new StringBuilder();
+
+        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
+            sqlFilterFacturasWhere.append(" AND UPPER(TRIM(c.tipo)) = :tipoDoc");
+            sqlFilterF.append(" AND f.tipo_doc = :tipoDoc");
+            sqlFilterFs.append(" AND fs.tipo_doc = :tipoDoc");
+        }
+        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
+            if (nombreCobertura != null) {
+                sqlFilterFacturasWhere.append(" AND (c.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(c.cobertura)) = :nombreCob)");
+                sqlFilterF.append(" AND (f.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(f.cobertura)) = :nombreCob)");
+                sqlFilterFs.append(" AND (fs.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(fs.cobertura)) = :nombreCob)");
+            } else {
+                sqlFilterFacturasWhere.append(" AND c.codigo_cobertura = :codigoCobertura");
+                sqlFilterF.append(" AND f.codigo_cobertura = :codigoCobertura");
+                sqlFilterFs.append(" AND fs.codigo_cobertura = :codigoCobertura");
+            }
+        }
+        if (fechaDesde != null) {
+            sqlFilterFacturasHaving.append(" AND COALESCE(MIN(c.periodo), MIN(c.fecha)) >= :fechaDesde");
+            sqlFilterF.append(" AND COALESCE(f.periodo_emision, f.fecha_emision) >= :fechaDesde");
+            sqlFilterFs.append(" AND COALESCE(fs.periodo_emision, fs.fecha_emision) >= :fechaDesde");
+        }
+        if (fechaHasta != null) {
+            sqlFilterFacturasHaving.append(" AND COALESCE(MIN(c.periodo), MIN(c.fecha)) <= :fechaHasta");
+            sqlFilterF.append(" AND COALESCE(f.periodo_emision, f.fecha_emision) <= :fechaHasta");
+            sqlFilterFs.append(" AND COALESCE(fs.periodo_emision, fs.fecha_emision) <= :fechaHasta");
         }
 
         // 1. Cobranzas por plazo (recibos) y Deuda pendiente (Aún no cobrados)
@@ -2080,6 +2342,7 @@ public class DirectorioService {
                   AND c_fac.fecha IS NOT NULL
                   AND c_nc.fecha IS NOT NULL
                   AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND c_fac.fecha >= DATE '2024-01-01'
             ),
             ids_anulados_15d AS (
                 SELECT id FROM docs_anulados
@@ -2102,7 +2365,33 @@ public class DirectorioService {
                 WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
                   AND c.fecha IS NOT NULL
                   AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
+        """);
+
+        sql.append(sqlFilterFacturasWhere);
+        sql.append("""
+                  AND (
+                      (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
                 GROUP BY COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id)
+                HAVING 1=1
+        """);
+        sql.append(sqlFilterFacturasHaving);
+        sql.append("""
             ),
             recibos AS (
                 SELECT 
@@ -2115,6 +2404,7 @@ public class DirectorioService {
                   AND c.fecha IS NOT NULL
                   AND (c.haber > 0 OR c.debe > 0)
                   AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id) IN (SELECT id_familia FROM facturas)
             ),
             familia_saldo AS (
                 SELECT 
@@ -2128,6 +2418,7 @@ public class DirectorioService {
                     - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','OP','NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS saldo_vivo
                 FROM cabecera c
                 WHERE c.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id) IN (SELECT id_familia FROM facturas)
                 GROUP BY COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id)
                 HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN c.fecha END) IS NOT NULL
                    AND (
@@ -2137,51 +2428,47 @@ public class DirectorioService {
             )
             SELECT 
                 'COBRADO' AS tipo_registro,
-                GREATEST(0, CAST(r.fecha_pago - f.fecha_emision AS INTEGER)) AS dias,
-                r.monto_recibo AS monto
-            FROM recibos r
-            JOIN facturas f ON r.id_familia = f.id_familia
-            WHERE 1=1
+                CASE 
+                    WHEN t.dias <= 45 THEN 0
+                    WHEN t.dias <= 75 THEN 1
+                    WHEN t.dias <= 105 THEN 2
+                    WHEN t.dias <= 135 THEN 3
+                    ELSE 4
+                END AS tramo,
+                COUNT(*) AS cantidad,
+                COALESCE(SUM(t.monto), 0) AS monto,
+                COALESCE(SUM(CAST(t.dias AS BIGINT) * t.monto), 0) AS ponderado
+            FROM (
+                SELECT 
+                    GREATEST(0, CAST(r.fecha_pago - f.fecha_emision AS INTEGER)) AS dias,
+                    r.monto_recibo AS monto
+                FROM recibos r
+                JOIN facturas f ON r.id_familia = f.id_familia
+                WHERE 1=1
         """);
-
-        StringBuilder sqlFilterF = new StringBuilder();
-        StringBuilder sqlFilterFs = new StringBuilder();
-
-        if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
-            sqlFilterF.append(" AND f.tipo_doc = :tipoDoc");
-            sqlFilterFs.append(" AND fs.tipo_doc = :tipoDoc");
-        }
-        if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            if (nombreCobertura != null) {
-                sqlFilterF.append(" AND (f.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(f.cobertura)) = :nombreCob)");
-                sqlFilterFs.append(" AND (fs.codigo_cobertura = :codigoCobertura OR LOWER(TRIM(fs.cobertura)) = :nombreCob)");
-            } else {
-                sqlFilterF.append(" AND f.codigo_cobertura = :codigoCobertura");
-                sqlFilterFs.append(" AND fs.codigo_cobertura = :codigoCobertura");
-            }
-        }
-        if (fechaDesde != null) {
-            sqlFilterF.append(" AND COALESCE(f.periodo_emision, f.fecha_emision) >= :fechaDesde");
-            sqlFilterFs.append(" AND COALESCE(fs.periodo_emision, fs.fecha_emision) >= :fechaDesde");
-        }
-        if (fechaHasta != null) {
-            sqlFilterF.append(" AND COALESCE(f.periodo_emision, f.fecha_emision) <= :fechaHasta");
-            sqlFilterFs.append(" AND COALESCE(fs.periodo_emision, fs.fecha_emision) <= :fechaHasta");
-        }
 
         sql.append(sqlFilterF);
         sql.append("""
+            ) t
+            WHERE t.monto > 0
+            GROUP BY 1, 2
             
             UNION ALL
             
             SELECT 
                 'PENDIENTE' AS tipo_registro,
-                GREATEST(0, CAST(CURRENT_DATE - fs.fecha_emision AS INTEGER)) AS dias,
-                fs.saldo_vivo AS monto
+                5 AS tramo,
+                COUNT(*) AS cantidad,
+                COALESCE(SUM(fs.saldo_vivo), 0) AS monto,
+                COALESCE(SUM(CAST(GREATEST(0, CAST(CURRENT_DATE - fs.fecha_emision AS INTEGER)) AS BIGINT) * fs.saldo_vivo), 0) AS ponderado
             FROM familia_saldo fs
             WHERE 1=1
         """);
         sql.append(sqlFilterFs);
+        sql.append("""
+            AND fs.saldo_vivo > 0
+            GROUP BY 1, 2
+        """);
 
         Query q = entityManager.createNativeQuery(sql.toString());
         if (tipoDoc != null && !tipoDoc.trim().isEmpty() && !"TODOS".equalsIgnoreCase(tipoDoc.trim())) {
@@ -2204,11 +2491,11 @@ public class DirectorioService {
         List<Object[]> rows = q.getResultList();
 
         String[] nombresRangos = {
-            "De 0 a 30 días",
-            "De 31 a 60 días",
-            "De 61 a 90 días",
-            "De 91 a 180 días",
-            "Más de 180 días",
+            "De 0 a 45 días",
+            "De 46 a 75 días",
+            "De 76 a 105 días",
+            "De 106 a 135 días",
+            "Más de 135 días",
             "Aún no cobrados"
         };
 
@@ -2225,49 +2512,72 @@ public class DirectorioService {
 
         for (Object[] row : rows) {
             if (row == null) continue;
-            String tipo = "PENDIENTE";
-            int dias = 0;
-            BigDecimal monto = BigDecimal.ZERO;
+            if (row.length >= 5 && row[0] != null && row[1] != null) {
+                // Modo optimizado (agrupado directamente en PostgreSQL por tramos)
+                String tipo = row[0].toString();
+                int tramo = ((Number) row[1]).intValue();
+                int cant = row[2] != null ? ((Number) row[2]).intValue() : 0;
+                BigDecimal monto = row[3] != null ? new BigDecimal(row[3].toString()).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+                BigDecimal ponderado = row[4] != null ? new BigDecimal(row[4].toString()) : BigDecimal.ZERO;
 
-            if (row.length >= 3 && row[0] != null && row[1] != null && row[2] != null) {
-                tipo = row[0].toString();
-                dias = Math.max(0, ((Number) row[1]).intValue());
-                monto = new BigDecimal(row[2].toString()).setScale(2, RoundingMode.HALF_UP);
-            } else if (row.length == 2 && row[0] != null && row[1] != null) {
-                // Compatibilidad con pruebas unitarias de 2 columnas [dias, saldo]
-                dias = Math.max(0, ((Number) row[0]).intValue());
-                monto = new BigDecimal(row[1].toString()).setScale(2, RoundingMode.HALF_UP);
-                tipo = "PENDIENTE";
+                if (monto.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                if ("PENDIENTE".equalsIgnoreCase(tipo)) {
+                    cantidades[5] += cant;
+                    saldos[5] = saldos[5].add(monto);
+                    saldoTotalMora = saldoTotalMora.add(monto);
+                    sumatoriaPonderadaDso = sumatoriaPonderadaDso.add(ponderado);
+                } else if (tramo >= 0 && tramo < 5) {
+                    cantidades[tramo] += cant;
+                    saldos[tramo] = saldos[tramo].add(monto);
+                    totalCobrado = totalCobrado.add(monto);
+                    sumatoriaPonderadaCobro = sumatoriaPonderadaCobro.add(ponderado);
+                }
             } else {
-                continue;
-            }
+                // Modo fila por fila individual (compatibilidad hacia atrás y pruebas unitarias con mock de 2 o 3 columnas)
+                String tipo = "PENDIENTE";
+                int dias = 0;
+                BigDecimal monto = BigDecimal.ZERO;
 
-            if (monto.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-            if ("PENDIENTE".equalsIgnoreCase(tipo)) {
-                cantidades[5]++;
-                saldos[5] = saldos[5].add(monto);
-                saldoTotalMora = saldoTotalMora.add(monto);
-                sumatoriaPonderadaDso = sumatoriaPonderadaDso.add(monto.multiply(BigDecimal.valueOf(dias)));
-            } else {
-                totalCobrado = totalCobrado.add(monto);
-                sumatoriaPonderadaCobro = sumatoriaPonderadaCobro.add(monto.multiply(BigDecimal.valueOf(dias)));
-
-                int idx;
-                if (dias <= 30) {
-                    idx = 0;
-                } else if (dias <= 60) {
-                    idx = 1;
-                } else if (dias <= 90) {
-                    idx = 2;
-                } else if (dias <= 180) {
-                    idx = 3;
+                if (row.length >= 3 && row[0] != null && row[1] != null && row[2] != null) {
+                    tipo = row[0].toString();
+                    dias = Math.max(0, ((Number) row[1]).intValue());
+                    monto = new BigDecimal(row[2].toString()).setScale(2, RoundingMode.HALF_UP);
+                } else if (row.length == 2 && row[0] != null && row[1] != null) {
+                    dias = Math.max(0, ((Number) row[0]).intValue());
+                    monto = new BigDecimal(row[1].toString()).setScale(2, RoundingMode.HALF_UP);
+                    tipo = "PENDIENTE";
                 } else {
-                    idx = 4;
+                    continue;
                 }
 
-                cantidades[idx]++;
-                saldos[idx] = saldos[idx].add(monto);
+                if (monto.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                if ("PENDIENTE".equalsIgnoreCase(tipo)) {
+                    cantidades[5]++;
+                    saldos[5] = saldos[5].add(monto);
+                    saldoTotalMora = saldoTotalMora.add(monto);
+                    sumatoriaPonderadaDso = sumatoriaPonderadaDso.add(monto.multiply(BigDecimal.valueOf(dias)));
+                } else {
+                    totalCobrado = totalCobrado.add(monto);
+                    sumatoriaPonderadaCobro = sumatoriaPonderadaCobro.add(monto.multiply(BigDecimal.valueOf(dias)));
+
+                    int idx;
+                    if (dias <= 45) {
+                        idx = 0;
+                    } else if (dias <= 75) {
+                        idx = 1;
+                    } else if (dias <= 105) {
+                        idx = 2;
+                    } else if (dias <= 135) {
+                        idx = 3;
+                    } else {
+                        idx = 4;
+                    }
+
+                    cantidades[idx]++;
+                    saldos[idx] = saldos[idx].add(monto);
+                }
             }
         }
 
@@ -2325,7 +2635,7 @@ public class DirectorioService {
     public List<DatasetGraficoDTO> getParetoMotivos(String codigoCobertura, String tipoDoc, LocalDate fechaDesde, LocalDate fechaHasta) {
         String nombreCobertura = null;
         if (codigoCobertura != null && !codigoCobertura.trim().isEmpty() && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
-            for (DirectorioCoberturaDTO c : obtenerCoberturasDisponibles()) {
+            for (DirectorioCoberturaDTO c : getCoberturasDisponiblesProxy()) {
                 if (c.getCodigo().equalsIgnoreCase(codigoCobertura.trim())) {
                     nombreCobertura = c.getNombre() != null ? c.getNombre().trim().toLowerCase() : null;
                     break;
@@ -2418,23 +2728,49 @@ public class DirectorioService {
                 SELECT id_nc AS id FROM pares_anulados_15d
             ),
             fc_madre AS (
-                SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
-                    COALESCE(asociadogrupo, grupo) AS gid,
-                    periodo,
-                    fecha,
-                    codigo_cobertura,
-                    cobertura,
-                    tipo
-                FROM cabecera
-                WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND COALESCE(asociadogrupo, grupo) IS NOT NULL
-                  AND id NOT IN (SELECT id FROM ids_anulados_15d)
-                ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
+                SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
+                    COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
+                    c_fc.periodo,
+                    c_fc.fecha,
+                    c_fc.codigo_cobertura,
+                    c_fc.cobertura,
+                    c_fc.tipo
+                FROM cabecera c_fc
+                WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
+                  AND c_fc.id NOT IN (SELECT id FROM ids_anulados_15d)
+                  AND (
+                      (c_fc.periodo IS NOT NULL AND c_fc.periodo >= DATE '2024-07-01')
+                      OR EXISTS (
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE c_hijo.asociado = c_fc.id
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                          UNION ALL
+                          SELECT 1 FROM cabecera c_hijo
+                          WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                            AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                                COALESCE(NULLIF(c_fc.asociadogrupo, 0), NULLIF(c_fc.grupo, 0), c_fc.id)
+                            AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                            AND c_hijo.fecha >= DATE '2024-07-01'
+                            AND c_hijo.id NOT IN (SELECT id FROM ids_anulados_15d)
+                      )
+                  )
+                ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
             )
             SELECT
               COALESCE(NULLIF(TRIM(nc.motivodedebito), ''), 'Sin motivo especificado') AS motivo,
               SUM(COALESCE(nc.importederefactura, 0)) AS refacturado,
-              SUM(CASE WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0) ELSE 0 END) AS perdida
+              SUM(
+                CASE 
+                  WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0)
+                  WHEN COALESCE(nc.importederefactura, 0) > 0 
+                       AND COALESCE(nc.importedebitado, 0) > COALESCE(nc.importederefactura, 0)
+                    THEN (COALESCE(nc.importedebitado, 0) - COALESCE(nc.importederefactura, 0))
+                  ELSE 0 
+                END
+              ) AS perdida
             FROM notadecredito nc
             LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
             LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
@@ -2456,6 +2792,7 @@ public class DirectorioService {
             sql.append(" AND (UPPER(TRIM(c_nc.tipo)) = :tipoDoc OR UPPER(TRIM(c_fc.tipo)) = :tipoDoc OR UPPER(TRIM(fc.tipo)) = :tipoDoc)");
         }
         sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+        sql.append(" AND fc.gid IS NOT NULL");
         if (fechaDesde != null) {
             sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
         }
@@ -2465,7 +2802,18 @@ public class DirectorioService {
 
         sql.append("""
             GROUP BY 1
-            ORDER BY (SUM(COALESCE(nc.importederefactura, 0)) + SUM(CASE WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0) ELSE 0 END)) DESC, 2 DESC
+            ORDER BY (
+                SUM(COALESCE(nc.importederefactura, 0)) + 
+                SUM(
+                    CASE 
+                      WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0)
+                      WHEN COALESCE(nc.importederefactura, 0) > 0 
+                           AND COALESCE(nc.importedebitado, 0) > COALESCE(nc.importederefactura, 0)
+                        THEN (COALESCE(nc.importedebitado, 0) - COALESCE(nc.importederefactura, 0))
+                      ELSE 0 
+                    END
+                )
+            ) DESC, 2 DESC
             LIMIT 10
         """);
 
@@ -2535,13 +2883,13 @@ public class DirectorioService {
         if (fechaHasta != null && !fechaHasta.trim().isEmpty()) {
             try { fHasta = LocalDate.parse(fechaHasta.trim()).with(TemporalAdjusters.lastDayOfMonth()); } catch (Exception ignored) {}
         }
-        // Si no se especificó ningún rango, aplicar ventana por defecto de 24 meses
-        // para evitar cargar el histórico completo en cada petición sin filtro.
+        // Si no se especificó ningún rango, aplicar ventana por defecto desde la fecha mínima permitida
+        // (julio 2024 en adelante o factura rescatista más antigua) para evitar cargar histórico anterior.
         if (fDesde == null && fHasta == null) {
-            fDesde = LocalDate.now().minusMonths(24).withDayOfMonth(1);
+            fDesde = obtenerFechaMinimaPermitida();
         }
 
-        List<? extends CabeceraBase> cabeceras;
+        List<? extends CabeceraBase> cabeceras = null;
         if (fDesde != null || fHasta != null) {
             List<Long> idsGrupos = cabeceraRepository.findIdsGruposFacturasPorRangoPeriodos(fDesde, fHasta);
             if (idsGrupos != null && !idsGrupos.isEmpty()) {
@@ -2552,21 +2900,10 @@ public class DirectorioService {
                     ligeras.addAll(cabeceraRepository.findLigeraByGrupoOrAsociadogrupoOrIdIn(batch));
                 }
                 cabeceras = ligeras;
-            } else {
-                List<CabeceraLigeraDTO> ligeras = cabeceraRepository.findCabecerasLigerasParaCuentaCorriente();
-                if (ligeras != null && !ligeras.isEmpty()) {
-                    cabeceras = ligeras;
-                } else {
-                    cabeceras = cabeceraRepository.findCabecerasParaCuentaCorriente();
-                }
             }
-        } else {
-            List<CabeceraLigeraDTO> ligeras = cabeceraRepository.findCabecerasLigerasParaCuentaCorriente();
-            if (ligeras != null && !ligeras.isEmpty()) {
-                cabeceras = ligeras;
-            } else {
-                cabeceras = cabeceraRepository.findCabecerasParaCuentaCorriente();
-            }
+        }
+        if (cabeceras == null || cabeceras.isEmpty()) {
+            cabeceras = cabeceraRepository.findCabecerasParaCuentaCorriente();
         }
 
         if (cabeceras == null || cabeceras.isEmpty()) {
@@ -3162,7 +3499,7 @@ public class DirectorioService {
 
         String nombreCobertura = null;
         if (financiadorFiltro != null && !financiadorFiltro.trim().isEmpty() && !"TODAS".equalsIgnoreCase(financiadorFiltro.trim())) {
-            for (DirectorioCoberturaDTO c : obtenerCoberturasDisponibles()) {
+            for (DirectorioCoberturaDTO c : getCoberturasDisponiblesProxy()) {
                 if (c.getCodigo().equalsIgnoreCase(financiadorFiltro.trim())) {
                     nombreCobertura = c.getNombre() != null ? c.getNombre().trim().toLowerCase() : null;
                     break;
@@ -3975,9 +4312,11 @@ public class DirectorioService {
 
         // Protección contra OOM: si no hay filtro de fechas ni período, acotar a los últimos 12 meses
         // (igual que la protección aplicada en trazabilidad y cuenta corriente).
-        boolean filtrarPeriodo = periodoFiltro != null && !periodoFiltro.trim().isEmpty() && !"TODOS".equalsIgnoreCase(periodoFiltro.trim());
+        // Si se especificó un rango por fechaDesde/fechaHasta, el rango tiene prioridad sobre un período individual
+        boolean filtrarPeriodo = (fechaDesde == null && fechaHasta == null)
+                && periodoFiltro != null && !periodoFiltro.trim().isEmpty() && !"TODOS".equalsIgnoreCase(periodoFiltro.trim());
         if (fechaDesde == null && fechaHasta == null && !filtrarPeriodo) {
-            fechaDesde = LocalDate.now().minusMonths(12).withDayOfMonth(1);
+            fechaDesde = obtenerFechaMinimaPermitida();
         }
 
         // ── El filtro de fecha se inyecta DENTRO de la CTE items para que ──────────────
@@ -4105,8 +4444,8 @@ public class DirectorioService {
                 AND da_fc.id IS NULL
                 AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) >= CAST(:p_fd AS DATE))
                 AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) <= CAST(:p_fh AS DATE))
-                AND (:p_per IS NULL OR COALESCE(c_nc.periodo::text, c_fc.periodo::text) LIKE :p_per || '%'
-                     OR TO_CHAR(COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = :p_per)
+                AND (CAST(:p_per AS text) IS NULL OR COALESCE(c_nc.periodo::text, c_fc.periodo::text) LIKE CAST(:p_per AS text) || '%'
+                     OR TO_CHAR(COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = CAST(:p_per AS text))
 
               UNION ALL
 
@@ -4131,8 +4470,8 @@ public class DirectorioService {
                 AND da_fc.id IS NULL
                 AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha) >= CAST(:p_fd AS DATE))
                 AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha) <= CAST(:p_fh AS DATE))
-                AND (:p_per IS NULL OR COALESCE(c_nd.periodo::text, c_fc.periodo::text) LIKE :p_per || '%'
-                     OR TO_CHAR(COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = :p_per)
+                AND (CAST(:p_per AS text) IS NULL OR COALESCE(c_nd.periodo::text, c_fc.periodo::text) LIKE CAST(:p_per AS text) || '%'
+                     OR TO_CHAR(COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = CAST(:p_per AS text))
             )
             SELECT analista, motivo, financiador, monto_debitado, aceptado, refacturado, tipo_registro
             FROM items
@@ -4262,13 +4601,197 @@ public class DirectorioService {
 
     @Cacheable(CacheConfig.CACHE_MEDICOS)
     public List<MetricaMedicoDTO> getMetricasMedicos(String periodoFiltro, LocalDate fechaDesde, LocalDate fechaHasta) {
-        final String fDesdeStr = fechaDesde != null ? fechaDesde.toString() : null;
-        final String fHastaStr = fechaHasta != null ? fechaHasta.toString() : null;
-        List<CadenaTrazabilidadDTO> cadenas = self.getTrazabilidad(null, null, periodoFiltro, fDesdeStr, fHastaStr);
-        if (cadenas == null || cadenas.isEmpty()) {
-            return Collections.emptyList();
+        boolean filtrarPeriodo = (fechaDesde == null && fechaHasta == null)
+                && periodoFiltro != null && !periodoFiltro.trim().isEmpty() && !"TODOS".equalsIgnoreCase(periodoFiltro.trim());
+
+        if (!filtrarPeriodo && fechaDesde == null && fechaHasta == null) {
+            fechaDesde = obtenerFechaMinimaPermitida();
         }
-        return procesarMetricasMedicos(cadenas);
+
+        String sql = """
+            WITH docs_anulados AS (
+                SELECT DISTINCT ca.idcabecera AS id
+                FROM comprobantes_anulados ca
+                WHERE ca.idcabecera IS NOT NULL
+            ),
+            docs_anuladores AS (
+                -- Caso 1: Factura anulada por NC
+                SELECT c_anulador.id
+                FROM cabecera c_anulador
+                JOIN cabecera c_anulado ON (
+                    c_anulador.asociado = c_anulado.id
+                    OR (c_anulador.asociado IS NULL AND COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) IS NOT NULL
+                        AND (COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) = c_anulado.id
+                             OR COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) = COALESCE(c_anulado.asociadogrupo, c_anulado.grupo)))
+                )
+                JOIN docs_anulados da ON da.id = c_anulado.id
+                WHERE UPPER(TRIM(c_anulado.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND UPPER(TRIM(c_anulador.tipo)) IN ('NC','NCE','NCA','NCB')
+                  AND COALESCE(c_anulado.debe, 0) > 0
+                  AND COALESCE(c_anulado.debe, 0) = COALESCE(NULLIF(c_anulador.haber, 0), c_anulador.debe, 0)
+                  AND c_anulado.fecha IS NOT NULL AND c_anulador.fecha IS NOT NULL
+                  AND ABS(c_anulador.fecha - c_anulado.fecha) <= 15
+                  AND (CAST(:p_fd AS DATE) IS NULL OR c_anulado.fecha >= CAST(:p_fd AS DATE) - INTERVAL '30 days')
+                  AND (CAST(:p_fh AS DATE) IS NULL OR c_anulado.fecha <= CAST(:p_fh AS DATE) + INTERVAL '30 days')
+                UNION
+                -- Caso 2: NC anulada por ND
+                SELECT c_anulador.id
+                FROM cabecera c_anulador
+                JOIN cabecera c_anulado ON (
+                    c_anulador.asociado = c_anulado.id
+                    OR (c_anulador.asociado IS NULL AND COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) IS NOT NULL
+                        AND (COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) = c_anulado.id
+                             OR COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) = COALESCE(c_anulado.asociadogrupo, c_anulado.grupo)))
+                )
+                JOIN docs_anulados da ON da.id = c_anulado.id
+                WHERE UPPER(TRIM(c_anulado.tipo)) IN ('NC','NCE','NCA','NCB')
+                  AND UPPER(TRIM(c_anulador.tipo)) IN ('ND','NDE','NDA','NDB')
+                  AND COALESCE(NULLIF(c_anulado.haber, 0), c_anulado.debe, 0) > 0
+                  AND COALESCE(NULLIF(c_anulado.haber, 0), c_anulado.debe, 0) = COALESCE(c_anulador.debe, 0)
+                  AND c_anulado.fecha IS NOT NULL AND c_anulador.fecha IS NOT NULL
+                  AND ABS(c_anulador.fecha - c_anulado.fecha) <= 15
+                  AND (CAST(:p_fd AS DATE) IS NULL OR c_anulado.fecha >= CAST(:p_fd AS DATE) - INTERVAL '30 days')
+                  AND (CAST(:p_fh AS DATE) IS NULL OR c_anulado.fecha <= CAST(:p_fh AS DATE) + INTERVAL '30 days')
+                UNION
+                -- Caso 3: ND anulada por NC
+                SELECT c_anulador.id
+                FROM cabecera c_anulador
+                JOIN cabecera c_anulado ON (
+                    c_anulador.asociado = c_anulado.id
+                    OR (c_anulador.asociado IS NULL AND COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) IS NOT NULL
+                        AND (COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) = c_anulado.id
+                             OR COALESCE(c_anulador.asociadogrupo, c_anulador.grupo) = COALESCE(c_anulado.asociadogrupo, c_anulado.grupo)))
+                )
+                JOIN docs_anulados da ON da.id = c_anulado.id
+                WHERE UPPER(TRIM(c_anulado.tipo)) IN ('ND','NDE','NDA','NDB')
+                  AND UPPER(TRIM(c_anulador.tipo)) IN ('NC','NCE','NCA','NCB')
+                  AND COALESCE(c_anulado.debe, 0) > 0
+                  AND COALESCE(c_anulado.debe, 0) = COALESCE(NULLIF(c_anulador.haber, 0), c_anulador.debe, 0)
+                  AND c_anulado.fecha IS NOT NULL AND c_anulador.fecha IS NOT NULL
+                  AND ABS(c_anulador.fecha - c_anulado.fecha) <= 15
+                  AND (CAST(:p_fd AS DATE) IS NULL OR c_anulado.fecha >= CAST(:p_fd AS DATE) - INTERVAL '30 days')
+                  AND (CAST(:p_fh AS DATE) IS NULL OR c_anulado.fecha <= CAST(:p_fh AS DATE) + INTERVAL '30 days')
+            ),
+            pares_anulados_15d AS (
+                SELECT c_fac.id AS id_fac, c_nc.id AS id_nc
+                FROM cabecera c_nc
+                JOIN cabecera c_fac ON (
+                    c_nc.asociado = c_fac.id
+                    OR (c_nc.asociado IS NULL AND COALESCE(c_nc.asociadogrupo, c_nc.grupo) IS NOT NULL
+                        AND (COALESCE(c_nc.asociadogrupo, c_nc.grupo) = c_fac.id
+                             OR COALESCE(c_nc.asociadogrupo, c_nc.grupo) = COALESCE(c_fac.asociadogrupo, c_fac.grupo)))
+                )
+                WHERE UPPER(TRIM(c_nc.tipo)) IN ('NC','NCE','NCA','NCB')
+                  AND UPPER(TRIM(c_fac.tipo)) IN ('FC','FAC','FCE','FCA')
+                  AND COALESCE(c_fac.debe, 0) > 0
+                  AND COALESCE(c_fac.debe, 0) = COALESCE(NULLIF(c_nc.haber, 0), c_nc.debe, 0)
+                  AND c_fac.fecha IS NOT NULL
+                  AND c_nc.fecha IS NOT NULL
+                  AND ABS(c_nc.fecha - c_fac.fecha) <= 15
+                  AND (CAST(:p_fd AS DATE) IS NULL OR c_fac.fecha >= CAST(:p_fd AS DATE) - INTERVAL '30 days')
+                  AND (CAST(:p_fh AS DATE) IS NULL OR c_fac.fecha <= CAST(:p_fh AS DATE) + INTERVAL '30 days')
+            ),
+            ids_anulados_15d AS (
+                SELECT id FROM docs_anulados
+                UNION
+                SELECT id FROM docs_anuladores
+                UNION
+                SELECT id_fac AS id FROM pares_anulados_15d
+                UNION
+                SELECT id_nc AS id FROM pares_anulados_15d
+            ),
+            items AS (
+              SELECT
+                CASE 
+                    WHEN al.medico IS NULL OR TRIM(al.medico) = '' OR UPPER(TRIM(al.medico)) = 'NO ESPECIFICADO' 
+                    THEN 'Médico no especificado' 
+                    ELSE TRIM(al.medico) 
+                END AS medico,
+                COALESCE(NULLIF(TRIM(nc.motivodedebito), ''), NULLIF(TRIM(COALESCE(nd.motivorefactura, nd_prest.motivorefactura)), ''), 'Sin motivo especificado') AS motivo,
+                COALESCE(NULLIF(TRIM(c_fc.cobertura), ''), NULLIF(TRIM(c_nc.cobertura), ''), 'Sin especificar') AS financiador,
+                COALESCE(nc.importedebitado, 0) AS monto_debitado,
+                CASE WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0) ELSE 0 END AS aceptado,
+                COALESCE(COALESCE(nd.importerefactura, nd_prest.importerefactura), nc.importederefactura, 0) AS refacturado,
+                COALESCE(NULLIF(TRIM(c_fc.tiporegistro), ''), NULLIF(TRIM(c_nc.tiporegistro), ''), 'Ambulatorios') AS tipo_registro
+              FROM notadecredito nc
+              LEFT JOIN LATERAL (
+                  SELECT nd_sub.id, nd_sub.usuario, nd_sub.motivorefactura, nd_sub.importerefactura
+                  FROM notadedebito nd_sub
+                  LEFT JOIN cabecera c_nd_sub ON nd_sub.idcabecera = c_nd_sub.id
+                  WHERE nd_sub.id_notadecredito = nc.id
+                  ORDER BY CASE WHEN c_nd_sub.origen <> 'BDD' THEN 0 ELSE 1 END, nd_sub.id DESC
+                  LIMIT 1
+              ) nd ON true
+              LEFT JOIN notadedebito nd_prest ON (nd.id IS NULL AND nd_prest.id_prestacion = nc.id_prestacion)
+              LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
+              LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+              LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
+              LEFT JOIN ids_anulados_15d da_nc ON da_nc.id = c_nc.id
+              LEFT JOIN ids_anulados_15d da_fc ON da_fc.id = c_fc.id
+              WHERE da_nc.id IS NULL
+                AND da_fc.id IS NULL
+                AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) >= CAST(:p_fd AS DATE))
+                AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) <= CAST(:p_fh AS DATE))
+                AND (CAST(:p_per AS text) IS NULL OR COALESCE(c_nc.periodo::text, c_fc.periodo::text) LIKE CAST(:p_per AS text) || '%'
+                     OR TO_CHAR(COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = CAST(:p_per AS text))
+
+              UNION ALL
+
+              SELECT
+                CASE 
+                    WHEN al.medico IS NULL OR TRIM(al.medico) = '' OR UPPER(TRIM(al.medico)) = 'NO ESPECIFICADO' 
+                    THEN 'Médico no especificado' 
+                    ELSE TRIM(al.medico) 
+                END AS medico,
+                COALESCE(NULLIF(TRIM(nd.motivorefactura), ''), 'Refacturación') AS motivo,
+                COALESCE(NULLIF(TRIM(c_fc.cobertura), ''), NULLIF(TRIM(c_nd.cobertura), ''), 'Sin especificar') AS financiador,
+                COALESCE(nd.importerefactura, 0) AS monto_debitado,
+                0 AS aceptado,
+                COALESCE(nd.importerefactura, 0) AS refacturado,
+                COALESCE(NULLIF(TRIM(c_fc.tiporegistro), ''), NULLIF(TRIM(c_nd.tiporegistro), ''), 'Ambulatorios') AS tipo_registro
+              FROM notadedebito nd
+              LEFT JOIN amb_liquidado al ON nd.id_prestacion = al.id
+              LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+              LEFT JOIN cabecera c_nd ON nd.idcabecera = c_nd.id
+              LEFT JOIN ids_anulados_15d da_nd ON da_nd.id = c_nd.id
+              LEFT JOIN ids_anulados_15d da_fc ON da_fc.id = c_fc.id
+              WHERE nd.id_notadecredito IS NULL
+                AND NOT EXISTS (SELECT 1 FROM notadecredito nc WHERE nc.id_prestacion = nd.id_prestacion)
+                AND da_nd.id IS NULL
+                AND da_fc.id IS NULL
+                AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha) >= CAST(:p_fd AS DATE))
+                AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha) <= CAST(:p_fh AS DATE))
+                AND (CAST(:p_per AS text) IS NULL OR COALESCE(c_nd.periodo::text, c_fc.periodo::text) LIKE CAST(:p_per AS text) || '%'
+                     OR TO_CHAR(COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = CAST(:p_per AS text))
+            )
+            SELECT medico, motivo, financiador, monto_debitado, aceptado, refacturado, tipo_registro
+            FROM items
+            """;
+
+        Query q = entityManager.createNativeQuery(sql);
+        q.setParameter("p_fd", fechaDesde != null ? java.sql.Date.valueOf(fechaDesde) : null);
+        q.setParameter("p_fh", fechaHasta != null ? java.sql.Date.valueOf(fechaHasta) : null);
+        q.setParameter("p_per", filtrarPeriodo ? periodoFiltro.trim() : null);
+
+        List<ItemDebitoDesempeno> items = new ArrayList<>();
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = q.getResultList();
+        for (Object[] r : rows) {
+            items.add(mapearFilaItemDebito(r));
+        }
+
+        return agruparMetricasPorItems(items).stream()
+                .map(m -> new MetricaMedicoDTO(
+                        m.actor(),
+                        m.cantidadRegistros(),
+                        m.debitosAceptados(),
+                        m.debitosRefacturados(),
+                        m.totalTramitado(),
+                        m.ticketPromedio(),
+                        m.tasaRecupero(),
+                        m.motivos()
+                ))
+                .collect(Collectors.toList());
     }
 
     public List<MetricaMedicoDTO> procesarMetricasMedicos(List<CadenaTrazabilidadDTO> cadenas) {
@@ -4337,12 +4860,23 @@ public class DirectorioService {
         return getMetricasOperadores(periodoFiltro, null, null);
     }
 
+    private record FilaAgrupadaOperador(
+            String operador,
+            String motivo,
+            String financiador,
+            int casos,
+            BigDecimal montoDebitado,
+            BigDecimal aceptado,
+            BigDecimal refacturado
+    ) {}
+
     @Cacheable(CacheConfig.CACHE_OPERADORES)
     public List<MetricaOperadorDTO> getMetricasOperadores(String periodoFiltro, LocalDate fechaDesde, LocalDate fechaHasta) {
-        boolean filtrarPeriodo = periodoFiltro != null && !periodoFiltro.trim().isEmpty() && !"TODOS".equalsIgnoreCase(periodoFiltro.trim());
+        boolean filtrarPeriodo = (fechaDesde == null && fechaHasta == null)
+                && periodoFiltro != null && !periodoFiltro.trim().isEmpty() && !"TODOS".equalsIgnoreCase(periodoFiltro.trim());
 
         if (!filtrarPeriodo && fechaDesde == null && fechaHasta == null) {
-            fechaDesde = LocalDate.now().minusMonths(12).withDayOfMonth(1);
+            fechaDesde = obtenerFechaMinimaPermitida();
         }
 
         String sql = """
@@ -4444,8 +4978,7 @@ public class DirectorioService {
                 COALESCE(NULLIF(TRIM(c_fc.cobertura), ''), NULLIF(TRIM(c_nc.cobertura), ''), 'Sin especificar') AS financiador,
                 COALESCE(nc.importedebitado, 0) AS monto_debitado,
                 CASE WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0) ELSE 0 END AS aceptado,
-                COALESCE(COALESCE(nd.importerefactura, nd_prest.importerefactura), nc.importederefactura, 0) AS refacturado,
-                COALESCE(NULLIF(TRIM(c_fc.tiporegistro), ''), NULLIF(TRIM(c_nc.tiporegistro), ''), 'Ambulatorios') AS tipo_registro
+                COALESCE(COALESCE(nd.importerefactura, nd_prest.importerefactura), nc.importederefactura, 0) AS refacturado
               FROM notadecredito nc
               LEFT JOIN LATERAL (
                   SELECT nd_sub.id, nd_sub.usuario, nd_sub.motivorefactura, nd_sub.importerefactura
@@ -4455,7 +4988,13 @@ public class DirectorioService {
                   ORDER BY CASE WHEN c_nd_sub.origen <> 'BDD' THEN 0 ELSE 1 END, nd_sub.id DESC
                   LIMIT 1
               ) nd ON true
-              LEFT JOIN notadedebito nd_prest ON (nd.id IS NULL AND nd_prest.id_prestacion = nc.id_prestacion)
+              LEFT JOIN LATERAL (
+                  SELECT nd_p.motivorefactura, nd_p.importerefactura
+                  FROM notadedebito nd_p
+                  WHERE nd_p.id_prestacion = nc.id_prestacion
+                  ORDER BY nd_p.id DESC
+                  LIMIT 1
+              ) nd_prest ON nd.id IS NULL AND nc.id_prestacion IS NOT NULL
               LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
               LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
               LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
@@ -4465,8 +5004,8 @@ public class DirectorioService {
                 AND da_fc.id IS NULL
                 AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) >= CAST(:p_fd AS DATE))
                 AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) <= CAST(:p_fh AS DATE))
-                AND (:p_per IS NULL OR COALESCE(c_nc.periodo::text, c_fc.periodo::text) LIKE :p_per || '%'
-                     OR TO_CHAR(COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = :p_per)
+                AND (CAST(:p_per AS text) IS NULL OR COALESCE(c_nc.periodo::text, c_fc.periodo::text) LIKE CAST(:p_per AS text) || '%'
+                     OR TO_CHAR(COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = CAST(:p_per AS text))
 
               UNION ALL
 
@@ -4476,8 +5015,7 @@ public class DirectorioService {
                 COALESCE(NULLIF(TRIM(c_fc.cobertura), ''), NULLIF(TRIM(c_nd.cobertura), ''), 'Sin especificar') AS financiador,
                 COALESCE(nd.importerefactura, 0) AS monto_debitado,
                 0 AS aceptado,
-                COALESCE(nd.importerefactura, 0) AS refacturado,
-                COALESCE(NULLIF(TRIM(c_fc.tiporegistro), ''), NULLIF(TRIM(c_nd.tiporegistro), ''), 'Ambulatorios') AS tipo_registro
+                COALESCE(nd.importerefactura, 0) AS refacturado
               FROM notadedebito nd
               LEFT JOIN amb_liquidado al ON nd.id_prestacion = al.id
               LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
@@ -4490,11 +5028,19 @@ public class DirectorioService {
                 AND da_fc.id IS NULL
                 AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha) >= CAST(:p_fd AS DATE))
                 AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha) <= CAST(:p_fh AS DATE))
-                AND (:p_per IS NULL OR COALESCE(c_nd.periodo::text, c_fc.periodo::text) LIKE :p_per || '%'
-                     OR TO_CHAR(COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = :p_per)
+                AND (CAST(:p_per AS text) IS NULL OR COALESCE(c_nd.periodo::text, c_fc.periodo::text) LIKE CAST(:p_per AS text) || '%'
+                     OR TO_CHAR(COALESCE(c_nd.fecha, nd.fecha_registro::date, c_fc.fecha), 'YYYY-MM') = CAST(:p_per AS text))
             )
-            SELECT operador, motivo, financiador, monto_debitado, aceptado, refacturado, tipo_registro
+            SELECT
+                operador,
+                motivo,
+                financiador,
+                COUNT(*)::int AS casos,
+                COALESCE(SUM(monto_debitado), 0) AS monto_debitado,
+                COALESCE(SUM(aceptado), 0) AS aceptado,
+                COALESCE(SUM(refacturado), 0) AS refacturado
             FROM items
+            GROUP BY operador, motivo, financiador
             """;
 
         Query q = entityManager.createNativeQuery(sql);
@@ -4502,25 +5048,118 @@ public class DirectorioService {
         q.setParameter("p_fh", fechaHasta != null ? java.sql.Date.valueOf(fechaHasta) : null);
         q.setParameter("p_per", filtrarPeriodo ? periodoFiltro.trim() : null);
 
-        List<ItemDebitoDesempeno> items = new ArrayList<>();
         @SuppressWarnings("unchecked")
         List<Object[]> rows = q.getResultList();
+        List<FilaAgrupadaOperador> filas = new ArrayList<>(rows.size());
         for (Object[] r : rows) {
-            items.add(mapearFilaItemDebito(r));
+            String op = r[0] != null ? r[0].toString().trim() : "Sin operador asignado";
+            String mot = r[1] != null ? r[1].toString().trim() : "Sin motivo especificado";
+            String fin = r[2] != null ? r[2].toString().trim() : "Sin especificar";
+            int casos = r[3] != null ? ((Number) r[3]).intValue() : 0;
+            BigDecimal montoDebitado = r[4] != null ? new BigDecimal(r[4].toString()) : BigDecimal.ZERO;
+            BigDecimal aceptado = r[5] != null ? new BigDecimal(r[5].toString()) : BigDecimal.ZERO;
+            BigDecimal refacturado = r[6] != null ? new BigDecimal(r[6].toString()) : BigDecimal.ZERO;
+            filas.add(new FilaAgrupadaOperador(op, mot, fin, casos, montoDebitado, aceptado, refacturado));
         }
 
-        return agruparMetricasPorItems(items).stream()
-                .map(m -> new MetricaOperadorDTO(
-                        m.actor(),
-                        m.cantidadRegistros(),
-                        m.debitosAceptados(),
-                        m.debitosRefacturados(),
-                        m.totalTramitado(),
-                        m.ticketPromedio(),
-                        m.tasaRecupero(),
-                        m.motivos()
-                ))
-                .collect(Collectors.toList());
+        Map<String, Map<String, List<FilaAgrupadaOperador>>> agrupado = new LinkedHashMap<>();
+        for (FilaAgrupadaOperador f : filas) {
+            agrupado.computeIfAbsent(f.operador(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(f.motivo(), k -> new ArrayList<>())
+                    .add(f);
+        }
+
+        List<MetricaOperadorDTO> resultado = new ArrayList<>();
+
+        for (Map.Entry<String, Map<String, List<FilaAgrupadaOperador>>> entryOp : agrupado.entrySet()) {
+            String operador = entryOp.getKey();
+            int totalCasosOp = 0;
+            BigDecimal totalAceptadoOp = BigDecimal.ZERO;
+            BigDecimal totalRefacturadoOp = BigDecimal.ZERO;
+            BigDecimal totalMontoOp = BigDecimal.ZERO;
+
+            List<DesgloseMotivoDTO> motivos = new ArrayList<>();
+
+            for (Map.Entry<String, List<FilaAgrupadaOperador>> entryMot : entryOp.getValue().entrySet()) {
+                String motivo = entryMot.getKey();
+                int totalCasosMot = 0;
+                BigDecimal totalAceptadoMot = BigDecimal.ZERO;
+                BigDecimal totalRefacturadoMot = BigDecimal.ZERO;
+                BigDecimal totalMontoMot = BigDecimal.ZERO;
+
+                List<DesgloseFinanciadorDTO> financiadores = new ArrayList<>();
+
+                for (FilaAgrupadaOperador f : entryMot.getValue()) {
+                    totalCasosMot += f.casos();
+                    totalAceptadoMot = totalAceptadoMot.add(f.aceptado());
+                    totalRefacturadoMot = totalRefacturadoMot.add(f.refacturado());
+                    totalMontoMot = totalMontoMot.add(f.montoDebitado());
+
+                    BigDecimal tasaRecFin = BigDecimal.ZERO;
+                    if (f.montoDebitado().compareTo(BigDecimal.ZERO) > 0) {
+                        tasaRecFin = f.refacturado().multiply(BigDecimal.valueOf(100))
+                                .divide(f.montoDebitado(), 1, RoundingMode.HALF_UP);
+                    }
+
+                    financiadores.add(new DesgloseFinanciadorDTO(
+                            f.financiador(),
+                            f.casos(),
+                            f.montoDebitado(),
+                            f.aceptado(),
+                            f.refacturado(),
+                            "100% Amb",
+                            tasaRecFin
+                    ));
+                }
+
+                // Ordenar financiadores por monto debitado descendente
+                financiadores.sort((a, b) -> (b.getMontoDebitado() != null ? b.getMontoDebitado() : BigDecimal.ZERO)
+                        .compareTo(a.getMontoDebitado() != null ? a.getMontoDebitado() : BigDecimal.ZERO));
+
+                motivos.add(new DesgloseMotivoDTO(
+                        motivo,
+                        totalCasosMot,
+                        totalMontoMot,
+                        totalAceptadoMot,
+                        totalRefacturadoMot,
+                        financiadores
+                ));
+
+                totalCasosOp += totalCasosMot;
+                totalAceptadoOp = totalAceptadoOp.add(totalAceptadoMot);
+                totalRefacturadoOp = totalRefacturadoOp.add(totalRefacturadoMot);
+                totalMontoOp = totalMontoOp.add(totalMontoMot);
+            }
+
+            // Ordenar motivos por monto debitado descendente
+            motivos.sort((a, b) -> (b.getMontoDebitado() != null ? b.getMontoDebitado() : BigDecimal.ZERO)
+                    .compareTo(a.getMontoDebitado() != null ? a.getMontoDebitado() : BigDecimal.ZERO));
+
+            BigDecimal ticketProm = totalCasosOp > 0
+                    ? totalMontoOp.divide(BigDecimal.valueOf(totalCasosOp), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            BigDecimal tasaRec = totalMontoOp.compareTo(BigDecimal.ZERO) > 0
+                    ? totalRefacturadoOp.multiply(BigDecimal.valueOf(100)).divide(totalMontoOp, 1, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            resultado.add(new MetricaOperadorDTO(
+                    operador,
+                    totalCasosOp,
+                    totalAceptadoOp,
+                    totalRefacturadoOp,
+                    totalMontoOp,
+                    ticketProm,
+                    tasaRec,
+                    motivos
+            ));
+        }
+
+        // Ordenar operadores por monto total tramitado descendente
+        resultado.sort((a, b) -> (b.getTotalTramitado() != null ? b.getTotalTramitado() : BigDecimal.ZERO)
+                .compareTo(a.getTotalTramitado() != null ? a.getTotalTramitado() : BigDecimal.ZERO));
+
+        return resultado;
     }
 
     public List<MetricaOperadorDTO> procesarMetricasOperadores(List<CadenaTrazabilidadDTO> cadenas) {
@@ -4626,9 +5265,9 @@ public class DirectorioService {
                 fHasta = ym.atEndOfMonth();
             } catch (Exception ignored) {}
         }
-        // Protección: ventana de 12 meses por defecto si no hay filtro
+        // Ventana por defecto desde la fecha mínima permitida si no hay filtro
         if (fDesde == null && fHasta == null) {
-            fDesde = LocalDate.now().minusMonths(12).withDayOfMonth(1);
+            fDesde = obtenerFechaMinimaPermitida();
         }
 
         // Solo cargar las familias que tienen 2+ ND y 1+ NC (candidatos a bucle de insistencia)
@@ -4699,25 +5338,7 @@ public class DirectorioService {
             }
         }
 
-        // 1. Carga batch de prestaciones por FC
-        Map<Long, List<AmbLiquidado>> ambPorFcId = new HashMap<>();
-        if (!fcIds.isEmpty()) {
-            List<Long> fcIdsList = new ArrayList<>(fcIds);
-            int batchSize = 500;
-            for (int i = 0; i < fcIdsList.size(); i += batchSize) {
-                List<Long> batch = fcIdsList.subList(i, Math.min(i + batchSize, fcIdsList.size()));
-                List<AmbLiquidado> ambs = ambLiquidadoRepository.findByCabecera_IdIn(batch);
-                for (AmbLiquidado al : ambs) {
-                    try {
-                        if (al.getCabecera() != null && al.getCabecera().getId() != null) {
-                            ambPorFcId.computeIfAbsent(al.getCabecera().getId(), k -> new ArrayList<>()).add(al);
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-
-        // 2. Carga batch de Notas de Crédito
+        // 1. Carga batch de Notas de Crédito
         Map<Long, List<NotaDeCredito>> ncPorCabeceraId = new HashMap<>();
         Map<Integer, NotaDeCredito> ncPorId = new HashMap<>();
         if (!ncIds.isEmpty()) {
@@ -4737,7 +5358,7 @@ public class DirectorioService {
             }
         }
 
-        // 3. Carga batch de Notas de Débito
+        // 2. Carga batch de Notas de Débito
         Map<Long, List<NotaDeDebito>> ndPorCabeceraId = new HashMap<>();
         Map<Integer, NotaDeDebito> ndPorId = new HashMap<>();
         if (!ndIds.isEmpty()) {
@@ -4753,6 +5374,39 @@ public class DirectorioService {
                             ndPorCabeceraId.computeIfAbsent(nd.getCabecera().getId(), k -> new ArrayList<>()).add(nd);
                         }
                     } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // 3. Carga batch por Primary Key ÚNICAMENTE de las prestaciones que tienen débitos o refacturaciones
+        // (Optimización crítica: evita el escaneo de millones de filas en amb_liquidado de facturas sin bucles)
+        Set<Integer> prestacionIdsNecesarias = new HashSet<>();
+        for (NotaDeCredito nc : ncPorId.values()) {
+            try {
+                if (nc.getPrestacion() != null && nc.getPrestacion().getId() != null) {
+                    prestacionIdsNecesarias.add(nc.getPrestacion().getId());
+                }
+            } catch (Exception ignored) {}
+        }
+        for (NotaDeDebito nd : ndPorId.values()) {
+            try {
+                if (nd.getPrestacion() != null && nd.getPrestacion().getId() != null) {
+                    prestacionIdsNecesarias.add(nd.getPrestacion().getId());
+                }
+            } catch (Exception ignored) {}
+        }
+
+        Map<Integer, AmbLiquidado> ambPorId = new HashMap<>();
+        if (!prestacionIdsNecesarias.isEmpty()) {
+            List<Integer> idsList = new ArrayList<>(prestacionIdsNecesarias);
+            int batchSize = 500;
+            for (int i = 0; i < idsList.size(); i += batchSize) {
+                List<Integer> batch = idsList.subList(i, Math.min(i + batchSize, idsList.size()));
+                List<AmbLiquidado> ambs = ambLiquidadoRepository.findAllById(batch);
+                for (AmbLiquidado al : ambs) {
+                    if (al != null && al.getId() != null) {
+                        ambPorId.put(al.getId(), al);
+                    }
                 }
             }
         }
@@ -4827,22 +5481,13 @@ public class DirectorioService {
                 }
             };
 
-            // Obtener NCs y NDs del grupo
+            // Obtener NCs y NDs del grupo desde los mapas precargados por lote
             List<NotaDeCredito> ncsGrupo = new ArrayList<>();
             for (CabeceraBase c : miembros) {
                 if ("NC".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
                     List<NotaDeCredito> list = c.getId() != null ? ncPorCabeceraId.get(c.getId()) : null;
                     if (list != null && !list.isEmpty()) {
                         ncsGrupo.addAll(list);
-                    } else if (c.getLetra() != null && c.getPtovta() != null && c.getNumero() != null) {
-                        List<NotaDeCredito> porComprobante = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(
-                                c.getLetra(), c.getPtovta(), c.getNumero());
-                        if (porComprobante != null && !porComprobante.isEmpty()) {
-                            ncsGrupo.addAll(porComprobante);
-                            for (NotaDeCredito nc : porComprobante) {
-                                if (nc.getId() != null) ncPorId.put(nc.getId(), nc);
-                            }
-                        }
                     }
                 }
             }
@@ -4853,57 +5498,51 @@ public class DirectorioService {
                     List<NotaDeDebito> list = c.getId() != null ? ndPorCabeceraId.get(c.getId()) : null;
                     if (list != null && !list.isEmpty()) {
                         ndsGrupo.addAll(list);
-                    } else if (c.getLetra() != null && c.getPtovta() != null && c.getNumero() != null) {
-                        List<NotaDeDebito> porComprobante = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(
-                                c.getLetra(), c.getPtovta(), c.getNumero());
-                        if (porComprobante != null && !porComprobante.isEmpty()) {
-                            ndsGrupo.addAll(porComprobante);
-                            for (NotaDeDebito nd : porComprobante) {
-                                if (nd.getId() != null) ndPorId.put(nd.getId(), nd);
+                    }
+                }
+            }
+
+            if (ncsGrupo.isEmpty() || ndsGrupo.size() < 2) continue;
+
+            // Recolectar todas las prestaciones candidatas desde débitos y refacturaciones del grupo
+            Map<Integer, AmbLiquidado> prestacionesCandidatas = new LinkedHashMap<>();
+
+            // A) Desde las prestaciones asociadas directamente a los débitos NC del grupo
+            for (NotaDeCredito nc : ncsGrupo) {
+                AmbLiquidado p = resolverPrestacionDeNc(nc, ndPorId, ncPorId, ambPorId);
+                if (p != null && p.getId() != null) {
+                    prestacionesCandidatas.putIfAbsent(p.getId(), p);
+                }
+            }
+
+            // B) Desde las prestaciones asociadas a las refacturaciones ND del grupo
+            for (NotaDeDebito nd : ndsGrupo) {
+                AmbLiquidado p = resolverPrestacionDeNd(nd, ncPorId, ambPorId);
+                if (p != null && p.getId() != null) {
+                    prestacionesCandidatas.putIfAbsent(p.getId(), p);
+                }
+            }
+
+            // C) Si hay débitos o refacturaciones no vinculados por FK directa (ej. prestacionenglobante o código),
+            // cargar las prestaciones de la factura madre sólo para este grupo específico
+            boolean tieneItemsSinVincular = ncsGrupo.stream().anyMatch(nc -> nc.getPrestacion() == null && (nc.getPrestacionenglobante() != null || nc.getMotivoDebito() != null))
+                    || ndsGrupo.stream().anyMatch(nd -> nd.getPrestacion() == null && (nd.getPrestacionenglobante() != null || nd.getCodigo() != null));
+
+            if ((prestacionesCandidatas.isEmpty() || tieneItemsSinVincular) && fcRaiz.getId() != null) {
+                try {
+                    List<AmbLiquidado> ambsFc = ambLiquidadoRepository.findByCabecera_Id(fcRaiz.getId());
+                    if (ambsFc != null) {
+                        for (AmbLiquidado amb : ambsFc) {
+                            if (amb.getId() != null) {
+                                prestacionesCandidatas.putIfAbsent(amb.getId(), amb);
+                                ambPorId.putIfAbsent(amb.getId(), amb);
                             }
                         }
                     }
-                }
+                } catch (Exception ignored) {}
             }
 
-            // Recolectar todas las prestaciones candidatas (facturadas o involucradas en débitos/refacturaciones)
-            Map<Integer, AmbLiquidado> prestacionesCandidatas = new LinkedHashMap<>();
-
-            // A) Desde el mapa de FC por ID
-            if (ambPorFcId.containsKey(fcRaiz.getId())) {
-                for (AmbLiquidado amb : ambPorFcId.get(fcRaiz.getId())) {
-                    if (amb.getId() != null) prestacionesCandidatas.put(amb.getId(), amb);
-                }
-            }
-
-            // B) Por letra, ptovta, numero si estaba vacío
-            if (prestacionesCandidatas.isEmpty() && fcRaiz.getLetra() != null && fcRaiz.getPtovta() != null && fcRaiz.getNumero() != null) {
-                List<AmbLiquidado> porComprobante = ambLiquidadoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(
-                        fcRaiz.getLetra(), fcRaiz.getPtovta(), fcRaiz.getNumero());
-                if (porComprobante != null) {
-                    for (AmbLiquidado amb : porComprobante) {
-                        if (amb.getId() != null) prestacionesCandidatas.putIfAbsent(amb.getId(), amb);
-                    }
-                }
-            }
-
-            // C) Desde las prestaciones asociadas directamente a los débitos NC del grupo
-            for (NotaDeCredito nc : ncsGrupo) {
-                AmbLiquidado p = resolverPrestacionDeNc(nc, ndPorId, ncPorId);
-                if (p != null && p.getId() != null) {
-                    prestacionesCandidatas.putIfAbsent(p.getId(), p);
-                }
-            }
-
-            // D) Desde las prestaciones asociadas a las refacturaciones ND del grupo
-            for (NotaDeDebito nd : ndsGrupo) {
-                AmbLiquidado p = resolverPrestacionDeNd(nd, ncPorId);
-                if (p != null && p.getId() != null) {
-                    prestacionesCandidatas.putIfAbsent(p.getId(), p);
-                }
-            }
-
-            // E) Fallback nativo: findPrestacionesPorFactura si aún no hay candidatos
+            // D) Fallback nativo: findPrestacionesPorFactura si aún no hay candidatos
             if (prestacionesCandidatas.isEmpty() && fcRaiz.getLetra() != null && fcRaiz.getPtovta() != null && fcRaiz.getNumero() != null) {
                 try {
                     List<PrestacionAuditoriaDTO> auditDtos = ambLiquidadoRepository.findPrestacionesPorFactura(
@@ -4927,7 +5566,7 @@ public class DirectorioService {
                 } catch (Exception ignored) {}
             }
 
-            // F) Fallback nativo: findPrestacionesPorNotaCredito
+            // E) Fallback nativo: findPrestacionesPorNotaCredito
             if (prestacionesCandidatas.isEmpty()) {
                 for (CabeceraBase cNc : miembros) {
                     if ("NC".equalsIgnoreCase(resolverTipoBase(cNc.getTipo())) && cNc.getLetra() != null && cNc.getPtovta() != null && cNc.getNumero() != null) {
@@ -4972,7 +5611,7 @@ public class DirectorioService {
 
                 List<NotaDeCredito> ncsPrest = ncsGrupo.stream()
                         .filter(nc -> {
-                            Integer idResuelto = resolverIdPrestacionNc(nc, ndPorId, ncPorId);
+                            Integer idResuelto = resolverIdPrestacionNc(nc, ndPorId, ncPorId, ambPorId);
                             if (idResuelto != null) {
                                 return Objects.equals(pId, idResuelto);
                             }
@@ -4990,7 +5629,7 @@ public class DirectorioService {
 
                 List<NotaDeDebito> ndsPrest = ndsGrupo.stream()
                         .filter(nd -> {
-                            Integer idResuelto = resolverIdPrestacionNd(nd, ncPorId);
+                            Integer idResuelto = resolverIdPrestacionNd(nd, ncPorId, ambPorId);
                             if (idResuelto != null) {
                                 return Objects.equals(pId, idResuelto);
                             }
@@ -5325,29 +5964,59 @@ public class DirectorioService {
     }
 
     private Integer resolverIdPrestacionNc(NotaDeCredito nc, Map<Integer, NotaDeDebito> ndPorId, Map<Integer, NotaDeCredito> ncPorId) {
-        AmbLiquidado p = resolverPrestacionDeNc(nc, ndPorId, ncPorId);
+        return resolverIdPrestacionNc(nc, ndPorId, ncPorId, null);
+    }
+
+    private Integer resolverIdPrestacionNc(NotaDeCredito nc, Map<Integer, NotaDeDebito> ndPorId, Map<Integer, NotaDeCredito> ncPorId, Map<Integer, AmbLiquidado> ambPorId) {
+        AmbLiquidado p = resolverPrestacionDeNc(nc, ndPorId, ncPorId, ambPorId);
         return (p != null) ? p.getId() : null;
     }
 
     private Integer resolverIdPrestacionNd(NotaDeDebito nd, Map<Integer, NotaDeCredito> ncPorId) {
-        AmbLiquidado p = resolverPrestacionDeNd(nd, ncPorId);
+        return resolverIdPrestacionNd(nd, ncPorId, null);
+    }
+
+    private Integer resolverIdPrestacionNd(NotaDeDebito nd, Map<Integer, NotaDeCredito> ncPorId, Map<Integer, AmbLiquidado> ambPorId) {
+        AmbLiquidado p = resolverPrestacionDeNd(nd, ncPorId, ambPorId);
         return (p != null) ? p.getId() : null;
     }
 
     private AmbLiquidado resolverPrestacionDeNc(NotaDeCredito nc, Map<Integer, NotaDeDebito> ndPorId, Map<Integer, NotaDeCredito> ncPorId) {
+        return resolverPrestacionDeNc(nc, ndPorId, ncPorId, null);
+    }
+
+    private AmbLiquidado resolverPrestacionDeNc(NotaDeCredito nc, Map<Integer, NotaDeDebito> ndPorId, Map<Integer, NotaDeCredito> ncPorId, Map<Integer, AmbLiquidado> ambPorId) {
         if (nc == null) return null;
         try {
-            AmbLiquidado p = obtenerPrestacionSegura(nc.getPrestacion());
-            if (p != null) {
-                return p;
+            if (nc.getPrestacion() != null) {
+                Integer pId = nc.getPrestacion().getId();
+                if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                    return ambPorId.get(pId);
+                }
+                AmbLiquidado p = obtenerPrestacionSegura(nc.getPrestacion());
+                if (p != null) {
+                    return p;
+                }
             }
             if (nc.getNotaDeDebitoPadre() != null) {
                 NotaDeDebito nd = nc.getNotaDeDebitoPadre();
-                p = obtenerPrestacionSegura(nd.getPrestacion());
+                if (nd.getPrestacion() != null) {
+                    Integer pId = nd.getPrestacion().getId();
+                    if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                        return ambPorId.get(pId);
+                    }
+                }
+                AmbLiquidado p = obtenerPrestacionSegura(nd.getPrestacion());
                 if (p != null) {
                     return p;
                 }
                 if (nd.getNotaDeCreditoPadre() != null) {
+                    if (nd.getNotaDeCreditoPadre().getPrestacion() != null) {
+                        Integer pId = nd.getNotaDeCreditoPadre().getPrestacion().getId();
+                        if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                            return ambPorId.get(pId);
+                        }
+                    }
                     p = obtenerPrestacionSegura(nd.getNotaDeCreditoPadre().getPrestacion());
                     if (p != null) {
                         return p;
@@ -5355,18 +6024,36 @@ public class DirectorioService {
                 }
                 if (nd.getId() != null && ndPorId.containsKey(nd.getId())) {
                     NotaDeDebito ndFull = ndPorId.get(nd.getId());
+                    if (ndFull.getPrestacion() != null) {
+                        Integer pId = ndFull.getPrestacion().getId();
+                        if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                            return ambPorId.get(pId);
+                        }
+                    }
                     p = obtenerPrestacionSegura(ndFull.getPrestacion());
                     if (p != null) {
                         return p;
                     }
                     if (ndFull.getNotaDeCreditoPadre() != null) {
                         NotaDeCredito ncAbuelo = ndFull.getNotaDeCreditoPadre();
+                        if (ncAbuelo.getPrestacion() != null) {
+                            Integer pId = ncAbuelo.getPrestacion().getId();
+                            if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                                return ambPorId.get(pId);
+                            }
+                        }
                         p = obtenerPrestacionSegura(ncAbuelo.getPrestacion());
                         if (p != null) {
                             return p;
                         }
                         if (ncAbuelo.getId() != null && ncPorId.containsKey(ncAbuelo.getId())) {
                             NotaDeCredito ncAbueloFull = ncPorId.get(ncAbuelo.getId());
+                            if (ncAbueloFull.getPrestacion() != null) {
+                                Integer pId = ncAbueloFull.getPrestacion().getId();
+                                if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                                    return ambPorId.get(pId);
+                                }
+                            }
                             p = obtenerPrestacionSegura(ncAbueloFull.getPrestacion());
                             if (p != null) {
                                 return p;
@@ -5382,20 +6069,42 @@ public class DirectorioService {
     }
 
     private AmbLiquidado resolverPrestacionDeNd(NotaDeDebito nd, Map<Integer, NotaDeCredito> ncPorId) {
+        return resolverPrestacionDeNd(nd, ncPorId, null);
+    }
+
+    private AmbLiquidado resolverPrestacionDeNd(NotaDeDebito nd, Map<Integer, NotaDeCredito> ncPorId, Map<Integer, AmbLiquidado> ambPorId) {
         if (nd == null) return null;
         try {
-            AmbLiquidado p = obtenerPrestacionSegura(nd.getPrestacion());
-            if (p != null) {
-                return p;
+            if (nd.getPrestacion() != null) {
+                Integer pId = nd.getPrestacion().getId();
+                if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                    return ambPorId.get(pId);
+                }
+                AmbLiquidado p = obtenerPrestacionSegura(nd.getPrestacion());
+                if (p != null) {
+                    return p;
+                }
             }
             if (nd.getNotaDeCreditoPadre() != null) {
                 NotaDeCredito nc = nd.getNotaDeCreditoPadre();
-                p = obtenerPrestacionSegura(nc.getPrestacion());
+                if (nc.getPrestacion() != null) {
+                    Integer pId = nc.getPrestacion().getId();
+                    if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                        return ambPorId.get(pId);
+                    }
+                }
+                AmbLiquidado p = obtenerPrestacionSegura(nc.getPrestacion());
                 if (p != null) {
                     return p;
                 }
                 if (nc.getId() != null && ncPorId.containsKey(nc.getId())) {
                     NotaDeCredito ncFull = ncPorId.get(nc.getId());
+                    if (ncFull.getPrestacion() != null) {
+                        Integer pId = ncFull.getPrestacion().getId();
+                        if (pId != null && ambPorId != null && ambPorId.containsKey(pId)) {
+                            return ambPorId.get(pId);
+                        }
+                    }
                     p = obtenerPrestacionSegura(ncFull.getPrestacion());
                     if (p != null) {
                         return p;

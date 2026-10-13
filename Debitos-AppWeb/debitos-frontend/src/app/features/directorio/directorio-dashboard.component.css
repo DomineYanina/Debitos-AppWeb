@@ -627,6 +627,35 @@ select.form-control:disabled {
   transform: translateY(-1px);
 }
 
+.btn-filtrar-pendiente {
+  background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 3px 8px rgba(37, 99, 235, 0.4) !important;
+  animation: pulse-filtrar 2s infinite ease-in-out;
+}
+
+@keyframes pulse-filtrar {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 3px 8px rgba(37, 99, 235, 0.4);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(14, 165, 233, 0.4), 0 4px 12px rgba(14, 165, 233, 0.45);
+    transform: translateY(-1px);
+  }
+}
+
+.filtro-pending-dot {
+  color: #38bdf8;
+  font-size: 0.85rem;
+  line-height: 1;
+  animation: blink-dot 1.2s infinite alternate;
+}
+
+@keyframes blink-dot {
+  0% { opacity: 0.35; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1.15); }
+}
+
 .btn-secondary {
   background: #f1f5f9;
   color: #334155;
@@ -1016,8 +1045,8 @@ select.form-control:disabled {
 
 .legend-header {
   display: grid;
-  grid-template-columns: minmax(180px, 2.2fr) minmax(85px, 0.8fr) minmax(110px, 1.1fr) minmax(115px, 1.1fr) minmax(95px, 0.9fr);
-  column-gap: 1.25rem;
+  grid-template-columns: minmax(170px, 2fr) minmax(75px, 0.7fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(90px, 0.8fr);
+  column-gap: 1rem;
   padding: 0.65rem 1rem;
   background: #f1f5f9;
   font-size: 0.72rem;
@@ -1027,7 +1056,7 @@ select.form-control:disabled {
   letter-spacing: 0.04em;
   border-bottom: 1px solid #e2e8f0;
   align-items: center;
-  min-width: 620px;
+  min-width: 720px;
 }
 
 .legend-header span.sortable-col {
@@ -1050,7 +1079,9 @@ select.form-control:disabled {
   color: #1d4ed8;
 }
 
-.legend-th-casos {
+.legend-th-casos,
+.legend-th-aceptados,
+.legend-th-refacturados {
   white-space: nowrap;
 }
 
@@ -1065,13 +1096,13 @@ select.form-control:disabled {
 .legend-list {
   max-height: 280px;
   overflow-y: auto;
-  min-width: 620px;
+  min-width: 720px;
 }
 
 .legend-item {
   display: grid;
-  grid-template-columns: minmax(180px, 2.2fr) minmax(85px, 0.8fr) minmax(110px, 1.1fr) minmax(115px, 1.1fr) minmax(95px, 0.9fr);
-  column-gap: 1.25rem;
+  grid-template-columns: minmax(170px, 2fr) minmax(75px, 0.7fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(90px, 0.8fr);
+  column-gap: 1rem;
   align-items: center;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid #edf2f7;
@@ -1140,26 +1171,32 @@ select.form-control:disabled {
   padding-right: 0.25rem;
 }
 
-.mini-bar-wrapper {
-  flex: 1;
-  height: 6px;
-  background: #e2e8f0;
-  border-radius: 3px;
-  overflow: hidden;
-  min-width: 40px;
+.legend-col-aceptados,
+.legend-col-refacturados {
+  display: flex;
+  align-items: center;
+  padding-left: 0.25rem;
 }
 
-.mini-bar-fill {
-  height: 100%;
-  border-radius: 3px;
+.porc-aceptados {
+  color: #dc2626;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.porc-refacturados {
+  color: #2563eb;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .porc-text {
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: #475569;
-  min-width: 42px;
-  text-align: right;
+  white-space: nowrap;
 }
 
 .legend-col-action {
@@ -1205,6 +1242,10 @@ select.form-control:disabled {
   border-spacing: 0;
   font-size: 0.88rem;
   background: #ffffff;
+  /* Alturas reales de las capas fijas para evitar gaps o fisuras */
+  --sticky-header-top: 38px;
+  --sticky-l1-height: 40px;
+  --sticky-l2-height: 38px;
 }
 
 .table-sanatorial thead th {
@@ -1222,6 +1263,7 @@ select.form-control:disabled {
   position: sticky;
   top: 0;
   z-index: 30;
+  box-sizing: border-box;
 }
 
 .table-sanatorial td {
@@ -1230,156 +1272,171 @@ select.form-control:disabled {
   color: #1e293b;
   font-variant-numeric: tabular-nums;
   background-color: #ffffff;
+  box-sizing: border-box;
 }
 
-/* Nivel 1: Financiador */
+/* ==========================================================================
+   JERARQUÍA CUENTA CORRIENTE (PALETA DE COLORES PERSONALIZADA)
+   ========================================================================== */
+
+/* --- NIVEL 1: Financiador (Entidad) --- */
+/* Estado Colapsado: Gris #d0d5db (Nunca blanco, 100% opaco, mayor contraste) */
 .tr-financiador {
-  background-color: #f1f5f9;
   font-weight: 700;
   cursor: pointer;
-  border-left: 4px solid #3b82f6;
-  transition: background-color 0.15s ease;
+}
+.tr-financiador > td {
+  /* Fondo sólido gris #d0d5db para mayor contraste y opacidad */
+  background-color: #d0d5db !important; 
+  border-bottom: 1px solid #b8bec5;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.tr-financiador:hover > td {
+  background-color: #c1c7ce !important;
 }
 
-.tr-financiador:hover {
-  background-color: #e2e8f0;
-}
-
-.tr-financiador.is-expanded {
-  background-color: #e2e8f0;
-  border-left-color: #1d4ed8;
-}
-
+/* Estado Desplegado: Azul Marino de la Paleta (#004C94) con texto blanco */
 .tr-financiador.is-expanded > td {
   position: sticky;
-  top: var(--sticky-header-top, 48px);
+  /* Solapamiento de 1px con el borde inferior de thead para eliminar cualquier gap por subpíxel */
+  top: calc(var(--sticky-header-top, 38px) - 1px);
   z-index: 25;
-  background-color: #e2e8f0 !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+  /* Fondo con el Azul Marino Sólido #004C94 */
+  background-color: #004C94 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #002d5c;
+  box-shadow: 0 3px 6px rgba(0, 76, 148, 0.18);
 }
-
-.tr-financiador.is-expanded > td:first-child {
-  border-left: 4px solid #1d4ed8;
+.tr-financiador.is-expanded:hover > td {
+  /* Fondo Hover: Oscuro #2D3F54 */
+  background-color: #2D3F54 !important;
 }
-
+.tr-financiador.is-expanded .financiador-nombre,
+.tr-financiador.is-expanded .color-facturado,
+.tr-financiador.is-expanded .color-incremento,
+.tr-financiador.is-expanded .color-aceptado,
+.tr-financiador.is-expanded .color-refacturado,
+.tr-financiador.is-expanded .color-cobranza,
+.tr-financiador.is-expanded .color-saldo-positivo,
+.tr-financiador.is-expanded .color-saldo-negativo,
+.tr-financiador.is-expanded .color-saldo-cero {
+  color: #ffffff !important;
+}
+.tr-financiador.is-expanded .text-muted {
+  color: #3C93FA !important;
+}
+.tr-financiador.is-expanded .btn-toggle-expand {
+  color: #3C93FA !important;
+}
 .td-financiador {
   vertical-align: middle;
 }
-
 .cc-cell-wrapper {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
 }
-
-.financiador-icon {
-  font-size: 1rem;
-}
-
 .financiador-nombre {
   font-size: 0.92rem;
   color: #0f172a;
 }
 
-/* Nivel 2: Período */
+/* --- NIVEL 2: Período --- */
+/* Fondo Celeste Suave 100% Opaco (evita que las filas que scrollean se trasluzcan) */
 .tr-periodo {
-  background-color: #f8fafc;
   font-weight: 600;
   cursor: pointer;
-  border-left: 4px solid #94a3b8;
+}
+.tr-periodo > td {
+  background-color: #edf5fd !important;
+  border-bottom: 1px solid #d6e9fb;
   transition: background-color 0.15s ease;
 }
-
-.tr-periodo:hover {
-  background-color: #f1f5f9;
+.tr-periodo:hover > td {
+  background-color: #d9ebfa !important;
 }
-
-.tr-periodo.is-expanded {
-  background-color: #f1f5f9;
-  border-left-color: #64748b;
-}
-
 .tr-periodo.is-expanded > td {
   position: sticky;
-  top: calc(var(--sticky-header-top, 48px) + var(--sticky-l1-height, 44px));
+  /* Encaja perfectamente debajo de la fila del financiador sin fisuras */
+  top: calc(var(--sticky-header-top, 38px) + var(--sticky-l1-height, 40px) - 2px);
   z-index: 24;
-  background-color: #f1f5f9 !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  /* Color sólido opaco 100% idéntico al tono celeste para tapar las filas que pasan por debajo */
+  background-color: #d9ebfa !important;
+  border-bottom: 1px solid #99c6f2;
+  box-shadow: 0 2px 4px rgba(0, 110, 207, 0.10);
 }
-
-.tr-periodo.is-expanded > td:first-child {
-  border-left: 4px solid #64748b;
-}
-
 .td-periodo {
   vertical-align: middle;
   padding-left: 2rem !important;
 }
-
-.periodo-icon {
-  font-size: 0.9rem;
-}
-
 .periodo-tag {
   font-family: monospace;
-  font-size: 0.88rem;
-  color: #334155;
-  background: #e2e8f0;
-  padding: 0.1rem 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  /* Texto blanco sobre el Azul de la paleta #006ECF */
+  color: #ffffff;
+  background: #006ECF;
+  padding: 0.15rem 0.5rem;
   border-radius: 4px;
 }
 
-/* Nivel 3: Facturas Madres */
+/* --- NIVEL 3: Facturas Madres / Grupos --- */
+/* Fondo Verde Suave 100% Opaco */
 .tr-factura {
-  background-color: #ffffff;
   font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
-  border-left: 4px solid #3b82f6;
+}
+.tr-factura > td {
+  background-color: #f0faf2 !important;
+  border-bottom: 1px solid #d6f2dc;
   transition: background-color 0.12s ease;
 }
-
-.tr-factura:hover {
-  background-color: #f8fafc;
+.tr-factura:hover > td {
+  background-color: #dcf2e2 !important;
 }
-
-.tr-factura.is-expanded {
-  background-color: #f0f7ff;
-  border-left-color: #2563eb;
-}
-
 .tr-factura.is-expanded > td {
   position: sticky;
-  top: calc(var(--sticky-header-top, 48px) + var(--sticky-l1-height, 44px) + var(--sticky-l2-height, 40px));
+  top: calc(var(--sticky-header-top, 38px) + var(--sticky-l1-height, 40px) + var(--sticky-l2-height, 38px) - 3px);
   z-index: 23;
-  background-color: #f0f7ff !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  /* Color sólido verde esmeralda suave 100% opaco */
+  background-color: #dcf2e2 !important;
+  border-bottom: 1px solid #b5e4c2;
+  box-shadow: 0 2px 4px rgba(29, 189, 142, 0.08);
 }
-
-.tr-factura.is-expanded > td:first-child {
-  border-left: 4px solid #2563eb;
-}
-
 .td-factura-node {
   vertical-align: middle;
   padding-left: 3rem !important;
 }
+.badge-grupo {
+  /* Badge de Grupo en tono verde #1DBD8E */
+  background: rgba(29, 189, 142, 0.15);
+  color: #007d57;
+  border: 1px solid rgba(29, 189, 142, 0.3);
+}
 
-/* Nivel 4: Comprobantes Hijos (NC, ND, RC) */
+/* --- NIVEL 4: Comprobantes Hijos --- */
+/* Fondo Blanco Puro para máximo contraste */
 .tr-comprobante-hijo {
-  background-color: #f8fafc;
   font-size: 0.82rem;
+}
+.tr-comprobante-hijo > td {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f1f5f9;
   transition: background-color 0.12s ease;
-  border-left: 4px solid #e2e8f0;
 }
-
-.tr-comprobante-hijo:hover {
-  background-color: #f1f5f9;
+.tr-comprobante-hijo:hover > td {
+  background-color: #f8fafc !important;
 }
-
 .td-comprobante-hijo-node {
   vertical-align: middle;
+}
+.tr-hijo-fc-origen > td {
+  background-color: #ffffff !important;
+}
+.tr-hijo-fc-origen:hover > td {
+  background-color: #f8fafc !important;
 }
 
 .tree-branch {
@@ -1493,6 +1550,12 @@ select.form-control:disabled {
   margin-left: 0.3rem;
 }
 
+td.text-center .badge-count {
+  margin-left: 0;
+  display: inline-block;
+  min-width: 24px;
+}
+
 /* Colores de montos y saldos */
 .color-incremento {
   color: #b45309;
@@ -1600,20 +1663,8 @@ select.form-control:disabled {
   border: 1px solid #bfdbfe;
 }
 
-.badge-grupo {
-  background: #e0e7ff;
-  color: #3730a3;
-  border: 1px solid #c7d2fe;
-}
 
-/* Fila del hijo FC inyectado (Factura Raíz de Origen) */
-.tr-hijo-fc-origen {
-  background-color: #f0f6ff;
-}
 
-.tr-hijo-fc-origen:hover {
-  background-color: #e8f0fe;
-}
 
 /* Chip "Origen" que identifica al primer hijo FC */
 .badge-hijo-fc-origen {
@@ -2830,6 +2881,12 @@ select.form-control:disabled {
   text-align: center;
 }
 
+.table-analistas th.th-motivos {
+  width: 145px;
+  min-width: 140px;
+  text-align: center;
+}
+
 .table-analistas th.th-casos {
   width: 110px;
 }
@@ -2962,11 +3019,34 @@ select.form-control:disabled {
   min-width: 28px;
   padding: 0.2rem 0.6rem;
   border-radius: 9999px;
-  background-color: #e0e7ff;
-  color: #3730a3;
-  border: 1px solid #c7d2fe;
+  background-color: #475569;
+  color: #ffffff;
+  border: none;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.badge-motivos-medico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.badge-motivos-medico.badge-col-financiadores {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .badge-atencion {
@@ -3105,274 +3185,131 @@ select.form-control:disabled {
   font-weight: 700;
 }
 
-/* Nivel 1: Analista / Operador / Médico */
+/* ==========================================================================
+   JERARQUÍA ANALISTAS, OPERADORES Y MÉDICOS (MISMA PALETA QUE CUENTA CORRIENTE)
+   ========================================================================== */
+
+/* --- NIVEL 1: Analista / Operador / Médico --- */
+/* Estado Colapsado: Gris #d0d5db (100% opaco, mayor contraste) */
 .tr-analista {
-  background-color: #ffffff;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  border-left: 4px solid #6366f1;
-  transition: background-color 0.15s ease;
+}
+.tr-analista > td {
+  background-color: #d0d5db !important;
+  border-bottom: 1px solid #b8bec5;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.tr-analista:hover > td {
+  background-color: #c1c7ce !important;
 }
 
-.tr-analista:hover {
-  background-color: #f8fafc;
-}
-
-.tr-analista.is-expanded {
-  background-color: #f5f3ff;
-  border-left-color: #4f46e5;
-}
-
-.tr-analista.is-expanded > td {
-  position: sticky;
-  top: var(--sticky-header-top, 48px);
-  z-index: 25;
-  background-color: #f5f3ff !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
-.tr-analista.is-expanded > td:first-child {
-  border-left: 4px solid #4f46e5;
-}
-
-.tr-operador.is-expanded > td {
-  background-color: #f5f3ff !important;
-}
-
-.tr-operador.is-expanded > td:first-child {
-  border-left: 4px solid #7c3aed;
-}
-
+/* Estado Desplegado: Azul Marino #004C94 con texto blanco 100% opaco */
+.tr-analista.is-expanded > td,
+.tr-operador.is-expanded > td,
 .tr-medico.is-expanded > td {
-  background-color: #f0fdfa !important;
+  position: sticky;
+  top: calc(var(--sticky-header-top, 38px) - 1px) !important;
+  z-index: 25;
+  background-color: #004C94 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #002d5c;
+  box-shadow: 0 3px 6px rgba(0, 76, 148, 0.18);
+}
+.tr-analista.is-expanded:hover > td,
+.tr-operador.is-expanded:hover > td,
+.tr-medico.is-expanded:hover > td {
+  background-color: #2D3F54 !important;
 }
 
-.tr-medico.is-expanded > td:first-child {
-  border-left: 4px solid #0f766e;
+/* Forzar textos y montos en blanco cuando el Nivel 1 está desplegado */
+.tr-analista.is-expanded .analista-nombre,
+.tr-analista.is-expanded .badge-docs-analista,
+.tr-analista.is-expanded .color-facturado,
+.tr-analista.is-expanded .color-aceptado,
+.tr-analista.is-expanded .color-refacturado,
+.tr-analista.is-expanded .color-ticket,
+.tr-analista.is-expanded .color-ticket-promedio {
+  color: #ffffff !important;
 }
-
-.td-tree-node {
-  vertical-align: middle;
+.tr-analista.is-expanded .btn-toggle-expand {
+  color: #3C93FA !important;
+}
+.tr-analista.is-expanded .badge-count,
+.tr-analista.is-expanded .badge-fin-analista,
+.tr-analista.is-expanded .badge-motivos-medico,
+.tr-analista.is-expanded .badge-atencion {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 .td-analista {
   vertical-align: middle;
 }
-
-.analista-cell-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.analista-icon {
-  font-size: 1.05rem;
-}
-
 .analista-nombre {
-  font-size: 0.94rem;
+  font-size: 0.92rem;
   color: #0f172a;
   font-weight: 700;
 }
 
-.color-ticket {
-  color: #0284c7;
-  font-weight: 700;
-}
-
-/* Badges de Tasa de Recupero */
-.badge-recupero {
-  display: inline-block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 0.2rem 0.55rem;
-  border-radius: 9999px;
-  text-align: center;
-}
-
-.badge-recupero-sm {
-  font-size: 0.74rem;
-  padding: 0.15rem 0.45rem;
-}
-
-.recupero-alto {
-  background-color: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
-}
-
-.recupero-medio {
-  background-color: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fde68a;
-}
-
-.recupero-cero {
-  background-color: #fee2e2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-}
-
-/* Subencabezados de nivel (se desplazan normalmente sin superponerse) */
-.table-sanatorial .tr-sub-header th,
-.table-sanatorial .tr-sub-header td {
-  position: static !important;
-  top: auto !important;
-  z-index: 1 !important;
-  vertical-align: middle;
-}
-
-.tr-sub-header {
-  background-color: #f8fafc;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #64748b;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.tr-sub-header-motivo {
-  background-color: #f1f5f9;
-}
-
-.tr-sub-header-motivo th {
-  padding: 0.4rem 0.75rem !important;
-  font-weight: 700;
-  background-color: #f1f5f9 !important;
-}
-
-.td-sub-header-title {
-  padding-left: 2rem !important;
-  color: #475569;
-}
-
-.tr-sub-header-financiador {
-  background-color: #f8fafc;
-}
-
-.tr-sub-header-financiador th {
-  padding: 0.35rem 0.75rem !important;
-  font-weight: 600;
-  font-size: 0.68rem;
-  background-color: #f8fafc !important;
-}
-
-.td-sub-header-sub-title {
-  padding-left: 3.5rem !important;
-  color: #64748b;
-}
-
-.td-sub-header-col {
-  color: #64748b;
-  font-size: 0.7rem;
-}
-
-/* Nivel 2: Motivo */
+/* --- NIVEL 2: Motivo de Débito --- */
+/* Estado Colapsado: Celeste Suave Sólido Opaco #edf5fd */
 .tr-motivo {
-  background-color: #f8fafc;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  border-left: 4px solid #f59e0b;
+}
+.tr-motivo > td {
+  background-color: #edf5fd !important;
+  border-bottom: 1px solid #d6e9fb;
   transition: background-color 0.15s ease;
 }
-
-.tr-motivo:hover {
-  background-color: #f1f5f9;
+.tr-motivo:hover > td {
+  background-color: #d9ebfa !important;
 }
 
-.tr-motivo.is-expanded {
-  background-color: #fef3c7;
-  border-left-color: #d97706;
-}
-
+/* Estado Desplegado de Nivel 2: Verde Esmeralda Suave 100% Opaco (#dcf2e2) para tapar completamente las filas que pasan por debajo */
 .tr-motivo.is-expanded > td {
   position: sticky;
-  top: calc(var(--sticky-header-top, 48px) + var(--sticky-l1-height, 44px));
+  top: calc(var(--sticky-header-top, 38px) + var(--sticky-l1-height, 40px) - 2px) !important;
   z-index: 24;
-  background-color: #fef3c7 !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: #dcf2e2 !important;
+  border-bottom: 1px solid #b5e4c2;
+  box-shadow: 0 2px 4px rgba(0, 110, 207, 0.08);
 }
-
-.tr-motivo.is-expanded > td:first-child {
-  border-left: 4px solid #d97706;
+.tr-motivo.is-expanded:hover > td {
+  background-color: #cdecd5 !important;
 }
-
 .td-motivo {
-  padding-left: 2rem !important;
+  padding-left: 2.25rem !important;
   vertical-align: middle;
 }
-
-.motivo-cell-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.motivo-icon {
-  font-size: 0.9rem;
-}
-
 .motivo-tag {
-  font-size: 0.88rem;
-  color: #334155;
+  font-size: 0.86rem;
+  color: #0f172a;
   font-weight: 600;
 }
 
-.td-motivo-col-cell {
-  vertical-align: middle;
-  padding: 0.45rem 0.75rem !important;
-}
-
-.td-financiador-col-cell {
-  vertical-align: middle;
-  padding: 0.4rem 0.75rem !important;
-}
-
-/* Nivel 3: Financiador */
+/* --- NIVEL 3: Financiador Afectado --- */
+/* Fondo Blanco Puro con sangría de árbol */
 .tr-financiador-sub {
-  background-color: #ffffff;
-  font-size: 0.84rem;
+  font-size: 0.83rem;
+}
+.tr-financiador-sub > td {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f1f5f9;
   transition: background-color 0.12s ease;
-  border-left: 4px solid transparent;
 }
-
-.tr-financiador-sub:hover {
-  background-color: #f8fafc;
+.tr-financiador-sub:hover > td {
+  background-color: #f8fafc !important;
 }
-
 .td-financiador-sub-item {
-  padding-left: 3.5rem !important;
+  padding-left: 3.75rem !important;
   vertical-align: middle;
 }
-
-.financiador-cell-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
 .financiador-nombre-sub {
-  color: #334155;
+  color: #1e293b;
   font-weight: 600;
-}
-
-/* Acentos distintivos para Médicos y Operadores */
-.tr-medico {
-  border-left-color: #0d9488;
-}
-
-.tr-medico.is-expanded {
-  background-color: #f0fdfa;
-  border-left-color: #0f766e;
-}
-
-.tr-operador {
-  border-left-color: #8b5cf6;
-}
-
-.tr-operador.is-expanded {
-  background-color: #f5f3ff;
-  border-left-color: #7c3aed;
 }
 
 

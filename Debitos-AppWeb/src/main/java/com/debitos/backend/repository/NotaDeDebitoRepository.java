@@ -48,6 +48,21 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
     List<NotaDeDebito> findAllByNotaDeCreditoPadreId(Integer idNotaCredito);
 
     @Query(value = """
+        SELECT nd.* FROM notadedebito nd
+        INNER JOIN notadecredito nc ON nd.id_notadecredito = nc.id
+        INNER JOIN cabecera c ON nc.idcabecera = c.id
+        WHERE UPPER(c.letra) = UPPER(:letra)
+          AND c.ptovta = :ptovta
+          AND c.numero = :numero
+          AND nd.id_prestacion IN :idsPrestacion
+        """, nativeQuery = true)
+    List<NotaDeDebito> findByNcPadreCabeceraAndPrestacionIds(
+            @Param("letra") String letra,
+            @Param("ptovta") Integer ptovta,
+            @Param("numero") Integer numero,
+            @Param("idsPrestacion") java.util.Collection<Integer> idsPrestacion);
+
+    @Query(value = """
         SELECT CASE
             WHEN COUNT(DISTINCT nc.id) > 0
                  AND COUNT(DISTINCT CASE WHEN c_nd.tipo IS NOT NULL AND c_nd.fecha IS NOT NULL AND c_nd.letra IS NOT NULL AND c_nd.numero IS NOT NULL AND c_nd.ptovta IS NOT NULL THEN nc.id END) = COUNT(DISTINCT nc.id)

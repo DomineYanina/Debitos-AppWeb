@@ -80,7 +80,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit() {
     this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
-      if (this.modificadosSinGuardar.size > 0) {
+      if (this.modificadosSinGuardar.size > 0 || this.prestacionesParaBorrar.size > 0) {
         this.guardarParcialmente(true);
       }
     });
@@ -993,8 +993,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }).subscribe({ error: () => { } });
 
       this.registrosSeleccionados.forEach(p => {
-        // Si la prestación ya tiene una NC guardada en BD, la marcamos para borrar en el backend
-        if (p.id != null && p.ncNumero) {
+        // Si la prestación ya estaba en base de datos o trabajada, la marcamos para borrar en el backend
+        if (p.id != null) {
           this.prestacionesParaBorrar.add(p.id);
         }
         p.debitoAceptado = '';
@@ -1011,6 +1011,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.calcularTotales();
       this.cerrarModal();
       this.gridApi?.refreshCells();
+
+      // Sincronizamos de inmediato la eliminación en la base de datos (notadecredito o notadedebito)
+      if (this.prestacionesParaBorrar.size > 0) {
+        this.guardarParcialmente(true);
+      }
     };
 
     this.modalCancelarCb = () => this.cerrarModal();

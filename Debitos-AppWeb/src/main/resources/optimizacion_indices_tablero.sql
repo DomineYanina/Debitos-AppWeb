@@ -10,6 +10,7 @@ CREATE INDEX IF NOT EXISTS idx_cabecera_asociadogrupo ON cabecera (asociadogrupo
 CREATE INDEX IF NOT EXISTS idx_cabecera_grupo ON cabecera (grupo);
 CREATE INDEX IF NOT EXISTS idx_cabecera_asociado ON cabecera (asociado);
 CREATE INDEX IF NOT EXISTS idx_cabecera_codigo_cobertura ON cabecera (codigo_cobertura);
+CREATE INDEX IF NOT EXISTS idx_cabecera_cobertura_fecha ON cabecera (codigo_cobertura, fecha);
 CREATE INDEX IF NOT EXISTS idx_cabecera_periodo ON cabecera (periodo);
 CREATE INDEX IF NOT EXISTS idx_cabecera_id_estado ON cabecera (id_estado);
 
@@ -45,3 +46,20 @@ CREATE INDEX IF NOT EXISTS idx_notadecredito_motivo ON notadecredito (motivodede
 CREATE INDEX IF NOT EXISTS idx_notadecredito_lower_motivo ON notadecredito (LOWER(TRIM(motivodedebito)));
 CREATE INDEX IF NOT EXISTS idx_notadedebito_cabecera_notacredito ON notadedebito (idcabecera, id_notadecredito) 
   WHERE id_notadecredito IS NOT NULL;
+
+-- 7. Índice funcional de familia completa para Tiempos de Cobranza y Agrupamiento de Comprobantes
+CREATE INDEX IF NOT EXISTS idx_cabecera_familia_completa ON cabecera (COALESCE(asociadogrupo, grupo, asociado, id));
+
+-- 8. Índice para resolución acelerada de Recibos de Cobranza (RC) vinculados a familias
+CREATE INDEX IF NOT EXISTS idx_cabecera_recibos_cobranza ON cabecera (fecha, COALESCE(asociadogrupo, grupo, asociado, id)) 
+  WHERE UPPER(TRIM(tipo)) IN ('RC','RCA','RCB','REC','OP') AND (haber > 0 OR debe > 0);
+
+-- 9. Índices para comprobantes anulados y pares de 15 días
+CREATE INDEX IF NOT EXISTS idx_comprobantes_anulados_idcabecera ON comprobantes_anulados (idcabecera) 
+  WHERE idcabecera IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_cabecera_anulados_15d_fc ON cabecera (fecha, debe, id, asociado, asociadogrupo, grupo) 
+  WHERE tipo IN ('FC','FAC','FCE','FCA') AND fecha >= DATE '2024-01-01';
+
+CREATE INDEX IF NOT EXISTS idx_cabecera_anulados_15d_nc ON cabecera (fecha, COALESCE(NULLIF(haber, 0), debe, 0), id, asociado, asociadogrupo, grupo) 
+  WHERE tipo IN ('NC','NCE','NCA','NCB') AND fecha >= DATE '2024-01-01';

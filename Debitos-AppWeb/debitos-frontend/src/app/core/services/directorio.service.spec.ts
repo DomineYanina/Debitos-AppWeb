@@ -51,6 +51,18 @@ describe('DirectorioService', () => {
     req.flush(mockTipos);
   });
 
+  it('obtenerFechaMinimaFiltro debería hacer GET a /api/directorio/fecha-minima-filtro', () => {
+    const mockRes = { fechaMinima: '2024-07-01' };
+
+    service.obtenerFechaMinimaFiltro().subscribe(res => {
+      expect(res).toEqual(mockRes);
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/fecha-minima-filtro`);
+    expect(req.request.method).toBe('GET');
+    req.flush(mockRes);
+  });
+
   it('obtenerTotales debería incluir queryParams de cobertura, tipoDoc y fechas', () => {
     const mockTotales: DirectorioTotales = {
       totalFacturado: 100,

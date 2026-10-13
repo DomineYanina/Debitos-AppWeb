@@ -768,6 +768,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
         SELECT DISTINCT CAST(EXTRACT(YEAR FROM c.fecha) AS INTEGER) AS anio
         FROM cabecera c
         WHERE c.fecha IS NOT NULL
+          AND c.fecha >= DATE '2024-07-01'
           AND UPPER(TRIM(c.tipo)) IN ('RC', 'RCA', 'RCB', 'REC', 'OP')
         ORDER BY anio DESC
         """, nativeQuery = true)
@@ -1020,6 +1021,22 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
           AND c.fecha IS NOT NULL
           AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
           AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+          AND (
+              (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+              OR EXISTS (
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE c_hijo.asociado = c.id
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+                  UNION ALL
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                    AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                        COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+              )
+          )
         """, nativeQuery = true)
     List<Long> findIdsGruposFacturasPorRangoFechas(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
@@ -1034,6 +1051,22 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
           AND c.fecha IS NOT NULL
           AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
           AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+          AND (
+              (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+              OR EXISTS (
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE c_hijo.asociado = c.id
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+                  UNION ALL
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                    AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                        COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+              )
+          )
           AND (
               :financiador IS NULL 
               OR TRIM(:financiador) = '' 
@@ -1059,9 +1092,30 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
         SELECT DISTINCT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
         FROM cabecera c
         WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-          AND c.periodo IS NOT NULL
-          AND (CAST(:desde AS date) IS NULL OR c.periodo >= :desde)
-          AND (CAST(:hasta AS date) IS NULL OR c.periodo <= :hasta)
+          AND (
+              (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01'
+               AND (CAST(:desde AS date) IS NULL OR c.periodo >= :desde)
+               AND (CAST(:hasta AS date) IS NULL OR c.periodo <= :hasta)
+              )
+              OR (
+                  (c.periodo IS NULL OR c.periodo < DATE '2024-07-01')
+                  AND (CAST(:desde AS date) IS NULL OR COALESCE(c.periodo, c.fecha) >= :desde)
+                  AND (CAST(:hasta AS date) IS NULL OR COALESCE(c.periodo, c.fecha) <= :hasta)
+                  AND EXISTS (
+                      SELECT 1 FROM cabecera c_hijo
+                      WHERE c_hijo.asociado = c.id
+                        AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                        AND c_hijo.fecha >= DATE '2024-07-01'
+                      UNION ALL
+                      SELECT 1 FROM cabecera c_hijo
+                      WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                        AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                            COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                        AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                        AND c_hijo.fecha >= DATE '2024-07-01'
+                  )
+              )
+          )
         """, nativeQuery = true)
     List<Long> findIdsGruposFacturasPorRangoPeriodos(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
@@ -1072,6 +1126,22 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
           AND c.fecha IS NOT NULL
           AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
           AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+          AND (
+              (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+              OR EXISTS (
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE c_hijo.asociado = c.id
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+                  UNION ALL
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                    AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                        COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+              )
+          )
         ORDER BY 1
         LIMIT :limit OFFSET :offset
         """, nativeQuery = true)
@@ -1084,6 +1154,22 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
           AND c.fecha IS NOT NULL
           AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
           AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+          AND (
+              (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+              OR EXISTS (
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE c_hijo.asociado = c.id
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+                  UNION ALL
+                  SELECT 1 FROM cabecera c_hijo
+                  WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                    AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) = 
+                        COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                    AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                    AND c_hijo.fecha >= DATE '2024-07-01'
+              )
+          )
         """, nativeQuery = true)
     long countIdsGruposFacturasPorRangoFechas(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
@@ -1097,6 +1183,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     @Query(value = """
         SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
         FROM cabecera c
+        WHERE c.fecha >= DATE '2024-01-01'
         GROUP BY COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
         HAVING (
             COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB')
@@ -1120,6 +1207,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     @Query(value = """
         SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
         FROM cabecera c
+        WHERE c.fecha >= DATE '2024-01-01'
         GROUP BY COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
         HAVING (
             COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB')
@@ -1146,6 +1234,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
         SELECT COUNT(*) FROM (
             SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             FROM cabecera c
+            WHERE c.fecha >= DATE '2024-01-01'
             GROUP BY COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             HAVING (
                 COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB')

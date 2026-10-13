@@ -1968,11 +1968,25 @@ describe('AuditoriaComponent', () => {
       expect(component.modalVisible).toBe(false);
 
       // Confirmar
+      const guardarSpy = vi.spyOn(component, 'guardarParcialmente');
       (component as any).limpiarFilasSeleccionadas();
       component.modalAceptarCb();
       expect(component.registrosSeleccionados[0].debitoAceptado).toBe('');
       expect(component.registrosSeleccionados[0].motivoDebito).toBe('');
       expect(component.registrosSeleccionados[0].importeDebitado).toBeUndefined();
+      expect(guardarSpy).toHaveBeenCalledWith(true);
+    });
+
+    it('limpiarFilasSeleccionadas debe incluir prestaciones sin ncNumero para borrar en el backend', () => {
+      const guardarSpy = vi.spyOn(component, 'guardarParcialmente');
+      component.registrosSeleccionados = [
+        { id: 999, debitoAceptado: 'NO', motivoDebito: 'Débito administrativo' } as any
+      ];
+
+      component.limpiarFilasSeleccionadas();
+      component.modalAceptarCb();
+
+      expect(guardarSpy).toHaveBeenCalledWith(true);
     });
 
     it('aplicarMotivoMasivo validaciones y confirmaciones de reemplazo', () => {

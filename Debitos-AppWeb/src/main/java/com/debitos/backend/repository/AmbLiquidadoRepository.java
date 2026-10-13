@@ -17,9 +17,11 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
 
     List<AmbLiquidado> findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(String letra, Integer ptovta, Integer numero);
 
-    List<AmbLiquidado> findByCabecera_Id(Long idCabecera);
+    @Query(value = "SELECT * FROM amb_liquidado WHERE idcabecera = :idCabecera", nativeQuery = true)
+    List<AmbLiquidado> findByCabecera_Id(@Param("idCabecera") Long idCabecera);
 
-    List<AmbLiquidado> findByCabecera_IdIn(java.util.Collection<Long> idsCabecera);
+    @Query(value = "SELECT * FROM amb_liquidado WHERE idcabecera IN (:idsCabecera)", nativeQuery = true)
+    List<AmbLiquidado> findByCabecera_IdIn(@Param("idsCabecera") java.util.Collection<Long> idsCabecera);
 
     @Query("""
         SELECT new com.debitos.backend.dto.PrestacionLigeraDTO(

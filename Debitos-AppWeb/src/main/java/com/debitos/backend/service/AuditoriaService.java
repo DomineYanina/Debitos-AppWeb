@@ -865,8 +865,9 @@ public class AuditoriaService {
         Integer numero = request.getNumero() != null ? Integer.valueOf(request.getNumero().toString()) : 0;
         String usuario = request.getUsuario();
 
-        List<RegistroAuditoriaDTO> registros = request.getRegistros();
-        if (registros == null || registros.isEmpty()) return;
+        List<RegistroAuditoriaDTO> registros = request.getRegistros() != null ? request.getRegistros() : Collections.emptyList();
+        List<Integer> idsParaBorrar = request.getIdsParaBorrar() != null ? request.getIdsParaBorrar() : Collections.emptyList();
+        if (registros.isEmpty() && idsParaBorrar.isEmpty()) return;
 
         Optional<Cabecera> cabeceraOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
                 resolverTiposEquivalentes(documentoOrigen), letra, ptovta, numero)
@@ -875,6 +876,31 @@ public class AuditoriaService {
 
         if (cabeceraOrigenOpt.isPresent() && cabeceraOrigenOpt.get().getIdEstado() != null && cabeceraOrigenOpt.get().getIdEstado() == 2) {
             throw new IllegalStateException("El trámite se encuentra finalizado. Debe reabrir el trámite para poder guardar modificaciones.");
+        }
+
+        String origenBase = resolverTipoBase(documentoOrigen);
+
+        // ── Borrado de prestaciones limpiadas por el usuario (Batch Delete) ─────────
+        if (!idsParaBorrar.isEmpty()) {
+            if ("FC".equals(origenBase)) {
+                List<NotaDeCredito> ncsABorrar = notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(idsParaBorrar);
+                if (!ncsABorrar.isEmpty()) {
+                    log.info("Eliminando {} NotaDeCredito por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
+                    notaDeCreditoRepository.deleteAll(ncsABorrar);
+                }
+            } else if ("NC".equals(origenBase)) {
+                List<NotaDeDebito> ndsABorrar = notaDeDebitoRepository.findByNcPadreCabeceraAndPrestacionIds(letra, ptovta, numero, idsParaBorrar);
+                if (!ndsABorrar.isEmpty()) {
+                    log.info("Eliminando {} NotaDeDebito por solicitud de limpieza del usuario {}", ndsABorrar.size(), usuario);
+                    notaDeDebitoRepository.deleteAll(ndsABorrar);
+                }
+            } else if ("ND".equals(origenBase)) {
+                List<NotaDeCredito> ncsABorrar = notaDeCreditoRepository.findByNdPadreCabeceraAndPrestacionIds(letra, ptovta, numero, idsParaBorrar);
+                if (!ncsABorrar.isEmpty()) {
+                    log.info("Eliminando {} NotaDeCredito (hijas de ND) por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
+                    notaDeCreditoRepository.deleteAll(ncsABorrar);
+                }
+            }
         }
 
         Set<Cabecera> cabecerasImputadasModificadas = new HashSet<>();
@@ -886,16 +912,7 @@ public class AuditoriaService {
                 registrosUnicos.put(reg.getId(), reg);
             }
         }
-        if (registrosUnicos.isEmpty() && (request.getIdsParaBorrar() == null || request.getIdsParaBorrar().isEmpty())) return;
-
-        // ── Borrado de prestaciones limpiadas por el usuario (Batch Delete) ─────────
-        if (request.getIdsParaBorrar() != null && !request.getIdsParaBorrar().isEmpty()) {
-            List<NotaDeCredito> ncsABorrar = notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(request.getIdsParaBorrar());
-            if (!ncsABorrar.isEmpty()) {
-                log.info("Eliminando {} NotaDeCredito por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
-                notaDeCreditoRepository.deleteAll(ncsABorrar);
-            }
-        }
+        if (registrosUnicos.isEmpty()) return;
 
         List<Integer> idsPrestaciones = new ArrayList<>(registrosUnicos.keySet());
 
@@ -931,7 +948,6 @@ public class AuditoriaService {
             Integer diasFacturados = parsearEntero(p.getDiasFacturados());
             String prestacionEnglobante = p.getPrestacionEnglobante() != null ? p.getPrestacionEnglobante() : "";
 
-            String origenBase = resolverTipoBase(documentoOrigen);
             if ("FC".equals(origenBase)) {
                 NotaDeCredito nc = notasCreditoExistentesMap.get(idPrestacion);
                 if (nc == null) {

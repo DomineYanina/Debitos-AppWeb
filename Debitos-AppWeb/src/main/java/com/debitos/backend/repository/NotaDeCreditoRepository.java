@@ -74,6 +74,21 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
     Optional<NotaDeCredito> findByNotaDeDebitoPadreId(Integer idNotaDeDebito);
 
     @Query(value = """
+        SELECT nc.* FROM notadecredito nc
+        INNER JOIN notadedebito nd ON nc.id_notadedebito = nd.id
+        INNER JOIN cabecera c ON nd.idcabecera = c.id
+        WHERE UPPER(c.letra) = UPPER(:letra)
+          AND c.ptovta = :ptovta
+          AND c.numero = :numero
+          AND nc.id_prestacion IN :idsPrestacion
+        """, nativeQuery = true)
+    List<NotaDeCredito> findByNdPadreCabeceraAndPrestacionIds(
+            @Param("letra") String letra,
+            @Param("ptovta") Integer ptovta,
+            @Param("numero") Integer numero,
+            @Param("idsPrestacion") java.util.Collection<Integer> idsPrestacion);
+
+    @Query(value = """
         SELECT CASE
             WHEN COUNT(al.id) > 0
                  AND COUNT(nc.id) = COUNT(al.id)
@@ -269,7 +284,15 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
         SELECT
           COALESCE(NULLIF(TRIM(nc.motivodedebito), ''), 'Sin motivo especificado') AS motivo,
           SUM(COALESCE(nc.importederefactura, 0)) AS refacturado,
-          SUM(CASE WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0) ELSE 0 END) AS perdida
+          SUM(
+            CASE 
+              WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0)
+              WHEN COALESCE(nc.importederefactura, 0) > 0 
+                   AND COALESCE(nc.importedebitado, 0) > COALESCE(nc.importederefactura, 0)
+                THEN (COALESCE(nc.importedebitado, 0) - COALESCE(nc.importederefactura, 0))
+              ELSE 0 
+            END
+          ) AS perdida
         FROM notadecredito nc
         GROUP BY 1
         ORDER BY 2 DESC, 3 DESC

@@ -121,8 +121,8 @@ class DirectorioServiceTest {
     @DisplayName("obtenerDistribucionMotivos calcula montos y porcentajes agrupados")
     void testObtenerDistribucionMotivos() {
         List<Object[]> rows = new ArrayList<>();
-        rows.add(new Object[]{"Falta de autorización", new BigDecimal("75000.00"), 15L});
-        rows.add(new Object[]{"Falta firma", new BigDecimal("25000.00"), 5L});
+        rows.add(new Object[]{"Falta de autorización", new BigDecimal("75000.00"), 15L, new BigDecimal("30000.00"), new BigDecimal("45000.00")});
+        rows.add(new Object[]{"Falta firma", new BigDecimal("25000.00"), 5L, new BigDecimal("25000.00"), BigDecimal.ZERO});
 
         when(mockQuery.getResultList()).thenReturn(rows);
 
@@ -134,9 +134,13 @@ class DirectorioServiceTest {
         assertEquals(new BigDecimal("75000.00"), motivos.get(0).getMontoTotal());
         assertEquals(new BigDecimal("75.00"), motivos.get(0).getPorcentaje());
         assertEquals(15L, motivos.get(0).getCantidadCasos());
+        assertEquals(new BigDecimal("40.00"), motivos.get(0).getPorcentajeAceptados());
+        assertEquals(new BigDecimal("60.00"), motivos.get(0).getPorcentajeRefacturados());
 
         assertEquals("Falta firma", motivos.get(1).getMotivo());
         assertEquals(new BigDecimal("25.00"), motivos.get(1).getPorcentaje());
+        assertEquals(new BigDecimal("100.00"), motivos.get(1).getPorcentajeAceptados());
+        assertEquals(new BigDecimal("0.00"), motivos.get(1).getPorcentajeRefacturados());
     }
 
     @Test
@@ -553,29 +557,29 @@ class DirectorioServiceTest {
         List<RangoAntiguedadDTO> detalles = dto.getDetalles();
         assertEquals(6, detalles.size());
 
-        // 0 a 30 días
-        assertEquals("De 0 a 30 días", detalles.get(0).getRango());
+        // 0 a 45 días
+        assertEquals("De 0 a 45 días", detalles.get(0).getRango());
         assertEquals(1, detalles.get(0).getCantidadComprobantes());
         assertEquals(new BigDecimal("1000.00"), detalles.get(0).getSaldoEnMora());
         assertEquals(new BigDecimal("10.0"), detalles.get(0).getPorcentajeCartera());
 
-        // 31 a 60 días
-        assertEquals("De 31 a 60 días", detalles.get(1).getRango());
+        // 46 a 75 días
+        assertEquals("De 46 a 75 días", detalles.get(1).getRango());
         assertEquals(0, detalles.get(1).getCantidadComprobantes());
         assertEquals(BigDecimal.ZERO, detalles.get(1).getSaldoEnMora());
         assertEquals(0, BigDecimal.ZERO.compareTo(detalles.get(1).getPorcentajeCartera()));
 
-        // 61 a 90 días
-        assertEquals("De 61 a 90 días", detalles.get(2).getRango());
+        // 76 a 105 días
+        assertEquals("De 76 a 105 días", detalles.get(2).getRango());
         assertEquals(0, detalles.get(2).getCantidadComprobantes());
         assertEquals(BigDecimal.ZERO, detalles.get(2).getSaldoEnMora());
 
-        // 91 a 180 días
-        assertEquals("De 91 a 180 días", detalles.get(3).getRango());
+        // 106 a 135 días
+        assertEquals("De 106 a 135 días", detalles.get(3).getRango());
         assertEquals(0, detalles.get(3).getCantidadComprobantes());
 
-        // Más de 180 días
-        assertEquals("Más de 180 días", detalles.get(4).getRango());
+        // Más de 135 días
+        assertEquals("Más de 135 días", detalles.get(4).getRango());
         assertEquals(1, detalles.get(4).getCantidadComprobantes());
         assertEquals(new BigDecimal("7000.00"), detalles.get(4).getSaldoEnMora());
         assertEquals(new BigDecimal("70.0"), detalles.get(4).getPorcentajeCartera());

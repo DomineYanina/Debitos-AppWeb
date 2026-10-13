@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, ChangeDetectorRef, AfterViewInit, HostListener } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef, AfterViewInit, HostListener, ChangeDetectionStrategy, OnDestroy } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
 import {
   Chart,
@@ -54,13 +55,17 @@ interface SliceDonut {
   standalone: true,
   imports: [CommonModule, FormsModule, BaseChartDirective, CurrencyPipe],
   templateUrl: './directorio-dashboard.component.html',
-  styleUrl: './directorio-dashboard.component.css'
+  styleUrl: './directorio-dashboard.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
+export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private directorioService = inject(DirectorioService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
+
+  private readonly destroy$ = new Subject<void>();
+  private readonly cancelarPeticionesEnVuelo$ = new Subject<void>();
 
   private readonly SOLAPAS_VALIDAS = new Set([
     'tablero',
@@ -127,7 +132,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       solapa === 'matriz-cobranzas' ||
       solapa === 'bucles' ||
       solapa === 'analistas' ||
-      solapa === 'medicos'
+      solapa === 'medicos' ||
+      solapa === 'usuarios-carga'
     ) {
       this.tipoDocSeleccionado = 'TODOS';
     }
@@ -156,10 +162,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     switch (solapa) {
       case 'tablero':
         this.cargarTotales();
-        this.cargarGrupos();
-        this.cargarMotivos();
         this.cargarBalanceFinanciero();
-        this.cargarDistribucionCartera();
         this.cargarEvolucionMensual();
         break;
       case 'cuenta-corriente':
@@ -202,9 +205,31 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   tipoDocSeleccionado: string = 'TODOS';
   fechaDesde: string = '';
   fechaHasta: string = '';
+  fechaDesdeAplicada: string = '';
+  fechaHastaAplicada: string = '';
+  fechaMinimaPermitida: string = '2024-07-01';
   errorFechaDesde: string | null = null;
   errorFechaHasta: string | null = null;
   errorRangoFechas: string | null = null;
+
+  get hayFiltrosFechasPendientes(): boolean {
+    if (this.esFiltroFechaDeshabilitado) return false;
+    return (
+      (!!this.fechaDesde && this.fechaDesde !== this.fechaDesdeAplicada) ||
+      (!!this.fechaHasta && this.fechaHasta !== this.fechaHastaAplicada)
+    );
+  }
+
+  get noPuedeIrAlMesAnterior(): boolean {
+    if (!this.fechaDesde) return false;
+    const parts = this.fechaDesde.split('-');
+    if (parts.length !== 3) return false;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const ultimoDiaMesAnterior = new Date(year, month, 0);
+    const isoFin = this.formatearFechaIso(ultimoDiaMesAnterior);
+    return isoFin < this.fechaMinimaPermitida;
+  }
 
   get esRangoFechasValido(): boolean {
     if (this.esFiltroFechaDeshabilitado) {
@@ -297,6 +322,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   cargandoAnalistas: boolean = false;
   cargandoMedicos: boolean = false;
   cargandoOperadores: boolean = false;
+  cargandoTiemposCobranza: boolean = false;
 
   // Datos
   cuentaCorrienteDatos: CcFinanciadorDTO[] = [];
@@ -333,11 +359,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   medicosDatos: MetricaMedicoDTO[] = [];
   filtroMedicoSeleccionado: string = 'TODOS';
+  busquedaTextoMedico: string = '';
+  medicosPaginaActual: number = 1;
+  medicosItemsPorPagina: number = 25;
+  medicosOpcionesItemsPorPagina: number[] = [25, 50, 100];
   columnaOrdenMedico: string = '';
   direccionOrdenMedico: 'asc' | 'desc' = 'desc';
   pasoOrdenMedico: number = 0;
 
   operadoresDatos: MetricaOperadorDTO[] = [];
+  filtroOperadorSeleccionado: string = 'TODOS';
+  busquedaTextoOperador: string = '';
+  operadoresPaginaActual: number = 1;
+  operadoresItemsPorPagina: number = 25;
+  operadoresOpcionesItemsPorPagina: number[] = [25, 50, 100];
   columnaOrdenOperador: string = '';
   direccionOrdenOperador: 'asc' | 'desc' = 'desc';
   pasoOrdenOperador: number = 0;
@@ -541,22 +576,22 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   /** Colores por rango: 5 tramos cobrados + 1 tramo aún no cobrado */
   readonly COLORES_AGING = [
-    '#059669',  // De 0 a 30 días   (verde esmeralda)
-    '#0284c7',  // De 31 a 60 días  (celeste)
-    '#2563eb',  // De 61 a 90 días  (azul)
-    '#d97706',  // De 91 a 180 días (ámbar)
-    '#7c3aed',  // Más de 180 días  (púrpura)
+    '#059669',  // De 0 a 45 días   (verde esmeralda)
+    '#0284c7',  // De 46 a 75 días  (celeste)
+    '#2563eb',  // De 76 a 105 días (azul)
+    '#d97706',  // De 106 a 135 días (ámbar)
+    '#7c3aed',  // Más de 135 días  (púrpura)
     '#dc2626'   // Aún no cobrados  (rojo alerta)
   ];
 
   obtenerColorRango(rango: string): string {
     const r = (rango || '').toLowerCase();
     if (r.includes('aún no') || r.includes('aun no') || r.includes('no cobrad')) return '#dc2626';
-    if (r.includes('0 a 30')) return '#059669';
-    if (r.includes('31 a 60')) return '#0284c7';
-    if (r.includes('61 a 90')) return '#2563eb';
-    if (r.includes('91 a 180')) return '#d97706';
-    if (r.includes('180')) return '#7c3aed';
+    if (r.includes('0 a 45') || r.includes('0 a 30')) return '#059669';
+    if (r.includes('46 a 75') || r.includes('31 a 60')) return '#0284c7';
+    if (r.includes('76 a 105') || r.includes('61 a 90')) return '#2563eb';
+    if (r.includes('106 a 135') || r.includes('91 a 180')) return '#d97706';
+    if (r.includes('135') || r.includes('180')) return '#7c3aed';
     return '#64748b';
   }
 
@@ -676,6 +711,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.inicializarFechasMesAnterior();
 
+    this.directorioService.obtenerFechaMinimaFiltro().subscribe({
+      next: (res) => {
+        if (res && res.fechaMinima) {
+          this.fechaMinimaPermitida = res.fechaMinima;
+          if (this.fechaDesde && this.fechaDesde < this.fechaMinimaPermitida) {
+            this.fechaDesde = this.fechaMinimaPermitida;
+          }
+          this.validarFechas();
+          this.cdr.markForCheck();
+        }
+      },
+      error: (err) => console.error('Error al obtener fecha mínima permitida:', err)
+    });
+
     this.route.queryParamMap.subscribe((params) => {
       const solapaParam = params.get('solapa');
       if (solapaParam && this.esSolapaValida(solapaParam)) {
@@ -697,6 +746,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       if (fHasta) {
         this.fechaHasta = fHasta;
       }
+      this.fechaDesdeAplicada = this.fechaDesde;
+      this.fechaHastaAplicada = this.fechaHasta;
       this.validarFechas();
 
       this.cargarCoberturas();
@@ -716,6 +767,17 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.actualizarAlturasSticky();
   }
 
+  ngOnDestroy(): void {
+    this.cancelarPeticionesEnVuelo$.next();
+    this.cancelarPeticionesEnVuelo$.complete();
+    this.destroy$.next();
+    this.destroy$.complete();
+    if (this.debounceFiltroTimer) {
+      clearTimeout(this.debounceFiltroTimer);
+      this.debounceFiltroTimer = null;
+    }
+  }
+
   @HostListener('window:resize')
   onWindowResize(): void {
     this.actualizarAlturasSticky();
@@ -725,47 +787,72 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
    * Mide dinámicamente la altura real de la cabecera (thead) y filas expandidas de las tablas,
    * asignando las variables CSS correspondientes para que las filas fijas encajen a la perfección
    * sin superposiciones ni saltos al hacer scroll vertical.
+   * Optimizado por lotes (Lecturas -> Escrituras) en requestAnimationFrame para evitar Layout Thrashing.
    */
   actualizarAlturasSticky(): void {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       const tables = document.querySelectorAll('.table-sanatorial');
+      if (!tables || tables.length === 0) return;
+
+      // FASE 1: Lecturas en lote (sin invalidar layout entre tablas)
+      const updates: Array<{
+        table: HTMLElement;
+        theadHeight: number;
+        l1Height: number;
+        l2Height: number;
+      }> = [];
+
       tables.forEach((tableEl) => {
         const table = tableEl as HTMLElement;
         if (table.offsetParent === null && table.offsetWidth === 0 && table.offsetHeight === 0) {
           return;
         }
 
-        const thead = table.querySelector('thead');
-        if (thead) {
-          const theadHeight = Math.round(thead.getBoundingClientRect().height);
-          if (theadHeight > 0) {
-            table.style.setProperty('--sticky-header-top', `${theadHeight}px`);
+        let theadHeight = 0;
+        const th = table.querySelector('thead th');
+        if (th) {
+          theadHeight = Math.round(th.getBoundingClientRect().height);
+        } else {
+          const thead = table.querySelector('thead');
+          if (thead) {
+            theadHeight = Math.round(thead.getBoundingClientRect().height);
           }
         }
 
-        // Fila Nivel 1 expandida
+        let l1Height = 0;
         const l1Expanded = table.querySelector(
           'tr.is-expanded.tr-analista, tr.is-expanded.tr-financiador, tr.is-expanded.tr-parent-nivel1'
         ) as HTMLElement | null;
         if (l1Expanded) {
-          const l1Height = Math.round(l1Expanded.getBoundingClientRect().height);
-          if (l1Height > 0) {
-            table.style.setProperty('--sticky-l1-height', `${l1Height}px`);
-          }
+          const td = l1Expanded.querySelector('td');
+          l1Height = Math.round((td || l1Expanded).getBoundingClientRect().height);
         }
 
-        // Fila Nivel 2 expandida
+        let l2Height = 0;
         const l2Expanded = table.querySelector(
           'tr.is-expanded.tr-motivo, tr.is-expanded.tr-periodo'
         ) as HTMLElement | null;
         if (l2Expanded) {
-          const l2Height = Math.round(l2Expanded.getBoundingClientRect().height);
-          if (l2Height > 0) {
-            table.style.setProperty('--sticky-l2-height', `${l2Height}px`);
-          }
+          const td = l2Expanded.querySelector('td');
+          l2Height = Math.round((td || l2Expanded).getBoundingClientRect().height);
         }
+
+        updates.push({ table, theadHeight, l1Height, l2Height });
       });
-    }, 40);
+
+      // FASE 2: Escrituras en lote (aplica propiedades CSS sin re-leer layout)
+      for (const u of updates) {
+        if (u.theadHeight > 0) {
+          u.table.style.setProperty('--sticky-header-top', `${u.theadHeight}px`);
+        }
+        if (u.l1Height > 0) {
+          u.table.style.setProperty('--sticky-l1-height', `${u.l1Height}px`);
+        }
+        if (u.l2Height > 0) {
+          u.table.style.setProperty('--sticky-l2-height', `${u.l2Height}px`);
+        }
+      }
+    });
   }
 
   // Establece por defecto el primer y último día del mes anterior
@@ -776,6 +863,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.fechaDesde = this.formatearFechaIso(primerDiaMesAnterior);
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesAnterior);
+    this.fechaDesdeAplicada = this.fechaDesde;
+    this.fechaHastaAplicada = this.fechaHasta;
     this.validarFechas();
   }
 
@@ -813,7 +902,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     }
 
     const anioMinimo = 2000;
-    const anioMaximo = new Date().getFullYear() + 1;
+    const anioMaximo = Math.max(new Date().getFullYear() + 5, 2035);
 
     if (anio < anioMinimo) {
       return `El año no puede ser anterior a ${anioMinimo}`;
@@ -886,32 +975,94 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       return false;
     }
 
+    if (this.fechaDesde && this.fechaMinimaPermitida && this.fechaDesde < this.fechaMinimaPermitida) {
+      this.errorFechaDesde = `La fecha mínima permitida es ${this.fechaMinimaPermitida}`;
+      return false;
+    }
+
     this.errorRangoFechas = null;
     return true;
   }
 
   onFechaInput(event: Event, tipo: 'desde' | 'hasta'): void {
     const input = event.target as HTMLInputElement;
-    if (input && input.validity && input.validity.badInput) {
+    if (!input) return;
+
+    // Si el usuario está tipeando (badInput es true durante el ingreso de los dígitos del año),
+    // no mostramos mensaje de error para evitar parpadeos agresivos y permitir completar los 4 dígitos.
+    if (input.validity && input.validity.badInput) {
       if (tipo === 'desde') {
-        this.errorFechaDesde = 'Fecha incompleta o inválida';
+        this.errorFechaDesde = null;
       } else {
-        this.errorFechaHasta = 'Fecha incompleta o inválida';
+        this.errorFechaHasta = null;
       }
       this.cdr.markForCheck();
       return;
     }
+
+    if (!input.value) {
+      if (tipo === 'desde') {
+        this.errorFechaDesde = null;
+      } else {
+        this.errorFechaHasta = null;
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // Detectar si el usuario está a mitad del tipeo del año (ej. '0002', '0020', año < 1000)
+    const partes = input.value.split('-');
+    if (partes.length === 3) {
+      const anioNum = parseInt(partes[0], 10);
+      if (partes[0].startsWith('0') || (anioNum > 0 && anioNum < 1000)) {
+        if (tipo === 'desde') {
+          this.fechaDesde = input.value;
+          this.errorFechaDesde = null;
+        } else {
+          this.fechaHasta = input.value;
+          this.errorFechaHasta = null;
+        }
+        this.errorRangoFechas = null;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
+
+    // El usuario ingresó una fecha completa válida (YYYY-MM-DD)
+    if (tipo === 'desde') {
+      this.fechaDesde = input.value;
+      this.errorFechaDesde = null;
+    } else {
+      this.fechaHasta = input.value;
+      this.errorFechaHasta = null;
+    }
+
     this.validarFechas();
     this.cdr.markForCheck();
   }
 
   onFechaBlur(event: Event, tipo: 'desde' | 'hasta'): void {
     const input = event.target as HTMLInputElement;
-    if (input && input.validity && input.validity.badInput) {
-      if (tipo === 'desde') {
-        this.errorFechaDesde = 'Fecha incompleta o inválida';
+    if (input) {
+      if (input.validity && input.validity.badInput) {
+        if (tipo === 'desde') {
+          this.errorFechaDesde = 'Fecha incompleta o inválida';
+        } else {
+          this.errorFechaHasta = 'Fecha incompleta o inválida';
+        }
+      } else if (!input.value) {
+        if (tipo === 'desde') {
+          this.errorFechaDesde = 'Debe ingresar una fecha';
+        } else {
+          this.errorFechaHasta = 'Debe ingresar una fecha';
+        }
       } else {
-        this.errorFechaHasta = 'Fecha incompleta o inválida';
+        if (tipo === 'desde') {
+          this.fechaDesde = input.value;
+        } else {
+          this.fechaHasta = input.value;
+        }
+        this.validarFechas();
       }
     } else {
       this.validarFechas();
@@ -950,39 +1101,43 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
+  private resetearEstadosCarga(): void {
+    this.cargandoTotales = false;
+    this.cargandoGrupos = false;
+    this.cargandoMotivos = false;
+    this.cargandoCuentaCorriente = false;
+    this.cargandoMatriz = false;
+    this.cargandoTrazabilidad = false;
+    this.cargandoBucles = false;
+    this.cargandoAnalistas = false;
+    this.cargandoMedicos = false;
+    this.cargandoOperadores = false;
+    this.cargandoBalance = false;
+    this.cargandoTiemposCobranza = false;
+    this.cargandoGraficos = false;
+    this.graficosPendientes = 0;
+  }
+
   cargarDashboard(): void {
+    this.cancelarPeticionesEnVuelo$.next();
+    this.resetearEstadosCarga();
     this.solapasCargadas.clear();
     this.cargarDatosSolapa(this.solapaActiva, true);
   }
 
   onFechaDesdeChange(): void {
-    if (this.fechaDesde && this.fechaHasta && this.fechaDesde > this.fechaHasta) {
-      this.fechaDesde = this.fechaHasta;
-      this.cdr.markForCheck();
-    }
     this.validarFechas();
-    if (this.esRangoFechasValido) {
-      this.dispararFiltroDebounced();
-    }
+    this.cdr.markForCheck();
   }
 
   onFechaHastaChange(): void {
-    if (this.fechaDesde && this.fechaHasta && this.fechaHasta < this.fechaDesde) {
-      this.fechaHasta = this.fechaDesde;
-      this.cdr.markForCheck();
-    }
     this.validarFechas();
-    if (this.esRangoFechasValido) {
-      this.dispararFiltroDebounced();
-    }
+    this.cdr.markForCheck();
   }
 
   validarRangoFechas(): void {
-    if (this.fechaDesde && this.fechaHasta && this.fechaHasta < this.fechaDesde) {
-      this.fechaHasta = this.fechaDesde;
-      this.cdr.markForCheck();
-    }
     this.validarFechas();
+    this.cdr.markForCheck();
   }
 
   aplicarFiltros(): void {
@@ -995,10 +1150,16 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       this.cdr.markForCheck();
       return;
     }
+    this.fechaDesdeAplicada = this.fechaDesde;
+    this.fechaHastaAplicada = this.fechaHasta;
     this.cargarDashboard();
   }
 
   irAlMesAnterior(): void {
+    if (this.noPuedeIrAlMesAnterior) {
+      return;
+    }
+
     let baseDate = new Date();
     if (this.fechaDesde) {
       const parts = this.fechaDesde.split('-');
@@ -1019,8 +1180,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const primerDiaMesAnterior = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
     const ultimoDiaMesAnterior = new Date(baseDate.getFullYear(), baseDate.getMonth(), 0);
 
-    this.fechaDesde = this.formatearFechaIso(primerDiaMesAnterior);
-    this.fechaHasta = this.formatearFechaIso(ultimoDiaMesAnterior);
+    let fDesdeIso = this.formatearFechaIso(primerDiaMesAnterior);
+    let fHastaIso = this.formatearFechaIso(ultimoDiaMesAnterior);
+
+    if (fHastaIso < this.fechaMinimaPermitida) {
+      return;
+    }
+    if (fDesdeIso < this.fechaMinimaPermitida) {
+      fDesdeIso = this.fechaMinimaPermitida;
+    }
+
+    this.fechaDesde = fDesdeIso;
+    this.fechaHasta = fHastaIso;
+    this.fechaDesdeAplicada = this.fechaDesde;
+    this.fechaHastaAplicada = this.fechaHasta;
     this.validarFechas();
 
     this.cargarDashboard();
@@ -1049,6 +1222,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
     this.fechaDesde = this.formatearFechaIso(primerDiaMesSiguiente);
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesSiguiente);
+    this.fechaDesdeAplicada = this.fechaDesde;
+    this.fechaHastaAplicada = this.fechaHasta;
     this.validarFechas();
 
     this.cargarDashboard();
@@ -1082,54 +1257,65 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   cargarTotales(): void {
     this.cargandoTotales = true;
-    this.directorioService.obtenerTotales(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta).subscribe({
-      next: (data) => {
-        this.totales = data || {
-          totalFacturado: 0,
-          cobranzaEfectiva: 0,
-          perdidaAsumida: 0,
-          deudaNeta: 0,
-          cantidadFacturas: 0,
-          cantidadComprobantes: 0
-        };
-        this.cargandoTotales = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error al cargar totales:', err);
-        this.cargandoTotales = false;
-        this.cdr.markForCheck();
-      }
-    });
+    this.directorioService.obtenerTotales(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.totales = data || {
+            totalFacturado: 0,
+            cobranzaEfectiva: 0,
+            perdidaAsumida: 0,
+            deudaNeta: 0,
+            cantidadFacturas: 0,
+            cantidadComprobantes: 0
+          };
+          this.cargandoTotales = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Error al cargar totales:', err);
+          this.cargandoTotales = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   cargarGrupos(): void {
     this.cargandoGrupos = true;
-    this.directorioService.obtenerGrupos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta).subscribe({
-      next: (data: any) => {
-        const items: DirectorioGrupoFactura[] = Array.isArray(data) ? data : (data?.content || []);
-        this.gruposFacturas = items.map(g => ({ ...g, expandido: false }));
-        this.cargandoGrupos = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error al cargar grupos:', err);
-        this.cargandoGrupos = false;
-        this.cdr.markForCheck();
-      }
-    });
+    this.directorioService.obtenerGrupos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: any) => {
+          const items: DirectorioGrupoFactura[] = Array.isArray(data) ? data : (data?.content || []);
+          this.gruposFacturas = items.map(g => ({ ...g, expandido: false }));
+          this.cargandoGrupos = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Error al cargar grupos:', err);
+          this.cargandoGrupos = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   cargarMotivos(): void {
     this.cargandoMotivos = true;
-    this.directorioService.obtenerMotivos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.obtenerMotivos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data: any) => {
         const items: DirectorioMotivoDebito[] = Array.isArray(data) ? data : (data?.content || []);
         this.motivosDebito = items.map((m, idx) => ({
           ...m,
+          montoAceptado: m.montoAceptado ?? 0,
+          montoRefacturado: m.montoRefacturado ?? 0,
+          porcentajeAceptados: m.porcentajeAceptados ?? 0,
+          porcentajeRefacturados: m.porcentajeRefacturados ?? 0,
           _originalIndex: idx,
           color: this.paletaColores[idx % this.paletaColores.length]
         }));
+        this.totalDebitadoGeneralCalculado = this.motivosDebito.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
         if (this.columnaOrdenMotivos) {
           this.aplicarOrdenMotivos();
         } else {
@@ -1256,8 +1442,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     return '';
   }
 
+  totalDebitadoGeneralCalculado: number = 0;
+
   obtenerTotalDebitadoGeneral(): number {
-    return this.motivosDebito.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
+    return this.totalDebitadoGeneralCalculado || (this.motivosDebito || []).reduce((acc, m) => acc + (m.montoTotal || 0), 0);
   }
 
   // ---------------------------------------------------------------------------
@@ -1265,9 +1453,6 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   // ---------------------------------------------------------------------------
 
   get totalDebitadoMotivos(): number {
-    if (this.totales?.totalDebitosNc && this.totales.totalDebitosNc > 0) {
-      return this.totales.totalDebitosNc;
-    }
     return this.obtenerTotalDebitadoGeneral() || 0;
   }
 
@@ -1276,10 +1461,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   }
 
   get totalRefacturadoMotivos(): number {
-    return this.totales?.totalRefacturacionNd || 0;
+    return (this.motivosDebito || []).reduce((acc, m) => acc + (m.montoRefacturado || 0), 0);
   }
 
   get debitoAceptadoPerdidaMotivos(): number {
+    const sumaAceptado = (this.motivosDebito || []).reduce((acc, m) => acc + (m.montoAceptado || 0), 0);
+    if (sumaAceptado > 0) return sumaAceptado;
     const deb = this.totalDebitadoMotivos;
     const ref = this.totalRefacturadoMotivos;
     return Math.max(0, deb - ref);
@@ -1293,9 +1480,6 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   }
 
   get tasaRecuperoMotivos(): number {
-    if (this.totales?.tasaRecupero !== undefined && this.totales?.tasaRecupero !== null && this.totales.tasaRecupero > 0) {
-      return Math.round(this.totales.tasaRecupero);
-    }
     const deb = this.totalDebitadoMotivos;
     if (!deb || deb <= 0) return 0;
     const ref = this.totalRefacturadoMotivos;
@@ -1339,26 +1523,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   }
 
   private cargarDistribucionCartera(): void {
+    // Si la dona ya fue nutrida directamente por el balance financiero, evitamos la petición duplicada
+    if (this.puntosDonut && this.puntosDonut.length > 0 && !this.cargandoBalance) {
+      return;
+    }
     if (!this.directorioService.getCarteraDonut) return;
     this.iniciarCargaGrafico();
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
 
-    this.directorioService.getCarteraDonut(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getCarteraDonut(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (puntos: PuntoDonutDTO[]) => {
-        this.puntosDonut = puntos || [];
-        const labels = (puntos || []).map(p => p.etiqueta);
-        const data = (puntos || []).map(p => Number(p.saldo));
-        this.distribucionChartData = {
-          labels,
-          datasets: [{
-            data,
-            backgroundColor: this.COLORES_DONA.slice(0, labels.length),
-            borderColor: '#1e293b',
-            borderWidth: 2,
-            hoverOffset: 8
-          }]
-        };
+        this.actualizarGraficoDonut(puntos);
         this.finalizarCargaGrafico();
       },
       error: (err) => {
@@ -1366,6 +1544,23 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         this.finalizarCargaGrafico();
       }
     });
+  }
+
+  private actualizarGraficoDonut(puntos: PuntoDonutDTO[]): void {
+    this.puntosDonut = puntos || [];
+    const labels = (puntos || []).map(p => p.etiqueta);
+    const data = (puntos || []).map(p => Number(p.saldo));
+    this.distribucionChartData = {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: this.COLORES_DONA.slice(0, labels.length),
+        borderColor: '#1e293b',
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    };
+    this.cdr.markForCheck();
   }
 
   onDistribucionChartClick(e: { event?: any; active?: any[] }): void {
@@ -1445,7 +1640,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
 
-    this.directorioService.getBalanceFinanciero(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getBalanceFinanciero(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data: BalanceFinanciadorDTO[]) => {
         this.balanceFinanciadores = (data || []).map((b, idx) => ({
           ...b,
@@ -1455,11 +1652,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           this.aplicarOrdenBalance();
         }
         this.calcularTotalesBalance();
+        // Sincronizar inmediatamente la dona de distribución de cartera con los saldos calculados del balance
+        const puntosDonut = (data || [])
+          .filter(b => Number(b.saldoPendiente || 0) > 0)
+          .map(b => ({
+            etiqueta: b.financiador,
+            saldo: Number(b.saldoPendiente || 0)
+          }));
+        this.actualizarGraficoDonut(puntosDonut);
         this.cargandoBalance = false;
         this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error al cargar balance financiero:', err);
+        this.actualizarGraficoDonut([]);
         this.cargandoBalance = false;
         this.cdr.markForCheck();
       }
@@ -1492,7 +1698,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
 
-    this.directorioService.getEvolucionMensual(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getEvolucionMensual(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (datasets: DatasetGraficoDTO[]) => {
         if (!datasets || datasets.length < 3) {
           this.finalizarCargaGrafico();
@@ -1590,13 +1798,16 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   private cargarAgingFinanciero(): void {
     if (!this.directorioService.getTiemposCobranza) return;
+    this.cargandoTiemposCobranza = true;
     this.iniciarCargaGrafico();
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = !this.esFiltroTipoDocDeshabilitado && this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
     const fDesde = !this.esFiltroFechaDeshabilitado ? (this.fechaDesde || undefined) : undefined;
     const fHasta = !this.esFiltroFechaDeshabilitado ? (this.fechaHasta || undefined) : undefined;
 
-    this.directorioService.getTiemposCobranza(codCob, tipoDoc, fDesde, fHasta).subscribe({
+    this.directorioService.getTiemposCobranza(codCob, tipoDoc, fDesde, fHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (res: TiemposCobranzaDTO) => {
         this.tiemposCobranzaDatos = res;
         const detalles = res?.detalles ?? [];
@@ -1610,11 +1821,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
             maxBarThickness: 75
           }]
         };
+        this.cargandoTiemposCobranza = false;
         this.finalizarCargaGrafico();
         this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error al cargar tiempos de cobranza:', err);
+        this.cargandoTiemposCobranza = false;
         this.finalizarCargaGrafico();
         this.cdr.markForCheck();
       }
@@ -1627,7 +1840,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
 
-    this.directorioService.getParetoMotivos(codCob, tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getParetoMotivos(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (datasets: DatasetGraficoDTO[]) => {
         if (!datasets || datasets.length < 2 || !datasets[0]?.puntos?.length) {
           this.motivosChartData = {
@@ -1699,7 +1914,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const fDesde = this.fechaDesde || undefined;
     const fHasta = this.fechaHasta || undefined;
 
-    this.directorioService.getCuentaCorrienteTresNiveles(financiador, undefined, fDesde, fHasta).subscribe({
+    this.directorioService.getCuentaCorrienteTresNiveles(financiador, undefined, fDesde, fHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data) => {
         this.cuentaCorrienteDatos = (data || []).map((f, idxF) => ({
           ...f,
@@ -1736,21 +1953,56 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   toggleFinanciador(f: CcFinanciadorDTO): void {
     f.expanded = !f.expanded;
+    this.cdr.markForCheck();
     this.actualizarAlturasSticky();
   }
 
   togglePeriodo(p: CcPeriodoDTO): void {
     p.expanded = !p.expanded;
+    this.cdr.markForCheck();
     this.actualizarAlturasSticky();
   }
 
   toggleFactura(fc: CcComprobanteDTO): void {
     fc.expanded = !fc.expanded;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  // Paginación Cuenta Corriente (Nivel 1: Financiadores)
+  ccPaginaActual: number = 1;
+  ccItemsPorPagina: number = 15;
+  readonly ccOpcionesItemsPorPagina: number[] = [10, 15, 25, 50];
+
+  get totalPaginasCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 1;
+    return Math.ceil(this.cuentaCorrienteDatos.length / this.ccItemsPorPagina);
+  }
+
+  get cuentaCorrienteDatosPaginados(): CcFinanciadorDTO[] {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return [];
+    const inicio = (this.ccPaginaActual - 1) * this.ccItemsPorPagina;
+    return this.cuentaCorrienteDatos.slice(inicio, inicio + this.ccItemsPorPagina);
+  }
+
+  cambiarPaginaCc(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginasCc) {
+      this.ccPaginaActual = pagina;
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
+  onCcItemsPorPaginaChange(tamano: any): void {
+    this.ccItemsPorPagina = Number(tamano) || 15;
+    this.ccPaginaActual = 1;
+    this.cdr.markForCheck();
     this.actualizarAlturasSticky();
   }
 
   expandirTodosCuentaCorriente(expandir: boolean): void {
-    this.cuentaCorrienteDatos.forEach(f => {
+    const lista = this.cuentaCorrienteDatosPaginados.length > 0 ? this.cuentaCorrienteDatosPaginados : this.cuentaCorrienteDatos;
+    lista.forEach(f => {
       f.expanded = expandir;
       f.periodos?.forEach(p => {
         p.expanded = expandir;
@@ -1790,7 +2042,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const anioConsulta = anio ?? this.matrizRecaudacion?.anioSeleccionado;
     const financiador = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
 
-    this.directorioService.getMatrizRecaudacion(anioConsulta, financiador).subscribe({
+    this.directorioService.getMatrizRecaudacion(anioConsulta, financiador)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data) => {
         if (data?.filas) {
           data.filas.forEach(f => {
@@ -1902,7 +2156,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.cargandoTrazabilidad = true;
     const financiador = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
 
-    this.directorioService.getTrazabilidad(financiador, undefined, undefined, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getTrazabilidad(financiador, undefined, undefined, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data) => {
         this.trazabilidadDatos = (data || []).map((c, idx) => ({
           ...c,
@@ -2107,9 +2363,41 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       return true;
     });
 
+    this.buclesPaginaActual = 1;
     if (this.columnaOrdenBucles) {
       this.aplicarOrdenBucles();
     }
+  }
+
+  // Paginación Bucles de Insistencia
+  buclesPaginaActual: number = 1;
+  buclesItemsPorPagina: number = 25;
+  readonly buclesOpcionesItemsPorPagina: number[] = [15, 25, 50, 100];
+
+  get totalPaginasBucles(): number {
+    if (!this.buclesDatos || this.buclesDatos.length === 0) return 1;
+    return Math.ceil(this.buclesDatos.length / this.buclesItemsPorPagina);
+  }
+
+  get buclesDatosPaginados(): CadenaTrazabilidadDTO[] {
+    if (!this.buclesDatos || this.buclesDatos.length === 0) return [];
+    const inicio = (this.buclesPaginaActual - 1) * this.buclesItemsPorPagina;
+    return this.buclesDatos.slice(inicio, inicio + this.buclesItemsPorPagina);
+  }
+
+  cambiarPaginaBucles(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginasBucles) {
+      this.buclesPaginaActual = pagina;
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
+  onBuclesItemsPorPaginaChange(tamano: any): void {
+    this.buclesItemsPorPagina = Number(tamano) || 25;
+    this.buclesPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
   }
 
   cargarBucles(): void {
@@ -2117,7 +2405,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.cargandoBucles = true;
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
 
-    this.directorioService.getBuclesInsistencia(codCob, undefined, undefined, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getBuclesInsistencia(codCob, undefined, undefined, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data) => {
         const chains = (data || []).map((c, idx) => ({
           ...c,
@@ -2125,12 +2415,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           expanded: false,
           prestaciones: (c.prestaciones || []).map(p => ({
             ...p,
-            expanded: (c.prestaciones?.length === 1)
+            expanded: false
           }))
         }));
         this.buclesTodos = chains;
         this.actualizarCoberturasBucles(chains);
         this.filtrarBuclesLocales();
+        this.buclesPaginaActual = 1;
         this.cargandoBucles = false;
         this.cdr.markForCheck();
         this.actualizarAlturasSticky();
@@ -2153,9 +2444,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       return;
     }
     this.cargandoAnalistas = true;
-    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+    const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoAnalistas(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getDesempenoAnalistas(periodo, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (analistas) => {
         this.analistasDatos = (analistas || []).map((a, idxA) => {
           const distinctFins = new Set<string>();
@@ -2209,9 +2502,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       return;
     }
     this.cargandoOperadores = true;
-    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+    const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (operadores) => {
         this.operadoresDatos = (operadores || []).map((op, idxOp) => ({
           ...op,
@@ -2232,6 +2527,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           this.aplicarOrdenOperadores();
         }
 
+        if (this.filtroOperadorSeleccionado !== 'TODOS' &&
+          !this.operadoresDatos.some(o => o.operador === this.filtroOperadorSeleccionado)) {
+          this.filtroOperadorSeleccionado = 'TODOS';
+        }
+        this.operadoresPaginaActual = 1;
+
         this.cargandoOperadores = false;
         this.cdr.markForCheck();
         this.actualizarAlturasSticky();
@@ -2250,9 +2551,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
       return;
     }
     this.cargandoMedicos = true;
-    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+    const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoMedicos(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getDesempenoMedicos(periodo, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (medicos) => {
         this.medicosDatos = (medicos || []).map((med, idxMed) => ({
           ...med,
@@ -2295,9 +2598,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     this.cargandoAnalistas = true;
     this.cargandoMedicos = true;
     this.cargandoOperadores = true;
-    const periodo = (this.fechaDesde && this.fechaHasta) ? this.fechaDesde.substring(0, 7) : undefined;
+    const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoGlobal(periodo, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.getDesempenoGlobal(periodo, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
       next: (data) => {
         this.analistasDatos = (data?.analistas || []).map((a, idxA) => {
           const distinctFins = new Set<string>();
@@ -2440,35 +2745,47 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const factor = this.direccionOrdenAnalista === 'asc' ? 1 : -1;
     const columna = this.columnaOrdenAnalista;
 
-    this.analistasDatos.sort((a, b) => {
-      switch (columna) {
-        case 'analista':
-          return (a.analista || '').localeCompare(b.analista || '') * factor;
-        case 'financiadores':
-          return ((a.cantidadFinanciadores || 0) - (b.cantidadFinanciadores || 0)) * factor;
-        case 'documentos':
-          return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
-        case 'aceptados':
-          return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
-        case 'refacturados':
-          return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
-        case 'ticket':
-          return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
-        case 'atencion':
-          return (((a.porcentajeAmb ?? 100)) - ((b.porcentajeAmb ?? 100))) * factor;
-        case 'recupero':
-          return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
-        default:
-          return 0;
-      }
-    });
+    // Detectar si hay algún motivo desplegado (Nivel 3 activo)
+    const hayMotivoDesplegado = this.analistasDatos.some(a =>
+      a.expanded && a.motivos?.some(m => m.expanded)
+    );
+    // Detectar si hay algún analista desplegado pero ningún motivo (Nivel 2 activo)
+    const hayAnalistaDesplegado = !hayMotivoDesplegado && this.analistasDatos.some(a => a.expanded);
 
-    if (this.columnaOrdenMotivoAnalista) {
-      this.aplicarOrdenMotivosAnalistas();
-      return;
+    // CASO 1: Si NO hay nada desplegado -> ordenar Nivel 1 (Analistas)
+    if (!hayMotivoDesplegado && !hayAnalistaDesplegado) {
+      this.analistasDatos.sort((a, b) => {
+        switch (columna) {
+          case 'analista':
+            return (a.analista || '').localeCompare(b.analista || '') * factor;
+          case 'financiadores':
+            return ((a.cantidadFinanciadores || 0) - (b.cantidadFinanciadores || 0)) * factor;
+          case 'documentos':
+          case 'casos':
+            return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
+          case 'monto':
+          case 'montoDebitado':
+            return ((a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0) -
+                    (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
+          case 'aceptados':
+            return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
+          case 'refacturados':
+            return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'ticket':
+            return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
+          case 'atencion':
+            return (((a.porcentajeAmb ?? 100)) - ((b.porcentajeAmb ?? 100))) * factor;
+          case 'recupero':
+            return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
+          default:
+            return 0;
+        }
+      });
     }
 
-    for (const a of this.analistasDatos) {
+    if (hayAnalistaDesplegado || (!hayMotivoDesplegado && !hayAnalistaDesplegado)) {
+      for (const a of this.analistasDatos) {
+        if (hayAnalistaDesplegado && !a.expanded) continue;
       if (a.motivos && a.motivos.length > 0) {
         a.motivos.sort((m1, m2) => {
           switch (columna) {
@@ -2477,7 +2794,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
             case 'financiadores':
               return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
             case 'documentos':
+            case 'casos':
               return ((m1.casos || 0) - (m2.casos || 0)) * factor;
+            case 'monto':
+            case 'montoDebitado':
+              return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
             case 'aceptados':
               return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
             case 'refacturados':
@@ -2502,40 +2823,111 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           }
         });
 
+          a.motivos = [...a.motivos];
+        }
+      }
+    }
+
+    // CASO 3: La menor categoría desplegada es Nivel 3 (Financiadores)
+    if (hayMotivoDesplegado) {
+      for (const a of this.analistasDatos) {
+        if (!a.expanded || !a.motivos) continue;
         for (const m of a.motivos) {
-          if (m.financiadores && m.financiadores.length > 0) {
-            m.financiadores.sort((f1, f2) => {
-              switch (columna) {
-                case 'analista':
-                  return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
-                case 'documentos':
-                  return ((f1.casos || 0) - (f2.casos || 0)) * factor;
-                case 'aceptados':
-                  return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
-                case 'refacturados':
-                  return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
-                case 'ticket': {
-                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
-                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
-                  const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
-                  const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
-                  return (tf1 - tf2) * factor;
-                }
-                case 'recupero': {
-                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
-                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
-                  const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
-                  const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
-                  return (rf1 - rf2) * factor;
-                }
-                default:
-                  return 0;
+          if (!m.expanded || !m.financiadores || m.financiadores.length === 0) continue;
+          m.financiadores.sort((f1, f2) => {
+            switch (columna) {
+              case 'analista':
+              case 'financiadores':
+                return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
+              case 'documentos':
+              case 'casos':
+                return ((f1.casos || 0) - (f2.casos || 0)) * factor;
+              case 'monto':
+              case 'montoDebitado': {
+                const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                return (mFin1 - mFin2) * factor;
               }
-            });
-            m.financiadores = [...m.financiadores];
+              case 'aceptados':
+                return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
+              case 'refacturados':
+                return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+              case 'ticket': {
+                const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
+                const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
+                return (tf1 - tf2) * factor;
+              }
+              case 'atencion': {
+                const amb1 = (f1 as any).porcentajeAmb ?? (f1.distribucionAtencion ? parseFloat(f1.distribucionAtencion) : 100);
+                const amb2 = (f2 as any).porcentajeAmb ?? (f2.distribucionAtencion ? parseFloat(f2.distribucionAtencion) : 100);
+                return (amb1 - amb2) * factor;
+              }
+              case 'recupero': {
+                const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
+                const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
+                return (rf1 - rf2) * factor;
+              }
+              default:
+                return 0;
+            }
+          });
+          m.financiadores = [...m.financiadores];
+        }
+      }
+    } else if (!hayAnalistaDesplegado) {
+      for (const a of this.analistasDatos) {
+        if (a.motivos) {
+          for (const m of a.motivos) {
+            if (m.financiadores && m.financiadores.length > 0) {
+              m.financiadores.sort((f1, f2) => {
+                switch (columna) {
+                  case 'analista':
+                  case 'financiadores':
+                    return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
+                  case 'documentos':
+                  case 'casos':
+                    return ((f1.casos || 0) - (f2.casos || 0)) * factor;
+                  case 'monto':
+                  case 'montoDebitado': {
+                    const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                    const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                    return (mFin1 - mFin2) * factor;
+                  }
+                  case 'aceptados':
+                    return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
+                  case 'refacturados':
+                    return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+                  case 'ticket': {
+                    const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                    const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                    const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
+                    const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
+                    return (tf1 - tf2) * factor;
+                  }
+                  case 'atencion': {
+                    const amb1 = (f1 as any).porcentajeAmb ?? (f1.distribucionAtencion ? parseFloat(f1.distribucionAtencion) : 100);
+                    const amb2 = (f2 as any).porcentajeAmb ?? (f2.distribucionAtencion ? parseFloat(f2.distribucionAtencion) : 100);
+                    return (amb1 - amb2) * factor;
+                  }
+                  case 'recupero': {
+                    const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                    const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                    const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
+                    const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
+                    return (rf1 - rf2) * factor;
+                  }
+                  default:
+                    return 0;
+                }
+              });
+              m.financiadores = [...m.financiadores];
+            }
           }
         }
-        a.motivos = [...a.motivos];
       }
     }
     this.analistasDatos = [...this.analistasDatos];
@@ -2543,21 +2935,39 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   }
 
   restaurarOrdenAnalistas(): void {
-    this.analistasDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
-    if (this.columnaOrdenMotivoAnalista) {
-      this.aplicarOrdenMotivosAnalistas();
-      return;
-    }
-    for (const a of this.analistasDatos) {
-      if (a.motivos) {
-        a.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+    const hayMotivoDesplegado = this.analistasDatos.some(a =>
+      a.expanded && a.motivos?.some(m => m.expanded)
+    );
+    const hayAnalistaDesplegado = !hayMotivoDesplegado && this.analistasDatos.some(a => a.expanded);
+
+    if (hayMotivoDesplegado) {
+      for (const a of this.analistasDatos) {
+        if (!a.expanded || !a.motivos) continue;
         for (const m of a.motivos) {
-          if (m.financiadores) {
-            m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
-            m.financiadores = [...m.financiadores];
-          }
+          if (!m.expanded || !m.financiadores) continue;
+          m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+          m.financiadores = [...m.financiadores];
         }
+      }
+    } else if (hayAnalistaDesplegado) {
+      for (const a of this.analistasDatos) {
+        if (!a.expanded || !a.motivos) continue;
+        a.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
         a.motivos = [...a.motivos];
+      }
+    } else {
+      this.analistasDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
+      for (const a of this.analistasDatos) {
+        if (a.motivos) {
+          a.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+          for (const m of a.motivos) {
+            if (m.financiadores) {
+              m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+              m.financiadores = [...m.financiadores];
+            }
+          }
+          a.motivos = [...a.motivos];
+        }
       }
     }
     this.analistasDatos = [...this.analistasDatos];
@@ -2702,104 +3112,231 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const factor = this.direccionOrdenMedico === 'asc' ? 1 : -1;
     const columna = this.columnaOrdenMedico;
 
-    this.medicosDatos.sort((a, b) => {
+    // Detectar si hay algún motivo desplegado (Nivel 3 activo)
+    const hayMotivoDesplegado = this.medicosDatos.some(med =>
+      med.expanded && med.motivos?.some(m => m.expanded)
+    );
+
+    // Detectar si hay algún médico desplegado pero ningún motivo (Nivel 2 activo)
+    const hayMedicoDesplegado = !hayMotivoDesplegado && this.medicosDatos.some(med => med.expanded);
+
+    // Helpers para obtener valores considerando posible filtro de cobertura
+    const obtenerMontoMotivo = (mot: DesgloseMotivoDTO): number => {
+      if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+        const fins = (mot.financiadores || []).filter(f => this.coincideFinanciador(f.financiador, this.codigoCoberturaSeleccionada));
+        return fins.reduce((acc, f) => acc + (f.montoDebitado != null ? f.montoDebitado : (f.monto || 0)), 0);
+      }
+      return mot.montoDebitado || 0;
+    };
+
+    const obtenerCasosMotivo = (mot: DesgloseMotivoDTO): number => {
+      if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+        const fins = (mot.financiadores || []).filter(f => this.coincideFinanciador(f.financiador, this.codigoCoberturaSeleccionada));
+        return fins.reduce((acc, f) => acc + (f.casos || 0), 0);
+      }
+      return mot.casos || 0;
+    };
+
+    const obtenerAceptadoMotivo = (mot: DesgloseMotivoDTO): number => {
+      if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+        const fins = (mot.financiadores || []).filter(f => this.coincideFinanciador(f.financiador, this.codigoCoberturaSeleccionada));
+        return fins.reduce((acc, f) => acc + (f.aceptado || 0), 0);
+      }
+      return mot.aceptado || 0;
+    };
+
+    const obtenerRefacturadoMotivo = (mot: DesgloseMotivoDTO): number => {
+      if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+        const fins = (mot.financiadores || []).filter(f => this.coincideFinanciador(f.financiador, this.codigoCoberturaSeleccionada));
+        return fins.reduce((acc, f) => acc + (f.refacturado || 0), 0);
+      }
+      return mot.refacturado || 0;
+    };
+
+    // Comparador reutilizable de Motivos (Nivel 2)
+    const compararMotivos = (m1: DesgloseMotivoDTO, m2: DesgloseMotivoDTO) => {
       switch (columna) {
         case 'medico':
-          return (a.medico || '').localeCompare(b.medico || '') * factor;
+          return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+        case 'motivos':
+          return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
         case 'documentos':
-          return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
+        case 'casos':
+          return (obtenerCasosMotivo(m1) - obtenerCasosMotivo(m2)) * factor;
+        case 'monto':
+        case 'montoDebitado':
+          return (obtenerMontoMotivo(m1) - obtenerMontoMotivo(m2)) * factor;
         case 'aceptados':
-          return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
+          return (obtenerAceptadoMotivo(m1) - obtenerAceptadoMotivo(m2)) * factor;
         case 'refacturados':
-          return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
-        case 'ticket':
-          return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
-        case 'recupero':
-          return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
+          return (obtenerRefacturadoMotivo(m1) - obtenerRefacturadoMotivo(m2)) * factor;
+        case 'ticket': {
+          const c1 = obtenerCasosMotivo(m1);
+          const c2 = obtenerCasosMotivo(m2);
+          const t1 = (c1 > 0) ? (obtenerMontoMotivo(m1) / c1) : 0;
+          const t2 = (c2 > 0) ? (obtenerMontoMotivo(m2) / c2) : 0;
+          return (t1 - t2) * factor;
+        }
+        case 'recupero': {
+          const mnt1 = obtenerMontoMotivo(m1);
+          const mnt2 = obtenerMontoMotivo(m2);
+          const r1 = mnt1 > 0 ? (obtenerRefacturadoMotivo(m1) * 100 / mnt1) : 0;
+          const r2 = mnt2 > 0 ? (obtenerRefacturadoMotivo(m2) * 100 / mnt2) : 0;
+          return (r1 - r2) * factor;
+        }
         default:
           return 0;
       }
-    });
+    };
 
-    for (const med of this.medicosDatos) {
-      if (med.motivos && med.motivos.length > 0) {
-        med.motivos.sort((m1, m2) => {
-          switch (columna) {
-            case 'medico':
-              return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
-            case 'documentos':
-              return ((m1.casos || 0) - (m2.casos || 0)) * factor;
-            case 'aceptados':
-              return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
-            case 'refacturados':
-              return ((m1.refacturado || 0) - (m2.refacturado || 0)) * factor;
-            case 'ticket': {
-              const t1 = (m1.casos && m1.casos > 0) ? (m1.montoDebitado / m1.casos) : 0;
-              const t2 = (m2.casos && m2.casos > 0) ? (m2.montoDebitado / m2.casos) : 0;
-              return (t1 - t2) * factor;
-            }
-            case 'recupero': {
-              const r1 = m1.montoDebitado > 0 ? (m1.refacturado * 100 / m1.montoDebitado) : 0;
-              const r2 = m2.montoDebitado > 0 ? (m2.refacturado * 100 / m2.montoDebitado) : 0;
-              return (r1 - r2) * factor;
-            }
-            default:
-              return 0;
-          }
-        });
-
-        for (const m of med.motivos) {
-          if (m.financiadores && m.financiadores.length > 0) {
-            m.financiadores.sort((f1, f2) => {
-              switch (columna) {
-                case 'medico':
-                  return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
-                case 'documentos':
-                  return ((f1.casos || 0) - (f2.casos || 0)) * factor;
-                case 'aceptados':
-                  return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
-                case 'refacturados':
-                  return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
-                case 'ticket': {
-                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
-                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
-                  const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
-                  const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
-                  return (tf1 - tf2) * factor;
-                }
-                case 'recupero': {
-                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
-                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
-                  const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
-                  const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
-                  return (rf1 - rf2) * factor;
-                }
-                default:
-                  return 0;
-              }
-            });
-            m.financiadores = [...m.financiadores];
-          }
+    // Comparador reutilizable de Financiadores (Nivel 3)
+    const compararFinanciadores = (f1: DesgloseFinanciadorDTO, f2: DesgloseFinanciadorDTO) => {
+      switch (columna) {
+        case 'medico':
+        case 'motivos':
+          return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
+        case 'documentos':
+        case 'casos':
+          return ((f1.casos || 0) - (f2.casos || 0)) * factor;
+        case 'monto':
+        case 'montoDebitado': {
+          const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+          const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+          return (mFin1 - mFin2) * factor;
         }
-        med.motivos = [...med.motivos];
+        case 'aceptados':
+          return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
+        case 'refacturados':
+          return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+        case 'ticket': {
+          const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+          const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+          const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
+          const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
+          return (tf1 - tf2) * factor;
+        }
+        case 'recupero': {
+          const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+          const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+          const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
+          const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
+          return (rf1 - rf2) * factor;
+        }
+        default:
+          return 0;
+      }
+    };
+
+    // CASO 1: Si NO hay ningún elemento desplegado -> ordenar Nivel 1 (Médicos)
+    if (!hayMotivoDesplegado && !hayMedicoDesplegado) {
+      this.medicosDatos.sort((a, b) => {
+        switch (columna) {
+          case 'medico':
+            return (a.medico || '').localeCompare(b.medico || '') * factor;
+          case 'motivos':
+            return ((a.motivos?.length || 0) - (b.motivos?.length || 0)) * factor;
+          case 'documentos':
+          case 'casos':
+            return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
+          case 'monto':
+          case 'montoDebitado':
+            return ((a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0) -
+                    (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
+          case 'aceptados':
+            return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
+          case 'refacturados':
+            return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'ticket':
+            return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
+          case 'recupero':
+            return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
+          default:
+            return 0;
+        }
+      });
+    }
+
+    // CASO 2: La menor categoría desplegada es Nivel 2 (Motivos)
+    if (hayMedicoDesplegado) {
+      for (const med of this.medicosDatos) {
+        if (!med.expanded) continue; // No tocar médicos que no estén desplegados
+        if (med.motivos && med.motivos.length > 0) {
+          med.motivos.sort(compararMotivos);
+          med.motivos = [...med.motivos];
+        }
+      }
+    } else if (!hayMotivoDesplegado) {
+      // Si nada estaba desplegado, preparar motivos de todos los médicos en cascada
+      for (const med of this.medicosDatos) {
+        if (med.motivos && med.motivos.length > 0) {
+          med.motivos.sort(compararMotivos);
+          med.motivos = [...med.motivos];
+        }
       }
     }
+
+    // CASO 3: La menor categoría desplegada es Nivel 3 (Financiadores)
+    if (hayMotivoDesplegado) {
+      for (const med of this.medicosDatos) {
+        if (!med.expanded || !med.motivos) continue;
+        for (const m of med.motivos) {
+          if (!m.expanded || !m.financiadores || m.financiadores.length === 0) continue;
+          m.financiadores.sort(compararFinanciadores);
+          m.financiadores = [...m.financiadores];
+        }
+      }
+    } else if (!hayMedicoDesplegado) {
+      // Si nada estaba desplegado, preparar financiadores en cascada
+      for (const med of this.medicosDatos) {
+        if (med.motivos) {
+          for (const m of med.motivos) {
+            if (m.financiadores && m.financiadores.length > 0) {
+              m.financiadores.sort(compararFinanciadores);
+              m.financiadores = [...m.financiadores];
+            }
+          }
+        }
+      }
+    }
+
     this.medicosDatos = [...this.medicosDatos];
     this.cdr.markForCheck();
   }
 
   restaurarOrdenMedicos(): void {
-    this.medicosDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
-    for (const med of this.medicosDatos) {
-      if (med.motivos) {
-        med.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+    const hayMotivoDesplegado = this.medicosDatos.some(med =>
+      med.expanded && med.motivos?.some(m => m.expanded)
+    );
+    const hayMedicoDesplegado = !hayMotivoDesplegado && this.medicosDatos.some(med => med.expanded);
+
+    if (hayMotivoDesplegado) {
+      for (const med of this.medicosDatos) {
+        if (!med.expanded || !med.motivos) continue;
         for (const m of med.motivos) {
-          if (m.financiadores) {
-            m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
-            m.financiadores = [...m.financiadores];
-          }
+          if (!m.expanded || !m.financiadores) continue;
+          m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+          m.financiadores = [...m.financiadores];
         }
+      }
+    } else if (hayMedicoDesplegado) {
+      for (const med of this.medicosDatos) {
+        if (!med.expanded || !med.motivos) continue;
+        med.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
         med.motivos = [...med.motivos];
+      }
+    } else {
+      this.medicosDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
+      for (const med of this.medicosDatos) {
+        if (med.motivos) {
+          med.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+          for (const m of med.motivos) {
+            if (m.financiadores) {
+              m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+              m.financiadores = [...m.financiadores];
+            }
+          }
+          med.motivos = [...med.motivos];
+        }
       }
     }
     this.medicosDatos = [...this.medicosDatos];
@@ -2849,12 +3386,18 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   get medicosFiltrados(): MetricaMedicoDTO[] {
     let lista = this.medicosDatos;
 
-    // 1. Filtrar por Médico seleccionado
+    // 1. Filtrar por Búsqueda rápida de texto
+    if (this.busquedaTextoMedico && this.busquedaTextoMedico.trim() !== '') {
+      const term = this.busquedaTextoMedico.trim().toLowerCase();
+      lista = lista.filter(m => (m.medico || '').toLowerCase().includes(term));
+    }
+
+    // 2. Filtrar por Médico seleccionado en dropdown
     if (this.filtroMedicoSeleccionado && this.filtroMedicoSeleccionado !== 'TODOS') {
       lista = lista.filter(m => m.medico === this.filtroMedicoSeleccionado);
     }
 
-    // 2. Filtrar por Institución / Cobertura
+    // 3. Filtrar por Institución / Cobertura
     if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
       const codCob = this.codigoCoberturaSeleccionada;
       lista = lista
@@ -2904,40 +3447,56 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
         });
     }
 
-    // 3. Si hay ordenamiento activo sobre médicos, aplicarlo a la lista filtrada
-    if (this.columnaOrdenMedico) {
-      const factor = this.direccionOrdenMedico === 'asc' ? 1 : -1;
-      const columna = this.columnaOrdenMedico;
-      lista = [...lista].sort((a, b) => {
-        switch (columna) {
-          case 'medico':
-            return (a.medico || '').localeCompare(b.medico || '') * factor;
-          case 'documentos':
-            return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
-          case 'aceptados':
-            return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
-          case 'refacturados':
-            return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
-          case 'ticket':
-            return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
-          case 'recupero':
-            return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
-          default:
-            return 0;
-        }
-      });
-    }
-
     return lista;
+  }
+
+  get totalPaginasMedicos(): number {
+    const total = this.medicosFiltrados.length;
+    if (total === 0) return 1;
+    return Math.ceil(total / this.medicosItemsPorPagina) || 1;
+  }
+
+  get medicosDatosPaginados(): MetricaMedicoDTO[] {
+    const filtrados = this.medicosFiltrados;
+    if (!filtrados || filtrados.length === 0) return [];
+    if (this.medicosItemsPorPagina >= filtrados.length) return filtrados;
+    const inicio = (this.medicosPaginaActual - 1) * this.medicosItemsPorPagina;
+    return filtrados.slice(inicio, inicio + this.medicosItemsPorPagina);
+  }
+
+  cambiarPaginaMedicos(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginasMedicos) {
+      this.medicosPaginaActual = pagina;
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
+  onMedicosItemsPorPaginaChange(tamano: any): void {
+    this.medicosItemsPorPagina = Number(tamano) || 25;
+    this.medicosPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  onBusquedaTextoMedicoChange(): void {
+    this.medicosPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
   }
 
   limpiarFiltroMedico(): void {
     this.filtroMedicoSeleccionado = 'TODOS';
+    this.medicosPaginaActual = 1;
+    this.actualizarAlturasSticky();
   }
 
   restablecerFiltrosMedicos(): void {
     this.filtroMedicoSeleccionado = 'TODOS';
     this.codigoCoberturaSeleccionada = 'TODAS';
+    this.busquedaTextoMedico = '';
+    this.medicosPaginaActual = 1;
+    this.actualizarAlturasSticky();
   }
 
   // ── Ordenamiento Cuenta Corriente ─────────────────────────────────────────
@@ -3232,35 +3791,51 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
     const factor = this.direccionOrdenOperador === 'asc' ? 1 : -1;
     const columna = this.columnaOrdenOperador;
 
-    // 1. Ordenar Nivel 1: Operadores
-    this.operadoresDatos.sort((a, b) => {
-      switch (columna) {
-        case 'operador':
-          return (a.operador || '').localeCompare(b.operador || '') * factor;
-        case 'motivo':
-          return ((a.motivos?.length || 0) - (b.motivos?.length || 0)) * factor;
-        case 'financiador': {
-          const finsA = new Set((a.motivos || []).flatMap(m => (m.financiadores || []).map(f => f.financiador))).size;
-          const finsB = new Set((b.motivos || []).flatMap(m => (m.financiadores || []).map(f => f.financiador))).size;
-          return (finsA - finsB) * factor;
-        }
-        case 'documentos':
-          return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
-        case 'aceptados':
-          return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
-        case 'refacturados':
-          return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
-        case 'ticket':
-          return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
-        case 'recupero':
-          return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
-        default:
-          return 0;
-      }
-    });
+    // Detectar si hay algún motivo desplegado (Nivel 3 activo)
+    const hayMotivoDesplegado = this.operadoresDatos.some(op =>
+      op.expanded && op.motivos?.some(m => m.expanded)
+    );
+    // Detectar si hay algún operador desplegado pero ningún motivo (Nivel 2 activo)
+    const hayOperadorDesplegado = !hayMotivoDesplegado && this.operadoresDatos.some(op => op.expanded);
 
-    // 2. Ordenar Nivel 2: Motivos y Nivel 3: Financiadores dentro de cada operador
-    for (const op of this.operadoresDatos) {
+    // 1. Si no hay nada desplegado: ordenar Nivel 1 (Operadores)
+    if (!hayMotivoDesplegado && !hayOperadorDesplegado) {
+      this.operadoresDatos.sort((a, b) => {
+        switch (columna) {
+          case 'operador':
+            return (a.operador || '').localeCompare(b.operador || '') * factor;
+          case 'motivo':
+            return ((a.motivos?.length || 0) - (b.motivos?.length || 0)) * factor;
+          case 'financiador': {
+            const finsA = new Set((a.motivos || []).flatMap(m => (m.financiadores || []).map(f => f.financiador))).size;
+            const finsB = new Set((b.motivos || []).flatMap(m => (m.financiadores || []).map(f => f.financiador))).size;
+            return (finsA - finsB) * factor;
+          }
+          case 'documentos':
+          case 'casos':
+            return ((a.cantidadRegistros || 0) - (b.cantidadRegistros || 0)) * factor;
+          case 'monto':
+          case 'montoDebitado':
+            return ((a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0) -
+                    (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
+          case 'aceptados':
+            return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
+          case 'refacturados':
+            return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'ticket':
+            return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
+          case 'recupero':
+            return ((a.tasaRecupero || 0) - (b.tasaRecupero || 0)) * factor;
+          default:
+            return 0;
+        }
+      });
+    }
+
+    // 2. Si la menor categoría es Nivel 2 (Motivos) o si nada estaba desplegado
+    if (hayOperadorDesplegado || (!hayMotivoDesplegado && !hayOperadorDesplegado)) {
+      for (const op of this.operadoresDatos) {
+        if (hayOperadorDesplegado && !op.expanded) continue;
       if (op.motivos && op.motivos.length > 0) {
         op.motivos.sort((m1, m2) => {
           switch (columna) {
@@ -3270,7 +3845,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
             case 'financiador':
               return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
             case 'documentos':
+            case 'casos':
               return ((m1.casos || 0) - (m2.casos || 0)) * factor;
+            case 'monto':
+            case 'montoDebitado':
+              return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
             case 'aceptados':
               return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
             case 'refacturados':
@@ -3290,43 +3869,103 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           }
         });
 
-        // Nivel 3: Financiadores
+          op.motivos = [...op.motivos];
+        }
+      }
+    }
+
+    // CASO 3: La menor categoría desplegada es Nivel 3 (Financiadores)
+    if (hayMotivoDesplegado) {
+      for (const op of this.operadoresDatos) {
+        if (!op.expanded || !op.motivos) continue;
         for (const m of op.motivos) {
-          if (m.financiadores && m.financiadores.length > 0) {
-            m.financiadores.sort((f1, f2) => {
-              switch (columna) {
-                case 'operador':
-                case 'motivo':
-                case 'financiador':
-                  return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
-                case 'documentos':
-                  return ((f1.casos || 0) - (f2.casos || 0)) * factor;
-                case 'aceptados':
-                  return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
-                case 'refacturados':
-                  return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
-                case 'ticket': {
-                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
-                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
-                  const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
-                  const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
-                  return (tf1 - tf2) * factor;
-                }
-                case 'recupero': {
-                  const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
-                  const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
-                  const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
-                  const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
-                  return (rf1 - rf2) * factor;
-                }
-                default:
-                  return 0;
+          if (!m.expanded || !m.financiadores || m.financiadores.length === 0) continue;
+          m.financiadores.sort((f1, f2) => {
+            switch (columna) {
+              case 'operador':
+              case 'motivo':
+              case 'financiador':
+                return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
+              case 'documentos':
+              case 'casos':
+                return ((f1.casos || 0) - (f2.casos || 0)) * factor;
+              case 'monto':
+              case 'montoDebitado': {
+                const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                return (mFin1 - mFin2) * factor;
               }
-            });
-            m.financiadores = [...m.financiadores];
+              case 'aceptados':
+                return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
+              case 'refacturados':
+                return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+              case 'ticket': {
+                const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+                const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+                const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
+                const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
+                return (tf1 - tf2) * factor;
+              }
+              case 'recupero': {
+                const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+                const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+                const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
+                const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
+                return (rf1 - rf2) * factor;
+              }
+              default:
+                return 0;
+            }
+          });
+          m.financiadores = [...m.financiadores];
+        }
+      }
+    } else if (!hayOperadorDesplegado) {
+      for (const op of this.operadoresDatos) {
+        if (op.motivos) {
+          for (const m of op.motivos) {
+            if (m.financiadores && m.financiadores.length > 0) {
+              m.financiadores.sort((f1, f2) => {
+                switch (columna) {
+                  case 'operador':
+                  case 'motivo':
+                  case 'financiador':
+                    return (f1.financiador || '').localeCompare(f2.financiador || '') * factor;
+                  case 'documentos':
+                  case 'casos':
+                    return ((f1.casos || 0) - (f2.casos || 0)) * factor;
+                  case 'monto':
+                  case 'montoDebitado': {
+                    const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
+                    const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
+                    return (mFin1 - mFin2) * factor;
+                  }
+                  case 'aceptados':
+                    return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
+                  case 'refacturados':
+                    return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+                  case 'ticket': {
+                    const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+                    const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+                    const tf1 = (f1.casos && f1.casos > 0) ? (mFin1 / f1.casos) : 0;
+                    const tf2 = (f2.casos && f2.casos > 0) ? (mFin2 / f2.casos) : 0;
+                    return (tf1 - tf2) * factor;
+                  }
+                  case 'recupero': {
+                    const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
+                    const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
+                    const rf1 = mFin1 > 0 ? ((f1.refacturado || 0) * 100 / mFin1) : 0;
+                    const rf2 = mFin2 > 0 ? ((f2.refacturado || 0) * 100 / mFin2) : 0;
+                    return (rf1 - rf2) * factor;
+                  }
+                  default:
+                    return 0;
+                }
+              });
+              m.financiadores = [...m.financiadores];
+            }
           }
         }
-        op.motivos = [...op.motivos];
       }
     }
 
@@ -3335,21 +3974,179 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
   }
 
   restaurarOrdenOperadores(): void {
-    this.operadoresDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
-    for (const op of this.operadoresDatos) {
-      if (op.motivos) {
-        op.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+    const hayMotivoDesplegado = this.operadoresDatos.some(op =>
+      op.expanded && op.motivos?.some(m => m.expanded)
+    );
+    const hayOperadorDesplegado = !hayMotivoDesplegado && this.operadoresDatos.some(op => op.expanded);
+
+    if (hayMotivoDesplegado) {
+      for (const op of this.operadoresDatos) {
+        if (!op.expanded || !op.motivos) continue;
         for (const m of op.motivos) {
-          if (m.financiadores) {
-            m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
-            m.financiadores = [...m.financiadores];
-          }
+          if (!m.expanded || !m.financiadores) continue;
+          m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+          m.financiadores = [...m.financiadores];
         }
+      }
+    } else if (hayOperadorDesplegado) {
+      for (const op of this.operadoresDatos) {
+        if (!op.expanded || !op.motivos) continue;
+        op.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
         op.motivos = [...op.motivos];
+      }
+    } else {
+      this.operadoresDatos.sort((a, b) => ((a as any)._originalIndex ?? 0) - ((b as any)._originalIndex ?? 0));
+      for (const op of this.operadoresDatos) {
+        if (op.motivos) {
+          op.motivos.sort((m1, m2) => ((m1 as any)._originalIndex ?? 0) - ((m2 as any)._originalIndex ?? 0));
+          for (const m of op.motivos) {
+            if (m.financiadores) {
+              m.financiadores.sort((f1, f2) => ((f1 as any)._originalIndex ?? 0) - ((f2 as any)._originalIndex ?? 0));
+              m.financiadores = [...m.financiadores];
+            }
+          }
+          op.motivos = [...op.motivos];
+        }
       }
     }
     this.operadoresDatos = [...this.operadoresDatos];
     this.cdr.markForCheck();
+  }
+
+  operadorTieneCobertura(op: MetricaOperadorDTO, codigoCobertura?: string): boolean {
+    const cod = (codigoCobertura || this.codigoCoberturaSeleccionada || 'TODAS').trim();
+    if (!cod || cod === 'TODAS') return true;
+    if (!op.motivos || op.motivos.length === 0) return false;
+    return op.motivos.some(m =>
+      m.financiadores && m.financiadores.some(f => this.coincideFinanciador(f.financiador, cod))
+    );
+  }
+
+  get listaNombresOperadores(): string[] {
+    let operadoresBase = this.operadoresDatos;
+    if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+      operadoresBase = operadoresBase.filter(op => this.operadorTieneCobertura(op, this.codigoCoberturaSeleccionada));
+    }
+    const nombres = operadoresBase
+      .map(o => o.operador)
+      .filter((n): n is string => !!n && n.trim().length > 0);
+    return Array.from(new Set(nombres)).sort((a, b) => a.localeCompare(b));
+  }
+
+  get operadoresFiltrados(): MetricaOperadorDTO[] {
+    let lista = this.operadoresDatos;
+
+    // 1. Filtrar por Búsqueda rápida de texto
+    if (this.busquedaTextoOperador && this.busquedaTextoOperador.trim() !== '') {
+      const term = this.busquedaTextoOperador.trim().toLowerCase();
+      lista = lista.filter(o => (o.operador || '').toLowerCase().includes(term));
+    }
+
+    // 2. Filtrar por Operador seleccionado en dropdown
+    if (this.filtroOperadorSeleccionado && this.filtroOperadorSeleccionado !== 'TODOS') {
+      lista = lista.filter(o => o.operador === this.filtroOperadorSeleccionado);
+    }
+
+    // 3. Filtrar por Institución / Cobertura
+    if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+      const codCob = this.codigoCoberturaSeleccionada;
+      lista = lista
+        .filter(op => this.operadorTieneCobertura(op, codCob))
+        .map((op): MetricaOperadorDTO => {
+          const motivosFiltrados: DesgloseMotivoDTO[] = [];
+          for (const mot of (op.motivos || [])) {
+            const finsFiltrados = (mot.financiadores || []).filter(f =>
+              this.coincideFinanciador(f.financiador, codCob)
+            );
+            if (finsFiltrados.length === 0) continue;
+
+            const casosMot = finsFiltrados.reduce((acc, f) => acc + (f.casos || 0), 0);
+            const montoMot = finsFiltrados.reduce((acc, f) => acc + (f.monto || (f as any).montoDebitado || 0), 0);
+            const aceptadoMot = finsFiltrados.reduce((acc, f) => acc + (f.aceptado || 0), 0);
+            const refacturadoMot = finsFiltrados.reduce((acc, f) => acc + (f.refacturado || 0), 0);
+
+            motivosFiltrados.push({
+              ...mot,
+              expanded: !!mot.expanded,
+              casos: casosMot,
+              montoDebitado: montoMot,
+              aceptado: aceptadoMot,
+              refacturado: refacturadoMot,
+              financiadores: finsFiltrados
+            });
+          }
+
+          const casosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.casos || 0), 0);
+          const aceptadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.aceptado || 0), 0);
+          const refacturadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.refacturado || 0), 0);
+          const montoTotal = motivosFiltrados.reduce((acc, m) => acc + (m.montoDebitado || 0), 0);
+          const ticketProm = casosTotal > 0 ? (montoTotal / casosTotal) : 0;
+          const tasaRec = montoTotal > 0 ? (refacturadosTotal * 100 / montoTotal) : 0;
+
+          return {
+            ...op,
+            expanded: !!op.expanded,
+            cantidadRegistros: casosTotal > 0 ? casosTotal : op.cantidadRegistros,
+            debitosAceptados: aceptadosTotal,
+            debitosRefacturados: refacturadosTotal,
+            totalTramitado: montoTotal,
+            ticketPromedio: ticketProm,
+            tasaRecupero: tasaRec,
+            motivos: motivosFiltrados
+          };
+        });
+    }
+
+    return lista;
+  }
+
+  get totalPaginasOperadores(): number {
+    const total = this.operadoresFiltrados.length;
+    if (total === 0) return 1;
+    return Math.ceil(total / this.operadoresItemsPorPagina) || 1;
+  }
+
+  get operadoresDatosPaginados(): MetricaOperadorDTO[] {
+    const filtrados = this.operadoresFiltrados;
+    if (!filtrados || filtrados.length === 0) return [];
+    if (this.operadoresItemsPorPagina >= filtrados.length) return filtrados;
+    const inicio = (this.operadoresPaginaActual - 1) * this.operadoresItemsPorPagina;
+    return filtrados.slice(inicio, inicio + this.operadoresItemsPorPagina);
+  }
+
+  cambiarPaginaOperadores(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginasOperadores) {
+      this.operadoresPaginaActual = pagina;
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
+  onOperadoresItemsPorPaginaChange(tamano: any): void {
+    this.operadoresItemsPorPagina = Number(tamano) || 25;
+    this.operadoresPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  onBusquedaTextoOperadorChange(): void {
+    this.operadoresPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  limpiarFiltroOperador(): void {
+    this.filtroOperadorSeleccionado = 'TODOS';
+    this.operadoresPaginaActual = 1;
+    this.actualizarAlturasSticky();
+  }
+
+  restablecerFiltrosOperadores(): void {
+    this.filtroOperadorSeleccionado = 'TODOS';
+    this.codigoCoberturaSeleccionada = 'TODAS';
+    this.busquedaTextoOperador = '';
+    this.operadoresPaginaActual = 1;
+    this.actualizarAlturasSticky();
   }
 
   // ── Ordenamiento Trazabilidad ─────────────────────────────────────────────
@@ -3464,29 +4261,62 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
 
   toggleMedico(medico: MetricaMedicoDTO): void {
     medico.expanded = !medico.expanded;
-    const orig = this.medicosDatos.find(m => m.medico === medico.medico);
+    const orig = this.medicosDatos.find(m => (m.medico || '').trim().toLowerCase() === (medico.medico || '').trim().toLowerCase());
     if (orig) {
       orig.expanded = medico.expanded;
     }
     this.actualizarAlturasSticky();
+    this.cdr.markForCheck();
   }
 
   toggleOperador(operador: MetricaOperadorDTO): void {
     operador.expanded = !operador.expanded;
+    const origOp = this.operadoresDatos.find(o => (o.operador || '').trim().toLowerCase() === (operador.operador || '').trim().toLowerCase());
+    if (origOp) {
+      origOp.expanded = operador.expanded;
+    }
     this.actualizarAlturasSticky();
+    this.cdr.markForCheck();
   }
 
-  toggleMotivo(motivo: DesgloseMotivoDTO): void {
+  toggleMotivo(motivo: DesgloseMotivoDTO, actor?: MetricaMedicoDTO | MetricaOperadorDTO): void {
     motivo.expanded = !motivo.expanded;
-    for (const med of this.medicosDatos) {
-      if (med.motivos) {
-        const origM = med.motivos.find(m => m.motivo === motivo.motivo);
+    if (actor && 'medico' in actor) {
+      const origMed = this.medicosDatos.find(m => (m.medico || '').trim().toLowerCase() === ((actor as MetricaMedicoDTO).medico || '').trim().toLowerCase());
+      if (origMed?.motivos) {
+        const origM = origMed.motivos.find(m => (m.motivo || '').trim().toLowerCase() === (motivo.motivo || '').trim().toLowerCase());
         if (origM) {
           origM.expanded = motivo.expanded;
         }
       }
+    } else if (actor && 'operador' in actor) {
+      const origOp = this.operadoresDatos.find(o => (o.operador || '').trim().toLowerCase() === ((actor as MetricaOperadorDTO).operador || '').trim().toLowerCase());
+      if (origOp?.motivos) {
+        const origM = origOp.motivos.find(m => (m.motivo || '').trim().toLowerCase() === (motivo.motivo || '').trim().toLowerCase());
+        if (origM) {
+          origM.expanded = motivo.expanded;
+        }
+      }
+    } else {
+      for (const med of this.medicosDatos) {
+        if (med.motivos) {
+          const origM = med.motivos.find(m => (m.motivo || '').trim().toLowerCase() === (motivo.motivo || '').trim().toLowerCase());
+          if (origM) {
+            origM.expanded = motivo.expanded;
+          }
+        }
+      }
+      for (const op of this.operadoresDatos) {
+        if (op.motivos) {
+          const origM = op.motivos.find(m => (m.motivo || '').trim().toLowerCase() === (motivo.motivo || '').trim().toLowerCase());
+          if (origM) {
+            origM.expanded = motivo.expanded;
+          }
+        }
+      }
     }
     this.actualizarAlturasSticky();
+    this.cdr.markForCheck();
   }
 
   trackByAnalista(index: number, item: MetricaAnalistaDTO): string {
@@ -3542,6 +4372,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit {
           return ((a.cantidadCasos || 0) - (b.cantidadCasos || 0)) * factor;
         case 'monto':
           return ((a.montoTotal || 0) - (b.montoTotal || 0)) * factor;
+        case 'aceptados':
+        case 'porcentajeAceptados':
+          return ((a.porcentajeAceptados ?? 0) - (b.porcentajeAceptados ?? 0)) * factor;
+        case 'refacturados':
+        case 'porcentajeRefacturados':
+          return ((a.porcentajeRefacturados ?? 0) - (b.porcentajeRefacturados ?? 0)) * factor;
         case 'porcentaje':
           return ((a.porcentaje || 0) - (b.porcentaje || 0)) * factor;
         default:

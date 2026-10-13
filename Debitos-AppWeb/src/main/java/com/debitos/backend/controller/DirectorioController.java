@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/directorio")
@@ -19,6 +20,12 @@ public class DirectorioController {
 
     @Autowired
     private DirectorioService directorioService;
+
+    @GetMapping("/fecha-minima-filtro")
+    public ResponseEntity<Map<String, String>> obtenerFechaMinimaFiltro() {
+        LocalDate fechaMinima = directorioService.obtenerFechaMinimaPermitida();
+        return ResponseEntity.ok(Map.of("fechaMinima", fechaMinima != null ? fechaMinima.toString() : "2024-07-01"));
+    }
 
     @GetMapping("/coberturas")
     public ResponseEntity<List<DirectorioCoberturaDTO>> obtenerCoberturas() {

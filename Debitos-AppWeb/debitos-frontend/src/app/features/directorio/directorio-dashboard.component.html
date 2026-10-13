@@ -69,8 +69,9 @@
         </label>
         <input type="date" id="fecha-desde" class="form-control"
           [class.input-error]="errorFechaDesde || errorRangoFechas" [(ngModel)]="fechaDesde"
+          [min]="fechaMinimaPermitida" max="2035-12-31"
           (input)="onFechaInput($event, 'desde')" (change)="onFechaDesdeChange()" (blur)="onFechaBlur($event, 'desde')"
-          (keydown.enter)="onEnterFiltro()" [max]="fechaHasta || null" [attr.max]="fechaHasta || null"
+          (keydown.enter)="onEnterFiltro()"
           [disabled]="esFiltroFechaDeshabilitado" [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
           [title]="tooltipFiltroFecha">
         <span *ngIf="errorFechaDesde" class="error-hint" role="alert">{{ errorFechaDesde }}</span>
@@ -89,8 +90,9 @@
         </label>
         <input type="date" id="fecha-hasta" class="form-control"
           [class.input-error]="errorFechaHasta || errorRangoFechas" [(ngModel)]="fechaHasta"
+          [min]="fechaMinimaPermitida" max="2035-12-31"
           (input)="onFechaInput($event, 'hasta')" (change)="onFechaHastaChange()" (blur)="onFechaBlur($event, 'hasta')"
-          (keydown.enter)="onEnterFiltro()" [min]="fechaDesde || null" [attr.min]="fechaDesde || null"
+          (keydown.enter)="onEnterFiltro()"
           [disabled]="esFiltroFechaDeshabilitado" [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
           [title]="tooltipFiltroFecha">
         <span *ngIf="errorFechaHasta" class="error-hint" role="alert">{{ errorFechaHasta }}</span>
@@ -99,12 +101,14 @@
       <div class="filter-actions">
         <button type="button" class="btn btn-primary" (click)="aplicarFiltros()" [disabled]="!esRangoFechasValido"
           [class.btn-disabled]="!esRangoFechasValido"
-          [title]="!esRangoFechasValido ? 'Corrija los errores de fecha antes de filtrar' : 'Aplica los filtros de cobertura, tipo y fechas a todos los componentes del tablero'">
+          [class.btn-filtrar-pendiente]="hayFiltrosFechasPendientes && esRangoFechasValido"
+          [title]="!esRangoFechasValido ? 'Corrija los errores de fecha antes de filtrar' : (hayFiltrosFechasPendientes ? 'Haga clic para aplicar el nuevo rango de fechas' : 'Aplica los filtros de cobertura, tipo y fechas a todos los componentes del tablero')">
+          <span *ngIf="hayFiltrosFechasPendientes && esRangoFechasValido" class="filtro-pending-dot">●</span>
           Filtrar
         </button>
         <button type="button" class="btn btn-secondary" (click)="irAlMesAnterior()"
-          [disabled]="esFiltroFechaDeshabilitado"
-          [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : 'Retrocede un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados'">
+          [disabled]="esFiltroFechaDeshabilitado || noPuedeIrAlMesAnterior"
+          [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : (noPuedeIrAlMesAnterior ? 'Límite alcanzado: no es posible retroceder más allá del período mínimo permitido (' + fechaMinimaPermitida + ')' : 'Retrocede un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados')">
           <span class="icon">↺</span> Mes Anterior
         </button>
         <button type="button" class="btn btn-secondary" (click)="irAlMesSiguiente()"
@@ -179,7 +183,7 @@
   <!-- =====================================================================
        SOLAPA 1: TABLERO DE CONTROL (KPIS Y RESUMEN EJECUTIVO)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'tablero'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'tablero'">
 
     <!-- Panel Macro: 6 Tarjetas de Totales Financieros (KPIs) -->
     <section class="kpi-grid kpi-grid--six">
@@ -381,13 +385,13 @@
           </div>
 
           <div class="grafico-body">
-            <div *ngIf="cargandoGraficos" class="grafico-loading">
-              Cargando datos…
+            <div *ngIf="cargandoGraficos || cargandoBalance" class="grafico-loading">
+              <span class="spinner-icon">⏳</span> Cargando datos…
             </div>
-            <div *ngIf="!cargandoGraficos && (distribucionChartData.labels?.length === 0)" class="grafico-empty">
+            <div *ngIf="!cargandoGraficos && !cargandoBalance && (distribucionChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de saldo pendiente</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (distribucionChartData.labels?.length ?? 0) > 0" id="chart-distribucion"
+            <canvas *ngIf="!cargandoGraficos && !cargandoBalance && (distribucionChartData.labels?.length ?? 0) > 0" id="chart-distribucion"
               baseChart [type]="'doughnut'" [data]="distribucionChartData" [options]="distribucionChartOptions"
               (chartClick)="onDistribucionChartClick($event)">
             </canvas>
@@ -509,7 +513,7 @@
   <!-- =====================================================================
        SOLAPA 2: CUENTA CORRIENTE A 3 NIVELES
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'cuenta-corriente'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'cuenta-corriente'">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -596,7 +600,7 @@
                 </th>
               </tr>
             </thead>
-            <tbody *ngFor="let f of cuentaCorrienteDatos; trackBy: trackByFinanciador">
+            <tbody *ngFor="let f of cuentaCorrienteDatosPaginados; trackBy: trackByFinanciador">
 
               <!-- NIVEL 1: Financiador -->
               <tr class="tr-financiador" (click)="toggleFinanciador(f)" [class.is-expanded]="f.expanded">
@@ -763,6 +767,44 @@
 
             </tbody>
           </table>
+
+          <!-- Paginación de Cuenta Corriente -->
+          <div class="trazabilidad-pagination-bar" *ngIf="totalPaginasCc > 1">
+            <div class="pagination-info">
+              Mostrando financiadores
+              <strong>{{ (ccPaginaActual - 1) * ccItemsPorPagina + 1 }}</strong>
+              al
+              <strong>{{ (ccPaginaActual * ccItemsPorPagina) > cuentaCorrienteDatos.length ? cuentaCorrienteDatos.length : (ccPaginaActual * ccItemsPorPagina) }}</strong>
+              de un total de <strong>{{ cuentaCorrienteDatos.length }}</strong> financiadores
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual <= 1"
+                (click)="cambiarPaginaCc(1)" title="Primera página">
+                «
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual <= 1"
+                (click)="cambiarPaginaCc(ccPaginaActual - 1)" title="Página anterior">
+                ‹
+              </button>
+              <span class="page-current-indicator">Página {{ ccPaginaActual }} de {{ totalPaginasCc }}</span>
+              <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual >= totalPaginasCc"
+                (click)="cambiarPaginaCc(ccPaginaActual + 1)" title="Página siguiente">
+                ›
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual >= totalPaginasCc"
+                (click)="cambiarPaginaCc(totalPaginasCc)" title="Última página">
+                »
+              </button>
+            </div>
+            <div class="pagination-page-size">
+              <label for="select-page-size-cc">Por página:</label>
+              <select id="select-page-size-cc" class="page-size-select"
+                [ngModel]="ccItemsPorPagina"
+                (ngModelChange)="onCcItemsPorPaginaChange($event)">
+                <option *ngFor="let opt of ccOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
+              </select>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -772,7 +814,7 @@
   <!-- =====================================================================
        SOLAPA 3: TIEMPOS DE COBRANZA (AGING DE DEUDA)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'tiempos-cobranza'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'tiempos-cobranza'">
     <div class="tiempos-cobranza-section">
       <!-- Fila 1: Grid 2 Columnas (KPI Card a la izquierda, Gráfico a la derecha) -->
       <div class="tiempos-top-grid">
@@ -791,7 +833,10 @@
               </span>
             </div>
             <div class="kpi-dso-main">
-              <div class="kpi-dso-val">{{ tiemposCobranzaDatos?.dsoGlobal ?? 0 }}</div>
+              <div class="kpi-dso-val">
+                <span *ngIf="!cargandoTiemposCobranza">{{ tiemposCobranzaDatos?.dsoGlobal ?? 0 }}</span>
+                <span *ngIf="cargandoTiemposCobranza" class="skeleton-text">Cargando...</span>
+              </div>
               <p class="kpi-dso-sub">Días promedio ponderados de atraso en cartera de facturas pendientes.</p>
             </div>
           </div>
@@ -811,7 +856,10 @@
                     </span>
                   </span>
                 </span>
-                <span class="kpi-dso-col-val text-green">{{ tiemposCobranzaDatos?.cobroRealPromedio ?? 0 }} días</span>
+                <span class="kpi-dso-col-val text-green">
+                  <span *ngIf="!cargandoTiemposCobranza">{{ tiemposCobranzaDatos?.cobroRealPromedio ?? 0 }} días</span>
+                  <span *ngIf="cargandoTiemposCobranza" class="skeleton-text">Cargando...</span>
+                </span>
               </div>
               <div class="kpi-dso-col">
                 <span class="kpi-dso-col-lbl"
@@ -825,8 +873,10 @@
                     </span>
                   </span>
                 </span>
-                <span class="kpi-dso-col-val text-red">${{ (tiemposCobranzaDatos?.saldoTotalMora ?? 0) |
-                  number:'1.0-0':'es-AR' }}</span>
+                <span class="kpi-dso-col-val text-red">
+                  <span *ngIf="!cargandoTiemposCobranza">${{ (tiemposCobranzaDatos?.saldoTotalMora ?? 0) | number:'1.0-0':'es-AR' }}</span>
+                  <span *ngIf="cargandoTiemposCobranza" class="skeleton-text">Cargando...</span>
+                </span>
               </div>
             </div>
           </div>
@@ -847,7 +897,7 @@
                 <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                 <span class="filtro-tooltip-popup tooltip-wide tooltip-right tooltip-bottom">
                   <strong>Plazos de Cobranza:</strong> Clasificación de los importes efectivamente cobrados según el
-                  tiempo transcurrido desde la emisión de la factura (0-30, 31-60, 61-90, 91-180 y >180 días) junto a
+                  tiempo transcurrido desde la emisión de la factura (0-45, 46-75, 76-105, 106-135 y >135 días) junto a
                   los comprobantes que aún no fueron cobrados.
                 </span>
               </span>
@@ -913,7 +963,12 @@
                 </td>
                 <td class="td-aging-porcentaje">{{ item.porcentajeCartera | number:'1.1-1':'es-AR' }}%</td>
               </tr>
-              <tr *ngIf="!tiemposCobranzaDatos?.detalles?.length">
+              <tr *ngIf="cargandoTiemposCobranza">
+                <td colspan="4" style="text-align: center; padding: 24px; color: #64748b; font-weight: 500;">
+                  <span class="spinner-icon">⏳</span> Cargando datos de cobranza…
+                </td>
+              </tr>
+              <tr *ngIf="!cargandoTiemposCobranza && !tiemposCobranzaDatos?.detalles?.length">
                 <td colspan="4" style="text-align: center; padding: 24px; color: #64748b; font-weight: 500;">
                   Sin datos de cobranza disponibles
                 </td>
@@ -928,7 +983,7 @@
   <!-- =====================================================================
        SOLAPA 4: MATRIZ DE COBRANZAS (RECAUDACIÓN ANUAL)
        ===================================================================== -->
-  <div class="dashboard-tab-pane dashboard-tab-pane--matriz" [hidden]="solapaActiva !== 'matriz-cobranzas'">
+  <div class="dashboard-tab-pane dashboard-tab-pane--matriz" *ngIf="solapaActiva === 'matriz-cobranzas'">
     <section class="grid-section">
       <div class="section-card section-card--matriz">
         <div class="section-card-header">
@@ -1049,7 +1104,7 @@
   <!-- =====================================================================
        SOLAPA 5: MOTIVOS DE DÉBITO Y REFACTURACIÓN
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'motivos'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'motivos'">
 
     <!-- Banner informativo de contexto (Estilo Referencia) -->
     <div class="motivos-info-alert">
@@ -1272,11 +1327,19 @@
                   }}</span>
               </span>
 
-              <span class="legend-th-porc sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'porcentaje'"
-                (click)="ordenarMotivos('porcentaje')" title="Ordenar por % Participación">
-                % Part.
-                <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'porcentaje'">{{
-                  columnaOrdenMotivos === 'porcentaje' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
+              <span class="legend-th-aceptados sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'aceptados'"
+                (click)="ordenarMotivos('aceptados')" title="Ordenar por % Aceptados (Pérdida)">
+                % Aceptados
+                <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'aceptados'">{{
+                  columnaOrdenMotivos === 'aceptados' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
+                  }}</span>
+              </span>
+
+              <span class="legend-th-refacturados sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'refacturados'"
+                (click)="ordenarMotivos('refacturados')" title="Ordenar por % Refacturados">
+                % Refacturados
+                <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'refacturados'">{{
+                  columnaOrdenMotivos === 'refacturados' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
                   }}</span>
               </span>
 
@@ -1304,12 +1367,12 @@
                   {{ formatearMoneda(item.montoTotal) }}
                 </div>
 
-                <div class="legend-col-porc">
-                  <div class="mini-bar-wrapper">
-                    <div class="mini-bar-fill" [style.width.%]="item.porcentaje" [style.background-color]="item.color">
-                    </div>
-                  </div>
-                  <span class="porc-text">{{ item.porcentaje }}%</span>
+                <div class="legend-col-porc legend-col-aceptados" [title]="'Aceptados: ' + formatearMoneda(item.montoAceptado ?? 0) + ' (' + (item.porcentajeAceptados ?? 0) + '%)'">
+                  <span class="porc-text porc-aceptados">{{ item.porcentajeAceptados ?? 0 }}%</span>
+                </div>
+
+                <div class="legend-col-porc legend-col-refacturados" [title]="'Refacturados: ' + formatearMoneda(item.montoRefacturado ?? 0) + ' (' + (item.porcentajeRefacturados ?? 0) + '%)'">
+                  <span class="porc-text porc-refacturados">{{ item.porcentajeRefacturados ?? 0 }}%</span>
                 </div>
 
                 <div class="legend-col-action">
@@ -1331,7 +1394,7 @@
   <!-- =====================================================================
        SOLAPA 6: ANALISTA DE DÉBITO (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'analistas'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'analistas'">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -1408,13 +1471,12 @@
 
         <!-- Tabla Sanatorial Analistas a 3 Niveles -->
         <div *ngIf="!cargandoAnalistas && analistasFiltrados.length > 0" class="table-responsive">
-          <table class="table-sanatorial table-bordered table-analistas">
+          <table class="table-sanatorial table-analistas">
             <thead>
               <tr>
-                <th class="th-btn-col">#</th>
-                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'analista'"
-                  (click)="ordenarAnalistas('analista')" title="Ordenar por Analista">
-                  ANALISTA / AUDITOR <span class="sort-indicator"
+                <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'analista'"
+                  (click)="ordenarAnalistas('analista')" title="Ordenar por Analista / Motivo / Financiador">
+                  ANALISTA / MOTIVO / FINANCIADOR <span class="sort-indicator"
                     [class.active]="columnaOrdenAnalista === 'analista'">{{ columnaOrdenAnalista === 'analista' ?
                     (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
@@ -1425,10 +1487,17 @@
                     }}</span>
                 </th>
                 <th class="text-center th-casos sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'documentos'"
-                  (click)="ordenarAnalistas('documentos')" title="Ordenar por Documentos">
-                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{
+                  (click)="ordenarAnalistas('documentos')" title="Ordenar por Documentos / Casos">
+                  DOCUMENTOS / CASOS <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{
                     columnaOrdenAnalista === 'documentos' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
+                </th>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'monto' || columnaOrdenAnalista === 'montoDebitado'"
+                  (click)="ordenarAnalistas('monto')" title="Ordenar por Monto Total Debitado">
+                  MONTO DEBITADO ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'monto' || columnaOrdenAnalista === 'montoDebitado'">{{
+                    (columnaOrdenAnalista === 'monto' || columnaOrdenAnalista === 'montoDebitado') ?
+                    (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'aceptados'"
                   (click)="ordenarAnalistas('aceptados')" title="Ordenar por Débitos Aceptados">
@@ -1444,8 +1513,7 @@
                     ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'ticket'"
-                  (click)="ordenarAnalistas('ticket')"
-                  title="Ordenar por Ticket Promedio (Débitos Aceptados / Documentos)">
+                  (click)="ordenarAnalistas('ticket')" title="Ordenar por Ticket Promedio">
                   TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'ticket'">{{
                     columnaOrdenAnalista === 'ticket' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
@@ -1457,8 +1525,7 @@
                     (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-tasa sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'recupero'"
-                  (click)="ordenarAnalistas('recupero')"
-                  title="Ordenar por % Recupero ((Refacturados / Débitos Aceptados) × 100)">
+                  (click)="ordenarAnalistas('recupero')" title="Ordenar por % Recupero">
                   % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'recupero'">{{
                     columnaOrdenAnalista === 'recupero' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
@@ -1468,22 +1535,22 @@
 
               <!-- NIVEL 1: Analista -->
               <tr class="tr-analista" (click)="toggleAnalista(a)" [class.is-expanded]="a.expanded">
-                <td class="text-center td-btn-box">
-                  <button type="button" class="btn-toggle-box" [class.is-expanded]="a.expanded"
-                    (click)="toggleAnalista(a); $event.stopPropagation()">
-                    {{ a.expanded ? '−' : '+' }}
-                  </button>
-                </td>
                 <td class="td-tree-node td-analista">
-                  <div class="analista-cell-wrapper">
+                  <div class="cc-cell-wrapper">
+                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="a.expanded">
+                      {{ a.expanded ? '▼' : '▶' }}
+                    </button>
                     <span class="analista-nombre">{{ a.analista }}</span>
                   </div>
                 </td>
                 <td class="text-center font-weight-bold">
-                  <span class="badge-fin-analista">{{ a.cantidadFinanciadores || 0 }}</span>
+                  <span class="badge-docs-analista">{{ a.cantidadFinanciadores || 0 }}</span>
                 </td>
                 <td class="text-center font-weight-bold">
                   <span class="badge-docs-analista">{{ a.cantidadRegistros }}</span>
+                </td>
+                <td class="text-right font-weight-bold color-facturado">
+                  {{ (a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados)) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
                   {{ a.debitosAceptados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
@@ -1508,63 +1575,12 @@
                 </td>
               </tr>
 
-              <!-- NIVEL 2: Motivos (solo si analista está expandido) -->
+              <!-- NIVEL 2: Motivos -->
               <ng-container *ngIf="a.expanded">
-                <tr class="tr-sub-header tr-sub-header-motivo">
-                  <th colspan="2" class="td-sub-header-title sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('motivo')" title="Ordenar por Motivo">
-                    ↳ Motivo de Débito <span class="sort-indicator"
-                      [class.active]="columnaOrdenMotivoAnalista === 'motivo'">{{ columnaOrdenMotivoAnalista ===
-                      'motivo' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                  </th>
-                  <th class="text-center td-sub-header-col sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('financiadores')" title="Ordenar por Financiadores">
-                    Financ. <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'financiadores'">{{
-                      columnaOrdenMotivoAnalista === 'financiadores' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕'
-                      }}</span>
-                  </th>
-                  <th class="text-center td-sub-header-col sortable-sub-col" (click)="ordenarMotivosAnalistas('casos')"
-                    title="Ordenar por Casos">
-                    Casos <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'casos'">{{
-                      columnaOrdenMotivoAnalista === 'casos' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') :
-                      '↕' }}</span>
-                  </th>
-                  <th class="text-right td-sub-header-col sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('montoDebitado')" title="Ordenar por Monto Debitado">
-                    Monto Debitado <span class="sort-indicator"
-                      [class.active]="columnaOrdenMotivoAnalista === 'montoDebitado'">{{ columnaOrdenMotivoAnalista
-                      === 'montoDebitado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                  </th>
-                  <th class="text-right td-sub-header-col sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('aceptado')" title="Ordenar por Aceptado">
-                    Aceptado <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'aceptado'">{{
-                      columnaOrdenMotivoAnalista ===
-                      'aceptado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                  </th>
-                  <th class="text-right td-sub-header-col sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('refacturado')" title="Ordenar por Refacturado">
-                    Refacturado <span class="sort-indicator"
-                      [class.active]="columnaOrdenMotivoAnalista === 'refacturado'">{{ columnaOrdenMotivoAnalista ===
-                      'refacturado' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                  </th>
-                  <th class="text-center td-sub-header-col sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('atencion')" title="Ordenar por Atención">
-                    Atención (AMB / INT) <span class="sort-indicator"
-                      [class.active]="columnaOrdenMotivoAnalista === 'atencion'">{{ columnaOrdenMotivoAnalista ===
-                      'atencion' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                  </th>
-                  <th class="text-right td-sub-header-col sortable-sub-col"
-                    (click)="ordenarMotivosAnalistas('recupero')" title="Ordenar por % Recupero">
-                    % Rec. <span class="sort-indicator" [class.active]="columnaOrdenMotivoAnalista === 'recupero'">{{
-                      columnaOrdenMotivoAnalista === 'recupero' ? (direccionOrdenMotivoAnalista === 'asc' ? '▲' : '▼')
-                      : '↕' }}</span>
-                  </th>
-                </tr>
-
                 <ng-container *ngFor="let m of a.motivos; trackBy: trackByMotivo">
                   <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
-                    <td colspan="2" class="td-tree-node td-motivo">
-                      <div class="motivo-cell-wrapper">
+                    <td class="td-tree-node td-motivo">
+                      <div class="cc-cell-wrapper">
                         <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
                           {{ m.expanded ? '▼' : '▶' }}
                         </button>
@@ -1572,7 +1588,7 @@
                       </div>
                     </td>
                     <td class="text-center font-weight-bold">
-                      <span class="badge-count">{{ m.financiadores?.length || 0 }}</span>
+                      <span class="badge-count">{{ m.financiadores.length }}</span>
                     </td>
                     <td class="text-center font-weight-bold">{{ m.casos }}</td>
                     <td class="text-right font-weight-bold color-facturado">
@@ -1583,6 +1599,9 @@
                     </td>
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                    </td>
+                    <td class="text-right color-ticket-promedio">
+                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-center">
                       <span class="badge-atencion badge-atencion-sm" *ngIf="m.distribucionAtencion">
@@ -1600,26 +1619,17 @@
                     </td>
                   </tr>
 
-                  <!-- NIVEL 3: Financiadores Afectados (solo si motivo y analista están expandidos) -->
+                  <!-- NIVEL 3: Financiadores Afectados -->
                   <ng-container *ngIf="m.expanded">
-                    <tr class="tr-sub-header tr-sub-header-financiador">
-                      <th colspan="3" class="td-sub-header-sub-title">└── Financiador Afectado</th>
-                      <th class="text-center td-sub-header-col">Casos</th>
-                      <th class="text-right td-sub-header-col">Monto Debitado</th>
-                      <th class="text-right td-sub-header-col">Aceptado</th>
-                      <th class="text-right td-sub-header-col">Refacturado</th>
-                      <th class="text-center td-sub-header-col">Atención (AMB / INT)</th>
-                      <th class="text-right td-sub-header-col">% Rec.</th>
-                    </tr>
-
                     <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
                       class="tr-financiador-sub">
-                      <td colspan="3" class="td-tree-node td-financiador-sub-item">
-                        <div class="financiador-cell-wrapper">
+                      <td class="td-tree-node td-financiador-sub-item">
+                        <div class="cc-cell-wrapper">
                           <span class="tree-branch">└─</span>
                           <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                         </div>
                       </td>
+                      <td class="text-center text-muted">—</td>
                       <td class="text-center text-muted">{{ fin.casos }}</td>
                       <td class="text-right font-weight-bold color-facturado">
                         {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) |
@@ -1630,6 +1640,9 @@
                       </td>
                       <td class="text-right color-refacturado">
                         {{ (fin.refacturado || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                      </td>
+                      <td class="text-right color-ticket-promedio">
+                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) : 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-center">
                         <span class="badge-atencion badge-atencion-sm" *ngIf="fin.distribucionAtencion">
@@ -1648,7 +1661,6 @@
                       </td>
                     </tr>
                   </ng-container>
-
                 </ng-container>
               </ng-container>
 
@@ -1663,7 +1675,7 @@
   <!-- =====================================================================
        SOLAPA 7: BUCLES DE INSISTENCIA
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'bucles'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'bucles'">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -1732,7 +1744,7 @@
                 </th>
               </tr>
             </thead>
-            <tbody *ngFor="let cadena of buclesDatos; trackBy: trackByCadena">
+            <tbody *ngFor="let cadena of buclesDatosPaginados; trackBy: trackByCadena">
               <!-- Fila Principal (Nivel 1) -->
               <tr class="tr-parent-nivel1" (click)="toggleCadena(cadena)" [class.is-expanded]="cadena.expanded">
                 <td class="text-center">
@@ -1880,6 +1892,44 @@
               </tr>
             </tbody>
           </table>
+
+          <!-- Paginación de Bucles -->
+          <div class="trazabilidad-pagination-bar" *ngIf="totalPaginasBucles > 1">
+            <div class="pagination-info">
+              Mostrando bucles
+              <strong>{{ (buclesPaginaActual - 1) * buclesItemsPorPagina + 1 }}</strong>
+              al
+              <strong>{{ (buclesPaginaActual * buclesItemsPorPagina) > buclesDatos.length ? buclesDatos.length : (buclesPaginaActual * buclesItemsPorPagina) }}</strong>
+              de un total de <strong>{{ buclesDatos.length }}</strong> bucles
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="buclesPaginaActual <= 1"
+                (click)="cambiarPaginaBucles(1)" title="Primera página">
+                «
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="buclesPaginaActual <= 1"
+                (click)="cambiarPaginaBucles(buclesPaginaActual - 1)" title="Página anterior">
+                ‹
+              </button>
+              <span class="page-current-indicator">Página {{ buclesPaginaActual }} de {{ totalPaginasBucles }}</span>
+              <button type="button" class="btn-page-nav" [disabled]="buclesPaginaActual >= totalPaginasBucles"
+                (click)="cambiarPaginaBucles(buclesPaginaActual + 1)" title="Página siguiente">
+                ›
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="buclesPaginaActual >= totalPaginasBucles"
+                (click)="cambiarPaginaBucles(totalPaginasBucles)" title="Última página">
+                »
+              </button>
+            </div>
+            <div class="pagination-page-size">
+              <label for="select-page-size-bucles">Por página:</label>
+              <select id="select-page-size-bucles" class="page-size-select"
+                [ngModel]="buclesItemsPorPagina"
+                (ngModelChange)="onBuclesItemsPorPaginaChange($event)">
+                <option *ngFor="let opt of buclesOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
+              </select>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1889,7 +1939,7 @@
   <!-- =====================================================================
        SOLAPA 8: USUARIO DE CARGA (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'usuarios-carga'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'usuarios-carga'">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -1910,6 +1960,57 @@
               (Financiador Afectado).
             </p>
           </div>
+
+          <!-- Controles y Filtro exclusivo de la Solapa Operadores -->
+          <div class="analistas-header-controls" *ngIf="operadoresDatos.length > 0">
+            <!-- Buscador rápido por texto -->
+            <div class="filtro-analista-container">
+              <label for="input-busqueda-operador" class="filtro-analista-label">
+                Buscar Operador:
+              </label>
+              <div class="input-search-wrapper">
+                <input id="input-busqueda-operador" type="text" class="form-control input-search-medico"
+                  placeholder="Escriba el nombre del operador..." [(ngModel)]="busquedaTextoOperador"
+                  (ngModelChange)="onBusquedaTextoOperadorChange()" />
+                <button *ngIf="busquedaTextoOperador" type="button" class="btn-clear-search"
+                  (click)="busquedaTextoOperador = ''; onBusquedaTextoOperadorChange()" title="Limpiar búsqueda">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Selector desplegable de Operador individual -->
+            <div class="filtro-analista-container">
+              <label for="select-filtro-operador" class="filtro-analista-label">
+                Filtrar Operador:
+              </label>
+              <div class="select-wrapper-analista">
+                <select id="select-filtro-operador" class="form-control select-custom select-filtro-analista"
+                  [(ngModel)]="filtroOperadorSeleccionado"
+                  (ngModelChange)="operadoresPaginaActual = 1; actualizarAlturasSticky()">
+                  <option value="TODOS">-- Todos los Operadores ({{ operadoresDatos.length }}) --</option>
+                  <option *ngFor="let nombre of listaNombresOperadores" [value]="nombre">
+                    {{ nombre }}
+                  </option>
+                </select>
+                <button *ngIf="filtroOperadorSeleccionado !== 'TODOS'" type="button" class="btn-clear-filtro-analista"
+                  (click)="limpiarFiltroOperador()" title="Limpiar filtro de operador">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Badge de Operadores Activos / Filtrados -->
+            <div class="badge-analistas-activos"
+              [class.badge-analistas-filtrados]="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador !== '' || (codigoCoberturaSeleccionada !== 'TODAS' && codigoCoberturaSeleccionada !== '')">
+              <span *ngIf="filtroOperadorSeleccionado === 'TODOS' && !busquedaTextoOperador && (codigoCoberturaSeleccionada === 'TODAS' || !codigoCoberturaSeleccionada)">
+                {{ operadoresDatos.length }} Operadores Registrados
+              </span>
+              <span *ngIf="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador || (codigoCoberturaSeleccionada && codigoCoberturaSeleccionada !== 'TODAS')">
+                Mostrando: {{ operadoresFiltrados.length }} de {{ operadoresDatos.length }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <!-- Estado de Carga -->
@@ -1918,39 +2019,42 @@
           <p>Cargando métricas de operadores de carga...</p>
         </div>
 
-        <!-- Estado Vacío -->
+        <!-- Estado Vacío General -->
         <div *ngIf="!cargandoOperadores && operadoresDatos.length === 0" class="empty-state">
           <p>No se encontraron débitos vinculados a operadores de carga en el período seleccionado.</p>
         </div>
 
+        <!-- Estado Vacío por Filtros Específicos -->
+        <div *ngIf="!cargandoOperadores && operadoresDatos.length > 0 && operadoresFiltrados.length === 0" class="empty-state">
+          <p>No se encontraron débitos registrados para los filtros seleccionados.</p>
+          <button type="button" class="btn btn-sm btn-primary mt-2" (click)="restablecerFiltrosOperadores()">
+            Restablecer filtros de operadores
+          </button>
+        </div>
+
         <!-- Tabla Sanatorial Operadores a 3 Niveles -->
-        <div *ngIf="!cargandoOperadores && operadoresDatos.length > 0" class="table-responsive">
-          <table class="table-sanatorial table-bordered table-analistas">
+        <div *ngIf="!cargandoOperadores && operadoresFiltrados.length > 0" class="table-responsive">
+          <table class="table-sanatorial table-analistas">
             <thead>
               <tr>
-                <th class="th-operador sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'"
-                  (click)="ordenarOperadores('operador')" title="Ordenar por Operador">
-                  OPERADOR <span class="sort-indicator"
+                <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'"
+                  (click)="ordenarOperadores('operador')" title="Ordenar por Operador / Motivo / Financiador">
+                  OPERADOR / MOTIVO / FINANCIADOR <span class="sort-indicator"
                     [class.active]="columnaOrdenOperador === 'operador'">{{ columnaOrdenOperador === 'operador' ?
                     (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="th-motivo-col sortable-col" [class.col-sorted]="columnaOrdenOperador === 'motivo'"
-                  (click)="ordenarOperadores('motivo')" title="Ordenar por Motivo">
-                  MOTIVO <span class="sort-indicator"
-                    [class.active]="columnaOrdenOperador === 'motivo'">{{ columnaOrdenOperador === 'motivo' ?
-                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="th-financiador-col sortable-col" [class.col-sorted]="columnaOrdenOperador === 'financiador'"
-                  (click)="ordenarOperadores('financiador')" title="Ordenar por Financiador">
-                  FINANCIADOR <span class="sort-indicator"
-                    [class.active]="columnaOrdenOperador === 'financiador'">{{ columnaOrdenOperador === 'financiador' ?
-                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
                 <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenOperador === 'documentos'"
-                  (click)="ordenarOperadores('documentos')" title="Ordenar por Documentos">
-                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{
+                  (click)="ordenarOperadores('documentos')" title="Ordenar por Documentos / Casos">
+                  DOCUMENTOS / CASOS <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{
                     columnaOrdenOperador === 'documentos' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
+                </th>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'monto' || columnaOrdenOperador === 'montoDebitado'"
+                  (click)="ordenarOperadores('monto')" title="Ordenar por Monto Total Debitado">
+                  MONTO DEBITADO ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'monto' || columnaOrdenOperador === 'montoDebitado'">{{
+                    (columnaOrdenOperador === 'monto' || columnaOrdenOperador === 'montoDebitado') ?
+                    (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'aceptados'"
                   (click)="ordenarOperadores('aceptados')" title="Ordenar por Débitos Aceptados">
@@ -1961,7 +2065,7 @@
                 <th class="text-right th-monto sortable-col"
                   [class.col-sorted]="columnaOrdenOperador === 'refacturados'"
                   (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturados">
-                  REFACTURADOS <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{
+                  REFACTURADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{
                     columnaOrdenOperador === 'refacturados' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
@@ -1977,12 +2081,12 @@
                 </th>
               </tr>
             </thead>
-            <tbody *ngFor="let op of operadoresDatos; trackBy: trackByOperador">
+            <tbody *ngFor="let op of operadoresDatosPaginados; trackBy: trackByOperador">
 
               <!-- NIVEL 1: Operador -->
               <tr class="tr-analista tr-operador" (click)="toggleOperador(op)" [class.is-expanded]="op.expanded">
                 <td class="td-tree-node td-analista">
-                  <div class="analista-cell-wrapper">
+                  <div class="cc-cell-wrapper">
                     <button type="button" class="btn-toggle-expand" [class.is-expanded]="op.expanded">
                       {{ op.expanded ? '▼' : '▶' }}
                     </button>
@@ -1990,10 +2094,11 @@
                     <span class="badge-count">{{ op.motivos.length }} motivos</span>
                   </div>
                 </td>
-                <td class="text-center text-muted">—</td>
-                <td class="text-center text-muted">—</td>
                 <td class="text-right font-weight-bold">
                   {{ op.cantidadRegistros }}
+                </td>
+                <td class="text-right font-weight-bold color-facturado">
+                  {{ (op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados)) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
                   {{ op.debitosAceptados | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
@@ -2013,42 +2118,12 @@
                 </td>
               </tr>
 
-              <!-- NIVEL 2: Motivos (solo si operador está expandido) -->
+              <!-- NIVEL 2: Motivos -->
               <ng-container *ngIf="op.expanded">
-                <tr class="tr-sub-header tr-sub-header-motivo">
-                  <th class="td-sub-header-title text-center text-muted">↳</th>
-                  <th class="td-sub-header-title sortable-sub-col" (click)="ordenarOperadores('motivo')"
-                    title="Ordenar por Motivo">Motivo de Débito <span class="sort-indicator"
-                      [class.active]="columnaOrdenOperador === 'motivo'">{{ columnaOrdenOperador === 'motivo' ?
-                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                  <th class="td-sub-header-col text-center text-muted">—</th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('documentos')"
-                    title="Ordenar por Casos">Casos <span class="sort-indicator"
-                      [class.active]="columnaOrdenOperador === 'documentos'">{{ columnaOrdenOperador === 'documentos' ?
-                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('ticket')"
-                    title="Ordenar por Monto Debitado">Monto Debitado <span class="sort-indicator"
-                      [class.active]="columnaOrdenOperador === 'ticket'">{{ columnaOrdenOperador === 'ticket' ?
-                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('aceptados')"
-                    title="Ordenar por Aceptado">Aceptado <span class="sort-indicator"
-                      [class.active]="columnaOrdenOperador === 'aceptados'">{{ columnaOrdenOperador === 'aceptados' ?
-                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('refacturados')"
-                    title="Ordenar por Refacturado">Refacturado <span class="sort-indicator"
-                      [class.active]="columnaOrdenOperador === 'refacturados'">{{ columnaOrdenOperador === 'refacturados' ?
-                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarOperadores('recupero')"
-                    title="Ordenar por % Recupero">% Rec. <span class="sort-indicator"
-                      [class.active]="columnaOrdenOperador === 'recupero'">{{ columnaOrdenOperador === 'recupero' ?
-                      (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                </tr>
-
                 <ng-container *ngFor="let m of op.motivos; trackBy: trackByMotivo">
-                  <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
-                    <td class="text-center text-muted"></td>
-                    <td class="td-tree-node td-motivo-col-cell">
-                      <div class="motivo-cell-wrapper">
+                  <tr class="tr-motivo" (click)="toggleMotivo(m, op)" [class.is-expanded]="m.expanded">
+                    <td class="td-tree-node td-motivo">
+                      <div class="cc-cell-wrapper">
                         <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
                           {{ m.expanded ? '▼' : '▶' }}
                         </button>
@@ -2056,8 +2131,7 @@
                         <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                       </div>
                     </td>
-                    <td class="text-center text-muted">—</td>
-                    <td class="text-right">{{ m.casos }}</td>
+                    <td class="text-right font-weight-bold">{{ m.casos }}</td>
                     <td class="text-right font-weight-bold color-facturado">
                       {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                     </td>
@@ -2066,6 +2140,9 @@
                     </td>
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                    </td>
+                    <td class="text-right color-ticket">
+                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                     </td>
                     <td class="text-right">
                       <span class="badge-recupero badge-recupero-sm"
@@ -2077,45 +2154,81 @@
                     </td>
                   </tr>
 
-                  <!-- NIVEL 3: Financiadores Afectados (solo si motivo y operador están expandidos) -->
+                  <!-- NIVEL 3: Financiadores Afectados -->
                   <ng-container *ngIf="m.expanded">
-                    <tr class="tr-sub-header tr-sub-header-financiador">
-                      <th class="text-muted"></th>
-                      <th class="td-sub-header-sub-title text-center text-muted">└──</th>
-                      <th class="td-sub-header-sub-title sortable-sub-col" (click)="ordenarOperadores('financiador')"
-                        title="Ordenar por Financiador">Financiador Afectado <span class="sort-indicator"
-                          [class.active]="columnaOrdenOperador === 'financiador'">{{ columnaOrdenOperador === 'financiador' ?
-                          (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span></th>
-                      <th class="text-right td-sub-header-col sortable-sub-col"
-                        (click)="ordenarOperadores('documentos')" title="Ordenar por Casos">Casos</th>
-                      <th colspan="3" class="text-right td-sub-header-col sortable-sub-col"
-                        (click)="ordenarOperadores('ticket')" title="Ordenar por Monto">Monto</th>
-                      <th class="text-center td-sub-header-col">—</th>
-                    </tr>
-
                     <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
                       class="tr-financiador-sub">
-                      <td></td>
-                      <td></td>
-                      <td class="td-tree-node td-financiador-col-cell">
-                        <div class="financiador-cell-wrapper">
+                      <td class="td-tree-node td-financiador-sub-item">
+                        <div class="cc-cell-wrapper">
                           <span class="tree-branch">└─</span>
                           <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                         </div>
                       </td>
                       <td class="text-right text-muted">{{ fin.casos }}</td>
-                      <td colspan="3" class="text-right font-weight-bold color-facturado">
-                        {{ fin.monto | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      <td class="text-right font-weight-bold color-facturado">
+                        {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                       </td>
-                      <td class="text-center text-muted">—</td>
+                      <td class="text-right color-aceptado">
+                        {{ fin.aceptado != null ? (fin.aceptado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                      </td>
+                      <td class="text-right color-refacturado">
+                        {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                      </td>
+                      <td class="text-right color-ticket">
+                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right">
+                        <span *ngIf="fin.refacturado != null" class="badge-recupero badge-recupero-sm"
+                          [class.recupero-alto]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) >= 50"
+                          [class.recupero-medio]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) < 50"
+                          [class.recupero-cero]="fin.refacturado === 0">
+                          {{ ((fin.montoDebitado || fin.monto) > 0 ? (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) : 0) | number:'1.1-1' }}%
+                        </span>
+                        <span *ngIf="fin.refacturado == null" class="text-muted">—</span>
+                      </td>
                     </tr>
                   </ng-container>
-
                 </ng-container>
               </ng-container>
 
             </tbody>
           </table>
+
+          <!-- Barra de Paginación Operadores -->
+          <div class="pagination-container" *ngIf="operadoresFiltrados.length > operadoresItemsPorPagina">
+            <div class="pagination-info">
+              Mostrando {{ ((operadoresPaginaActual - 1) * operadoresItemsPorPagina) + 1 }}
+              a {{ (operadoresPaginaActual * operadoresItemsPorPagina) > operadoresFiltrados.length ? operadoresFiltrados.length : (operadoresPaginaActual * operadoresItemsPorPagina) }}
+              de {{ operadoresFiltrados.length }} operadores
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="operadoresPaginaActual === 1"
+                (click)="cambiarPaginaOperadores(1)" title="Primera página">
+                «
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="operadoresPaginaActual === 1"
+                (click)="cambiarPaginaOperadores(operadoresPaginaActual - 1)" title="Página anterior">
+                ‹
+              </button>
+              <span class="page-current-indicator">Página {{ operadoresPaginaActual }} de {{ totalPaginasOperadores }}</span>
+              <button type="button" class="btn-page-nav" [disabled]="operadoresPaginaActual >= totalPaginasOperadores"
+                (click)="cambiarPaginaOperadores(operadoresPaginaActual + 1)" title="Página siguiente">
+                ›
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="operadoresPaginaActual >= totalPaginasOperadores"
+                (click)="cambiarPaginaOperadores(totalPaginasOperadores)" title="Última página">
+                »
+              </button>
+            </div>
+            <div class="pagination-page-size">
+              <label for="select-page-size-operadores">Por página:</label>
+              <select id="select-page-size-operadores" class="page-size-select"
+                [ngModel]="operadoresItemsPorPagina"
+                (ngModelChange)="onOperadoresItemsPorPaginaChange($event)">
+                <option *ngFor="let opt of operadoresOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
+              </select>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -2125,7 +2238,7 @@
   <!-- =====================================================================
        SOLAPA 9: PRESTADORES / MÉDICOS (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'medicos'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'medicos'">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -2149,13 +2262,32 @@
 
           <!-- Controles y Filtro exclusivo de la Solapa Médicos -->
           <div class="analistas-header-controls" *ngIf="medicosDatos.length > 0">
+            <!-- Buscador rápido por texto -->
+            <div class="filtro-analista-container">
+              <label for="input-busqueda-medico" class="filtro-analista-label">
+                Buscar Médico:
+              </label>
+              <div class="select-wrapper-analista">
+                <input id="input-busqueda-medico" type="text"
+                  class="form-control select-custom select-filtro-analista"
+                  placeholder="Escribir nombre o apellido..."
+                  [(ngModel)]="busquedaTextoMedico"
+                  (ngModelChange)="onBusquedaTextoMedicoChange()">
+                <button *ngIf="busquedaTextoMedico" type="button" class="btn-clear-filtro-analista"
+                  (click)="busquedaTextoMedico = ''; onBusquedaTextoMedicoChange()" title="Limpiar búsqueda">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Selector de Médicos -->
             <div class="filtro-analista-container">
               <label for="select-filtro-medico" class="filtro-analista-label">
-                Filtrar Médico:
+                Filtrar Selección:
               </label>
               <div class="select-wrapper-analista">
                 <select id="select-filtro-medico" class="form-control select-custom select-filtro-analista"
-                  [(ngModel)]="filtroMedicoSeleccionado">
+                  [(ngModel)]="filtroMedicoSeleccionado" (ngModelChange)="medicosPaginaActual = 1">
                   <option value="TODOS">-- Todos los Médicos ({{ listaNombresMedicos.length }}) --</option>
                   <option *ngFor="let nombre of listaNombresMedicos" [value]="nombre">
                     {{ nombre }}
@@ -2202,19 +2334,31 @@
 
         <!-- Tabla Sanatorial Médicos a 3 Niveles -->
         <div *ngIf="!cargandoMedicos && medicosFiltrados.length > 0" class="table-responsive">
-          <table class="table-sanatorial table-bordered table-analistas">
+          <table class="table-sanatorial table-analistas">
             <thead>
               <tr>
-                <th class="th-analista sortable-col" [class.col-sorted]="columnaOrdenMedico === 'medico'"
-                  (click)="ordenarMedicos('medico')" title="Ordenar por Médico">
+                <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenMedico === 'medico'"
+                  (click)="ordenarMedicos('medico')" title="Ordenar por Médico / Motivo / Financiador">
                   MÉDICO / MOTIVO / FINANCIADOR <span class="sort-indicator"
                     [class.active]="columnaOrdenMedico === 'medico'">{{ columnaOrdenMedico === 'medico' ?
                     (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenMedico === 'documentos'"
-                  (click)="ordenarMedicos('documentos')" title="Ordenar por Documentos">
-                  DOCUMENTOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'documentos'">{{
-                    columnaOrdenMedico === 'documentos' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                <th class="text-center th-motivos sortable-col" [class.col-sorted]="columnaOrdenMedico === 'motivos'"
+                  (click)="ordenarMedicos('motivos')" title="Ordenar por Cantidad de Motivos / Financiadores">
+                  CANT. MOTIVOS / FIN. <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'motivos'">{{
+                    columnaOrdenMedico === 'motivos' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos'"
+                  (click)="ordenarMedicos('documentos')" title="Ordenar por Documentos / Casos">
+                  DOCUMENTOS / CASOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos'">{{
+                    (columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos') ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'monto' || columnaOrdenMedico === 'montoDebitado'"
+                  (click)="ordenarMedicos('monto')" title="Ordenar por Monto Total Debitado">
+                  MONTO DEBITADO ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenMedico === 'monto' || columnaOrdenMedico === 'montoDebitado'">{{
+                    (columnaOrdenMedico === 'monto' || columnaOrdenMedico === 'montoDebitado') ?
+                    (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'aceptados'"
                   (click)="ordenarMedicos('aceptados')" title="Ordenar por Débitos Aceptados">
@@ -2224,7 +2368,7 @@
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'refacturados'"
                   (click)="ordenarMedicos('refacturados')" title="Ordenar por Refacturados">
-                  REFACTURADOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'refacturados'">{{
+                  REFACTURADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'refacturados'">{{
                     columnaOrdenMedico === 'refacturados' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'ticket'"
@@ -2239,21 +2383,33 @@
                 </th>
               </tr>
             </thead>
-            <tbody *ngFor="let med of medicosFiltrados; trackBy: trackByMedico">
+            <tbody *ngFor="let med of medicosDatosPaginados; trackBy: trackByMedico">
 
               <!-- NIVEL 1: Médico -->
               <tr class="tr-analista tr-medico" (click)="toggleMedico(med)" [class.is-expanded]="med.expanded">
                 <td class="td-tree-node td-analista">
-                  <div class="analista-cell-wrapper">
+                  <div class="cc-cell-wrapper">
                     <button type="button" class="btn-toggle-expand" [class.is-expanded]="med.expanded">
                       {{ med.expanded ? '▼' : '▶' }}
                     </button>
                     <span class="analista-nombre">{{ med.medico }}</span>
-                    <span class="badge-count">{{ med.motivos.length }} motivos</span>
                   </div>
+                </td>
+                <td class="text-center font-weight-bold">
+                  <span *ngIf="med.expanded" class="badge-fin-analista badge-motivos-medico badge-col-financiadores"
+                    title="Cantidad de financiadores en los motivos inferiores">
+                    Cant. Financiadores
+                  </span>
+                  <span *ngIf="!med.expanded" class="badge-fin-analista badge-motivos-medico"
+                    [title]="med.motivos.length + ' motivos'">
+                    {{ med.motivos.length }}
+                  </span>
                 </td>
                 <td class="text-right font-weight-bold">
                   {{ med.cantidadRegistros }}
+                </td>
+                <td class="text-right font-weight-bold color-facturado">
+                  {{ (med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados)) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
                   {{ med.debitosAceptados | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
@@ -2273,35 +2429,22 @@
                 </td>
               </tr>
 
-              <!-- NIVEL 2: Motivos (solo si médico está expandido) -->
+              <!-- NIVEL 2: Motivos -->
               <ng-container *ngIf="med.expanded">
-                <tr class="tr-sub-header tr-sub-header-motivo">
-                  <th class="td-sub-header-title sortable-sub-col" (click)="ordenarMedicos('medico')"
-                    title="Ordenar por Motivo">↳ Motivo de Débito</th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('documentos')"
-                    title="Ordenar por Casos">Casos</th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('ticket')"
-                    title="Ordenar por Monto Debitado">Monto Debitado</th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('aceptados')"
-                    title="Ordenar por Aceptado">Aceptado</th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('refacturados')"
-                    title="Ordenar por Refacturado">Refacturado</th>
-                  <th class="text-right td-sub-header-col sortable-sub-col" (click)="ordenarMedicos('recupero')"
-                    title="Ordenar por % Recupero">% Rec.</th>
-                </tr>
-
                 <ng-container *ngFor="let m of med.motivos; trackBy: trackByMotivo">
-                  <tr class="tr-motivo" (click)="toggleMotivo(m)" [class.is-expanded]="m.expanded">
+                  <tr class="tr-motivo" (click)="toggleMotivo(m, med)" [class.is-expanded]="m.expanded">
                     <td class="td-tree-node td-motivo">
-                      <div class="motivo-cell-wrapper">
+                      <div class="cc-cell-wrapper">
                         <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="m.expanded">
                           {{ m.expanded ? '▼' : '▶' }}
                         </button>
                         <span class="motivo-tag">{{ m.motivo }}</span>
-                        <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                       </div>
                     </td>
-                    <td class="text-right">{{ m.casos }}</td>
+                    <td class="text-center font-weight-bold">
+                      <span class="badge-count" [title]="m.financiadores.length + ' financiadores'">{{ m.financiadores.length }}</span>
+                    </td>
+                    <td class="text-right font-weight-bold">{{ m.casos }}</td>
                     <td class="text-right font-weight-bold color-facturado">
                       {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                     </td>
@@ -2310,6 +2453,9 @@
                     </td>
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                    </td>
+                    <td class="text-right color-ticket">
+                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                     </td>
                     <td class="text-right">
                       <span class="badge-recupero badge-recupero-sm"
@@ -2321,36 +2467,84 @@
                     </td>
                   </tr>
 
-                  <!-- NIVEL 3: Financiadores Afectados (solo si motivo y médico están expandidos) -->
+                  <!-- NIVEL 3: Financiadores Afectados -->
                   <ng-container *ngIf="m.expanded">
-                    <tr class="tr-sub-header tr-sub-header-financiador">
-                      <th class="td-sub-header-sub-title">└── Financiador Afectado</th>
-                      <th class="text-right td-sub-header-col">Casos</th>
-                      <th colspan="3" class="text-right td-sub-header-col">Monto</th>
-                      <th class="text-center td-sub-header-col">—</th>
-                    </tr>
-
                     <tr *ngFor="let fin of m.financiadores; trackBy: trackByFinanciadorAnalista"
                       class="tr-financiador-sub">
                       <td class="td-tree-node td-financiador-sub-item">
-                        <div class="financiador-cell-wrapper">
+                        <div class="cc-cell-wrapper">
                           <span class="tree-branch">└─</span>
                           <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                         </div>
                       </td>
-                      <td class="text-right text-muted">{{ fin.casos }}</td>
-                      <td colspan="3" class="text-right font-weight-bold color-facturado">
-                        {{ fin.monto | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                      </td>
                       <td class="text-center text-muted">—</td>
+                      <td class="text-right text-muted">{{ fin.casos }}</td>
+                      <td class="text-right font-weight-bold color-facturado">
+                        {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right color-aceptado">
+                        {{ fin.aceptado != null ? (fin.aceptado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                      </td>
+                      <td class="text-right color-refacturado">
+                        {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                      </td>
+                      <td class="text-right color-ticket">
+                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right">
+                        <span *ngIf="fin.refacturado != null" class="badge-recupero badge-recupero-sm"
+                          [class.recupero-alto]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) >= 50"
+                          [class.recupero-medio]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) < 50"
+                          [class.recupero-cero]="fin.refacturado === 0">
+                          {{ ((fin.montoDebitado || fin.monto) > 0 ? (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) : 0) | number:'1.1-1' }}%
+                        </span>
+                        <span *ngIf="fin.refacturado == null" class="text-muted">—</span>
+                      </td>
                     </tr>
                   </ng-container>
-
                 </ng-container>
               </ng-container>
 
             </tbody>
           </table>
+
+          <!-- Paginación de Médicos -->
+          <div class="trazabilidad-pagination-bar" *ngIf="medicosFiltrados.length > medicosItemsPorPagina || medicosFiltrados.length > 25">
+            <div class="pagination-info">
+              Mostrando registros
+              <strong>{{ (medicosPaginaActual - 1) * medicosItemsPorPagina + 1 }}</strong>
+              al
+              <strong>{{ (medicosPaginaActual * medicosItemsPorPagina) > medicosFiltrados.length ? medicosFiltrados.length : (medicosPaginaActual * medicosItemsPorPagina) }}</strong>
+              de un total de <strong>{{ medicosFiltrados.length }}</strong> médicos
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="medicosPaginaActual <= 1"
+                (click)="cambiarPaginaMedicos(1)" title="Primera página">
+                «
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="medicosPaginaActual <= 1"
+                (click)="cambiarPaginaMedicos(medicosPaginaActual - 1)" title="Página anterior">
+                ‹
+              </button>
+              <span class="page-current-indicator">Página {{ medicosPaginaActual }} de {{ totalPaginasMedicos }}</span>
+              <button type="button" class="btn-page-nav" [disabled]="medicosPaginaActual >= totalPaginasMedicos"
+                (click)="cambiarPaginaMedicos(medicosPaginaActual + 1)" title="Página siguiente">
+                ›
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="medicosPaginaActual >= totalPaginasMedicos"
+                (click)="cambiarPaginaMedicos(totalPaginasMedicos)" title="Última página">
+                »
+              </button>
+            </div>
+            <div class="pagination-page-size">
+              <label for="select-page-size-medicos">Por página:</label>
+              <select id="select-page-size-medicos" class="page-size-select"
+                [ngModel]="medicosItemsPorPagina"
+                (ngModelChange)="onMedicosItemsPorPaginaChange($event)">
+                <option *ngFor="let opt of medicosOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
+              </select>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -2360,7 +2554,7 @@
   <!-- =====================================================================
        SOLAPA 10: DETALLE Y TRAZABILIDAD (ÁRBOL ENCADENADO)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" [hidden]="solapaActiva !== 'trazabilidad'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'trazabilidad'">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">

@@ -61,17 +61,18 @@ public class CacheConfig {
                 CACHE_CUENTA_CORRIENTE
         );
         manager.setCaffeine(Caffeine.newBuilder()
-                .maximumSize(500)
-                .expireAfterWrite(15, TimeUnit.MINUTES)
+                .maximumSize(2000)
+                .expireAfterWrite(30, TimeUnit.MINUTES)
                 .recordStats());
         this.cacheManager = manager;
         return manager;
     }
 
     /**
-     * Desalojo automático programado cada 10 minutos para asegurar frescura de métricas agregadas.
+     * Desalojo programado deshabilitado para evitar caídas súbitas de rendimiento (cache stampede).
+     * La expiración natural se gestiona automáticamente por Caffeine con expireAfterWrite(30, TimeUnit.MINUTES)
+     * y los cambios de datos disparan desalojarCacheTablero() de manera selectiva.
      */
-    @Scheduled(fixedRate = 600000) // 10 minutos en milisegundos
     public void vaciarCacheProgramada() {
         if (cacheManager != null) {
             for (String cacheName : cacheManager.getCacheNames()) {
@@ -80,7 +81,7 @@ public class CacheConfig {
                     cache.clear();
                 }
             }
-            log.info("Caché en memoria del Tablero de Control desalojada automáticamente tras 10 minutos.");
+            log.info("Caché en memoria del Tablero de Control desalojada.");
         }
     }
 
