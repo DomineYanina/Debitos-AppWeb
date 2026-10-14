@@ -80,6 +80,50 @@ public class DatabaseMigrationConfig {
             }
 
             try {
+                jdbcTemplate.execute("ALTER TABLE nc_ajustedeiva ADD COLUMN IF NOT EXISTS idcabecera BIGINT");
+                log.info("Migración automática aplicada: columna idcabecera asegurada en nc_ajustedeiva.");
+            } catch (Exception e) {
+                log.debug("Aviso migración idcabecera en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE nd_ajustedeiva ADD COLUMN IF NOT EXISTS idcabecera BIGINT");
+                log.info("Migración automática aplicada: columna idcabecera asegurada en nd_ajustedeiva.");
+            } catch (Exception e) {
+                log.debug("Aviso migración idcabecera en nd_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.update("""
+                    UPDATE nc_ajustedeiva n
+                    SET idcabecera = c.id
+                    FROM cabecera c
+                    WHERE n.idcabecera IS NULL
+                      AND UPPER(c.letra) = UPPER(n.letra_nc)
+                      AND c.ptovta = n.ptovta_nc
+                      AND c.numero = n.numero_nc
+                      AND UPPER(TRIM(c.tipo)) IN ('NC', 'NCE', 'NCA', 'NCB')
+                """);
+            } catch (Exception e) {
+                log.debug("Aviso vinculación idcabecera en nc_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.update("""
+                    UPDATE nd_ajustedeiva n
+                    SET idcabecera = c.id
+                    FROM cabecera c
+                    WHERE n.idcabecera IS NULL
+                      AND UPPER(c.letra) = UPPER(n.letra_nd)
+                      AND c.ptovta = n.ptovta_nd
+                      AND c.numero = n.numero_nd
+                      AND UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB')
+                """);
+            } catch (Exception e) {
+                log.debug("Aviso vinculación idcabecera en nd_ajustedeiva: {}", e.getMessage());
+            }
+
+            try {
                 jdbcTemplate.execute("ALTER TABLE nc_ajustedeiva ALTER COLUMN letra_nc DROP NOT NULL");
             } catch (Exception e) {
                 log.debug("Aviso migración drop not null letra_nc en nc_ajustedeiva: {}", e.getMessage());

@@ -382,6 +382,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.filasResumenAjusteIva = [];
     this.registrosSeleccionados = [];
     this.todasSeleccionadas = false;
+    this.facturasAsociadasInfo = [];
+    this.modalImportarPrestacionesVisible = false;
+    this.prestacionesCandidatasImportar = [];
+    this.prestacionesSeleccionadasParaImportar.clear();
 
     // 3. Limpiar filtros dinámicos
     this.filtroPaciente = '';
@@ -461,6 +465,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     const englobante = this.debeMostrarEnglobante();
     const tieneComentariosPrevios = this.prestacionesFiltradas.some(p => p.comentarioPrevio && p.comentarioPrevio.trim() !== '');
     const tramiteFinalizado = this.idEstadoActual === 2;
+    const tieneImportadas = this.prestaciones.some(p => p.esImportada);
 
     // Delegamos la configuración de AG-Grid al servicio
     this.columnDefs = this.gridConfigService.getConfiguracionColumnas(
@@ -470,7 +475,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.listaMotivosAgrupados,
       this.listaMotivosRefacturaAgrupados,
       GroupedSelectEditor, // Pasamos el componente editor para que el servicio pueda inyectarlo
-      tramiteFinalizado
+      tramiteFinalizado,
+      tieneImportadas,
+      (prestacion: any) => this.quitarPrestacionImportada(prestacion)
     );
   }
 
@@ -537,13 +544,42 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   esTablaAjusteIva: boolean = false;
   filasResumenAjusteIva: any[] = [];
   soloCrearNdAjusteIva: boolean = false;
+  filaNcParaCrearNdAjuste: any = null;
   modalHistorialVisible: boolean = false;
   filasHistorialComprobantes: any[] = [];
   cantidadHistorial: number = 1;
   permitirNcConjunta: boolean = true;
   tieneAjusteIvaNcConjunta: boolean = false;
   tieneNdAjusteIvaCreada: boolean = false;
-  filaNcParaCrearNdAjuste: any = null;
+  facturasAsociadasInfo: DocumentoAsociado[] = [];
+
+  importarFacturaForm = this.fb.group({
+    tipo: ['FC', Validators.required],
+    letra: ['', [Validators.required, Validators.maxLength(1)]],
+    puntoVenta: ['', [Validators.required, Validators.min(1)]],
+    numero: ['', [Validators.required, Validators.min(1)]]
+  });
+  modalImportarPrestacionesVisible: boolean = false;
+  cargandoImportacion: boolean = false;
+  prestacionesCandidatasImportar: Prestacion[] = [];
+  prestacionesCandidatasFiltradas: Prestacion[] = [];
+  prestacionesSeleccionadasParaImportar: Set<number> = new Set();
+  facturaCandidataInfo: string = '';
+  todasCandidatasSeleccionadas: boolean = false;
+  errorBusquedaImportacion: string = '';
+
+  // Filtros dinámicos en el modal de importación
+  filtroModalPaciente: string = '';
+  filtroModalProfesional: string = '';
+  filtroModalPrestacion: string = '';
+  filtroModalGrupo: string = '';
+  filtroModalFecha: string = '';
+
+  modalPacientesList: string[] = [];
+  modalProfesionalesList: string[] = [];
+  modalPrestacionesList: string[] = [];
+  modalGruposList: string[] = [];
+  modalFechasList: string[] = [];
 
   obtenerFechaHoy(): string {
     return new Date().toISOString().split('T')[0];
@@ -849,6 +885,254 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  abrirModalImportarPrestaciones(): void {
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder importar prestaciones.', undefined, 'peligro');
+      return;
+    }
+    this.importarFacturaForm.reset({
+      tipo: 'FC',
+      letra: '',
+      puntoVenta: '',
+      numero: ''
+    });
+    this.prestacionesCandidatasImportar = [];
+    this.prestacionesCandidatasFiltradas = [];
+    this.prestacionesSeleccionadasParaImportar.clear();
+    this.facturaCandidataInfo = '';
+    this.todasCandidatasSeleccionadas = false;
+    this.errorBusquedaImportacion = '';
+    this.resetFiltrosModal();
+    this.modalImportarPrestacionesVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalImportarPrestaciones(): void {
+    this.modalImportarPrestacionesVisible = false;
+    this.prestacionesCandidatasImportar = [];
+    this.prestacionesCandidatasFiltradas = [];
+    this.prestacionesSeleccionadasParaImportar.clear();
+    this.resetFiltrosModal();
+    this.cdr.detectChanges();
+  }
+
+  prepararFiltrosModal(datos: Prestacion[]): void {
+    this.modalPacientesList = [...new Set(datos.map(p => p.paciente).filter((x): x is string => !!x))].sort();
+    this.modalProfesionalesList = [...new Set(datos.map(p => p.medico).filter((x): x is string => !!x))].sort();
+    this.modalPrestacionesList = [...new Set(datos.map(p => p.codigo).filter((x): x is string => !!x))].sort();
+    this.modalGruposList = [...new Set(datos.map(p => p.grupomodulo).filter((x): x is string => !!x))].sort();
+    this.modalFechasList = [...new Set(datos.map(p => p.fecha).filter((x): x is string => !!x))].sort();
+  }
+
+  aplicarFiltrosModal(): void {
+    this.prestacionesCandidatasFiltradas = this.prestacionesCandidatasImportar.filter(p => {
+      const coincidePaciente = !this.filtroModalPaciente || p.paciente === this.filtroModalPaciente;
+      const coincideProfesional = !this.filtroModalProfesional || p.medico === this.filtroModalProfesional;
+      const coincidePrestacion = !this.filtroModalPrestacion || p.codigo === this.filtroModalPrestacion;
+      const coincideGrupo = !this.filtroModalGrupo || p.grupomodulo === this.filtroModalGrupo;
+      const coincideFecha = !this.filtroModalFecha || p.fecha === this.filtroModalFecha;
+      return coincidePaciente && coincideProfesional && coincidePrestacion && coincideGrupo && coincideFecha;
+    });
+
+    this.todasCandidatasSeleccionadas = this.prestacionesCandidatasFiltradas.length > 0 &&
+      this.prestacionesCandidatasFiltradas.every(p => p.id != null && this.prestacionesSeleccionadasParaImportar.has(p.id));
+    this.cdr.detectChanges();
+  }
+
+  limpiarFiltroModal(campo: string): void {
+    switch (campo) {
+      case 'paciente': this.filtroModalPaciente = ''; break;
+      case 'profesional': this.filtroModalProfesional = ''; break;
+      case 'prestacion': this.filtroModalPrestacion = ''; break;
+      case 'grupo': this.filtroModalGrupo = ''; break;
+      case 'fecha': this.filtroModalFecha = ''; break;
+    }
+    this.aplicarFiltrosModal();
+  }
+
+  resetFiltrosModal(): void {
+    this.filtroModalPaciente = '';
+    this.filtroModalProfesional = '';
+    this.filtroModalPrestacion = '';
+    this.filtroModalGrupo = '';
+    this.filtroModalFecha = '';
+    this.aplicarFiltrosModal();
+  }
+
+  tieneFiltrosModalActivos(): boolean {
+    return !!(this.filtroModalPaciente || this.filtroModalProfesional || this.filtroModalPrestacion || this.filtroModalGrupo || this.filtroModalFecha);
+  }
+
+  buscarFacturaParaImportar(): void {
+    if (this.importarFacturaForm.invalid) {
+      this.importarFacturaForm.markAllAsTouched();
+      this.errorBusquedaImportacion = 'Por favor complete todos los datos requeridos de la factura.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const val = this.importarFacturaForm.getRawValue();
+    const tipoImportar = (val.tipo || 'FC').toUpperCase();
+    const letraImportar = (val.letra || '').toUpperCase();
+    const ptoVtaImportar = Number(val.puntoVenta) || 0;
+    const numImportar = Number(val.numero) || 0;
+
+    const actual = this.busquedaForm.getRawValue();
+    if (
+      (actual.tipo || '').toUpperCase() === tipoImportar &&
+      (actual.letra || '').toUpperCase() === letraImportar &&
+      Number(actual.puntoVenta) === ptoVtaImportar &&
+      Number(actual.numero) === numImportar
+    ) {
+      this.errorBusquedaImportacion = 'No podés importar de la misma factura que ya tenés cargada en la grilla.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.cargandoImportacion = true;
+    this.errorBusquedaImportacion = '';
+    this.prestacionesCandidatasImportar = [];
+    this.prestacionesCandidatasFiltradas = [];
+    this.prestacionesSeleccionadasParaImportar.clear();
+    this.todasCandidatasSeleccionadas = false;
+    this.cdr.detectChanges();
+
+    this.auditoriaService.buscarPrestaciones({
+      tipo: tipoImportar,
+      letra: letraImportar,
+      puntoVenta: ptoVtaImportar,
+      numero: numImportar
+    }).subscribe({
+      next: (res: any) => {
+        this.cargandoImportacion = false;
+        const lista: Prestacion[] = (res && res.prestaciones) ? res.prestaciones : [];
+        if (lista.length === 0) {
+          this.errorBusquedaImportacion = 'No se encontraron prestaciones para la factura especificada.';
+          this.cdr.detectChanges();
+          return;
+        }
+
+        const idsYaEnGrilla = new Set(this.prestaciones.map(p => p.id));
+        const comprobanteStr = `${tipoImportar} ${letraImportar}${('0000' + ptoVtaImportar).slice(-4)}-${('00000000' + numImportar).slice(-8)}`;
+        this.facturaCandidataInfo = comprobanteStr;
+
+        // Mapear datos de factura de origen y filtrar las que ya estén en la grilla
+        this.prestacionesCandidatasImportar = lista.map(p => ({
+          ...p,
+          facturaOrigenTipo: tipoImportar,
+          facturaOrigenLetra: letraImportar,
+          facturaOrigenPtovta: ptoVtaImportar,
+          facturaOrigenNumero: numImportar,
+          facturaOrigenComprobante: comprobanteStr
+        })).filter(p => !idsYaEnGrilla.has(p.id));
+
+        if (this.prestacionesCandidatasImportar.length === 0) {
+          this.errorBusquedaImportacion = 'Todas las prestaciones de esta factura ya fueron incorporadas a la grilla.';
+        }
+
+        this.prepararFiltrosModal(this.prestacionesCandidatasImportar);
+        this.resetFiltrosModal();
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.cargandoImportacion = false;
+        if (err.status === 404) {
+          this.errorBusquedaImportacion = `No se encontró la factura ${tipoImportar} ${letraImportar} ${ptoVtaImportar}-${numImportar} o no posee prestaciones registradas.`;
+        } else {
+          this.errorBusquedaImportacion = err.error?.message || err.error?.mensaje || 'Error al buscar las prestaciones de la factura.';
+        }
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  toggleSeleccionCandidata(id?: number): void {
+    if (id == null) return;
+    if (this.prestacionesSeleccionadasParaImportar.has(id)) {
+      this.prestacionesSeleccionadasParaImportar.delete(id);
+    } else {
+      this.prestacionesSeleccionadasParaImportar.add(id);
+    }
+    this.todasCandidatasSeleccionadas = this.prestacionesCandidatasFiltradas.length > 0 &&
+      this.prestacionesCandidatasFiltradas.every(p => p.id != null && this.prestacionesSeleccionadasParaImportar.has(p.id));
+    this.cdr.detectChanges();
+  }
+
+  toggleSeleccionarTodasCandidatas(): void {
+    if (this.todasCandidatasSeleccionadas) {
+      this.prestacionesCandidatasFiltradas.forEach(p => {
+        if (p.id != null) this.prestacionesSeleccionadasParaImportar.delete(p.id);
+      });
+      this.todasCandidatasSeleccionadas = false;
+    } else {
+      this.prestacionesCandidatasFiltradas.forEach(p => {
+        if (p.id != null) this.prestacionesSeleccionadasParaImportar.add(p.id);
+      });
+      this.todasCandidatasSeleccionadas = true;
+    }
+    this.cdr.detectChanges();
+  }
+
+  confirmarImportacionPrestaciones(): void {
+    if (this.prestacionesSeleccionadasParaImportar.size === 0) {
+      this.errorBusquedaImportacion = 'Seleccioná al menos una prestación para incorporar.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const paraImportar = this.prestacionesCandidatasImportar
+      .filter(p => p.id != null && this.prestacionesSeleccionadasParaImportar.has(p.id))
+      .map(p => ({
+        ...p,
+        esImportada: true,
+        debitoAceptado: p.debitoAceptado || '',
+        motivoDebito: p.motivoDebito || '',
+        importeDebitado: p.importeDebitado ?? undefined
+      }));
+
+    paraImportar.forEach(p => {
+      if (p.id != null) {
+        this.modificadosSinGuardar.add(p.id);
+      }
+    });
+
+    this.prestaciones = [...this.prestaciones, ...paraImportar];
+    this.prestacionesFiltradas = [...this.prestacionesFiltradas, ...paraImportar];
+    this.prepararFiltros(this.prestaciones);
+    this.calcularTotales();
+    this.configurarColumnas();
+
+    if (this.gridApi) {
+      this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
+    }
+
+    const cant = paraImportar.length;
+    const info = this.facturaCandidataInfo;
+    this.cerrarModalImportarPrestaciones();
+    this.mostrarAlerta(
+      `¡Se incorporaron ${cant} prestación(es) de la factura ${info}! Ahora podés editar sus débitos directamente en la grilla.`,
+      undefined,
+      'exito'
+    );
+    this.cdr.detectChanges();
+  }
+
+  quitarPrestacionImportada(prestacion: Prestacion): void {
+    if (!prestacion || !prestacion.id) return;
+    this.prestaciones = this.prestaciones.filter(p => p.id !== prestacion.id);
+    this.prestacionesFiltradas = this.prestacionesFiltradas.filter(p => p.id !== prestacion.id);
+    this.modificadosSinGuardar.delete(prestacion.id);
+
+    this.prepararFiltros(this.prestaciones);
+    this.calcularTotales();
+    this.configurarColumnas();
+
+    if (this.gridApi) {
+      this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
+    }
+    this.cdr.detectChanges();
   }
 
   guardarNotaDebitoAjusteIva() {
@@ -1336,6 +1620,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.documentosCreadosInfo = (res && res.documentosCreadosInfo) ? res.documentosCreadosInfo : [];
         this.documentoCreadoInfo = (res && res.documentoCreadoInfo) ? res.documentoCreadoInfo : null;
         this.notaDeCreditoYaCreada = !!this.documentoCreadoInfo;
+        this.facturasAsociadasInfo = (res && res.facturasAsociadas) ? res.facturasAsociadas : [];
 
         this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
         this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
@@ -1385,9 +1670,26 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.filasResumenAjusteIva = [];
 
         const data = (res && res.prestaciones) ? res.prestaciones : (Array.isArray(res) ? res : []);
+        const fcPrincipal = this.facturasAsociadasInfo && this.facturasAsociadasInfo.length > 0 ? this.facturasAsociadasInfo[0] : null;
 
         this.prestaciones = data.map((p: any) => {
           p.debitoAceptado = p.debitoAceptado || '';
+
+          if (p.facturaOrigenLetra && p.facturaOrigenNumero) {
+            const tipoFc = p.facturaOrigenTipo || 'FAC';
+            const ptoVta = ('0000' + (p.facturaOrigenPtovta || 0)).slice(-4);
+            const num = ('00000000' + p.facturaOrigenNumero).slice(-8);
+            p.facturaOrigenComprobante = `${tipoFc} ${p.facturaOrigenLetra}-${ptoVta}-${num}`;
+
+            if (fcPrincipal && (
+              p.facturaOrigenNumero !== fcPrincipal.numero ||
+              p.facturaOrigenPtovta !== fcPrincipal.ptovta ||
+              p.facturaOrigenLetra !== fcPrincipal.letra
+            )) {
+              p.esImportada = true;
+            }
+          }
+
           return p as Prestacion;
         });
 

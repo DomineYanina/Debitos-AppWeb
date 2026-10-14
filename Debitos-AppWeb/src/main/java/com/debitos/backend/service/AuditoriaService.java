@@ -30,6 +30,7 @@ import com.debitos.backend.repository.NotaDeDebitoRepository;
 import com.debitos.backend.repository.RegistroImputacionRepository;
 import com.debitos.backend.repository.RegistroUsabilidadRepository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.Authentication;
@@ -131,6 +132,7 @@ public class AuditoriaService {
         };
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public ResultadoBusquedaDTO buscarUnificado(String tipo, String letra, Integer ptovta, int numero) {
         ResultadoBusquedaDTO resultado = null;
         String tipoUpper = tipo != null ? tipo.trim().toUpperCase() : "";
@@ -227,14 +229,19 @@ public class AuditoriaService {
                 dto.setDocumentosCreadosInfo(obtenerNotasDeCreditoCreadasParaFC(letra, ptovta, numero));
             } else if ("NC".equalsIgnoreCase(tipo) || "NCE".equalsIgnoreCase(tipo)) {
                 dto.setDocumentosCreadosInfo(obtenerNotasDeDebitoCreadasParaNC(letra, ptovta, numero));
+                dto.setFacturasAsociadas(notaDeCreditoRepository.findFacturasAsociadasANc(letra, ptovta, numero));
             } else if ("ND".equalsIgnoreCase(tipo) || "NDE".equalsIgnoreCase(tipo)) {
                 dto.setDocumentoCreadoInfo(obtenerNotaDeCreditoCreadaParaND(letra, ptovta, numero));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("No se pudieron adjuntar documentos creados para {} {}-{}-{}: {}", tipo, letra, ptovta, numero, e.getMessage());
+        }
 
         try {
             dto.setHistorialComprobantes(obtenerHistorialComprobantes(tipo, letra, ptovta, numero));
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("No se pudo adjuntar historial de comprobantes para {} {}-{}-{}: {}", tipo, letra, ptovta, numero, e.getMessage());
+        }
 
         return dto;
     }
@@ -361,6 +368,47 @@ public class AuditoriaService {
         return filas;
     }
 
+    private Optional<NdAjusteDeIva> buscarNdAjusteDeIvaSeguro(Cabecera c) {
+        if (c == null) return Optional.empty();
+        try {
+            if (c.getId() != null) {
+                Optional<NdAjusteDeIva> opt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                if (opt.isPresent()) return opt;
+            }
+        } catch (Exception e) {
+            log.debug("Aviso al buscar NdAjusteDeIva por cabecera_id: {}", e.getMessage());
+        }
+        try {
+            if (c.getLetra() != null && c.getPtovta() != null && c.getNumero() != null) {
+                return ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(c.getLetra(), c.getPtovta(), c.getNumero());
+            }
+        } catch (Exception e) {
+            log.debug("Aviso al buscar NdAjusteDeIva por datos de comprobante: {}", e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    private Optional<NcAjusteDeIva> buscarNcAjusteDeIvaSeguro(Cabecera c) {
+        if (c == null) return Optional.empty();
+        try {
+            if (c.getId() != null) {
+                Optional<NcAjusteDeIva> opt = ncAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                if (opt.isPresent()) return opt;
+            }
+        } catch (Exception e) {
+            log.debug("Aviso al buscar NcAjusteDeIva por cabecera_id: {}", e.getMessage());
+        }
+        try {
+            if (c.getLetra() != null && c.getPtovta() != null && c.getNumero() != null) {
+                return ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(c.getLetra(), c.getPtovta(), c.getNumero());
+            }
+        } catch (Exception e) {
+            log.debug("Aviso al buscar NcAjusteDeIva por datos de comprobante: {}", e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<FilaHistorialDTO> obtenerHistorialComprobantes(String tipo, String letra, Integer ptovta, int numero) {
         List<FilaHistorialDTO> historial = new ArrayList<>();
         String tipoUpper = tipo != null ? tipo.trim().toUpperCase() : "";
@@ -512,7 +560,7 @@ public class AuditoriaService {
                                     padreRelacional = candNc.getId();
                                     break;
                                 }
-                                Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                                Optional<NdAjusteDeIva> ndIvaOpt = buscarNdAjusteDeIvaSeguro(c);
                                 if (ndIvaOpt.isPresent()) {
                                     NdAjusteDeIva ndIva = ndIvaOpt.get();
                                     if (Objects.equals(ndIva.getLetraNc(), candNc.getLetra())
@@ -617,7 +665,7 @@ public class AuditoriaService {
             if (tieneAjusteIvaNc) {
                 boolean tieneNdIvaHija = familia.stream().anyMatch(c -> {
                     if (!"ND".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) return false;
-                    Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId());
+                    Optional<NdAjusteDeIva> ndIvaOpt = buscarNdAjusteDeIvaSeguro(c);
                     if (ndIvaOpt.isPresent()) {
                         NdAjusteDeIva ndIva = ndIvaOpt.get();
                         return Objects.equals(ndIva.getLetraNc(), hijo.getLetra())
@@ -666,10 +714,7 @@ public class AuditoriaService {
                 montoNeto = cab.getDebe();
             }
         } else if ("NC".equalsIgnoreCase(tipoBase)) {
-            Optional<NcAjusteDeIva> ncIvaOpt = ncAjusteDeIvaRepository.findByCabecera_Id(cab.getId());
-            if (ncIvaOpt.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
-                ncIvaOpt = ncAjusteDeIvaRepository.findByLetraNcAndPtovtaNcAndNumeroNc(cab.getLetra(), cab.getPtovta(), cab.getNumero());
-            }
+            Optional<NcAjusteDeIva> ncIvaOpt = buscarNcAjusteDeIvaSeguro(cab);
 
             List<NotaDeCredito> ncs = (cab.getId() != null) ? notaDeCreditoRepository.findByCabecera_Id(cab.getId()) : Collections.emptyList();
             if (ncs.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
@@ -707,10 +752,7 @@ public class AuditoriaService {
                 }
             }
         } else if ("ND".equalsIgnoreCase(tipoBase)) {
-            Optional<NdAjusteDeIva> ndIvaOpt = ndAjusteDeIvaRepository.findByCabecera_Id(cab.getId());
-            if (ndIvaOpt.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
-                ndIvaOpt = ndAjusteDeIvaRepository.findByLetraNdAndPtovtaNdAndNumeroNd(cab.getLetra(), cab.getPtovta(), cab.getNumero());
-            }
+            Optional<NdAjusteDeIva> ndIvaOpt = buscarNdAjusteDeIvaSeguro(cab);
 
             if (ndIvaOpt.isPresent()) {
                 NdAjusteDeIva ndIva = ndIvaOpt.get();
@@ -736,14 +778,14 @@ public class AuditoriaService {
 
         boolean tienePrestaciones = false;
         if ("NC".equalsIgnoreCase(tipoBase)) {
-            boolean enNcIva = cab.getId() != null && ncAjusteDeIvaRepository.findByCabecera_Id(cab.getId()).isPresent();
+            boolean enNcIva = buscarNcAjusteDeIvaSeguro(cab).isPresent();
             boolean enNc = cab.getId() != null && !notaDeCreditoRepository.findByCabecera_Id(cab.getId()).isEmpty();
             if (!enNc && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
                 enNc = !notaDeCreditoRepository.findPrestacionesPorNotaCredito(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
             }
             tienePrestaciones = enNcIva || enNc;
         } else if ("ND".equalsIgnoreCase(tipoBase)) {
-            boolean enNdIva = cab.getId() != null && ndAjusteDeIvaRepository.findByCabecera_Id(cab.getId()).isPresent();
+            boolean enNdIva = buscarNdAjusteDeIvaSeguro(cab).isPresent();
             boolean enNd = cab.getId() != null && !notaDeDebitoRepository.findByCabecera_Id(cab.getId()).isEmpty();
             if (!enNd && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
                 enNd = !notaDeDebitoRepository.findPrestacionesPorNotaDebito(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
@@ -1297,6 +1339,14 @@ public class AuditoriaService {
             Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
                     .stream().collect(Collectors.toMap(AmbLiquidado::getId, p -> p));
 
+            // Validar que ninguna de las facturas de origen de las prestaciones esté finalizada
+            for (AmbLiquidado alItem : prestacionesMap.values()) {
+                if (alItem.getCabecera() != null && alItem.getCabecera().getIdEstado() != null && alItem.getCabecera().getIdEstado() == 2) {
+                    String numComp = alItem.getCabecera().getComprobante() != null ? alItem.getCabecera().getComprobante() : String.valueOf(alItem.getCabecera().getId());
+                    throw new IllegalStateException("El trámite del comprobante " + numComp + " se encuentra finalizado. Debe reabrir el trámite para poder agregar prestaciones a un comprobante.");
+                }
+            }
+
             BigDecimal sumaHaber = BigDecimal.ZERO;
             boolean huboPrestacionCalculada = false;
 
@@ -1487,7 +1537,24 @@ public class AuditoriaService {
         if (!notasCreditoAGuardar.isEmpty()) {
             notaDeCreditoRepository.saveAll(notasCreditoAGuardar);
             String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : (esConjunta ? "NC_CONJUNTA" : "NC");
-            registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
+            Cabecera cabeceraMadre = cabeceraOrigenOpt.orElse(null);
+            registrarImputacion(usuario, cabeceraMadre, cabecera, tipoImp);
+
+            // Registrar imputaciones para facturas secundarias (multi-factura)
+            Set<Long> idsCabecerasYaImputadas = new HashSet<>();
+            if (cabeceraMadre != null && cabeceraMadre.getId() != null) {
+                idsCabecerasYaImputadas.add(cabeceraMadre.getId());
+            }
+
+            for (NotaDeCredito ncItem : notasCreditoAGuardar) {
+                if (ncItem.getPrestacion() != null && ncItem.getPrestacion().getCabecera() != null) {
+                    Cabecera cabSecundaria = ncItem.getPrestacion().getCabecera();
+                    if (cabSecundaria.getId() != null && !idsCabecerasYaImputadas.contains(cabSecundaria.getId())) {
+                        idsCabecerasYaImputadas.add(cabSecundaria.getId());
+                        registrarImputacion(usuario, cabSecundaria, cabecera, "NC_MULTIFACTURA_COMPARTIDA");
+                    }
+                }
+            }
         }
         invalidarCacheTablero();
     }
@@ -1606,6 +1673,10 @@ public class AuditoriaService {
             return new DocumentoAsociadoDTO(tipo, l, p, n, f);
         }
         return null;
+    }
+
+    public List<DocumentoAsociadoDTO> obtenerFacturasAsociadasParaNC(String letra, int ptovta, int numero) {
+        return notaDeCreditoRepository.findFacturasAsociadasANc(letra, ptovta, numero);
     }
 
     @Transactional
@@ -1740,11 +1811,11 @@ public class AuditoriaService {
                     boolean tienePrestaciones;
                     if (esNc) {
                         boolean enNotadecredito = !notaDeCreditoRepository.findByCabecera_Id(c.getId()).isEmpty();
-                        boolean enNcIva = ncAjusteDeIvaRepository.findByCabecera_Id(c.getId()).isPresent();
+                        boolean enNcIva = buscarNcAjusteDeIvaSeguro(c).isPresent();
                         tienePrestaciones = enNotadecredito || enNcIva;
                     } else {
                         boolean enNotadedebito = !notaDeDebitoRepository.findByCabecera_Id(c.getId()).isEmpty();
-                        boolean enNdIva = ndAjusteDeIvaRepository.findByCabecera_Id(c.getId()).isPresent();
+                        boolean enNdIva = buscarNdAjusteDeIvaSeguro(c).isPresent();
                         tienePrestaciones = enNotadedebito || enNdIva;
                     }
 

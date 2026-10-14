@@ -9,6 +9,7 @@ public class ResultadoBusquedaDTO {
     private List<DocumentoAsociadoDTO> documentosCreadosInfo;
     private DocumentoAsociadoDTO documentoCreadoInfo;
     private List<FilaHistorialDTO> historialComprobantes;
+    private List<DocumentoAsociadoDTO> facturasAsociadas;
 
     public ResultadoBusquedaDTO() {}
 
@@ -60,4 +61,7 @@ public class ResultadoBusquedaDTO {
 
     public List<FilaHistorialDTO> getHistorialComprobantes() { return historialComprobantes; }
     public void setHistorialComprobantes(List<FilaHistorialDTO> historialComprobantes) { this.historialComprobantes = historialComprobantes; }
+
+    public List<DocumentoAsociadoDTO> getFacturasAsociadas() { return facturasAsociadas; }
+    public void setFacturasAsociadas(List<DocumentoAsociadoDTO> facturasAsociadas) { this.facturasAsociadas = facturasAsociadas; }
 }

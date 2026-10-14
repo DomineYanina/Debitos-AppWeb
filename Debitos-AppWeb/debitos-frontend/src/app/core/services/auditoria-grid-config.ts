@@ -13,12 +13,43 @@ export class AuditoriaGridConfigService {
     motivosDebito: any[],
     motivosRefactura: any[],
     editorComponent: any, // Recibe el GroupedSelectEditor por parámetro
-    tramiteFinalizado: boolean = false
+    tramiteFinalizado: boolean = false,
+    tienePrestacionesImportadas: boolean = false,
+    onQuitarPrestacion?: (prestacion: any) => void
   ): ColDef[] {
     const esSoloLectura = tipo === 'NC' || tipo === 'NCE' || tramiteFinalizado;
 
     let columnas: ColDef[] = [
-      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, headerTooltip: 'Seleccionar o deseleccionar todas las filas cargadas', width: 50, pinned: 'left' },
+      { headerName: '', field: 'seleccionada', checkboxSelection: true, headerCheckboxSelection: true, headerTooltip: 'Seleccionar o deseleccionar todas las filas cargadas', width: 50, pinned: 'left' }
+    ];
+
+    const esNc = tipo === 'NC' || tipo === 'NCE';
+    if (esNc || tienePrestacionesImportadas) {
+      columnas.push({
+        headerName: 'Factura\nOrigen',
+        field: 'facturaOrigenComprobante',
+        headerTooltip: 'Factura original a la que pertenece esta prestación (ORI: Original, IMP: Importada de otra factura)',
+        width: 175,
+        minWidth: 165,
+        cellClass: params => params.data?.esImportada ? 'bg-importada-tag' : 'bg-celeste',
+        headerClass: 'bg-celeste',
+        cellRenderer: (params: any) => {
+          if (!params.value) return '';
+          const esImp = !!params.data?.esImportada;
+          const badgeStyle = esImp
+            ? 'background: #fae8ff; color: #86198f; border: 1px solid #f0abfc;'
+            : 'background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;';
+          const badgeTexto = esImp ? 'IMP' : 'ORI';
+          const badgeTitle = esImp ? 'Prestación importada de otra factura' : 'Prestación de la factura original';
+          return `<div class="factura-origen-celda" style="display:inline-flex; align-items:center; gap:8px; width:100%; height:100%;">` +
+            `<span class="badge-origen-tag ${esImp ? 'badge-tag-imp' : 'badge-tag-ori'}" style="display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:800; line-height:1; padding:2px 5px; border-radius:3px; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0; margin-right:6px; ${badgeStyle}" title="${badgeTitle}">${badgeTexto}</span>` +
+            `<span class="factura-origen-nro" style="font-size:0.81rem; font-weight:600; color:#1e293b; white-space:nowrap;">${params.value}</span>` +
+          `</div>`;
+        }
+      });
+    }
+
+    columnas.push(
       { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
@@ -30,10 +61,9 @@ export class AuditoriaGridConfigService {
       { headerName: 'Total\nNeto', field: 'totalNeto', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
       { headerName: 'Coseguro', field: 'coseguro', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 103, minWidth: 103, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' },
       { headerName: 'Total', field: 'total', cellClass: 'bg-celeste', headerClass: 'bg-celeste', width: 99, minWidth: 99, suppressAutoSize: true, valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '' }
-    ];
+    );
 
     const esNd = tipo === 'ND' || tipo === 'NDE';
-    const esNc = tipo === 'NC' || tipo === 'NCE';
     if (esNd || (esNc && tieneComentariosPrevios)) {
       columnas.push({
         headerName: 'Comentarios\nPrevios',
@@ -128,6 +158,27 @@ export class AuditoriaGridConfigService {
         }
       }
     );
+
+    if (tienePrestacionesImportadas && onQuitarPrestacion) {
+      columnas.push({
+        headerName: 'Acción',
+        field: 'esImportada',
+        width: 90,
+        minWidth: 90,
+        suppressAutoSize: true,
+        cellRenderer: (params: any) => {
+          if (params.data?.esImportada) {
+            return `<button type="button" class="btn-quitar-importada-grid" title="Quitar prestación importada de esta auditoría">✕ Quitar</button>`;
+          }
+          return '';
+        },
+        onCellClicked: (params: any) => {
+          if (params.data?.esImportada && onQuitarPrestacion) {
+            onQuitarPrestacion(params.data);
+          }
+        }
+      });
+    }
 
     return columnas;
   }

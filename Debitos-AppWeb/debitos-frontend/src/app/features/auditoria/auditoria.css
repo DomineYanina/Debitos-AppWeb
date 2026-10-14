@@ -2708,6 +2708,486 @@ tr.row-selected {
   white-space: nowrap;
 }
 
+/* ==========================================================================
+   ESTILOS PARA IMPORTACIÓN DE PRESTACIONES MULTI-FACTURA A NC
+   ========================================================================== */
+
+/* Botón en barra superior */
+.btn-importar-prestacion {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.btn-importar-prestacion:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(2, 132, 199, 0.3);
+}
+
+/* Banner de Facturas Asociadas a una NC */
+.banner-facturas-asociadas {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.banner-asociadas-icono {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.banner-asociadas-contenido {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.92rem;
+  color: #166534;
+}
+
+.chips-facturas-asociadas {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip-factura-asociada {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #dcfce7;
+  color: #14532d;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+}
+
+.chip-factura-asociada small {
+  font-weight: normal;
+  color: #166534;
+  opacity: 0.85;
+}
+
+/* Modal de Importar */
+.modal-overlay-importar {
+  z-index: 1050;
+}
+
+.modal-importar-box {
+  width: 900px !important;
+  max-width: 95vw !important;
+  max-height: 90vh !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header-importar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  padding: 1.15rem 1.5rem !important;
+}
+
+.modal-header-titulo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.btn-cerrar-modal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.btn-cerrar-modal:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.btn-cerrar-modal:active {
+  transform: scale(0.95);
+  background: #e2e8f0;
+}
+
+.modal-icono-header {
+  font-size: 1.6rem;
+  background: #e0f2fe;
+  color: #0284c7;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subtitulo-modal {
+  margin: 2px 0 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: normal;
+}
+
+.form-busqueda-importar {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.fila-campos-importar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.campo-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.campo-item label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.input-importar {
+  height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  background: #ffffff;
+}
+
+.input-importar:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.input-letra {
+  width: 50px;
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: bold;
+}
+
+.campo-item.col-ptovta .input-importar {
+  width: 80px;
+}
+
+.campo-item.col-numero .input-importar {
+  width: 120px;
+}
+
+.btn-buscar-importar {
+  height: 36px;
+  padding: 0 16px;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-buscar-importar:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.btn-buscar-importar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alerta-error-importar {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  margin-bottom: 12px;
+}
+
+.spinner-container-importar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+/* Resultados y Tabla de Importación */
+.encabezado-resultados-importar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 6px 4px;
+}
+
+.resumen-encontradas {
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.btn-toggle-todas {
+  background: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  color: #0284c7;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-toggle-todas:hover {
+  background: #f0f9ff;
+}
+
+.tabla-scroll-importar {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.tabla-importar {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.tabla-importar th {
+  position: sticky;
+  top: 0;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid #cbd5e1;
+  text-align: left;
+  z-index: 2;
+}
+
+.tabla-importar td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.tabla-importar tr {
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.tabla-importar tr:hover {
+  background: #f8fafc;
+}
+
+.tabla-importar tr.fila-seleccionada {
+  background: #eff6ff !important;
+}
+
+.tabla-importar code {
+  background: #f1f5f9;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 600;
+  color: #0369a1;
+}
+
+/* Badges y Tags para la Grilla AG Grid */
+::ng-deep .factura-origen-celda,
+.factura-origen-celda {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+::ng-deep .badge-origen-tag,
+.badge-origen-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  margin-right: 6px;
+  user-select: none;
+}
+
+::ng-deep .badge-tag-ori,
+.badge-tag-ori {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+::ng-deep .badge-tag-imp,
+.badge-tag-imp {
+  background: #fae8ff;
+  color: #86198f;
+  border: 1px solid #f0abfc;
+}
+
+::ng-deep .factura-origen-nro,
+.factura-origen-nro {
+  font-size: 0.81rem;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.badge-factura-importada {
+  display: inline-block;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #bae6fd;
+  letter-spacing: 0.2px;
+}
+
+.bg-importada-tag {
+  background-color: #faf5ff !important;
+}
+
+.btn-quitar-importada-grid {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-quitar-importada-grid:hover {
+  background: #fecaca;
+  color: #b91c1c;
+  transform: scale(1.05);
+}
+
+/* Filtros dinámicos compactos para modal */
+.filtros-dinamicos-modal {
+  padding: 10px 14px !important;
+  margin-bottom: 12px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+}
+
+.filtros-dinamicos-modal .filtros-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filtros-dinamicos-modal .filter-item {
+  min-width: 130px;
+  flex: 1;
+}
+
+.filtros-dinamicos-modal .filter-item select {
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.82rem;
+  background: #ffffff;
+  width: 100%;
+}
+
+.filtros-dinamicos-modal .botones-limpieza-stack {
+  display: flex;
+  align-items: flex-end;
+}
+
+.filtros-dinamicos-modal .btn-clear {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.filtros-dinamicos-modal .btn-clear:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.filtros-dinamicos-modal .btn-clear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #94a3b8;
+}
+
 
 
 

@@ -43,7 +43,9 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
                nc.prestacionenglobante AS "prestacionEnglobante",
                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                NULL AS "comentarioPrevio", nc.comentarios AS comentarios,
-               c_nc.numero AS "ncNumero", c_nc.tipo AS "ncTipo", c_nc.letra AS "ncLetra", c_nc.ptovta AS "ncPtoVenta", c_nc.fecha AS "ncFecha"
+               CAST(NULL AS INTEGER) AS "idNotaDeDebito",
+               c_nc.numero AS "ncNumero", c_nc.tipo AS "ncTipo", c_nc.letra AS "ncLetra", c_nc.ptovta AS "ncPtoVenta", c_nc.fecha AS "ncFecha",
+               c.tipo AS "facturaOrigenTipo", c.letra AS "facturaOrigenLetra", c.ptovta AS "facturaOrigenPtovta", c.numero AS "facturaOrigenNumero"
         FROM amb_liquidado al
         INNER JOIN cabecera c ON al.idcabecera = c.id
         LEFT JOIN notadecredito nc ON al.id = nc.id_prestacion AND nc.id_notadedebito IS NULL

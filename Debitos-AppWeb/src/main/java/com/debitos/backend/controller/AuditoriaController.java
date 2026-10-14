@@ -86,6 +86,15 @@ public class AuditoriaController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/facturas-asociadas-nc")
+    public ResponseEntity<List<DocumentoAsociadoDTO>> obtenerFacturasAsociadasParaNC(
+            @RequestParam String letra,
+            @RequestParam(name = "puntoVenta") int ptovta,
+            @RequestParam int numero) {
+        List<DocumentoAsociadoDTO> dtos = auditoriaService.obtenerFacturasAsociadasParaNC(letra, ptovta, numero);
+        return ResponseEntity.ok(dtos);
+    }
+
     @GetMapping("/cabeceras-disponibles")
     public ResponseEntity<List<com.debitos.backend.dto.CabeceraCandidataDTO>> obtenerCabecerasDisponibles(
             @RequestParam String tipo,

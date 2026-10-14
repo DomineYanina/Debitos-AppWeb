@@ -72,6 +72,12 @@ export class AuditoriaService {
     });
   }
 
+  obtenerFacturasAsociadasNC(letra: string, puntoVenta: string | number, numero: string | number): Observable<DocumentoAsociado[]> {
+    return this.http.get<DocumentoAsociado[]>(`${this.apiUrl}/facturas-asociadas-nc`, {
+      params: { letra, puntoVenta: String(puntoVenta), numero: String(numero) }
+    });
+  }
+
   obtenerCabecerasDisponibles(tipo: string, origen?: string, letra?: string, puntoVenta?: string | number, numero?: string | number): Observable<any[]> {
     const params: any = { tipo };
     if (origen) params.origen = origen;

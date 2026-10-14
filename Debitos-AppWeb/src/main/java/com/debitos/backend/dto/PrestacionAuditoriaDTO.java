@@ -44,4 +44,10 @@ public interface PrestacionAuditoriaDTO {
     String getNcLetra();
     Integer getNcPtoVenta();
     LocalDate getNcFecha();
+
+    // Datos de la Factura de origen de la prestación
+    String getFacturaOrigenTipo();
+    String getFacturaOrigenLetra();
+    Integer getFacturaOrigenPtovta();
+    Integer getFacturaOrigenNumero();
 }

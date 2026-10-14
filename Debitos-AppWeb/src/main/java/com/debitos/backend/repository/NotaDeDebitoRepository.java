@@ -117,7 +117,8 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
                nc.importedebitado AS "importeDebitado", nc.comentarios_debito AS "comentariosDebito",
                nc.prestacionenglobante AS "prestacionEnglobante",
                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura",
-               nc1.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios
+               nc1.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios,
+               c_fc.tipo AS "facturaOrigenTipo", c_fc.letra AS "facturaOrigenLetra", c_fc.ptovta AS "facturaOrigenPtovta", c_fc.numero AS "facturaOrigenNumero"
         FROM notadedebito nd 
         INNER JOIN cabecera c_nd ON nd.idcabecera = c_nd.id
         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 

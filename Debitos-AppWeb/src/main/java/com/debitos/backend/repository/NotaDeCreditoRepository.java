@@ -193,7 +193,8 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
                nc.prestacionenglobante AS "prestacionEnglobante",
                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                ndPadre.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios,
-               nc.id_notadedebito AS "idNotaDeDebito"
+               nc.id_notadedebito AS "idNotaDeDebito",
+               c_fc.tipo AS "facturaOrigenTipo", c_fc.letra AS "facturaOrigenLetra", c_fc.ptovta AS "facturaOrigenPtovta", c_fc.numero AS "facturaOrigenNumero"
         FROM notadecredito nc
         INNER JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
         LEFT JOIN notadedebito ndPadre ON nc.id_notadedebito = ndPadre.id
@@ -206,6 +207,35 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
     default List<PrestacionAuditoriaDTO> findPrestacionesPorNotaCredito(String letra, Integer ptovta, Integer numero) {
         return findPrestacionesPorNotaCredito(java.util.List.of("NC", "NCE"), letra, ptovta, numero);
     }
+
+    @Query("""
+        SELECT DISTINCT new com.debitos.backend.dto.DocumentoAsociadoDTO(cFc.tipo, cFc.letra, cFc.ptovta, cFc.numero, cFc.fecha)
+        FROM NotaDeCredito nc
+        JOIN nc.cabecera cNc
+        JOIN nc.prestacion al
+        JOIN al.cabecera cFc
+        WHERE cNc.tipo IN :tipos
+          AND UPPER(cNc.letra) = UPPER(:letra)
+          AND cNc.ptovta = :ptovta
+          AND cNc.numero = :numero
+          AND cFc.tipo IS NOT NULL
+          AND cFc.letra IS NOT NULL
+          AND cFc.numero IS NOT NULL
+          AND cFc.ptovta IS NOT NULL
+    """)
+    List<DocumentoAsociadoDTO> findFacturasAsociadasANc(@Param("tipos") java.util.Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
+
+    default List<DocumentoAsociadoDTO> findFacturasAsociadasANc(String letra, Integer ptovta, Integer numero) {
+        return findFacturasAsociadasANc(java.util.List.of("NC", "NCE"), letra, ptovta, numero);
+    }
+
+    @Query(value = """
+        SELECT DISTINCT nc.idcabecera, al.idcabecera
+        FROM notadecredito nc
+        JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        WHERE al.idcabecera IN :facturaIds
+        """, nativeQuery = true)
+    List<Object[]> findNcCabeceraIdsPorFacturaIds(@Param("facturaIds") java.util.Collection<Long> facturaIds);
 
     @Query(value = """
         SELECT DISTINCT 

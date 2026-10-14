@@ -34,4 +34,11 @@ export interface Prestacion {
   ncLetra?: string;
   ncPtoVenta?: number;
   ncFecha?: string;
+  // Campos de Factura de origen de la prestación
+  facturaOrigenTipo?: string;
+  facturaOrigenLetra?: string;
+  facturaOrigenPtovta?: number;
+  facturaOrigenNumero?: number;
+  facturaOrigenComprobante?: string;
+  esImportada?: boolean;
 }

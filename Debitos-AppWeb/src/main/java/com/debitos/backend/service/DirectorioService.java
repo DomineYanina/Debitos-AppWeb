@@ -845,9 +845,11 @@ public class DirectorioService {
         Set<Long> ncCabeceraIds = new HashSet<>();
         Set<Long> ndCabeceraIds = new HashSet<>();
 
+        Map<Long, Cabecera> cabecerasPorId = new HashMap<>();
         if (!grupoIds.isEmpty()) {
             List<Cabecera> todasLasFamilias = cabeceraRepository.findByGrupoOrAsociadogrupoOrIdIn(grupoIds);
             for (Cabecera c : todasLasFamilias) {
+                if (c.getId() != null) cabecerasPorId.put(c.getId(), c);
                 for (Long gId : grupoIds) {
                     if (Objects.equals(c.getAsociadogrupo(), gId) || Objects.equals(c.getGrupo(), gId) || Objects.equals(c.getId(), gId)) {
                         familiaPorGrupo.computeIfAbsent(gId, k -> new ArrayList<>()).add(c);
@@ -858,6 +860,33 @@ public class DirectorioService {
                     ncCabeceraIds.add(c.getId());
                 } else if ("ND".equalsIgnoreCase(t) && c.getId() != null) {
                     ndCabeceraIds.add(c.getId());
+                }
+            }
+        }
+
+        // Detección de NCs que contienen prestaciones de las facturas paginadas (multi-factura)
+        Set<Long> facturaIds = resultado.stream().map(DirectorioGrupoFacturaDTO::getId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, Set<Long>> ncsPorFacturaIdExtra = new HashMap<>();
+        Set<Long> ncCabeceraIdsExtras = new HashSet<>();
+        if (!facturaIds.isEmpty()) {
+            List<Object[]> filasNcFc = notaDeCreditoRepository.findNcCabeceraIdsPorFacturaIds(facturaIds);
+            for (Object[] fila : filasNcFc) {
+                if (fila != null && fila.length >= 2 && fila[0] != null && fila[1] != null) {
+                    Long idNc = ((Number) fila[0]).longValue();
+                    Long idFc = ((Number) fila[1]).longValue();
+                    ncsPorFacturaIdExtra.computeIfAbsent(idFc, k -> new HashSet<>()).add(idNc);
+                    ncCabeceraIdsExtras.add(idNc);
+                }
+            }
+        }
+
+        if (!ncCabeceraIdsExtras.isEmpty()) {
+            ncCabeceraIds.addAll(ncCabeceraIdsExtras);
+            Set<Long> idsNcFaltantes = ncCabeceraIdsExtras.stream().filter(idNc -> !cabecerasPorId.containsKey(idNc)).collect(Collectors.toSet());
+            if (!idsNcFaltantes.isEmpty()) {
+                List<Cabecera> ncExtras = cabeceraRepository.findAllById(idsNcFaltantes);
+                for (Cabecera c : ncExtras) {
+                    if (c.getId() != null) cabecerasPorId.put(c.getId(), c);
                 }
             }
         }
@@ -891,7 +920,20 @@ public class DirectorioService {
         // Mapeo en memoria (0 consultas SQL adicionales)
         for (DirectorioGrupoFacturaDTO dto : resultado) {
             Long idGrupo = dto.getAsociadogrupo() != null ? dto.getAsociadogrupo() : dto.getId();
-            List<Cabecera> familia = familiaPorGrupo.getOrDefault(idGrupo, Collections.emptyList());
+            List<Cabecera> familiaBase = familiaPorGrupo.getOrDefault(idGrupo, Collections.emptyList());
+            List<Cabecera> familia = new ArrayList<>(familiaBase);
+
+            // Anexar NCs multi-factura vinculadas a las prestaciones de esta factura
+            Set<Long> ncIdsExtrasDeEstaFc = ncsPorFacturaIdExtra.getOrDefault(dto.getId(), Collections.emptySet());
+            for (Long extraNcId : ncIdsExtrasDeEstaFc) {
+                if (familia.stream().noneMatch(c -> Objects.equals(c.getId(), extraNcId))) {
+                    Cabecera cExtra = cabecerasPorId.get(extraNcId);
+                    if (cExtra != null) {
+                        familia.add(cExtra);
+                    }
+                }
+            }
+
             Set<Long> idsAnuladosGrupo = identificarComprobantesAnulados15Dias(familia, null);
 
             List<DirectorioComprobanteDTO> derivados = new ArrayList<>();
@@ -920,17 +962,33 @@ public class DirectorioService {
                     BigDecimal debAcep = BigDecimal.ZERO;
                     BigDecimal debNoAcep = BigDecimal.ZERO;
                     for (NotaDeCredito nc : ncs) {
-                        BigDecimal imp = nc.getImporteDebitado() != null ? nc.getImporteDebitado() : BigDecimal.ZERO;
-                        if (Boolean.TRUE.equals(nc.getDebitoaceptado())) {
-                            debAcep = debAcep.add(imp);
-                        } else {
-                            debNoAcep = debNoAcep.add(imp);
+                        // Prorrateo multi-factura: Solo sumar débitos cuyas prestaciones correspondan a ESTA factura
+                        Long idFacturaPrestacion = null;
+                        try {
+                            if (nc.getPrestacion() != null && nc.getPrestacion().getCabecera() != null) {
+                                idFacturaPrestacion = nc.getPrestacion().getCabecera().getId();
+                            }
+                        } catch (Exception ignored) {}
+
+                        if (idFacturaPrestacion == null || Objects.equals(idFacturaPrestacion, dto.getId())) {
+                            BigDecimal imp = nc.getImporteDebitado() != null ? nc.getImporteDebitado() : BigDecimal.ZERO;
+                            if (Boolean.TRUE.equals(nc.getDebitoaceptado())) {
+                                debAcep = debAcep.add(imp);
+                            } else {
+                                debNoAcep = debNoAcep.add(imp);
+                            }
                         }
+                    }
+
+                    BigDecimal totalNcEstaFc = debAcep.add(debNoAcep);
+                    // Si era una NC extra pero no tiene débitos para esta factura, no la agregamos
+                    if (totalNcEstaFc.compareTo(BigDecimal.ZERO) == 0 && ncIdsExtrasDeEstaFc.contains(c.getId())) {
+                        continue;
                     }
 
                     derivado.setDebitoAceptado(debAcep);
                     derivado.setDebitoNoAceptado(debNoAcep);
-                    derivado.setTotal(debAcep.add(debNoAcep));
+                    derivado.setTotal(totalNcEstaFc);
                     sumaAceptado = sumaAceptado.add(debAcep);
                     sumaNoAceptado = sumaNoAceptado.add(debNoAcep);
                 } else if ("ND".equalsIgnoreCase(t)) {
