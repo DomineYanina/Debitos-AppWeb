@@ -272,10 +272,8 @@
             <!-- Estado Débito Aceptado -->
             <td class="text-center">
               <span class="status-badge" [class.badge-aceptado]="p.debitoAceptado === true"
-                [class.badge-rechazado]="p.debitoAceptado === false"
-                [class.badge-pendiente]="p.debitoAceptado === null">
-                {{ p.debitoAceptado === true ? 'SÍ (Pérdida)' : p.debitoAceptado === false ? 'NO (Refacturable)' :
-                'Pendiente' }}
+                [class.badge-rechazado]="p.debitoAceptado !== true">
+                {{ p.debitoAceptado === true ? 'SÍ (Pérdida)' : 'NO (Refacturable)' }}
               </span>
             </td>
 

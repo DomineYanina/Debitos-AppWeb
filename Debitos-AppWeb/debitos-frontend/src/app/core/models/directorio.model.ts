@@ -109,6 +109,7 @@ export interface CcComprobanteDTO {
   id?: number;
   asociado?: number;
   asociadogrupo?: number;
+  comprobanteAsociado?: string;
   nivel?: number;
   origenTipo?: string;
   tipo: string;
@@ -218,6 +219,7 @@ export interface DesgloseFinanciadorDTO {
   montoDebitado?: number;
   aceptado?: number;
   refacturado?: number;
+  diferencia?: number;
   distribucionAtencion?: string;
   porcentajeAmb?: number;
   porcentajeInt?: number;
@@ -231,6 +233,7 @@ export interface DesgloseMotivoDTO {
   montoDebitado: number;
   aceptado: number;
   refacturado: number;
+  diferencia?: number;
   financiadores: DesgloseFinanciadorDTO[];
   distribucionAtencion?: string;
   porcentajeAmb?: number;
@@ -247,6 +250,7 @@ export interface MetricaAnalistaDTO {
   cantidadFinanciadores?: number;
   debitosAceptados: number;
   debitosRefacturados: number;
+  diferencia?: number;
   totalTramitado: number;
   ticketPromedio: number;
   tasaRecupero: number;
@@ -278,6 +282,7 @@ export interface MetricaOperadorDTO {
   cantidadRegistros: number;
   debitosAceptados: number;
   debitosRefacturados: number;
+  diferencia?: number;
   totalTramitado: number;
   ticketPromedio: number;
   tasaRecupero: number;
@@ -333,6 +338,27 @@ export interface PaginatedResponse<T> {
   totalPages: number;
   first: boolean;
   last: boolean;
+}
+
+/** Recibo no imputado en Cuenta Corriente */
+export interface ReciboSinImputarDTO {
+  id: number;
+  tipo: string;
+  letra: string;
+  ptovta: number;
+  numero: number;
+  comprobante: string;
+  fecha?: string;
+  periodo?: string;
+  debe: number;
+  haber: number;
+  importe: number;
+  codigoCobertura?: string;
+  cobertura?: string;
+  origen?: string;
+  comprobanteAsociado?: string;
+  asociadogrupo?: number;
+  _originalIndex?: number;
 }
 
 

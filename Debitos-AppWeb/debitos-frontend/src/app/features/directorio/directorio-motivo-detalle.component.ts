@@ -1,8 +1,8 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { combineLatest } from 'rxjs';
+import { combineLatest, Subject, takeUntil } from 'rxjs';
 import { DirectorioService } from '../../core/services/directorio.service';
 import { DirectorioPrestacionDetalle } from '../../core/models/directorio.model';
 
@@ -31,11 +31,12 @@ export interface OpcionImporteItem {
   templateUrl: './directorio-motivo-detalle.component.html',
   styleUrl: './directorio-motivo-detalle.component.css'
 })
-export class DirectorioMotivoDetalleComponent implements OnInit {
+export class DirectorioMotivoDetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private directorioService = inject(DirectorioService);
   private cdr = inject(ChangeDetectorRef);
+  private readonly destroy$ = new Subject<void>();
 
   motivo: string = '';
   codigoCobertura: string = 'TODAS';
@@ -96,11 +97,18 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
     });
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   cargarDetalle(): void {
     if (!this.motivo) return;
 
     this.cargando = true;
-    this.directorioService.obtenerMotivoDetalle(this.motivo, this.codigoCobertura, this.tipoDoc, this.fechaDesde, this.fechaHasta).subscribe({
+    this.directorioService.obtenerMotivoDetalle(this.motivo, this.codigoCobertura, this.tipoDoc, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
       next: (data) => {
         this.prestaciones = Array.isArray(data) ? data : (data?.content || []);
         this.calcularTotales();
@@ -215,15 +223,13 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
       }))
       .sort((a, b) => a.valor - b.valor);
 
-    // 5. Estado de Aceptación del Débito
+    // 5. Estado de Aceptación del Débito (cualquier registro que no tenga 'SÍ' se considera 'NO (Refacturable)')
     const cantSi = this.prestaciones.filter(p => p.debitoAceptado === true).length;
-    const cantNo = this.prestaciones.filter(p => p.debitoAceptado === false).length;
-    const cantPend = this.prestaciones.filter(p => p.debitoAceptado === null || p.debitoAceptado === undefined).length;
+    const cantNo = this.prestaciones.filter(p => p.debitoAceptado !== true).length;
 
     const estados: OpcionFiltroItem[] = [];
     if (cantSi > 0) estados.push({ key: 'SI', label: 'SÍ (Pérdida)', cantidad: cantSi });
     if (cantNo > 0) estados.push({ key: 'NO', label: 'NO (Refacturable)', cantidad: cantNo });
-    if (cantPend > 0) estados.push({ key: 'PENDIENTE', label: 'Pendiente', cantidad: cantPend });
     this.opcionesAceptado = estados;
   }
 
@@ -390,9 +396,7 @@ export class DirectorioMotivoDetalleComponent implements OnInit {
       if (this.filtroAceptadoSeleccionado === 'SI') {
         resultado = resultado.filter(p => p.debitoAceptado === true);
       } else if (this.filtroAceptadoSeleccionado === 'NO') {
-        resultado = resultado.filter(p => p.debitoAceptado === false);
-      } else if (this.filtroAceptadoSeleccionado === 'PENDIENTE') {
-        resultado = resultado.filter(p => p.debitoAceptado === null || p.debitoAceptado === undefined);
+        resultado = resultado.filter(p => p.debitoAceptado !== true);
       }
     }
 

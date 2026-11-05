@@ -9,8 +9,8 @@
     </div>
 
     <!-- Barra de Filtros -->
-    <div class="filter-card">
-      <div class="filter-group" [class.filter-group-disabled]="solapaActiva === 'analistas'">
+    <div class="filter-card" [class.filter-card--cc]="solapaActiva === 'cuenta-corriente'">
+      <div class="filter-group filter-group--cobertura" [class.filter-group-disabled]="solapaActiva === 'analistas'">
         <label for="select-cobertura">
           <span>Institución / Cobertura</span>
           <span *ngIf="solapaActiva === 'analistas'" class="badge-disabled-hint">(No aplicable)</span>
@@ -32,7 +32,7 @@
         </select>
       </div>
 
-      <div class="filter-group" [class.filter-group-disabled]="esFiltroTipoDocDeshabilitado">
+      <div class="filter-group filter-group--tipo-doc" [class.filter-group-disabled]="esFiltroTipoDocDeshabilitado">
         <label for="select-tipo-doc">
           <span>Tipo de Comprobante</span>
           <span *ngIf="esFiltroTipoDocDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
@@ -56,66 +56,159 @@
         </select>
       </div>
 
-      <div class="filter-group" [class.filter-group-disabled]="esFiltroFechaDeshabilitado"
-        [class.has-error]="errorFechaDesde || errorRangoFechas">
-        <label for="fecha-desde">
-          <span>{{ etiquetaFechaDesde }}</span>
-          <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
-          <span class="filtro-info-wrapper">
-            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img"
-              aria-label="Información del filtro">ℹ</span>
-            <span class="filtro-tooltip-popup">{{ tooltipFiltroFecha }}</span>
-          </span>
-        </label>
-        <input type="date" id="fecha-desde" class="form-control"
-          [class.input-error]="errorFechaDesde || errorRangoFechas" [(ngModel)]="fechaDesde"
-          [min]="fechaMinimaPermitida" max="2035-12-31"
-          (input)="onFechaInput($event, 'desde')" (change)="onFechaDesdeChange()" (blur)="onFechaBlur($event, 'desde')"
-          (keydown.enter)="onEnterFiltro()"
-          [disabled]="esFiltroFechaDeshabilitado" [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
-          [title]="tooltipFiltroFecha">
-        <span *ngIf="errorFechaDesde" class="error-hint" role="alert">{{ errorFechaDesde }}</span>
-      </div>
+      <!-- ═══════════════════════════════════════════════════════════════════════
+           SELECTOR DE CRITERIO DE FECHA/PERÍODO — Disponible en todas las solapas
+           Muestra dos paneles lado a lado con radio buttons para que el usuario
+           elija si filtrar por Período de FC Madre o por Fecha de FC Madre.
+           ═══════════════════════════════════════════════════════════════════════ -->
+      <div class="cc-filtro-selector-row">
 
-      <div class="filter-group" [class.filter-group-disabled]="esFiltroFechaDeshabilitado"
-        [class.has-error]="errorFechaHasta || errorRangoFechas">
-        <label for="fecha-hasta">
-          <span>{{ etiquetaFechaHasta }}</span>
-          <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
-          <span class="filtro-info-wrapper">
-            <span class="filtro-info-btn" [title]="tooltipFiltroFecha" tabindex="0" role="img"
-              aria-label="Información del filtro">ℹ</span>
-            <span class="filtro-tooltip-popup">{{ tooltipFiltroFecha }}</span>
-          </span>
-        </label>
-        <input type="date" id="fecha-hasta" class="form-control"
-          [class.input-error]="errorFechaHasta || errorRangoFechas" [(ngModel)]="fechaHasta"
-          [min]="fechaMinimaPermitida" max="2035-12-31"
-          (input)="onFechaInput($event, 'hasta')" (change)="onFechaHastaChange()" (blur)="onFechaBlur($event, 'hasta')"
-          (keydown.enter)="onEnterFiltro()"
-          [disabled]="esFiltroFechaDeshabilitado" [attr.disabled]="esFiltroFechaDeshabilitado ? '' : null"
-          [title]="tooltipFiltroFecha">
-        <span *ngIf="errorFechaHasta" class="error-hint" role="alert">{{ errorFechaHasta }}</span>
-      </div>
+        <!-- PANEL 1: Por Período de Factura Madre -->
+        <div class="cc-filtro-panel"
+          [class.cc-filtro-panel--active]="!esFiltroFechaDeshabilitado && criterioFechaCc === 'periodo'"
+          [class.cc-filtro-panel--inactive]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo'"
+          [class.filter-group-disabled]="esFiltroFechaDeshabilitado"
+          (click)="!esFiltroFechaDeshabilitado && seleccionarCriterioCc('periodo')" role="radio"
+          [attr.aria-checked]="!esFiltroFechaDeshabilitado && criterioFechaCc === 'periodo'" tabindex="0"
+          (keydown.space)="!esFiltroFechaDeshabilitado && seleccionarCriterioCc('periodo')"
+          [title]="esFiltroFechaDeshabilitado ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por el período prestacional de la Factura Madre (campo Período)'">
+          <div class="cc-filtro-panel-header">
+            <label class="cc-radio-label" (click)="$event.stopPropagation()">
+              <input type="radio" name="criterio-fecha-global" value="periodo" [checked]="criterioFechaCc === 'periodo'"
+                [disabled]="esFiltroFechaDeshabilitado" (change)="seleccionarCriterioCc('periodo')"
+                (click)="$event.stopPropagation()">
+              <span class="cc-radio-text">Por Período de Factura Madre</span>
+            </label>
+            <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
+          </div>
+          <div class="cc-filtro-panel-body">
+            <div class="cc-filtro-field">
+              <label for="cc-periodo-desde" class="cc-field-label">Período Desde</label>
+              <input type="date" id="cc-periodo-desde" class="form-control cc-date-input" [(ngModel)]="ccPeriodoDesde"
+                [min]="fechaMinimaPermitida" max="2035-12-31"
+                [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo'"
+                [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo' ? '' : null"
+                (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('periodo')"
+                (change)="onFechaDesdeChange()" (keydown.enter)="aplicarFiltros()"
+                title="Período prestacional desde (inclusive)">
+            </div>
+            <div class="cc-filtro-field">
+              <label for="cc-periodo-hasta" class="cc-field-label">Período Hasta</label>
+              <input type="date" id="cc-periodo-hasta" class="form-control cc-date-input" [(ngModel)]="ccPeriodoHasta"
+                [min]="fechaMinimaPermitida" max="2035-12-31"
+                [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo'"
+                [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo' ? '' : null"
+                (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('periodo')"
+                (change)="onFechaHastaChange()" (keydown.enter)="aplicarFiltros()"
+                title="Período prestacional hasta (inclusive)">
+            </div>
+          </div>
+        </div>
 
-      <div class="filter-actions">
-        <button type="button" class="btn btn-primary" (click)="aplicarFiltros()" [disabled]="!esRangoFechasValido"
-          [class.btn-disabled]="!esRangoFechasValido"
-          [class.btn-filtrar-pendiente]="hayFiltrosFechasPendientes && esRangoFechasValido"
-          [title]="!esRangoFechasValido ? 'Corrija los errores de fecha antes de filtrar' : (hayFiltrosFechasPendientes ? 'Haga clic para aplicar el nuevo rango de fechas' : 'Aplica los filtros de cobertura, tipo y fechas a todos los componentes del tablero')">
-          <span *ngIf="hayFiltrosFechasPendientes && esRangoFechasValido" class="filtro-pending-dot">●</span>
-          Filtrar
-        </button>
-        <button type="button" class="btn btn-secondary" (click)="irAlMesAnterior()"
-          [disabled]="esFiltroFechaDeshabilitado || noPuedeIrAlMesAnterior"
-          [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : (noPuedeIrAlMesAnterior ? 'Límite alcanzado: no es posible retroceder más allá del período mínimo permitido (' + fechaMinimaPermitida + ')' : 'Retrocede un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados')">
-          <span class="icon">↺</span> Mes Anterior
-        </button>
-        <button type="button" class="btn btn-secondary" (click)="irAlMesSiguiente()"
-          [disabled]="esFiltroFechaDeshabilitado"
-          [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : 'Avanza un período mensual calendario completo manteniendo los filtros de institución y tipo seleccionados'">
-          <span class="icon">↻</span> Mes Siguiente
-        </button>
+        <!-- PANEL 2: Por Fecha de Factura Madre -->
+        <div class="cc-filtro-panel"
+          [class.cc-filtro-panel--active]="!esFiltroFechaDeshabilitado && criterioFechaCc === 'fecha'"
+          [class.cc-filtro-panel--inactive]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'fecha'"
+          [class.filter-group-disabled]="esFiltroFechaDeshabilitado"
+          (click)="!esFiltroFechaDeshabilitado && seleccionarCriterioCc('fecha')" role="radio"
+          [attr.aria-checked]="!esFiltroFechaDeshabilitado && criterioFechaCc === 'fecha'" tabindex="0"
+          (keydown.space)="!esFiltroFechaDeshabilitado && seleccionarCriterioCc('fecha')"
+          [title]="esFiltroFechaDeshabilitado ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por la fecha de emisión de la Factura Madre (campo Fecha)'">
+          <div class="cc-filtro-panel-header">
+            <label class="cc-radio-label" (click)="$event.stopPropagation()">
+              <input type="radio" name="criterio-fecha-global" value="fecha" [checked]="criterioFechaCc === 'fecha'"
+                [disabled]="esFiltroFechaDeshabilitado" (change)="seleccionarCriterioCc('fecha')"
+                (click)="$event.stopPropagation()">
+              <span class="cc-radio-text">Por Fecha de Factura Madre</span>
+            </label>
+            <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
+          </div>
+          <div class="cc-filtro-panel-body">
+            <div class="cc-filtro-field">
+              <label for="cc-fecha-desde" class="cc-field-label">Fecha Desde</label>
+              <input type="date" id="cc-fecha-desde" class="form-control cc-date-input" [(ngModel)]="ccFechaDesde"
+                [min]="fechaMinimaPermitida" max="2035-12-31"
+                [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'fecha'"
+                [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'fecha' ? '' : null"
+                (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('fecha')"
+                (change)="onFechaDesdeChange()" (keydown.enter)="aplicarFiltros()"
+                title="Fecha de emisión de la FC desde (inclusive)">
+            </div>
+            <div class="cc-filtro-field">
+              <label for="cc-fecha-hasta" class="cc-field-label">Fecha Hasta</label>
+              <input type="date" id="cc-fecha-hasta" class="form-control cc-date-input" [(ngModel)]="ccFechaHasta"
+                [min]="fechaMinimaPermitida" max="2035-12-31"
+                [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'fecha'"
+                [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'fecha' ? '' : null"
+                (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('fecha')"
+                (change)="onFechaHastaChange()" (keydown.enter)="aplicarFiltros()"
+                title="Fecha de emisión de la FC hasta (inclusive)">
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL 3: Por Fecha de Análisis de Débito (Exclusivo solapa Analistas) -->
+        <div class="cc-filtro-panel" *ngIf="solapaActiva === 'analistas'"
+          [class.cc-filtro-panel--active]="!esFiltroFechaDeshabilitado && criterioFechaCc === 'analisis'"
+          [class.cc-filtro-panel--inactive]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'analisis'"
+          [class.filter-group-disabled]="esFiltroFechaDeshabilitado"
+          (click)="!esFiltroFechaDeshabilitado && seleccionarCriterioCc('analisis')" role="radio"
+          [attr.aria-checked]="!esFiltroFechaDeshabilitado && criterioFechaCc === 'analisis'" tabindex="0"
+          (keydown.space)="!esFiltroFechaDeshabilitado && seleccionarCriterioCc('analisis')"
+          [title]="esFiltroFechaDeshabilitado ? 'Este filtro está deshabilitado en esta solapa' : 'Filtrar por la fecha en que el analista auditó, emitió o registró el débito (campo Fecha de la NC / ND / Registro)'">
+          <div class="cc-filtro-panel-header">
+            <label class="cc-radio-label" (click)="$event.stopPropagation()">
+              <input type="radio" name="criterio-fecha-global" value="analisis"
+                [checked]="criterioFechaCc === 'analisis'" [disabled]="esFiltroFechaDeshabilitado"
+                (change)="seleccionarCriterioCc('analisis')" (click)="$event.stopPropagation()">
+              <span class="cc-radio-text">Por Fecha de Análisis de Débito</span>
+            </label>
+            <span *ngIf="esFiltroFechaDeshabilitado" class="badge-disabled-hint">(No aplicable)</span>
+          </div>
+          <div class="cc-filtro-panel-body">
+            <div class="cc-filtro-field">
+              <label for="cc-analisis-desde" class="cc-field-label">Fecha Desde</label>
+              <input type="date" id="cc-analisis-desde" class="form-control cc-date-input" [(ngModel)]="ccAnalisisDesde"
+                [min]="fechaMinimaPermitida" max="2035-12-31"
+                [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'analisis'"
+                [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'analisis' ? '' : null"
+                (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('analisis')"
+                (change)="onFechaDesdeChange()" (keydown.enter)="aplicarFiltros()"
+                title="Fecha de análisis/registro desde (inclusive)">
+            </div>
+            <div class="cc-filtro-field">
+              <label for="cc-analisis-hasta" class="cc-field-label">Fecha Hasta</label>
+              <input type="date" id="cc-analisis-hasta" class="form-control cc-date-input" [(ngModel)]="ccAnalisisHasta"
+                [min]="fechaMinimaPermitida" max="2035-12-31"
+                [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'analisis'"
+                [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'analisis' ? '' : null"
+                (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('analisis')"
+                (change)="onFechaHastaChange()" (keydown.enter)="aplicarFiltros()"
+                title="Fecha de análisis/registro hasta (inclusive)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de acción unificados -->
+        <div class="filter-actions cc-filtro-actions">
+          <button type="button" class="btn btn-primary" (click)="aplicarFiltros()"
+            [disabled]="esFiltroFechaDeshabilitado ? null : !esRangoFechasValido"
+            [class.btn-disabled]="!esFiltroFechaDeshabilitado && !esRangoFechasValido"
+            title="Aplica el filtro seleccionado y recarga la solapa activa">
+            Filtrar
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="irAlMesAnterior()"
+            [disabled]="esFiltroFechaDeshabilitado || noPuedeIrAlMesAnterior"
+            [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : (noPuedeIrAlMesAnterior ? 'Límite alcanzado: no es posible retroceder más allá del período mínimo permitido (' + fechaMinimaPermitida + ')' : 'Retrocede un mes en el filtro activo')">
+            <span class="icon">↺</span> Mes Anterior
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="irAlMesSiguiente()"
+            [disabled]="esFiltroFechaDeshabilitado"
+            [title]="esFiltroFechaDeshabilitado ? 'El filtrado por fecha no aplica a esta solapa' : 'Avanza un mes en el filtro activo'">
+            <span class="icon">↻</span> Mes Siguiente
+          </button>
+        </div>
+
       </div>
 
       <div *ngIf="errorRangoFechas" class="rango-error-banner" role="alert">
@@ -128,53 +221,53 @@
          BARRA DE SOLAPAS INDIVIDUALES (NAVBAR SECUNDARIO)
          ===================================================================== -->
     <nav class="directorio-tab-strip" aria-label="Sectores del Tablero">
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'tablero'"
-        (click)="seleccionarSolapa('tablero')">
+      <button *ngIf="esSolapaPermitida('tablero')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'tablero'" (click)="seleccionarSolapa('tablero')">
         <span class="tab-strip-text">Tablero de Control</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'cuenta-corriente'"
-        (click)="seleccionarSolapa('cuenta-corriente')">
+      <button *ngIf="esSolapaPermitida('cuenta-corriente')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'cuenta-corriente'" (click)="seleccionarSolapa('cuenta-corriente')">
         <span class="tab-strip-text">Cuenta Corriente</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'tiempos-cobranza'"
-        (click)="seleccionarSolapa('tiempos-cobranza')">
+      <button *ngIf="esSolapaPermitida('tiempos-cobranza')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'tiempos-cobranza'" (click)="seleccionarSolapa('tiempos-cobranza')">
         <span class="tab-strip-text">Tiempos de Cobranza</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'matriz-cobranzas'"
-        (click)="seleccionarSolapa('matriz-cobranzas')">
+      <button *ngIf="esSolapaPermitida('matriz-cobranzas')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'matriz-cobranzas'" (click)="seleccionarSolapa('matriz-cobranzas')">
         <span class="tab-strip-text">Matriz de Cobranzas</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'motivos'"
-        (click)="seleccionarSolapa('motivos')">
+      <button *ngIf="esSolapaPermitida('motivos')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'motivos'" (click)="seleccionarSolapa('motivos')">
         <span class="tab-strip-text">Motivos de Débito y Refacturación</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'analistas'"
-        (click)="seleccionarSolapa('analistas')">
+      <button *ngIf="esSolapaPermitida('analistas')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'analistas'" (click)="seleccionarSolapa('analistas')">
         <span class="tab-strip-text">Analista de Débito</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'bucles'"
-        (click)="seleccionarSolapa('bucles')">
+      <button *ngIf="esSolapaPermitida('bucles')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'bucles'" (click)="seleccionarSolapa('bucles')">
         <span class="tab-strip-text">Bucles de Insistencia</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'usuarios-carga'"
-        (click)="seleccionarSolapa('usuarios-carga')">
+      <button *ngIf="esSolapaPermitida('usuarios-carga')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'usuarios-carga'" (click)="seleccionarSolapa('usuarios-carga')">
         <span class="tab-strip-text">Usuario de Carga</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'medicos'"
-        (click)="seleccionarSolapa('medicos')">
+      <button *ngIf="esSolapaPermitida('medicos')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'medicos'" (click)="seleccionarSolapa('medicos')">
         <span class="tab-strip-text">Prestadores / Médicos</span>
       </button>
 
-      <button type="button" class="tab-strip-item" [class.active]="solapaActiva === 'trazabilidad'"
-        (click)="seleccionarSolapa('trazabilidad')">
+      <button *ngIf="esSolapaPermitida('trazabilidad')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'trazabilidad'" (click)="seleccionarSolapa('trazabilidad')">
         <span class="tab-strip-text">Detalle y Trazabilidad</span>
       </button>
     </nav>
@@ -183,7 +276,7 @@
   <!-- =====================================================================
        SOLAPA 1: TABLERO DE CONTROL (KPIS Y RESUMEN EJECUTIVO)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'tablero'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'tablero' && esSolapaPermitida('tablero')">
 
     <!-- Panel Macro: 6 Tarjetas de Totales Financieros (KPIs) -->
     <section class="kpi-grid kpi-grid--six">
@@ -199,7 +292,8 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-fc" [ngClass]="obtenerClaseTamanoMonto(totales.totalFacturado)" [title]="formatearMoneda(totales.totalFacturado)">
+        <div class="kpi-value kpi-val-fc" [ngClass]="obtenerClaseTamanoMonto(totales.totalFacturado)"
+          [title]="formatearMoneda(totales.totalFacturado)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalFacturado) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -220,7 +314,8 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-nd" [ngClass]="obtenerClaseTamanoMonto(totales.totalIncrementosNd)" [title]="formatearMoneda(totales.totalIncrementosNd)">
+        <div class="kpi-value kpi-val-nd" [ngClass]="obtenerClaseTamanoMonto(totales.totalIncrementosNd)"
+          [title]="formatearMoneda(totales.totalIncrementosNd)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalIncrementosNd) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -241,7 +336,8 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-nc" [ngClass]="obtenerClaseTamanoMonto(totales.totalDebitosNc)" [title]="formatearMoneda(totales.totalDebitosNc)">
+        <div class="kpi-value kpi-val-nc" [ngClass]="obtenerClaseTamanoMonto(totales.totalDebitosNc)"
+          [title]="formatearMoneda(totales.totalDebitosNc)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalDebitosNc) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -263,7 +359,8 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-ref" [ngClass]="obtenerClaseTamanoMonto(totales.totalRefacturacionNd)" [title]="formatearMoneda(totales.totalRefacturacionNd)">
+        <div class="kpi-value kpi-val-ref" [ngClass]="obtenerClaseTamanoMonto(totales.totalRefacturacionNd)"
+          [title]="formatearMoneda(totales.totalRefacturacionNd)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalRefacturacionNd) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -286,7 +383,8 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-rc" [ngClass]="obtenerClaseTamanoMonto(totales.totalCobranzas)" [title]="formatearMoneda(totales.totalCobranzas)">
+        <div class="kpi-value kpi-val-rc" [ngClass]="obtenerClaseTamanoMonto(totales.totalCobranzas)"
+          [title]="formatearMoneda(totales.totalCobranzas)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.totalCobranzas) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -310,7 +408,8 @@
             </span>
           </span>
         </div>
-        <div class="kpi-value kpi-val-saldo" [ngClass]="obtenerClaseTamanoMonto(totales.saldoPendienteReal)" [title]="formatearMoneda(totales.saldoPendienteReal)">
+        <div class="kpi-value kpi-val-saldo" [ngClass]="obtenerClaseTamanoMonto(totales.saldoPendienteReal)"
+          [title]="formatearMoneda(totales.saldoPendienteReal)">
           <span *ngIf="!cargandoTotales">{{ formatearMoneda(totales.saldoPendienteReal) }}</span>
           <span *ngIf="cargandoTotales" class="skeleton-text">Cargando...</span>
         </div>
@@ -336,11 +435,13 @@
                     <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
                     <span class="filtro-tooltip-popup tooltip-wide">
                       <strong>Evolución de Flujos:</strong> Correlación cronológica entre Facturación FC (azul), Débitos
-                      Recibidos NC (rojo), Refacturación ND (naranja), Cobranzas RC (verde) y Deudas pendientes a cobrar (violeta) imputados al período de atención de la Factura Madre.
+                      Recibidos NC (rojo), Refacturación ND (naranja), Cobranzas RC (verde) y Deudas pendientes a cobrar
+                      (violeta) imputados al período de atención de la Factura Madre.
                     </span>
                   </span>
                 </div>
-                <p class="grafico-subtitle">Facturación FC · Débitos Recibidos NC · Refacturación ND · Cobranzas RC · Deudas</p>
+                <p class="grafico-subtitle">Facturación FC · Débitos Recibidos NC · Refacturación ND · Cobranzas RC ·
+                  Deudas</p>
               </div>
             </div>
             <div class="header-badge-container">
@@ -352,13 +453,13 @@
           </div>
 
           <div class="grafico-body">
-            <div *ngIf="cargandoGraficos" class="grafico-loading">
+            <div *ngIf="cargandoEvolucion" class="grafico-loading">
               <span class="spinner-icon">⏳</span> Cargando datos…
             </div>
-            <div *ngIf="!cargandoGraficos && (evolucionChartData.labels?.length === 0)" class="grafico-empty">
+            <div *ngIf="!cargandoEvolucion && (evolucionChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de evolución disponibles</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (evolucionChartData.labels?.length ?? 0) > 0" id="chart-evolucion"
+            <canvas *ngIf="!cargandoEvolucion && (evolucionChartData.labels?.length ?? 0) > 0" id="chart-evolucion"
               baseChart [type]="'line'" [data]="evolucionChartData" [options]="evolucionChartOptions">
             </canvas>
           </div>
@@ -385,13 +486,13 @@
           </div>
 
           <div class="grafico-body">
-            <div *ngIf="cargandoGraficos || cargandoBalance" class="grafico-loading">
+            <div *ngIf="cargandoBalance" class="grafico-loading">
               <span class="spinner-icon">⏳</span> Cargando datos…
             </div>
-            <div *ngIf="!cargandoGraficos && !cargandoBalance && (distribucionChartData.labels?.length === 0)" class="grafico-empty">
+            <div *ngIf="!cargandoBalance && (distribucionChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de saldo pendiente</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && !cargandoBalance && (distribucionChartData.labels?.length ?? 0) > 0" id="chart-distribucion"
+            <canvas *ngIf="!cargandoBalance && (distribucionChartData.labels?.length ?? 0) > 0" id="chart-distribucion"
               baseChart [type]="'doughnut'" [data]="distribucionChartData" [options]="distribucionChartOptions"
               (chartClick)="onDistribucionChartClick($event)">
             </canvas>
@@ -513,273 +614,335 @@
   <!-- =====================================================================
        SOLAPA 2: CUENTA CORRIENTE A 3 NIVELES
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'cuenta-corriente'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'cuenta-corriente' && esSolapaPermitida('cuenta-corriente')">
     <section class="grid-section">
       <div class="section-card">
-        <div class="section-card-header">
-          <div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <h2 class="section-title">Cuenta Corriente</h2>
-              <span class="filtro-info-wrapper">
-                <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
-                <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
-                  <strong>Jerarquía Contable:</strong> Desglose en 3 niveles: <em>Nivel 1 (Financiador)</em> ➔ <em>Nivel
-                    2 (Período mensual de atención)</em> ➔ <em>Nivel 3 (Factura Madre y comprobantes asociados: NC, ND,
-                    RC)</em>. Permite auditar el saldo vivo línea por línea.
+
+        <!-- SUB-SOLAPAS INTERNAS: IMPUTADOS / NO IMPUTADOS (OPCIÓN C: UNDERLINE TABS) -->
+        <nav class="cc-subtabs-nav" aria-label="Sub-solapas de Cuenta Corriente">
+          <button type="button" class="cc-subtab-link" [class.active]="subSolapaCc === 'imputados'"
+            (click)="cambiarSubSolapaCc('imputados')">
+            <span>Imputados</span>
+            <span class="cc-subtab-badge" *ngIf="cuentaCorrienteDatos && cuentaCorrienteDatos.length > 0">{{
+              cuentaCorrienteDatos.length }}</span>
+          </button>
+          <button type="button" class="cc-subtab-link" [class.active]="subSolapaCc === 'no-imputados'"
+            (click)="cambiarSubSolapaCc('no-imputados')">
+            <span>No imputados</span>
+            <span class="cc-subtab-badge badge-amber" *ngIf="recibosNoImputados && recibosNoImputados.length > 0">{{
+              recibosNoImputados.length }}</span>
+          </button>
+        </nav>
+
+        <!-- ===================================================================
+             SUB-SOLAPA 1: IMPUTADOS (100% CÓDIGO ORIGINAL SIN MODIFICAR)
+             =================================================================== -->
+        <div *ngIf="subSolapaCc === 'imputados'">
+          <div class="section-card-header">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <h2 class="section-title">Cuenta Corriente</h2>
+                <span class="filtro-info-wrapper">
+                  <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                  <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
+                    <strong>Jerarquía Contable:</strong> Desglose en 3 niveles: <em>Nivel 1 (Financiador)</em> ➔
+                    <em>Nivel
+                      2 (Período mensual de atención)</em> ➔ <em>Nivel 3 (Factura Madre y comprobantes asociados: NC,
+                      ND,
+                      RC)</em>. Permite auditar el saldo vivo línea por línea.
+                  </span>
                 </span>
-              </span>
+              </div>
+              <p class="section-subtitle">Estructura jerárquica: Financiador ➔ Período ➔ Comprobantes detallados con
+                saldos y estados de refacturación.</p>
             </div>
-            <p class="section-subtitle">Estructura jerárquica: Financiador ➔ Período ➔ Comprobantes detallados con
-              saldos y estados de refacturación.</p>
+            <div class="grid-tools">
+              <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(true)"
+                title="Despliega todos los niveles jerárquicos (Financiadores, Períodos y Comprobantes)">
+                [+] Expandir Todo
+              </button>
+              <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)"
+                title="Colapsa todos los niveles jerárquicos para una vista resumida">
+                [-] Contraer Todo
+              </button>
+            </div>
           </div>
-          <div class="grid-tools">
-            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(true)"
-              title="Despliega todos los niveles jerárquicos (Financiadores, Períodos y Comprobantes)">
-              [+] Expandir Todo
-            </button>
-            <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)"
-              title="Colapsa todos los niveles jerárquicos para una vista resumida">
-              [-] Contraer Todo
-            </button>
+
+          <div *ngIf="cargandoCuentaCorriente" class="loading-state">
+            <div class="spinner"></div>
+            <p>Cargando cuenta corriente...</p>
           </div>
-        </div>
 
-        <div *ngIf="cargandoCuentaCorriente" class="loading-state">
-          <div class="spinner"></div>
-          <p>Cargando cuenta corriente...</p>
-        </div>
+          <div *ngIf="!cargandoCuentaCorriente && cuentaCorrienteDatos.length === 0" class="empty-state">
+            <p>No se encontraron registros de cuenta corriente para los filtros aplicados.</p>
+          </div>
 
-        <div *ngIf="!cargandoCuentaCorriente && cuentaCorrienteDatos.length === 0" class="empty-state">
-          <p>No se encontraron registros de cuenta corriente para los filtros aplicados.</p>
-        </div>
+          <div *ngIf="!cargandoCuentaCorriente && cuentaCorrienteDatos.length > 0" class="table-responsive">
+            <table class="table-sanatorial table-cuenta-corriente">
+              <thead>
+                <tr>
+                  <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenCc === 'entidad'"
+                    (click)="ordenarCuentaCorriente('entidad')" title="Ordenar por Entidad / Período / Comprobante">
+                    Entidad / Período / Comprobante <span class="sort-indicator"
+                      [class.active]="columnaOrdenCc === 'entidad'">{{ columnaOrdenCc === 'entidad' ? (direccionOrdenCc
+                      === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-center sortable-col" [class.col-sorted]="columnaOrdenCc === 'fecha'"
+                    (click)="ordenarCuentaCorriente('fecha')" title="Ordenar por Fecha">
+                    Fecha <span class="sort-indicator" [class.active]="columnaOrdenCc === 'fecha'">{{ columnaOrdenCc ===
+                      'fecha' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'facturacion'"
+                    (click)="ordenarCuentaCorriente('facturacion')" title="Ordenar por Facturación (FC)">
+                    Facturación (FC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'facturacion'">{{
+                      columnaOrdenCc === 'facturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'incrementos'"
+                    (click)="ordenarCuentaCorriente('incrementos')" title="Ordenar por Incrementos (ND)">
+                    Incrementos (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'incrementos'">{{
+                      columnaOrdenCc === 'incrementos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'debitos'"
+                    (click)="ordenarCuentaCorriente('debitos')" title="Ordenar por Débitos (NC)">
+                    Débitos (NC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'debitos'">{{
+                      columnaOrdenCc === 'debitos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'refacturacion'"
+                    (click)="ordenarCuentaCorriente('refacturacion')" title="Ordenar por Refacturación (ND)">
+                    Refacturación (ND) <span class="sort-indicator"
+                      [class.active]="columnaOrdenCc === 'refacturacion'">{{
+                      columnaOrdenCc === 'refacturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'cobranzas'"
+                    (click)="ordenarCuentaCorriente('cobranzas')" title="Ordenar por Cobranzas (RC)">
+                    Cobranzas (RC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'cobranzas'">{{
+                      columnaOrdenCc === 'cobranzas' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'saldo'"
+                    (click)="ordenarCuentaCorriente('saldo')" title="Ordenar por Saldo">
+                    Saldo <span class="sort-indicator" [class.active]="columnaOrdenCc === 'saldo'">{{ columnaOrdenCc ===
+                      'saldo' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                </tr>
 
-        <div *ngIf="!cargandoCuentaCorriente && cuentaCorrienteDatos.length > 0" class="table-responsive">
-          <table class="table-sanatorial">
-            <thead>
-              <tr>
-                <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenCc === 'entidad'"
-                  (click)="ordenarCuentaCorriente('entidad')" title="Ordenar por Entidad / Período / Comprobante">
-                  Entidad / Período / Comprobante <span class="sort-indicator"
-                    [class.active]="columnaOrdenCc === 'entidad'">{{ columnaOrdenCc === 'entidad' ? (direccionOrdenCc
-                    === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-center sortable-col" [class.col-sorted]="columnaOrdenCc === 'fecha'"
-                  (click)="ordenarCuentaCorriente('fecha')" title="Ordenar por Fecha">
-                  Fecha <span class="sort-indicator" [class.active]="columnaOrdenCc === 'fecha'">{{ columnaOrdenCc ===
-                    'fecha' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'facturacion'"
-                  (click)="ordenarCuentaCorriente('facturacion')" title="Ordenar por Facturación (FC)">
-                  Facturación (FC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'facturacion'">{{
-                    columnaOrdenCc === 'facturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'incrementos'"
-                  (click)="ordenarCuentaCorriente('incrementos')" title="Ordenar por Incrementos (ND)">
-                  Incrementos (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'incrementos'">{{
-                    columnaOrdenCc === 'incrementos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'debitos'"
-                  (click)="ordenarCuentaCorriente('debitos')" title="Ordenar por Débitos (NC)">
-                  Débitos (NC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'debitos'">{{
-                    columnaOrdenCc === 'debitos' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'refacturacion'"
-                  (click)="ordenarCuentaCorriente('refacturacion')" title="Ordenar por Refacturación (ND)">
-                  Refacturación (ND) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'refacturacion'">{{
-                    columnaOrdenCc === 'refacturacion' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'cobranzas'"
-                  (click)="ordenarCuentaCorriente('cobranzas')" title="Ordenar por Cobranzas (RC)">
-                  Cobranzas (RC) <span class="sort-indicator" [class.active]="columnaOrdenCc === 'cobranzas'">{{
-                    columnaOrdenCc === 'cobranzas' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-                <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenCc === 'saldo'"
-                  (click)="ordenarCuentaCorriente('saldo')" title="Ordenar por Saldo">
-                  Saldo <span class="sort-indicator" [class.active]="columnaOrdenCc === 'saldo'">{{ columnaOrdenCc ===
-                    'saldo' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody *ngFor="let f of cuentaCorrienteDatosPaginados; trackBy: trackByFinanciador">
+                <!-- Fila Fija de Totales Consolidados de Cuenta Corriente (Sticky) -->
+                <tr class="tr-totales-fijos tr-totales-cc">
+                  <th class="th-tree th-total-label">
+                    <div class="cc-cell-wrapper">
+                      <strong class="total-label-text">TOTAL GENERAL</strong>
+                      <span class="badge-count badge-total-count">{{ cuentaCorrienteDatos.length }} {{
+                        cuentaCorrienteDatos.length === 1 ? 'entidad' : 'entidades' }}</span>
+                    </div>
+                  </th>
+                  <th class="text-center text-muted font-weight-bold">—</th>
+                  <th class="text-right font-weight-bold color-facturado">
+                    {{ totalFacturacionCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </th>
+                  <th class="text-right font-weight-bold color-incremento">
+                    {{ totalIncrementosCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </th>
+                  <th class="text-right font-weight-bold color-aceptado">
+                    {{ totalDebitosCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </th>
+                  <th class="text-right font-weight-bold color-refacturado">
+                    {{ totalRefacturacionCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </th>
+                  <th class="text-right font-weight-bold color-cobranza">
+                    {{ totalCobranzasCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </th>
+                  <th class="text-right font-weight-bold"
+                    [ngClass]="totalSaldoCc > 0 ? 'color-saldo-positivo' : (totalSaldoCc < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                    {{ totalSaldoCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody *ngFor="let f of cuentaCorrienteDatosPaginados; trackBy: trackByFinanciador">
 
-              <!-- NIVEL 1: Financiador -->
-              <tr class="tr-financiador" (click)="toggleFinanciador(f)" [class.is-expanded]="f.expanded">
-                <td class="td-tree-node td-financiador">
-                  <div class="cc-cell-wrapper">
-                    <button type="button" class="btn-toggle-expand" [class.is-expanded]="f.expanded">
-                      {{ f.expanded ? '▼' : '▶' }}
-                    </button>
-                    <span class="financiador-nombre">{{ f.financiador }}</span>
-                  </div>
-                </td>
-                <td class="text-center text-muted">—</td>
-                <td class="text-right font-weight-bold color-facturado">
-                  {{ f.facturacionFc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                </td>
-                <td class="text-right color-incremento">
-                  {{ f.incrementosNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                </td>
-                <td class="text-right color-aceptado">
-                  {{ f.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                </td>
-                <td class="text-right color-refacturado">
-                  {{ f.refacturacionNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                </td>
-                <td class="text-right color-cobranza">
-                  {{ f.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                </td>
-                <td class="text-right font-weight-bold"
-                  [ngClass]="f.saldo > 0 ? 'color-saldo-positivo' : (f.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
-                  {{ f.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                </td>
-              </tr>
+                <!-- NIVEL 1: Financiador -->
+                <tr class="tr-financiador" (click)="toggleFinanciador(f)" [class.is-expanded]="f.expanded">
+                  <td class="td-tree-node td-financiador">
+                    <div class="cc-cell-wrapper">
+                      <button type="button" class="btn-toggle-expand" [class.is-expanded]="f.expanded">
+                        {{ f.expanded ? '▼' : '▶' }}
+                      </button>
+                      <span class="financiador-nombre">{{ f.financiador }}</span>
+                    </div>
+                  </td>
+                  <td class="text-center text-muted">—</td>
+                  <td class="text-right font-weight-bold color-facturado">
+                    {{ f.facturacionFc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </td>
+                  <td class="text-right color-incremento">
+                    {{ f.incrementosNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </td>
+                  <td class="text-right color-aceptado">
+                    {{ f.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </td>
+                  <td class="text-right color-refacturado">
+                    {{ f.refacturacionNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </td>
+                  <td class="text-right color-cobranza">
+                    {{ f.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </td>
+                  <td class="text-right font-weight-bold"
+                    [ngClass]="f.saldo > 0 ? 'color-saldo-positivo' : (f.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                    {{ f.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  </td>
+                </tr>
 
-              <!-- NIVEL 2: Períodos (solo si financiador está expandido) -->
-              <ng-container *ngIf="f.expanded">
-                <ng-container *ngFor="let p of f.periodos">
+                <!-- NIVEL 2: Períodos (solo si financiador está expandido) -->
+                <ng-container *ngIf="f.expanded">
+                  <ng-container *ngFor="let p of f.periodos">
 
-                  <tr class="tr-periodo" (click)="togglePeriodo(p)" [class.is-expanded]="p.expanded">
-                    <td class="td-tree-node td-periodo">
-                      <div class="cc-cell-wrapper">
-                        <button type="button" class="btn-toggle-expand btn-toggle-sm" [class.is-expanded]="p.expanded">
-                          {{ p.expanded ? '▼' : '▶' }}
-                        </button>
-                        <span class="periodo-tag">{{ p.periodo }}</span>
-                      </div>
-                    </td>
-                    <td class="text-center text-muted">—</td>
-                    <td class="text-right color-facturado">
-                      {{ p.facturacionFc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                    </td>
-                    <td class="text-right color-incremento">
-                      {{ p.incrementosNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                    </td>
-                    <td class="text-right color-aceptado">
-                      {{ p.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                    </td>
-                    <td class="text-right color-refacturado">
-                      {{ p.refacturacionNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                    </td>
-                    <td class="text-right color-cobranza">
-                      {{ p.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                    </td>
-                    <td class="text-right font-weight-bold"
-                      [ngClass]="p.saldo > 0 ? 'color-saldo-positivo' : (p.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
-                      {{ p.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                    </td>
-                  </tr>
+                    <tr class="tr-periodo" (click)="togglePeriodo(p)" [class.is-expanded]="p.expanded">
+                      <td class="td-tree-node td-periodo">
+                        <div class="cc-cell-wrapper">
+                          <button type="button" class="btn-toggle-expand btn-toggle-sm"
+                            [class.is-expanded]="p.expanded">
+                            {{ p.expanded ? '▼' : '▶' }}
+                          </button>
+                          <span class="periodo-tag">{{ p.periodo }}</span>
+                        </div>
+                      </td>
+                      <td class="text-center text-muted">—</td>
+                      <td class="text-right color-facturado">
+                        {{ p.facturacionFc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right color-incremento">
+                        {{ p.incrementosNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right color-aceptado">
+                        {{ p.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right color-refacturado">
+                        {{ p.refacturacionNd | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right color-cobranza">
+                        {{ p.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                      <td class="text-right font-weight-bold"
+                        [ngClass]="p.saldo > 0 ? 'color-saldo-positivo' : (p.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                        {{ p.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      </td>
+                    </tr>
 
-                  <!-- NIVEL 3: Facturas Madres y Comprobantes Hijos -->
-                  <ng-container *ngIf="p.expanded">
-                    <ng-container *ngFor="let fc of p.comprobantes; trackBy: trackByComprobante">
-                      <!-- Fila Factura Madre -->
-                      <tr class="tr-factura" (click)="toggleFactura(fc)" [class.is-expanded]="fc.expanded">
-                        <td class="td-tree-node td-factura-node">
-                          <div class="cc-cell-wrapper">
-                            <button *ngIf="fc.hijos && fc.hijos.length > 0" type="button"
-                              class="btn-toggle-expand btn-toggle-xs" [class.is-expanded]="fc.expanded"
-                              (click)="$event.stopPropagation(); toggleFactura(fc)">
-                              {{ fc.expanded ? '▼' : '▶' }}
-                            </button>
-                            <span *ngIf="!fc.hijos || fc.hijos.length === 0" class="tree-bullet">•</span>
-                            <span class="badge-tipo-doc badge-grupo" title="Grupo de comprobantes">Grupo</span>
-                            <strong class="comprobante-numero">{{ formatearNumeroComprobante(fc.comprobante) }}</strong>
-                          </div>
-                        </td>
-                        <td class="text-center text-fecha">
-                          {{ fc.fecha | date:'dd/MM/yyyy' }}
-                        </td>
-                        <td class="text-right color-facturado">
-                          {{ fc.facturacionFc > 0 ? (fc.facturacionFc |
-                          currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
-                        </td>
-                        <td class="text-right color-incremento">
-                          {{ fc.incrementosNd > 0 ? (fc.incrementosNd |
-                          currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
-                        </td>
-                        <td class="text-right color-aceptado">
-                          {{ fc.debitosNc > 0 ? (fc.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—'
-                          }}
-                        </td>
-                        <td class="text-right color-refacturado">
-                          {{ fc.refacturacionNd > 0 ? (fc.refacturacionNd |
-                          currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
-                        </td>
-                        <td class="text-right color-cobranza">
-                          {{ fc.cobranzasRc > 0 ? (fc.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') :
-                          '—' }}
-                        </td>
-                        <td class="text-right font-weight-bold"
-                          [ngClass]="fc.saldo > 0 ? 'color-saldo-positivo' : (fc.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
-                          {{ fc.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
-                        </td>
-                      </tr>
-
-                      <!-- Comprobantes Hijos (solo si la Factura Madre está expandida) -->
-                      <ng-container *ngIf="fc.expanded && fc.hijos && fc.hijos.length > 0">
-                        <tr *ngFor="let h of fc.hijos" class="tr-comprobante-hijo"
-                          [class.tr-hijo-fc-origen]="h.origenTipo === 'FC'">
-                          <td class="td-tree-node td-comprobante-hijo-node"
-                            [style.padding-left.px]="74 + ((h.nivel || 1) - 1) * 25">
+                    <!-- NIVEL 3: Facturas Madres y Comprobantes Hijos -->
+                    <ng-container *ngIf="p.expanded">
+                      <ng-container *ngFor="let fc of p.comprobantes; trackBy: trackByComprobante">
+                        <!-- Fila Factura Madre -->
+                        <tr class="tr-factura" (click)="toggleFactura(fc)" [class.is-expanded]="fc.expanded">
+                          <td class="td-tree-node td-factura-node">
                             <div class="cc-cell-wrapper">
-                              <span class="tree-branch">└─</span>
-                              <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)"
-                                [title]="'Comprobante hijo asociado: ' + h.tipo">{{ h.tipo }}</span>
-                              <strong class="comprobante-numero">{{ h.comprobante }}</strong>
-                              <span *ngIf="h.origenTipo === 'FC'" class="badge-hijo-fc-origen"
-                                title="Factura de origen — monto bruto original antes de descuentos">Origen</span>
+                              <button *ngIf="fc.hijos && fc.hijos.length > 0" type="button"
+                                class="btn-toggle-expand btn-toggle-xs" [class.is-expanded]="fc.expanded"
+                                (click)="$event.stopPropagation(); toggleFactura(fc)">
+                                {{ fc.expanded ? '▼' : '▶' }}
+                              </button>
+                              <span *ngIf="!fc.hijos || fc.hijos.length === 0" class="tree-bullet">•</span>
+                              <span class="badge-tipo-doc badge-grupo" title="Grupo de comprobantes">Grupo</span>
+                              <strong class="comprobante-numero">{{ formatearNumeroComprobante(fc.comprobante)
+                                }}</strong>
                             </div>
                           </td>
                           <td class="text-center text-fecha">
-                            {{ h.fecha | date:'dd/MM/yyyy' }}
+                            {{ fc.fecha | date:'dd/MM/yyyy' }}
                           </td>
                           <td class="text-right color-facturado">
-                            {{ h.facturacionFc > 0 ? (h.facturacionFc |
+                            {{ fc.facturacionFc > 0 ? (fc.facturacionFc |
                             currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                           </td>
                           <td class="text-right color-incremento">
-                            {{ h.incrementosNd > 0 ? (h.incrementosNd |
+                            {{ fc.incrementosNd > 0 ? (fc.incrementosNd |
                             currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                           </td>
                           <td class="text-right color-aceptado">
-                            {{ h.debitosNc > 0 ? (h.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—'
+                            {{ fc.debitosNc > 0 ? (fc.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—'
                             }}
                           </td>
                           <td class="text-right color-refacturado">
-                            {{ h.refacturacionNd > 0 ? (h.refacturacionNd |
+                            {{ fc.refacturacionNd > 0 ? (fc.refacturacionNd |
                             currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
                           </td>
                           <td class="text-right color-cobranza">
-                            {{ h.cobranzasRc > 0 ? (h.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') :
+                            {{ fc.cobranzasRc > 0 ? (fc.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') :
                             '—' }}
                           </td>
                           <td class="text-right font-weight-bold"
-                            [ngClass]="h.saldo > 0 ? 'color-saldo-positivo' : (h.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
-                            {{ h.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                            [ngClass]="fc.saldo > 0 ? 'color-saldo-positivo' : (fc.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                            {{ fc.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                           </td>
                         </tr>
+
+                        <!-- Comprobantes Hijos (solo si la Factura Madre está expandida) -->
+                        <ng-container *ngIf="fc.expanded && fc.hijos && fc.hijos.length > 0">
+                          <tr *ngFor="let h of fc.hijos" class="tr-comprobante-hijo"
+                            [class.tr-hijo-fc-origen]="h.origenTipo === 'FC'">
+                            <td class="td-tree-node td-comprobante-hijo-node"
+                              [style.padding-left.px]="74 + ((h.nivel || 1) - 1) * 25">
+                              <div class="cc-cell-wrapper">
+                                <span class="tree-branch">└─</span>
+                                <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(h.tipo)"
+                                  [title]="h.comprobanteAsociado ? ('Comprobante hijo asociado a: ' + h.comprobanteAsociado) : ('Comprobante hijo: ' + h.tipo)">{{
+                                  h.tipo }}</span>
+                                <strong class="comprobante-numero"
+                                  [title]="h.comprobanteAsociado ? ('Vinculado a: ' + h.comprobanteAsociado) : ''">{{
+                                  h.comprobante }}</strong>
+                                <span *ngIf="h.origenTipo === 'FC'" class="badge-hijo-fc-origen"
+                                  title="Factura de origen — monto bruto original antes de descuentos">Origen</span>
+                              </div>
+                            </td>
+                            <td class="text-center text-fecha">
+                              {{ h.fecha | date:'dd/MM/yyyy' }}
+                            </td>
+                            <td class="text-right color-facturado">
+                              {{ h.facturacionFc > 0 ? (h.facturacionFc |
+                              currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            </td>
+                            <td class="text-right color-incremento">
+                              {{ h.incrementosNd > 0 ? (h.incrementosNd |
+                              currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            </td>
+                            <td class="text-right color-aceptado">
+                              {{ h.debitosNc > 0 ? (h.debitosNc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—'
+                              }}
+                            </td>
+                            <td class="text-right color-refacturado">
+                              {{ h.refacturacionNd > 0 ? (h.refacturacionNd |
+                              currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                            </td>
+                            <td class="text-right color-cobranza">
+                              {{ h.cobranzasRc > 0 ? (h.cobranzasRc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') :
+                              '—' }}
+                            </td>
+                            <td class="text-right font-weight-bold"
+                              [ngClass]="h.saldo > 0 ? 'color-saldo-positivo' : (h.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
+                              {{ h.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                            </td>
+                          </tr>
+                        </ng-container>
                       </ng-container>
                     </ng-container>
+
                   </ng-container>
-
                 </ng-container>
-              </ng-container>
 
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
 
           <!-- Paginación de Cuenta Corriente -->
-          <div class="trazabilidad-pagination-bar" *ngIf="totalPaginasCc > 1">
+          <div class="trazabilidad-pagination-bar" *ngIf="!cargandoCuentaCorriente && cuentaCorrienteDatos.length > 0">
             <div class="pagination-info">
               Mostrando financiadores
               <strong>{{ (ccPaginaActual - 1) * ccItemsPorPagina + 1 }}</strong>
               al
-              <strong>{{ (ccPaginaActual * ccItemsPorPagina) > cuentaCorrienteDatos.length ? cuentaCorrienteDatos.length : (ccPaginaActual * ccItemsPorPagina) }}</strong>
+              <strong>{{ (ccPaginaActual * ccItemsPorPagina) > cuentaCorrienteDatos.length ? cuentaCorrienteDatos.length
+                : (ccPaginaActual * ccItemsPorPagina) }}</strong>
               de un total de <strong>{{ cuentaCorrienteDatos.length }}</strong> financiadores
             </div>
             <div class="pagination-controls">
-              <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual <= 1"
-                (click)="cambiarPaginaCc(1)" title="Primera página">
+              <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual <= 1" (click)="cambiarPaginaCc(1)"
+                title="Primera página">
                 «
               </button>
               <button type="button" class="btn-page-nav" [disabled]="ccPaginaActual <= 1"
@@ -798,14 +961,179 @@
             </div>
             <div class="pagination-page-size">
               <label for="select-page-size-cc">Por página:</label>
-              <select id="select-page-size-cc" class="page-size-select"
-                [ngModel]="ccItemsPorPagina"
+              <select id="select-page-size-cc" class="page-size-select" [ngModel]="ccItemsPorPagina"
                 (ngModelChange)="onCcItemsPorPaginaChange($event)">
                 <option *ngFor="let opt of ccOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
               </select>
             </div>
           </div>
-        </div>
+        </div><!-- /subSolapaCc === 'imputados' -->
+
+        <!-- ===================================================================
+             SUB-SOLAPA 2: NO IMPUTADOS (RECIBOS SIN ASOCIADOGRUPO)
+             =================================================================== -->
+        <div *ngIf="subSolapaCc === 'no-imputados'">
+          <div class="section-card-header">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <h2 class="section-title">Recibos No Imputados</h2>
+                <span class="filtro-info-wrapper">
+                  <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+                  <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
+                    <strong>Cobranzas Pendientes de Imputación:</strong> Recibos (RC) registrados en el sistema que aún
+                    no han sido imputados o vinculados a una factura madre o grupo (columna <em>asociadogrupo</em>
+                    vacía).
+                  </span>
+                </span>
+              </div>
+              <p class="section-subtitle">Recibos de cobranza (RC) sin grupo ni factura asignada para su conciliación.
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <label class="no-imputados-date-toggle"
+                title="Por defecto se visualizan todos los recibos sin imputar históricos. Marque esta opción para acotar al rango de fechas seleccionado en la barra superior.">
+                <input type="checkbox" [checked]="filtrarFechasNoImputados"
+                  (change)="toggleFiltroFechasNoImputados()" />
+                <span>Acotar a fechas del filtro ({{ fechaDesde | date:'dd/MM/yyyy' }} - {{ fechaHasta |
+                  date:'dd/MM/yyyy' }})</span>
+              </label>
+              <div class="no-imputados-search-box">
+                <input type="text" class="no-imputados-search-input"
+                  placeholder="Buscar por comprobante, financiador..." [(ngModel)]="busquedaTextoNoImputados"
+                  (input)="noImputadosPaginaActual = 1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra resumen KPI -->
+          <div class="no-imputados-kpi-bar" *ngIf="!cargandoRecibosNoImputados && recibosNoImputados.length > 0">
+            <div class="no-imputados-kpis">
+              <div class="no-imputados-kpi-item">
+                <span class="no-imputados-kpi-label">Comprobantes Sin Imputar</span>
+                <span class="no-imputados-kpi-val">{{ recibosNoImputadosFiltrados.length }}</span>
+              </div>
+              <div class="no-imputados-kpi-item">
+                <span class="no-imputados-kpi-label">Monto Total Sin Imputar</span>
+                <span class="no-imputados-kpi-val highlight-val">{{ formatearMoneda(totalMontoNoImputados) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado de carga -->
+          <div *ngIf="cargandoRecibosNoImputados" class="loading-state">
+            <div class="spinner"></div>
+            <p>Cargando comprobantes no imputados...</p>
+          </div>
+
+          <!-- Estado vacío -->
+          <div *ngIf="!cargandoRecibosNoImputados && recibosNoImputadosFiltrados.length === 0" class="empty-state">
+            <p *ngIf="busquedaTextoNoImputados">No se encontraron comprobantes que coincidan con la búsqueda.</p>
+            <p *ngIf="!busquedaTextoNoImputados">No se encontraron comprobantes sin imputar para los filtros aplicados.
+            </p>
+          </div>
+
+          <!-- Tabla de Recibos No Imputados -->
+          <div *ngIf="!cargandoRecibosNoImputados && recibosNoImputadosFiltrados.length > 0" class="table-responsive">
+            <table class="table-sanatorial">
+              <thead>
+                <tr>
+                  <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenNoImputados === 'comprobante'"
+                    (click)="ordenarNoImputados('comprobante')" title="Ordenar por Comprobante">
+                    Comprobante <span class="sort-indicator"
+                      [class.active]="columnaOrdenNoImputados === 'comprobante'">{{ columnaOrdenNoImputados ===
+                      'comprobante' ? (direccionOrdenNoImputados === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-center sortable-col" [class.col-sorted]="columnaOrdenNoImputados === 'fecha'"
+                    (click)="ordenarNoImputados('fecha')" title="Ordenar por Fecha">
+                    Fecha <span class="sort-indicator" [class.active]="columnaOrdenNoImputados === 'fecha'">{{
+                      columnaOrdenNoImputados === 'fecha' ? (direccionOrdenNoImputados === 'asc' ? '▲' : '▼') : '↕'
+                      }}</span>
+                  </th>
+                  <th class="sortable-col" [class.col-sorted]="columnaOrdenNoImputados === 'financiador'"
+                    (click)="ordenarNoImputados('financiador')" title="Ordenar por Financiador / Obra Social">
+                    Financiador / Obra Social <span class="sort-indicator"
+                      [class.active]="columnaOrdenNoImputados === 'financiador'">{{ columnaOrdenNoImputados ===
+                      'financiador' ? (direccionOrdenNoImputados === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  </th>
+                  <th class="text-center sortable-col" [class.col-sorted]="columnaOrdenNoImputados === 'periodo'"
+                    (click)="ordenarNoImputados('periodo')" title="Ordenar por Período">
+                    Período <span class="sort-indicator" [class.active]="columnaOrdenNoImputados === 'periodo'">{{
+                      columnaOrdenNoImputados === 'periodo' ? (direccionOrdenNoImputados === 'asc' ? '▲' : '▼') : '↕'
+                      }}</span>
+                  </th>
+                  <th class="text-right sortable-col" [class.col-sorted]="columnaOrdenNoImputados === 'importe'"
+                    (click)="ordenarNoImputados('importe')" title="Ordenar por Importe">
+                    Importe <span class="sort-indicator" [class.active]="columnaOrdenNoImputados === 'importe'">{{
+                      columnaOrdenNoImputados === 'importe' ? (direccionOrdenNoImputados === 'asc' ? '▲' : '▼') : '↕'
+                      }}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of recibosNoImputadosPaginados; trackBy: trackByNoImputado">
+                  <td class="font-bold">
+                    <span class="badge-tipo-doc" [ngClass]="obtenerBadgeClase(r.tipo)">{{ r.tipo || 'RC' }}</span>
+                    {{ formatearNumeroComprobanteNoImputado(r) }}
+                  </td>
+                  <td class="text-center text-muted">
+                    {{ r.fecha ? (r.fecha | date:'dd/MM/yyyy') : '—' }}
+                  </td>
+                  <td>
+                    <span *ngIf="r.codigoCobertura" class="font-bold">{{ r.codigoCobertura }}</span>
+                    <span *ngIf="r.cobertura"> - {{ r.cobertura }}</span>
+                    <span *ngIf="!r.codigoCobertura && !r.cobertura" class="text-muted">Sin financiador</span>
+                  </td>
+                  <td class="text-center">
+                    {{ r.periodo ? (r.periodo | date:'MM/yyyy') : '—' }}
+                  </td>
+                  <td class="text-right font-bold td-cobrado">
+                    {{ formatearMoneda(r.importe || r.haber) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Paginación de Recibos No Imputados -->
+          <div class="trazabilidad-pagination-bar"
+            *ngIf="!cargandoRecibosNoImputados && recibosNoImputadosFiltrados.length > 0">
+            <div class="pagination-info">
+              Mostrando comprobantes
+              <strong>{{ (noImputadosPaginaActual - 1) * noImputadosItemsPorPagina + 1 }}</strong>
+              al
+              <strong>{{ (noImputadosPaginaActual * noImputadosItemsPorPagina) > recibosNoImputadosFiltrados.length ?
+                recibosNoImputadosFiltrados.length : (noImputadosPaginaActual * noImputadosItemsPorPagina) }}</strong>
+              de un total de <strong>{{ recibosNoImputadosFiltrados.length }}</strong> comprobantes
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="noImputadosPaginaActual <= 1"
+                (click)="cambiarPaginaNoImputados(1)" title="Primera página">
+                «
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="noImputadosPaginaActual <= 1"
+                (click)="cambiarPaginaNoImputados(noImputadosPaginaActual - 1)" title="Página anterior">
+                ‹
+              </button>
+              <span class="page-current-indicator">Página {{ noImputadosPaginaActual }} de {{ totalPaginasNoImputados
+                }}</span>
+              <button type="button" class="btn-page-nav" [disabled]="noImputadosPaginaActual >= totalPaginasNoImputados"
+                (click)="cambiarPaginaNoImputados(noImputadosPaginaActual + 1)" title="Página siguiente">
+                ›
+              </button>
+              <button type="button" class="btn-page-nav" [disabled]="noImputadosPaginaActual >= totalPaginasNoImputados"
+                (click)="cambiarPaginaNoImputados(totalPaginasNoImputados)" title="Última página">
+                »
+              </button>
+            </div>
+            <div class="pagination-page-size">
+              <label for="select-page-size-no-imp">Por página:</label>
+              <select id="select-page-size-no-imp" class="page-size-select" [ngModel]="noImputadosItemsPorPagina"
+                (ngModelChange)="onNoImputadosItemsPorPaginaChange($event)">
+                <option *ngFor="let opt of noImputadosOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
+              </select>
+            </div>
+          </div>
+        </div><!-- /subSolapaCc === 'no-imputados' -->
 
       </div>
     </section>
@@ -814,7 +1142,7 @@
   <!-- =====================================================================
        SOLAPA 3: TIEMPOS DE COBRANZA (AGING DE DEUDA)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'tiempos-cobranza'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'tiempos-cobranza' && esSolapaPermitida('tiempos-cobranza')">
     <div class="tiempos-cobranza-section">
       <!-- Fila 1: Grid 2 Columnas (KPI Card a la izquierda, Gráfico a la derecha) -->
       <div class="tiempos-top-grid">
@@ -842,7 +1170,7 @@
           </div>
 
           <div>
-            <hr class="kpi-dso-divider">
+            <hr class="kpi-dso-divider" />
             <div class="kpi-dso-footer">
               <div class="kpi-dso-col">
                 <span class="kpi-dso-col-lbl"
@@ -874,7 +1202,8 @@
                   </span>
                 </span>
                 <span class="kpi-dso-col-val text-red">
-                  <span *ngIf="!cargandoTiemposCobranza">${{ (tiemposCobranzaDatos?.saldoTotalMora ?? 0) | number:'1.0-0':'es-AR' }}</span>
+                  <span *ngIf="!cargandoTiemposCobranza">{{ formatearMoneda(tiemposCobranzaDatos?.saldoTotalMora)
+                    }}</span>
                   <span *ngIf="cargandoTiemposCobranza" class="skeleton-text">Cargando...</span>
                 </span>
               </div>
@@ -905,14 +1234,14 @@
           </div>
 
           <div class="aging-canvas-container">
-            <div *ngIf="cargandoGraficos" class="grafico-loading">
+            <div *ngIf="cargandoTiemposCobranza" class="grafico-loading">
               <span class="spinner-icon">⏳</span> Cargando datos…
             </div>
-            <div *ngIf="!cargandoGraficos && (agingChartData.labels?.length === 0)" class="grafico-empty">
+            <div *ngIf="!cargandoTiemposCobranza && (agingChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin comprobantes en los rangos configurados</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (agingChartData.labels?.length ?? 0) > 0" id="chart-aging" baseChart
-              [type]="'bar'" [data]="agingChartData" [options]="agingChartOptions">
+            <canvas *ngIf="!cargandoTiemposCobranza && (agingChartData.labels?.length ?? 0) > 0" id="chart-aging"
+              baseChart [type]="'bar'" [data]="agingChartData" [options]="agingChartOptions">
             </canvas>
           </div>
         </div>
@@ -959,7 +1288,7 @@
                 <td class="td-aging-comprobantes">{{ item.cantidadComprobantes | number:'1.0-0':'es-AR' }}</td>
                 <td class="td-aging-saldo" [class.text-red]="item.rango === 'Aún no cobrados'"
                   [class.text-slate]="item.rango !== 'Aún no cobrados'">
-                  ${{ item.saldoEnMora | number:'1.0-0':'es-AR' }}
+                  {{ formatearMoneda(item.saldoEnMora) }}
                 </td>
                 <td class="td-aging-porcentaje">{{ item.porcentajeCartera | number:'1.1-1':'es-AR' }}%</td>
               </tr>
@@ -983,7 +1312,8 @@
   <!-- =====================================================================
        SOLAPA 4: MATRIZ DE COBRANZAS (RECAUDACIÓN ANUAL)
        ===================================================================== -->
-  <div class="dashboard-tab-pane dashboard-tab-pane--matriz" *ngIf="solapaActiva === 'matriz-cobranzas'">
+  <div class="dashboard-tab-pane dashboard-tab-pane--matriz"
+    *ngIf="solapaActiva === 'matriz-cobranzas' && esSolapaPermitida('matriz-cobranzas')">
     <section class="grid-section">
       <div class="section-card section-card--matriz">
         <div class="section-card-header">
@@ -1104,7 +1434,7 @@
   <!-- =====================================================================
        SOLAPA 5: MOTIVOS DE DÉBITO Y REFACTURACIÓN
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'motivos'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'motivos' && esSolapaPermitida('motivos')">
 
     <!-- Banner informativo de contexto (Estilo Referencia) -->
     <div class="motivos-info-alert">
@@ -1153,7 +1483,7 @@
           {{ formatearMontoContador(debitoAceptadoPerdidaMotivos) }}
         </div>
         <div class="contador-footer">
-          Tasa de Pérdida: {{ tasaPerdidaMotivos }}%
+          Tasa de Pérdida: {{ tasaPerdidaMotivos | number:'1.1-1':'es-AR' }}%
         </div>
       </div>
 
@@ -1174,11 +1504,33 @@
           {{ formatearMontoContador(totalRefacturadoMotivos) }}
         </div>
         <div class="contador-footer">
-          Tasa de Recupero: {{ tasaRecuperoMotivos }}%
+          Tasa de Recupero: {{ tasaRecuperoMotivos | number:'1.1-1':'es-AR' }}%
         </div>
       </div>
 
-      <!-- 4. MOTIVOS IDENTIFICADOS -->
+      <!-- 4. DIFERENCIA DEBITADO VS REFACTURADO -->
+      <div class="card-contador-motivo card-diferencia-debitado-refacturado">
+        <div class="contador-header" style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="contador-title">DIFERENCIA DEBITADO VS REFACTURADO</span>
+          <span class="filtro-info-wrapper">
+            <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
+            <span class="filtro-tooltip-popup tooltip-right tooltip-wide tooltip-bottom">
+              <strong>Diferencia no cubierta:</strong> Monto debitado que no fue cubierto ni por las refacturaciones
+              emitidas ni por débitos aceptados formalmente (incluye quitas en refacturaciones parciales y débitos sin
+              resolución).<br><br>
+              <strong>Fórmula:</strong> Total Debitado − (Débitos Aceptados + Total Refacturado)
+            </span>
+          </span>
+        </div>
+        <div class="contador-value">
+          {{ formatearMontoContador(diferenciaDebitadoVsRefacturado) }}
+        </div>
+        <div class="contador-footer">
+          Tasa de Diferencia: {{ tasaDiferenciaMotivos | number:'1.1-1':'es-AR' }}%
+        </div>
+      </div>
+
+      <!-- 5. MOTIVOS IDENTIFICADOS -->
       <div class="card-contador-motivo card-motivos-identificados">
         <div class="contador-header" style="display: flex; align-items: center; justify-content: space-between;">
           <span class="contador-title">MOTIVOS IDENTIFICADOS</span>
@@ -1227,13 +1579,13 @@
           </div>
 
           <div class="grafico-body grafico-body--tall grafico-body--pareto">
-            <div *ngIf="cargandoGraficos" class="grafico-loading">
+            <div *ngIf="cargandoMotivos" class="grafico-loading">
               <span class="spinner-icon">⏳</span> Cargando datos…
             </div>
-            <div *ngIf="!cargandoGraficos && (motivosChartData.labels?.length === 0)" class="grafico-empty">
+            <div *ngIf="!cargandoMotivos && (motivosChartData.labels?.length === 0)" class="grafico-empty">
               <span>Sin datos de motivos de débito disponibles</span>
             </div>
-            <canvas *ngIf="!cargandoGraficos && (motivosChartData.labels?.length ?? 0) > 0" id="chart-motivos" baseChart
+            <canvas *ngIf="!cargandoMotivos && (motivosChartData.labels?.length ?? 0) > 0" id="chart-motivos" baseChart
               [type]="'bar'" [data]="motivosChartData" [options]="motivosChartOptions">
             </canvas>
           </div>
@@ -1335,8 +1687,9 @@
                   }}</span>
               </span>
 
-              <span class="legend-th-refacturados sortable-col" [class.col-sorted]="columnaOrdenMotivos === 'refacturados'"
-                (click)="ordenarMotivos('refacturados')" title="Ordenar por % Refacturados">
+              <span class="legend-th-refacturados sortable-col"
+                [class.col-sorted]="columnaOrdenMotivos === 'refacturados'" (click)="ordenarMotivos('refacturados')"
+                title="Ordenar por % Refacturados">
                 % Refacturados
                 <span class="sort-indicator" [class.active]="columnaOrdenMotivos === 'refacturados'">{{
                   columnaOrdenMotivos === 'refacturados' ? (direccionOrdenMotivos === 'asc' ? '▲' : '▼') : '↕'
@@ -1367,11 +1720,13 @@
                   {{ formatearMoneda(item.montoTotal) }}
                 </div>
 
-                <div class="legend-col-porc legend-col-aceptados" [title]="'Aceptados: ' + formatearMoneda(item.montoAceptado ?? 0) + ' (' + (item.porcentajeAceptados ?? 0) + '%)'">
+                <div class="legend-col-porc legend-col-aceptados"
+                  [title]="'Aceptados: ' + formatearMoneda(item.montoAceptado ?? 0) + ' (' + (item.porcentajeAceptados ?? 0) + '%)'">
                   <span class="porc-text porc-aceptados">{{ item.porcentajeAceptados ?? 0 }}%</span>
                 </div>
 
-                <div class="legend-col-porc legend-col-refacturados" [title]="'Refacturados: ' + formatearMoneda(item.montoRefacturado ?? 0) + ' (' + (item.porcentajeRefacturados ?? 0) + '%)'">
+                <div class="legend-col-porc legend-col-refacturados"
+                  [title]="'Refacturados: ' + formatearMoneda(item.montoRefacturado ?? 0) + ' (' + (item.porcentajeRefacturados ?? 0) + '%)'">
                   <span class="porc-text porc-refacturados">{{ item.porcentajeRefacturados ?? 0 }}%</span>
                 </div>
 
@@ -1394,7 +1749,7 @@
   <!-- =====================================================================
        SOLAPA 6: ANALISTA DE DÉBITO (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'analistas'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'analistas' && esSolapaPermitida('analistas')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -1473,26 +1828,30 @@
         <div *ngIf="!cargandoAnalistas && analistasFiltrados.length > 0" class="table-responsive">
           <table class="table-sanatorial table-analistas">
             <thead>
-              <tr>
+              <tr class="tr-header-cols">
                 <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'analista'"
                   (click)="ordenarAnalistas('analista')" title="Ordenar por Analista / Motivo / Financiador">
                   ANALISTA / MOTIVO / FINANCIADOR <span class="sort-indicator"
                     [class.active]="columnaOrdenAnalista === 'analista'">{{ columnaOrdenAnalista === 'analista' ?
                     (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-center th-financiadores sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'financiadores'"
+                <th class="text-center th-financiadores sortable-col"
+                  [class.col-sorted]="columnaOrdenAnalista === 'financiadores'"
                   (click)="ordenarAnalistas('financiadores')" title="Ordenar por Cantidad de Financiadores">
-                  FINANCIADORES <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'financiadores'">{{
+                  FINANCIADORES <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'financiadores'">{{
                     columnaOrdenAnalista === 'financiadores' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
                 <th class="text-center th-casos sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'documentos'"
                   (click)="ordenarAnalistas('documentos')" title="Ordenar por Documentos / Casos">
-                  DOCUMENTOS / CASOS <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'documentos'">{{
+                  DOCUMENTOS / CASOS <span class="sort-indicator"
+                    [class.active]="columnaOrdenAnalista === 'documentos'">{{
                     columnaOrdenAnalista === 'documentos' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'monto' || columnaOrdenAnalista === 'montoDebitado'"
+                <th class="text-right th-monto sortable-col"
+                  [class.col-sorted]="columnaOrdenAnalista === 'monto' || columnaOrdenAnalista === 'montoDebitado'"
                   (click)="ordenarAnalistas('monto')" title="Ordenar por Monto Total Debitado">
                   MONTO DEBITADO ($) <span class="sort-indicator"
                     [class.active]="columnaOrdenAnalista === 'monto' || columnaOrdenAnalista === 'montoDebitado'">{{
@@ -1512,6 +1871,12 @@
                     [class.active]="columnaOrdenAnalista === 'refacturados'">{{ columnaOrdenAnalista === 'refacturados'
                     ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'diferencia'"
+                  (click)="ordenarAnalistas('diferencia')" title="Ordenar por Diferencia Debitado vs Refacturado">
+                  DIFERENCIA ($) <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'diferencia'">{{
+                    columnaOrdenAnalista === 'diferencia'
+                    ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenAnalista === 'ticket'"
                   (click)="ordenarAnalistas('ticket')" title="Ordenar por Ticket Promedio">
                   TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'ticket'">{{
@@ -1529,6 +1894,35 @@
                   % RECUPERO <span class="sort-indicator" [class.active]="columnaOrdenAnalista === 'recupero'">{{
                     columnaOrdenAnalista === 'recupero' ? (direccionOrdenAnalista === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
+              </tr>
+
+              <!-- Fila Fija de Totales Consolidados (Sticky debajo de los títulos) -->
+              <tr class="tr-totales-fijos">
+                <th class="th-tree th-total-label">
+                  TOTAL GENERAL ({{ analistasFiltrados.length }} {{ analistasFiltrados.length === 1 ? 'Analista' :
+                  'Analistas' }})
+                </th>
+                <th class="text-center font-weight-bold">
+                  <span class="badge-docs-analista">{{ totalFinanciadoresAnalistas }}</span>
+                </th>
+                <th class="text-center font-weight-bold">
+                  <span class="badge-docs-analista">{{ totalCasosAnalistas }}</span>
+                </th>
+                <th class="text-right font-weight-bold color-facturado">
+                  {{ totalMontoDebitadoAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-aceptado">
+                  {{ totalAceptadosAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-refacturado">
+                  {{ totalRefacturadosAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-diferencia">
+                  {{ totalDiferenciaAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right"></th>
+                <th class="text-center"></th>
+                <th class="text-right"></th>
               </tr>
             </thead>
             <tbody *ngFor="let a of analistasFiltrados; trackBy: trackByAnalista">
@@ -1550,13 +1944,17 @@
                   <span class="badge-docs-analista">{{ a.cantidadRegistros }}</span>
                 </td>
                 <td class="text-right font-weight-bold color-facturado">
-                  {{ (a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados)) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                  {{ (a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados)) |
+                  currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
                   {{ a.debitosAceptados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ a.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right font-weight-bold color-diferencia">
+                  {{ a.diferencia | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-ticket-promedio">
                   {{ a.ticketPromedio | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
@@ -1600,8 +1998,12 @@
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
+                    <td class="text-right font-weight-bold color-diferencia">
+                      {{ m.diferencia | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                    </td>
                     <td class="text-right color-ticket-promedio">
-                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) |
+                      currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-center">
                       <span class="badge-atencion badge-atencion-sm" *ngIf="m.distribucionAtencion">
@@ -1641,8 +2043,12 @@
                       <td class="text-right color-refacturado">
                         {{ (fin.refacturado || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
+                      <td class="text-right color-diferencia">
+                        {{ (fin.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                      </td>
                       <td class="text-right color-ticket-promedio">
-                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) : 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) :
+                        0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-center">
                         <span class="badge-atencion badge-atencion-sm" *ngIf="fin.distribucionAtencion">
@@ -1675,7 +2081,7 @@
   <!-- =====================================================================
        SOLAPA 7: BUCLES DE INSISTENCIA
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'bucles'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'bucles' && esSolapaPermitida('bucles')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -1899,7 +2305,8 @@
               Mostrando bucles
               <strong>{{ (buclesPaginaActual - 1) * buclesItemsPorPagina + 1 }}</strong>
               al
-              <strong>{{ (buclesPaginaActual * buclesItemsPorPagina) > buclesDatos.length ? buclesDatos.length : (buclesPaginaActual * buclesItemsPorPagina) }}</strong>
+              <strong>{{ (buclesPaginaActual * buclesItemsPorPagina) > buclesDatos.length ? buclesDatos.length :
+                (buclesPaginaActual * buclesItemsPorPagina) }}</strong>
               de un total de <strong>{{ buclesDatos.length }}</strong> bucles
             </div>
             <div class="pagination-controls">
@@ -1923,8 +2330,7 @@
             </div>
             <div class="pagination-page-size">
               <label for="select-page-size-bucles">Por página:</label>
-              <select id="select-page-size-bucles" class="page-size-select"
-                [ngModel]="buclesItemsPorPagina"
+              <select id="select-page-size-bucles" class="page-size-select" [ngModel]="buclesItemsPorPagina"
                 (ngModelChange)="onBuclesItemsPorPaginaChange($event)">
                 <option *ngFor="let opt of buclesOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
               </select>
@@ -1939,7 +2345,7 @@
   <!-- =====================================================================
        SOLAPA 8: USUARIO DE CARGA (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'usuarios-carga'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'usuarios-carga' && esSolapaPermitida('usuarios-carga')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -2003,10 +2409,12 @@
             <!-- Badge de Operadores Activos / Filtrados -->
             <div class="badge-analistas-activos"
               [class.badge-analistas-filtrados]="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador !== '' || (codigoCoberturaSeleccionada !== 'TODAS' && codigoCoberturaSeleccionada !== '')">
-              <span *ngIf="filtroOperadorSeleccionado === 'TODOS' && !busquedaTextoOperador && (codigoCoberturaSeleccionada === 'TODAS' || !codigoCoberturaSeleccionada)">
+              <span
+                *ngIf="filtroOperadorSeleccionado === 'TODOS' && !busquedaTextoOperador && (codigoCoberturaSeleccionada === 'TODAS' || !codigoCoberturaSeleccionada)">
                 {{ operadoresDatos.length }} Operadores Registrados
               </span>
-              <span *ngIf="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador || (codigoCoberturaSeleccionada && codigoCoberturaSeleccionada !== 'TODAS')">
+              <span
+                *ngIf="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador || (codigoCoberturaSeleccionada && codigoCoberturaSeleccionada !== 'TODAS')">
                 Mostrando: {{ operadoresFiltrados.length }} de {{ operadoresDatos.length }}
               </span>
             </div>
@@ -2025,7 +2433,8 @@
         </div>
 
         <!-- Estado Vacío por Filtros Específicos -->
-        <div *ngIf="!cargandoOperadores && operadoresDatos.length > 0 && operadoresFiltrados.length === 0" class="empty-state">
+        <div *ngIf="!cargandoOperadores && operadoresDatos.length > 0 && operadoresFiltrados.length === 0"
+          class="empty-state">
           <p>No se encontraron débitos registrados para los filtros seleccionados.</p>
           <button type="button" class="btn btn-sm btn-primary mt-2" (click)="restablecerFiltrosOperadores()">
             Restablecer filtros de operadores
@@ -2034,9 +2443,9 @@
 
         <!-- Tabla Sanatorial Operadores a 3 Niveles -->
         <div *ngIf="!cargandoOperadores && operadoresFiltrados.length > 0" class="table-responsive">
-          <table class="table-sanatorial table-analistas">
+          <table class="table-sanatorial table-analistas table-operadores">
             <thead>
-              <tr>
+              <tr class="tr-header-cols">
                 <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenOperador === 'operador'"
                   (click)="ordenarOperadores('operador')" title="Ordenar por Operador / Motivo / Financiador">
                   OPERADOR / MOTIVO / FINANCIADOR <span class="sort-indicator"
@@ -2045,11 +2454,13 @@
                 </th>
                 <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenOperador === 'documentos'"
                   (click)="ordenarOperadores('documentos')" title="Ordenar por Documentos / Casos">
-                  DOCUMENTOS / CASOS <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'documentos'">{{
+                  DOCUMENTOS / CASOS <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'documentos'">{{
                     columnaOrdenOperador === 'documentos' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'monto' || columnaOrdenOperador === 'montoDebitado'"
+                <th class="text-right th-monto sortable-col"
+                  [class.col-sorted]="columnaOrdenOperador === 'monto' || columnaOrdenOperador === 'montoDebitado'"
                   (click)="ordenarOperadores('monto')" title="Ordenar por Monto Total Debitado">
                   MONTO DEBITADO ($) <span class="sort-indicator"
                     [class.active]="columnaOrdenOperador === 'monto' || columnaOrdenOperador === 'montoDebitado'">{{
@@ -2058,15 +2469,22 @@
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'aceptados'"
                   (click)="ordenarOperadores('aceptados')" title="Ordenar por Débitos Aceptados">
-                  ACEPTADOS (PÉRDIDA) <span class="sort-indicator"
+                  DÉBITOS ACEPTADOS ($) <span class="sort-indicator"
                     [class.active]="columnaOrdenOperador === 'aceptados'">{{ columnaOrdenOperador === 'aceptados' ?
                     (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col"
                   [class.col-sorted]="columnaOrdenOperador === 'refacturados'"
                   (click)="ordenarOperadores('refacturados')" title="Ordenar por Refacturados">
-                  REFACTURADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'refacturados'">{{
+                  REFACTURADOS ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenOperador === 'refacturados'">{{
                     columnaOrdenOperador === 'refacturados' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
+                    }}</span>
+                </th>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'diferencia'"
+                  (click)="ordenarOperadores('diferencia')" title="Ordenar por Diferencia Debitado vs Refacturado">
+                  DIFERENCIA ($) <span class="sort-indicator" [class.active]="columnaOrdenOperador === 'diferencia'">{{
+                    columnaOrdenOperador === 'diferencia' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕'
                     }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenOperador === 'ticket'"
@@ -2080,7 +2498,41 @@
                     columnaOrdenOperador === 'recupero' ? (direccionOrdenOperador === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
               </tr>
+
+              <!-- Fila Fija de Totales Consolidados (Sticky debajo de los títulos) -->
+              <tr class="tr-totales-fijos">
+                <th class="th-tree th-total-label">
+                  TOTAL GENERAL ({{ operadoresFiltrados.length }} {{ operadoresFiltrados.length === 1 ? 'Operador' :
+                  'Operadores' }})
+                </th>
+                <th class="text-right font-weight-bold">
+                  {{ totalCasosOperadores | number:'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-facturado">
+                  {{ totalMontoDebitadoOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-aceptado">
+                  {{ totalAceptadosOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-refacturado">
+                  {{ totalRefacturadosOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-diferencia">
+                  {{ totalDiferenciaOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold color-ticket-promedio">
+                  {{ ticketPromedioGlobalOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </th>
+                <th class="text-right font-weight-bold">
+                  <span class="badge-recupero" [class.recupero-alto]="tasaRecuperoGlobalOperadores >= 50"
+                    [class.recupero-medio]="tasaRecuperoGlobalOperadores > 0 && tasaRecuperoGlobalOperadores < 50"
+                    [class.recupero-cero]="tasaRecuperoGlobalOperadores === 0">
+                    {{ tasaRecuperoGlobalOperadores | number:'1.1-1' }}%
+                  </span>
+                </th>
+              </tr>
             </thead>
+
             <tbody *ngFor="let op of operadoresDatosPaginados; trackBy: trackByOperador">
 
               <!-- NIVEL 1: Operador -->
@@ -2095,19 +2547,23 @@
                   </div>
                 </td>
                 <td class="text-right font-weight-bold">
-                  {{ op.cantidadRegistros }}
+                  {{ op.cantidadRegistros | number:'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-facturado">
-                  {{ (op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados)) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ (op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados)) |
+                  currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
-                  {{ op.debitosAceptados | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ op.debitosAceptados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-refacturado">
-                  {{ op.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ op.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
-                <td class="text-right font-weight-bold color-ticket">
-                  {{ op.ticketPromedio | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                <td class="text-right font-weight-bold color-diferencia">
+                  {{ (op.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right font-weight-bold color-ticket-promedio">
+                  {{ op.ticketPromedio | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right">
                   <span class="badge-recupero" [class.recupero-alto]="op.tasaRecupero >= 50"
@@ -2131,18 +2587,22 @@
                         <span class="badge-count">{{ m.financiadores.length }} financiadores</span>
                       </div>
                     </td>
-                    <td class="text-right font-weight-bold">{{ m.casos }}</td>
+                    <td class="text-right font-weight-bold">{{ m.casos | number:'1.0-0':'es-AR' }}</td>
                     <td class="text-right font-weight-bold color-facturado">
-                      {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-aceptado">
-                      {{ m.aceptado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ m.aceptado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-refacturado">
-                      {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
-                    <td class="text-right color-ticket">
-                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                    <td class="text-right font-weight-bold color-diferencia">
+                      {{ (m.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                    </td>
+                    <td class="text-right color-ticket-promedio">
+                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) |
+                      currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right">
                       <span class="badge-recupero badge-recupero-sm"
@@ -2164,25 +2624,33 @@
                           <strong class="financiador-nombre-sub">{{ fin.financiador }}</strong>
                         </div>
                       </td>
-                      <td class="text-right text-muted">{{ fin.casos }}</td>
+                      <td class="text-right text-muted">{{ fin.casos | number:'1.0-0':'es-AR' }}</td>
                       <td class="text-right font-weight-bold color-facturado">
-                        {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                        {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) |
+                        currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right color-aceptado">
-                        {{ fin.aceptado != null ? (fin.aceptado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                        {{ (fin.aceptado != null ? (fin.aceptado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR') :
+                        '—') }}
                       </td>
                       <td class="text-right color-refacturado">
-                        {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                        {{ (fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR')
+                        : '—') }}
                       </td>
-                      <td class="text-right color-ticket">
-                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      <td class="text-right color-diferencia">
+                        {{ (fin.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                      </td>
+                      <td class="text-right color-ticket-promedio">
+                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) :
+                        0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right">
                         <span *ngIf="fin.refacturado != null" class="badge-recupero badge-recupero-sm"
                           [class.recupero-alto]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) >= 50"
                           [class.recupero-medio]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) < 50"
                           [class.recupero-cero]="fin.refacturado === 0">
-                          {{ ((fin.montoDebitado || fin.monto) > 0 ? (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) : 0) | number:'1.1-1' }}%
+                          {{ ((fin.montoDebitado || fin.monto) > 0 ? (fin.refacturado * 100 / (fin.montoDebitado ||
+                          fin.monto)) : 0) | number:'1.1-1' }}%
                         </span>
                         <span *ngIf="fin.refacturado == null" class="text-muted">—</span>
                       </td>
@@ -2198,7 +2666,8 @@
           <div class="pagination-container" *ngIf="operadoresFiltrados.length > operadoresItemsPorPagina">
             <div class="pagination-info">
               Mostrando {{ ((operadoresPaginaActual - 1) * operadoresItemsPorPagina) + 1 }}
-              a {{ (operadoresPaginaActual * operadoresItemsPorPagina) > operadoresFiltrados.length ? operadoresFiltrados.length : (operadoresPaginaActual * operadoresItemsPorPagina) }}
+              a {{ (operadoresPaginaActual * operadoresItemsPorPagina) > operadoresFiltrados.length ?
+              operadoresFiltrados.length : (operadoresPaginaActual * operadoresItemsPorPagina) }}
               de {{ operadoresFiltrados.length }} operadores
             </div>
             <div class="pagination-controls">
@@ -2210,7 +2679,8 @@
                 (click)="cambiarPaginaOperadores(operadoresPaginaActual - 1)" title="Página anterior">
                 ‹
               </button>
-              <span class="page-current-indicator">Página {{ operadoresPaginaActual }} de {{ totalPaginasOperadores }}</span>
+              <span class="page-current-indicator">Página {{ operadoresPaginaActual }} de {{ totalPaginasOperadores
+                }}</span>
               <button type="button" class="btn-page-nav" [disabled]="operadoresPaginaActual >= totalPaginasOperadores"
                 (click)="cambiarPaginaOperadores(operadoresPaginaActual + 1)" title="Página siguiente">
                 ›
@@ -2222,8 +2692,7 @@
             </div>
             <div class="pagination-page-size">
               <label for="select-page-size-operadores">Por página:</label>
-              <select id="select-page-size-operadores" class="page-size-select"
-                [ngModel]="operadoresItemsPorPagina"
+              <select id="select-page-size-operadores" class="page-size-select" [ngModel]="operadoresItemsPorPagina"
                 (ngModelChange)="onOperadoresItemsPorPaginaChange($event)">
                 <option *ngFor="let opt of operadoresOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
               </select>
@@ -2238,7 +2707,7 @@
   <!-- =====================================================================
        SOLAPA 9: PRESTADORES / MÉDICOS (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'medicos'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'medicos' && esSolapaPermitida('medicos')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -2268,10 +2737,8 @@
                 Buscar Médico:
               </label>
               <div class="select-wrapper-analista">
-                <input id="input-busqueda-medico" type="text"
-                  class="form-control select-custom select-filtro-analista"
-                  placeholder="Escribir nombre o apellido..."
-                  [(ngModel)]="busquedaTextoMedico"
+                <input id="input-busqueda-medico" type="text" class="form-control select-custom select-filtro-analista"
+                  placeholder="Escribir nombre o apellido..." [(ngModel)]="busquedaTextoMedico"
                   (ngModelChange)="onBusquedaTextoMedicoChange()">
                 <button *ngIf="busquedaTextoMedico" type="button" class="btn-clear-filtro-analista"
                   (click)="busquedaTextoMedico = ''; onBusquedaTextoMedicoChange()" title="Limpiar búsqueda">
@@ -2334,7 +2801,7 @@
 
         <!-- Tabla Sanatorial Médicos a 3 Niveles -->
         <div *ngIf="!cargandoMedicos && medicosFiltrados.length > 0" class="table-responsive">
-          <table class="table-sanatorial table-analistas">
+          <table class="table-sanatorial table-analistas table-medicos">
             <thead>
               <tr>
                 <th class="th-tree sortable-col" [class.col-sorted]="columnaOrdenMedico === 'medico'"
@@ -2348,12 +2815,16 @@
                   CANT. MOTIVOS / FIN. <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'motivos'">{{
                     columnaOrdenMedico === 'motivos' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-casos sortable-col" [class.col-sorted]="columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos'"
+                <th class="text-right th-casos sortable-col"
+                  [class.col-sorted]="columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos'"
                   (click)="ordenarMedicos('documentos')" title="Ordenar por Documentos / Casos">
-                  DOCUMENTOS / CASOS <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos'">{{
-                    (columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos') ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                  DOCUMENTOS / CASOS <span class="sort-indicator"
+                    [class.active]="columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos'">{{
+                    (columnaOrdenMedico === 'documentos' || columnaOrdenMedico === 'casos') ? (direccionOrdenMedico ===
+                    'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
-                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'monto' || columnaOrdenMedico === 'montoDebitado'"
+                <th class="text-right th-monto sortable-col"
+                  [class.col-sorted]="columnaOrdenMedico === 'monto' || columnaOrdenMedico === 'montoDebitado'"
                   (click)="ordenarMedicos('monto')" title="Ordenar por Monto Total Debitado">
                   MONTO DEBITADO ($) <span class="sort-indicator"
                     [class.active]="columnaOrdenMedico === 'monto' || columnaOrdenMedico === 'montoDebitado'">{{
@@ -2368,7 +2839,8 @@
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'refacturados'"
                   (click)="ordenarMedicos('refacturados')" title="Ordenar por Refacturados">
-                  REFACTURADOS ($) <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'refacturados'">{{
+                  REFACTURADOS ($) <span class="sort-indicator"
+                    [class.active]="columnaOrdenMedico === 'refacturados'">{{
                     columnaOrdenMedico === 'refacturados' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'ticket'"
@@ -2383,6 +2855,39 @@
                 </th>
               </tr>
             </thead>
+
+            <!-- Fila Superior de Totales Consolidados de Médicos (Sticky Fija) -->
+            <tbody class="tbody-totales-medico">
+              <tr class="tr-total-superior-medicos">
+                <td class="td-tree-node td-total-superior-medico font-weight-bold">
+                  <div class="cc-cell-wrapper">
+                    <strong class="total-label-text">TOTAL GENERAL</strong>
+                    <span class="badge-count badge-total-count">{{ medicosFiltrados.length }} médicos</span>
+                  </div>
+                </td>
+                <td class="text-center font-weight-bold">
+                  <span class="badge-count badge-motivos-medico"
+                    [title]="totalMotivosMedicos + ' motivos asignados en total'">
+                    {{ totalMotivosMedicos }}
+                  </span>
+                </td>
+                <td class="text-right font-weight-bold">
+                  {{ totalCasosMedicos | number:'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right font-weight-bold color-facturado">
+                  {{ totalMontoDebitadoMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right font-weight-bold color-aceptado">
+                  {{ totalAceptadosMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right font-weight-bold color-refacturado">
+                  {{ totalRefacturadosMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right text-muted font-weight-bold">—</td>
+                <td class="text-right text-muted font-weight-bold">—</td>
+              </tr>
+            </tbody>
+
             <tbody *ngFor="let med of medicosDatosPaginados; trackBy: trackByMedico">
 
               <!-- NIVEL 1: Médico -->
@@ -2409,16 +2914,17 @@
                   {{ med.cantidadRegistros }}
                 </td>
                 <td class="text-right font-weight-bold color-facturado">
-                  {{ (med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados)) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ (med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados)) |
+                  currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-aceptado">
-                  {{ med.debitosAceptados | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ med.debitosAceptados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-refacturado">
-                  {{ med.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ med.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-ticket">
-                  {{ med.ticketPromedio | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                  {{ med.ticketPromedio | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right">
                   <span class="badge-recupero" [class.recupero-alto]="med.tasaRecupero >= 50"
@@ -2442,20 +2948,22 @@
                       </div>
                     </td>
                     <td class="text-center font-weight-bold">
-                      <span class="badge-count" [title]="m.financiadores.length + ' financiadores'">{{ m.financiadores.length }}</span>
+                      <span class="badge-count" [title]="m.financiadores.length + ' financiadores'">{{
+                        m.financiadores.length }}</span>
                     </td>
                     <td class="text-right font-weight-bold">{{ m.casos }}</td>
                     <td class="text-right font-weight-bold color-facturado">
-                      {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ m.montoDebitado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-aceptado">
-                      {{ m.aceptado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ m.aceptado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-refacturado">
-                      {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-ticket">
-                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                      {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) |
+                      currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right">
                       <span class="badge-recupero badge-recupero-sm"
@@ -2480,23 +2988,28 @@
                       <td class="text-center text-muted">—</td>
                       <td class="text-right text-muted">{{ fin.casos }}</td>
                       <td class="text-right font-weight-bold color-facturado">
-                        {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                        {{ (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) |
+                        currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right color-aceptado">
-                        {{ fin.aceptado != null ? (fin.aceptado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                        {{ fin.aceptado != null ? (fin.aceptado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR') : '—'
+                        }}
                       </td>
                       <td class="text-right color-refacturado">
-                        {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR') : '—' }}
+                        {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR')
+                        : '—' }}
                       </td>
                       <td class="text-right color-ticket">
-                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) : 0) | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                        {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) :
+                        0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right">
                         <span *ngIf="fin.refacturado != null" class="badge-recupero badge-recupero-sm"
                           [class.recupero-alto]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) >= 50"
                           [class.recupero-medio]="(fin.montoDebitado || fin.monto) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) > 0 && (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) < 50"
                           [class.recupero-cero]="fin.refacturado === 0">
-                          {{ ((fin.montoDebitado || fin.monto) > 0 ? (fin.refacturado * 100 / (fin.montoDebitado || fin.monto)) : 0) | number:'1.1-1' }}%
+                          {{ ((fin.montoDebitado || fin.monto) > 0 ? (fin.refacturado * 100 / (fin.montoDebitado ||
+                          fin.monto)) : 0) | number:'1.1-1' }}%
                         </span>
                         <span *ngIf="fin.refacturado == null" class="text-muted">—</span>
                       </td>
@@ -2509,12 +3022,14 @@
           </table>
 
           <!-- Paginación de Médicos -->
-          <div class="trazabilidad-pagination-bar" *ngIf="medicosFiltrados.length > medicosItemsPorPagina || medicosFiltrados.length > 25">
+          <div class="trazabilidad-pagination-bar"
+            *ngIf="medicosFiltrados.length > medicosItemsPorPagina || medicosFiltrados.length > 25">
             <div class="pagination-info">
               Mostrando registros
               <strong>{{ (medicosPaginaActual - 1) * medicosItemsPorPagina + 1 }}</strong>
               al
-              <strong>{{ (medicosPaginaActual * medicosItemsPorPagina) > medicosFiltrados.length ? medicosFiltrados.length : (medicosPaginaActual * medicosItemsPorPagina) }}</strong>
+              <strong>{{ (medicosPaginaActual * medicosItemsPorPagina) > medicosFiltrados.length ?
+                medicosFiltrados.length : (medicosPaginaActual * medicosItemsPorPagina) }}</strong>
               de un total de <strong>{{ medicosFiltrados.length }}</strong> médicos
             </div>
             <div class="pagination-controls">
@@ -2538,8 +3053,7 @@
             </div>
             <div class="pagination-page-size">
               <label for="select-page-size-medicos">Por página:</label>
-              <select id="select-page-size-medicos" class="page-size-select"
-                [ngModel]="medicosItemsPorPagina"
+              <select id="select-page-size-medicos" class="page-size-select" [ngModel]="medicosItemsPorPagina"
                 (ngModelChange)="onMedicosItemsPorPaginaChange($event)">
                 <option *ngFor="let opt of medicosOpcionesItemsPorPagina" [value]="opt">{{ opt }}</option>
               </select>
@@ -2554,7 +3068,7 @@
   <!-- =====================================================================
        SOLAPA 10: DETALLE Y TRAZABILIDAD (ÁRBOL ENCADENADO)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'trazabilidad'">
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'trazabilidad' && esSolapaPermitida('trazabilidad')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -2700,7 +3214,8 @@
               Mostrando
               <strong>{{ (trazabilidadPaginaActual - 1) * trazabilidadItemsPorPagina + 1 }}</strong>
               -
-              <strong>{{ (trazabilidadPaginaActual * trazabilidadItemsPorPagina) > trazabilidadDatos.length ? trazabilidadDatos.length : (trazabilidadPaginaActual * trazabilidadItemsPorPagina) }}</strong>
+              <strong>{{ (trazabilidadPaginaActual * trazabilidadItemsPorPagina) > trazabilidadDatos.length ?
+                trazabilidadDatos.length : (trazabilidadPaginaActual * trazabilidadItemsPorPagina) }}</strong>
               de <strong>{{ trazabilidadDatos.length }}</strong> expedientes
             </div>
 
@@ -2713,12 +3228,15 @@
                 (click)="cambiarPaginaTrazabilidad(trazabilidadPaginaActual - 1)" title="Página anterior">
                 ◀
               </button>
-              <span class="page-current-indicator">Página {{ trazabilidadPaginaActual }} de {{ totalPaginasTrazabilidad }}</span>
-              <button type="button" class="btn-page-nav" [disabled]="trazabilidadPaginaActual >= totalPaginasTrazabilidad"
+              <span class="page-current-indicator">Página {{ trazabilidadPaginaActual }} de {{ totalPaginasTrazabilidad
+                }}</span>
+              <button type="button" class="btn-page-nav"
+                [disabled]="trazabilidadPaginaActual >= totalPaginasTrazabilidad"
                 (click)="cambiarPaginaTrazabilidad(trazabilidadPaginaActual + 1)" title="Página siguiente">
                 ▶
               </button>
-              <button type="button" class="btn-page-nav" [disabled]="trazabilidadPaginaActual >= totalPaginasTrazabilidad"
+              <button type="button" class="btn-page-nav"
+                [disabled]="trazabilidadPaginaActual >= totalPaginasTrazabilidad"
                 (click)="cambiarPaginaTrazabilidad(totalPaginasTrazabilidad)" title="Última página">
                 ⏭
               </button>
@@ -2726,8 +3244,7 @@
 
             <div class="pagination-page-size">
               <label for="page-size-trazabilidad">Ver:</label>
-              <select id="page-size-trazabilidad" class="page-size-select"
-                [ngModel]="trazabilidadItemsPorPagina"
+              <select id="page-size-trazabilidad" class="page-size-select" [ngModel]="trazabilidadItemsPorPagina"
                 (ngModelChange)="onTrazabilidadItemsPorPaginaChange($event)">
                 <option *ngFor="let opt of trazabilidadOpcionesItemsPorPagina" [value]="opt">
                   {{ opt }} por pág.

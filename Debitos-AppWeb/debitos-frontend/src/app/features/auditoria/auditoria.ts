@@ -80,6 +80,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnInit() {
     this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
+      if (!this.puedeEditarPrestaciones) return;
       if (this.modificadosSinGuardar.size > 0 || this.prestacionesParaBorrar.size > 0) {
         this.guardarParcialmente(true);
       }
@@ -247,6 +248,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   get esAdmin(): boolean {
     return this.authService.isAdmin();
   }
+
+  get puedeEditarPrestaciones(): boolean {
+    return this.authService.hasAnyRole(['ADMIN', 'OPERADOR', 'GERENTE_DEBITOS']);
+  }
   prestaciones: Prestacion[] = [];
   prestacionesFiltradas: Prestacion[] = [];
   columnaOrden: string = '';
@@ -384,6 +389,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.todasSeleccionadas = false;
     this.facturasAsociadasInfo = [];
     this.modalImportarPrestacionesVisible = false;
+    this.modalPrestacionExternaVisible = false;
     this.prestacionesCandidatasImportar = [];
     this.prestacionesSeleccionadasParaImportar.clear();
 
@@ -420,6 +426,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.totalPaginas = 1;
     this.modificadosSinGuardar.clear();
     this.prestacionesParaBorrar.clear();
+    this.contadorTemporalManual = 1;
 
     this.cdr.detectChanges();
   }
@@ -464,8 +471,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   configurarColumnas() {
     const englobante = this.debeMostrarEnglobante();
     const tieneComentariosPrevios = this.prestacionesFiltradas.some(p => p.comentarioPrevio && p.comentarioPrevio.trim() !== '');
-    const tramiteFinalizado = this.idEstadoActual === 2;
+    const tramiteFinalizado = this.idEstadoActual === 2 || !this.puedeEditarPrestaciones;
     const tieneImportadas = this.prestaciones.some(p => p.esImportada);
+    const tieneManuales = this.prestaciones.some(p => p.esManual);
 
     // Delegamos la configuración de AG-Grid al servicio
     this.columnDefs = this.gridConfigService.getConfiguracionColumnas(
@@ -477,7 +485,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       GroupedSelectEditor, // Pasamos el componente editor para que el servicio pueda inyectarlo
       tramiteFinalizado,
       tieneImportadas,
-      (prestacion: any) => this.quitarPrestacionImportada(prestacion)
+      (prestacion: any) => this.quitarPrestacion(prestacion),
+      tieneManuales
     );
   }
 
@@ -558,6 +567,23 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     letra: ['', [Validators.required, Validators.maxLength(1)]],
     puntoVenta: ['', [Validators.required, Validators.min(1)]],
     numero: ['', [Validators.required, Validators.min(1)]]
+  });
+
+  modalPrestacionExternaVisible: boolean = false;
+  contadorTemporalManual: number = 1;
+  prestacionExternaForm = this.fb.group({
+    paciente: ['', [Validators.required, Validators.maxLength(150)]],
+    cobertura: ['', [Validators.required, Validators.maxLength(100)]],
+    plan: [''],
+    carnet: [''],
+    codigo: ['', [Validators.required, Validators.maxLength(50)]],
+    descripcion: ['', [Validators.required, Validators.maxLength(250)]],
+    fecha: [this.obtenerFechaHoy(), Validators.required],
+    cantidad: [1, [Validators.required, Validators.min(1)]],
+    importeDebitado: ['', [Validators.required, Validators.min(0.01)]],
+    debitoAceptado: ['NO', Validators.required],
+    motivoDebito: [''],
+    motivoRefactura: ['']
   });
   modalImportarPrestacionesVisible: boolean = false;
   cargandoImportacion: boolean = false;
@@ -888,6 +914,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   abrirModalImportarPrestaciones(): void {
+    if (!this.puedeEditarPrestaciones) {
+      return;
+    }
     if (this.idEstadoActual === 2) {
       this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder importar prestaciones.', undefined, 'peligro');
       return;
@@ -1133,6 +1162,145 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
     }
     this.cdr.detectChanges();
+  }
+
+  abrirModalPrestacionExterna(): void {
+    if (!this.puedeEditarPrestaciones) {
+      return;
+    }
+    if (this.idEstadoActual === 2) {
+      this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
+    const coberturaActual = (this.prestaciones && this.prestaciones.length > 0 && this.prestaciones[0].cobertura)
+      ? this.prestaciones[0].cobertura
+      : '';
+
+    this.prestacionExternaForm.reset({
+      paciente: '',
+      cobertura: coberturaActual,
+      plan: '',
+      carnet: '',
+      codigo: '',
+      descripcion: '',
+      fecha: this.obtenerFechaHoy(),
+      cantidad: 1,
+      importeDebitado: '',
+      debitoAceptado: 'NO',
+      motivoDebito: 'Prestación no realizada',
+      motivoRefactura: ''
+    });
+
+    this.modalPrestacionExternaVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalPrestacionExterna(): void {
+    this.modalPrestacionExternaVisible = false;
+    this.cdr.detectChanges();
+  }
+
+  confirmarPrestacionExterna(): void {
+    if (this.prestacionExternaForm.invalid) {
+      this.prestacionExternaForm.markAllAsTouched();
+      this.mostrarAlerta('Por favor, complete los campos obligatorios del formulario.', undefined, 'error');
+      return;
+    }
+
+    const val = this.prestacionExternaForm.getRawValue();
+    const importeNum = Number(val.importeDebitado) || 0;
+
+    if (importeNum <= 0) {
+      this.mostrarAlerta('El importe debitado debe ser mayor a 0.', undefined, 'error');
+      return;
+    }
+
+    const idProvisorio = -1 * (this.contadorTemporalManual++);
+    const busq = this.busquedaForm.getRawValue();
+    const ptoVta = String(busq.puntoVenta || '').padStart(4, '0');
+    const num = String(busq.numero || '').padStart(8, '0');
+    const compOrigen = `${(busq.tipo || 'FC').toUpperCase()} ${(busq.letra || '').toUpperCase()}-${ptoVta}-${num}`;
+
+    const nuevaPrestacion: Prestacion = {
+      id: idProvisorio,
+      esManual: true,
+      paciente: (val.paciente || '').trim(),
+      cobertura: (val.cobertura || '').trim(),
+      plan: (val.plan || '').trim(),
+      carnet: (val.carnet || '').trim(),
+      codigo: (val.codigo || '').trim(),
+      descripcion: (val.descripcion || '').trim(),
+      fecha: val.fecha || this.obtenerFechaHoy(),
+      cantidad: Number(val.cantidad) || 1,
+      totalNeto: 0,
+      coseguro: 0,
+      total: 0,
+      importeDebitado: importeNum,
+      importeRefactura: importeNum,
+      debitoAceptado: val.debitoAceptado || 'NO',
+      motivoDebito: (val.motivoDebito || '').trim(),
+      motivoRefactura: (val.motivoRefactura || '').trim(),
+      efector: '',
+      medico: 'NO APLICA / EXTERNA',
+      modulo: '',
+      facturaOrigenTipo: (busq.tipo || 'FC').toUpperCase(),
+      facturaOrigenLetra: (busq.letra || '').toUpperCase(),
+      facturaOrigenPtovta: Number(busq.puntoVenta) || 0,
+      facturaOrigenNumero: Number(busq.numero) || 0,
+      facturaOrigenComprobante: compOrigen
+    };
+
+    this.modificadosSinGuardar.add(idProvisorio);
+    this.prestaciones = [...this.prestaciones, nuevaPrestacion];
+    this.prestacionesFiltradas = [...this.prestacionesFiltradas, nuevaPrestacion];
+
+    this.prepararFiltros(this.prestaciones);
+    this.calcularTotales();
+    this.configurarColumnas();
+
+    if (this.gridApi) {
+      this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
+    }
+
+    this.cerrarModalPrestacionExterna();
+    this.mostrarAlerta('¡Prestación externa agregada con éxito! Podés editar sus valores en la grilla antes de guardar.', undefined, 'exito');
+    this.cdr.detectChanges();
+  }
+
+  quitarPrestacionManual(prestacion: Prestacion): void {
+    if (!prestacion) return;
+    const id = prestacion.id;
+    if (id != null) {
+      this.modificadosSinGuardar.delete(id);
+      if (id > 0) {
+        this.prestacionesParaBorrar.add(id);
+      }
+    }
+    this.prestaciones = this.prestaciones.filter(p => p !== prestacion && (id == null || p.id !== id));
+    this.prestacionesFiltradas = this.prestacionesFiltradas.filter(p => p !== prestacion && (id == null || p.id !== id));
+
+    this.prepararFiltros(this.prestaciones);
+    this.calcularTotales();
+    this.configurarColumnas();
+
+    if (this.gridApi) {
+      this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
+    }
+
+    if (id != null && id > 0) {
+      this.guardarParcialmente(true);
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  quitarPrestacion(prestacion: Prestacion): void {
+    if (prestacion.esManual) {
+      this.quitarPrestacionManual(prestacion);
+    } else if (prestacion.esImportada) {
+      this.quitarPrestacionImportada(prestacion);
+    }
   }
 
   guardarNotaDebitoAjusteIva() {
@@ -1442,6 +1610,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     this.registrosSeleccionados.forEach(p => {
       p.importeDebitado = this.importeDebitadoMasivo;
+      this.registrarCambio(p);
     });
 
     this.importeDebitadoMasivo = undefined; // Limpiamos el input
@@ -1532,6 +1701,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       // NUEVA REGLA: Solo inyectamos si hay un motivo de débito cargado
       if (p.motivoDebito && p.motivoDebito !== '') {
         p.comentariosDebito = this.comentariosDebitoMasivo;
+        this.registrarCambio(p);
         aplicados++;
       }
     });
@@ -2249,6 +2419,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   guardarParcialmente(silencioso: boolean = false) {
+    if (!this.puedeEditarPrestaciones) {
+      return;
+    }
+
     if (this.cargando || this.guardandoSilencioso) {
       return;
     }
@@ -2477,6 +2651,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   abrirModalNuevaNota(tipo: 'NC' | 'ND') {
+    if (!this.puedeEditarPrestaciones) {
+      return;
+    }
+
     if (this.idEstadoActual === 2) {
       this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
       return;
@@ -3038,6 +3216,12 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     const t = tipo.trim();
     if (t === 'Internados' || t === 'Ambulatorios' || t === 'FAC' || t === 'FCE') return 'FC';
     return t;
+  }
+
+  esRecibo(fila: any): boolean {
+    if (!fila) return false;
+    const tipo = (fila.tipoDocumento || '').trim().toUpperCase();
+    return tipo === 'RC' || tipo === 'RCA' || tipo === 'RCB' || tipo === 'REC';
   }
 
   esDocumentoBuscado(fila: any): boolean {

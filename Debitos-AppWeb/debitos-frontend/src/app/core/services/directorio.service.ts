@@ -20,7 +20,8 @@ import {
   PuntoDonutDTO,
   TiemposCobranzaDTO,
   RangoAntiguedadDTO,
-  PaginatedResponse
+  PaginatedResponse,
+  ReciboSinImputarDTO
 } from '../models/directorio.model';
 
 @Injectable({
@@ -206,20 +207,41 @@ export class DirectorioService {
    * GET /api/graficos/cuenta-corriente
    * Retorna el árbol a 3 niveles (Financiador -> Período -> Comprobante)
    * para la tabla de Cuenta Corriente.
+   * @param criterioFecha 'periodo' (por defecto) filtra por campo periodo de la FC Madre;
+   *                      'fecha' filtra por fecha de emisión de la FC Madre.
    */
   getCuentaCorrienteTresNiveles(
     financiador?: string,
     periodo?: string,
     fechaDesde?: string,
-    fechaHasta?: string
+    fechaHasta?: string,
+    criterioFecha: 'periodo' | 'fecha' = 'periodo'
   ): Observable<CcFinanciadorDTO[]> {
     let params = new HttpParams();
     if (financiador && financiador !== 'TODAS') params = params.set('financiador', financiador);
     if (periodo) params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<CcFinanciadorDTO[]>(`${this.apiGraficosUrl}/cuenta-corriente`, { params });
+  }
+
+  /**
+   * GET /api/graficos/recibos-no-imputados
+   * Retorna los recibos que no han sido imputados aún (asociadogrupo vacío).
+   */
+  getRecibosNoImputados(
+    financiador?: string,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ): Observable<ReciboSinImputarDTO[]> {
+    let params = new HttpParams();
+    if (financiador && financiador !== 'TODAS') params = params.set('financiador', financiador);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+
+    return this.http.get<ReciboSinImputarDTO[]>(`${this.apiGraficosUrl}/recibos-no-imputados`, { params });
   }
 
   /**
@@ -281,11 +303,12 @@ export class DirectorioService {
    * @param fechaDesde fecha límite inferior opcional (YYYY-MM-DD)
    * @param fechaHasta fecha límite superior opcional (YYYY-MM-DD)
    */
-  getDesempenoGlobal(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<DesempenoGlobalDTO> {
+  getDesempenoGlobal(periodo?: string, fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<DesempenoGlobalDTO> {
     let params = new HttpParams();
     if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<DesempenoGlobalDTO>(`${this.apiGraficosUrl}/desempeno`, { params });
   }
@@ -295,11 +318,12 @@ export class DirectorioService {
    * Retorna únicamente las métricas de desempeño por Analistas de Débito
    * de forma directa y optimizada.
    */
-  getDesempenoAnalistas(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<MetricaAnalistaDTO[]> {
+  getDesempenoAnalistas(periodo?: string, fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<MetricaAnalistaDTO[]> {
     let params = new HttpParams();
     if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<MetricaAnalistaDTO[]>(`${this.apiGraficosUrl}/desempeno/analistas`, { params });
   }
@@ -309,11 +333,12 @@ export class DirectorioService {
    * Retorna únicamente las métricas de desempeño por Usuarios de Carga / Operadores
    * de forma directa y optimizada.
    */
-  getDesempenoOperadores(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<MetricaOperadorDTO[]> {
+  getDesempenoOperadores(periodo?: string, fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<MetricaOperadorDTO[]> {
     let params = new HttpParams();
     if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<MetricaOperadorDTO[]>(`${this.apiGraficosUrl}/desempeno/operadores`, { params });
   }
@@ -323,11 +348,12 @@ export class DirectorioService {
    * Retorna únicamente las métricas de desempeño por Prestadores / Médicos
    * de forma directa y optimizada.
    */
-  getDesempenoMedicos(periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<MetricaMedicoDTO[]> {
+  getDesempenoMedicos(periodo?: string, fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<MetricaMedicoDTO[]> {
     let params = new HttpParams();
     if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<MetricaMedicoDTO[]>(`${this.apiGraficosUrl}/desempeno/medicos`, { params });
   }

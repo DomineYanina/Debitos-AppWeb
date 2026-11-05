@@ -29,6 +29,8 @@ public class CabeceraLigeraDTO implements CabeceraBase {
     private BigDecimal haber;
     private Integer idEstado;
     private String comprobante;
+    private String comprobanteAsociado;
+    private Long idAsignacion;
 
     public CabeceraLigeraDTO() {}
 
@@ -144,4 +146,12 @@ public class CabeceraLigeraDTO implements CabeceraBase {
         return calcularComprobante(tipo, letra, ptovta, numero);
     }
     public void setComprobante(String comprobante) { this.comprobante = comprobante; }
+
+    @Override
+    public String getComprobanteAsociado() { return comprobanteAsociado; }
+    public void setComprobanteAsociado(String comprobanteAsociado) { this.comprobanteAsociado = comprobanteAsociado; }
+
+    @Override
+    public Long getIdAsignacion() { return idAsignacion; }
+    public void setIdAsignacion(Long idAsignacion) { this.idAsignacion = idAsignacion; }
 }

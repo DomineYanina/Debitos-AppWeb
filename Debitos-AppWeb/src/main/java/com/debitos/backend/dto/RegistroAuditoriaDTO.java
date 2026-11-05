@@ -1,7 +1,7 @@
 package com.debitos.backend.dto;
 
 public class RegistroAuditoriaDTO {
-    private Integer id;
+    private Object id;
     private String motivoDebito;
     private Object importeDebitado;
     private Object debitoAceptado;
@@ -12,12 +12,39 @@ public class RegistroAuditoriaDTO {
     private String prestacionEnglobante;
     private String comentariosDebito;
     private String codigo;
+    private Boolean esManual;
+    private String paciente;
+    private String cobertura;
+    private String plan;
+    private String carnet;
+    private String descripcion;
+    private Object fecha;
+    private Integer cantidad;
 
     public Integer getId() {
-        return id;
+        if (id == null)
+            return null;
+        if (id instanceof Number n) {
+            long val = n.longValue();
+            if (val < Integer.MIN_VALUE)
+                return -1;
+            if (val > Integer.MAX_VALUE)
+                return Integer.MAX_VALUE;
+            return (int) val;
+        }
+        try {
+            long val = Long.parseLong(id.toString().trim());
+            if (val < Integer.MIN_VALUE)
+                return -1;
+            if (val > Integer.MAX_VALUE)
+                return Integer.MAX_VALUE;
+            return (int) val;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
-    public void setId(Integer id) {
+    public void setId(Object id) {
         this.id = id;
     }
 
@@ -99,5 +126,69 @@ public class RegistroAuditoriaDTO {
 
     public void setCodigo(String codigo) {
         this.codigo = codigo;
+    }
+
+    public Boolean getEsManual() {
+        return esManual;
+    }
+
+    public void setEsManual(Boolean esManual) {
+        this.esManual = esManual;
+    }
+
+    public String getPaciente() {
+        return paciente;
+    }
+
+    public void setPaciente(String paciente) {
+        this.paciente = paciente;
+    }
+
+    public String getCobertura() {
+        return cobertura;
+    }
+
+    public void setCobertura(String cobertura) {
+        this.cobertura = cobertura;
+    }
+
+    public String getPlan() {
+        return plan;
+    }
+
+    public void setPlan(String plan) {
+        this.plan = plan;
+    }
+
+    public String getCarnet() {
+        return carnet;
+    }
+
+    public void setCarnet(String carnet) {
+        this.carnet = carnet;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public Object getFecha() {
+        return fecha;
+    }
+
+    public void setFecha(Object fecha) {
+        this.fecha = fecha;
+    }
+
+    public Integer getCantidad() {
+        return cantidad;
+    }
+
+    public void setCantidad(Integer cantidad) {
+        this.cantidad = cantidad;
     }
 }

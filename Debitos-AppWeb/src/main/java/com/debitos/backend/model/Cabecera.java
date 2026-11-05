@@ -53,6 +53,12 @@ public class Cabecera implements CabeceraBase {
     @Column(name = "comprobante")
     private String comprobante;
 
+    @Column(name = "comprobante_asociado")
+    private String comprobanteAsociado;
+
+    @Column(name = "id_asignacion")
+    private Long idAsignacion;
+
     @PrePersist
     @PreUpdate
     public void prePersist() {
@@ -60,7 +66,16 @@ public class Cabecera implements CabeceraBase {
             this.origen = "APP";
         }
         this.comprobante = calcularComprobante();
+        if (esFactura(this.tipo) && this.comprobante != null) {
+            this.comprobanteAsociado = this.comprobante;
+        }
         asignarPeriodoRecibo();
+    }
+
+    public static boolean esFactura(String tipo) {
+        if (tipo == null) return false;
+        String t = tipo.trim().toUpperCase();
+        return "FAC".equals(t) || "FC".equals(t) || "FCE".equals(t) || "FR".equals(t);
     }
 
     private void asignarPeriodoRecibo() {
@@ -284,5 +299,22 @@ public class Cabecera implements CabeceraBase {
 
     public void setComprobante(String comprobante) {
         this.comprobante = comprobante;
+    }
+
+    public String getComprobanteAsociado() {
+        return comprobanteAsociado;
+    }
+
+    public void setComprobanteAsociado(String comprobanteAsociado) {
+        this.comprobanteAsociado = comprobanteAsociado;
+    }
+
+    @Override
+    public Long getIdAsignacion() {
+        return idAsignacion;
+    }
+
+    public void setIdAsignacion(Long idAsignacion) {
+        this.idAsignacion = idAsignacion;
     }
 }

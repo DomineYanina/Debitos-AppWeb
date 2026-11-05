@@ -2250,6 +2250,62 @@ tr.row-selected {
   }
 }
 
+/* Disposicion especial en 3 columnas cuando lo buscado es una Factura */
+.botonera-acciones-container.botonera-factura {
+  grid-template-columns: repeat(3, 1fr) !important;
+  width: 440px !important;
+
+  .indicador-guardado {
+    grid-column: 1 / -1 !important;
+    order: 0 !important;
+  }
+
+  /* Primer fila: Exportar Excel, Guardar Parcialmente y Ver Historial */
+  .btn-exportar {
+    order: 1 !important;
+  }
+
+  .btn-guardar {
+    order: 2 !important;
+  }
+
+  .btn-ver-docs {
+    order: 3 !important;
+  }
+
+  /* Segunda fila: Importar de Otra Factura, Agregar prestacion externa y Finalizar Tramite */
+  .btn-importar-prestacion {
+    order: 4 !important;
+  }
+
+  .btn-agregar-externa {
+    order: 5 !important;
+  }
+
+  .btn-finalizar-tramite-main,
+  .btn-reabrir-tramite-main,
+  .estado-tramite-indicador-container {
+    order: 6 !important;
+  }
+
+  /* Tercera fila: Nueva Nota de Credito (en columna del centro, debajo de Agregar prestacion externa) */
+  .btn-nueva-nota {
+    order: 7 !important;
+    grid-column: 2 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .botonera-acciones-container.botonera-factura {
+    width: 100% !important;
+    grid-template-columns: 1fr !important;
+
+    .btn-nueva-nota {
+      grid-column: auto !important;
+    }
+  }
+}
+
 /* ==========================================================================
    ESTILOS PARA RADIOBUTTONS TIPO_ND (NUEVA NOTA DE DÉBITO DESDE NC)
    ========================================================================== */
@@ -2454,6 +2510,19 @@ tr.row-selected {
   font-weight: 700;
   letter-spacing: 0.03em;
   flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.badge-asoc-hint {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  margin-left: 0.45rem;
   vertical-align: middle;
 }
 
@@ -3190,4 +3259,30 @@ tr.row-selected {
 
 
 
-
+
+
+
+/* Botón y estilos para Prestación Externa */
+.btn-agregar-externa {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #d97706 !important;
+  box-shadow: 0 2px 4px rgba(217, 119, 6, 0.2);
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.btn-agregar-externa:hover {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(217, 119, 6, 0.3);
+}
+
+.bg-externa-tag {
+  background-color: #fffbeb !important;
+}
+
+.modal-externa-box {
+  max-width: 680px !important;
+  width: 90% !important;
+}

@@ -27,8 +27,8 @@ public class AmbLiquidado {
     private LocalDate fecha;
     private String codigo;
     private String descripcion;
-    private String modulo;
-    private String grupomodulo;
+    private Long modulo;
+    private Long grupomodulo;
     private Integer cantidad;
 
     @Column(name = "total_neto")
@@ -84,6 +84,12 @@ public class AmbLiquidado {
 
     @Column(name = "operador_liquida")
     private String operadorLiquida;
+
+    @Column(name = "tiporegistro")
+    private String tiporegistro;
+
+    @Column(name = "codigo_cobertura")
+    private String codigoCobertura;
 
     public AmbLiquidado() {}
 
@@ -188,19 +194,19 @@ public class AmbLiquidado {
         this.descripcion = descripcion;
     }
 
-    public String getModulo() {
+    public Long getModulo() {
         return modulo;
     }
 
-    public void setModulo(String modulo) {
+    public void setModulo(Long modulo) {
         this.modulo = modulo;
     }
 
-    public String getGrupomodulo() {
+    public Long getGrupomodulo() {
         return grupomodulo;
     }
 
-    public void setGrupomodulo(String grupomodulo) {
+    public void setGrupomodulo(Long grupomodulo) {
         this.grupomodulo = grupomodulo;
     }
 
@@ -362,5 +368,21 @@ public class AmbLiquidado {
 
     public void setOperadorLiquida(String operadorLiquida) {
         this.operadorLiquida = operadorLiquida;
+    }
+
+    public String getTiporegistro() {
+        return tiporegistro;
+    }
+
+    public void setTiporegistro(String tiporegistro) {
+        this.tiporegistro = tiporegistro;
+    }
+
+    public String getCodigoCobertura() {
+        return codigoCobertura;
+    }
+
+    public void setCodigoCobertura(String codigoCobertura) {
+        this.codigoCobertura = codigoCobertura;
     }
 }

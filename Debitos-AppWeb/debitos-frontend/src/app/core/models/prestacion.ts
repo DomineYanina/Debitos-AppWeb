@@ -41,4 +41,5 @@ export interface Prestacion {
   facturaOrigenNumero?: number;
   facturaOrigenComprobante?: string;
   esImportada?: boolean;
+  esManual?: boolean;
 }

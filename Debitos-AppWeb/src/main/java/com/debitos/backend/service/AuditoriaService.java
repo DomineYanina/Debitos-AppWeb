@@ -14,6 +14,7 @@ import com.debitos.backend.dto.PrestacionAuditoriaDTO;
 import com.debitos.backend.dto.RegistroAuditoriaDTO;
 import com.debitos.backend.dto.ResultadoBusquedaDTO;
 import com.debitos.backend.model.AmbLiquidado;
+import com.debitos.backend.model.AmbLiquidadoManual;
 import com.debitos.backend.model.Cabecera;
 import com.debitos.backend.model.NcAjusteDeIva;
 import com.debitos.backend.model.NdAjusteDeIva;
@@ -21,6 +22,7 @@ import com.debitos.backend.model.NotaDeCredito;
 import com.debitos.backend.model.NotaDeDebito;
 import com.debitos.backend.model.RegistroImputacion;
 import com.debitos.backend.model.RegistroUsabilidad;
+import com.debitos.backend.repository.AmbLiquidadoManualRepository;
 import com.debitos.backend.repository.AmbLiquidadoRepository;
 import com.debitos.backend.repository.CabeceraRepository;
 import com.debitos.backend.repository.NcAjusteDeIvaRepository;
@@ -88,8 +90,52 @@ public class AuditoriaService {
     @Autowired
     private RegistroImputacionRepository registroImputacionRepository;
 
+    @Autowired
+    private AmbLiquidadoManualRepository ambLiquidadoManualRepository;
+
     @Autowired(required = false)
     private com.debitos.backend.config.CacheConfig cacheConfig;
+
+    private LocalDate parsearFecha(Object valor) {
+        if (valor == null || valor.toString().trim().isEmpty()) {
+            return LocalDate.now();
+        }
+        try {
+            return LocalDate.parse(valor.toString().trim());
+        } catch (Exception e) {
+            try {
+                return java.sql.Date.valueOf(valor.toString().trim()).toLocalDate();
+            } catch (Exception ex) {
+                return LocalDate.now();
+            }
+        }
+    }
+
+    private AmbLiquidado persistirPrestacionManual(RegistroAuditoriaDTO reg, Cabecera cabeceraOrigen, String usuario) {
+        AmbLiquidado alManual = new AmbLiquidado();
+        alManual.setCabecera(cabeceraOrigen);
+        alManual.setPaciente(reg.getPaciente());
+        alManual.setCodigoCobertura(reg.getCobertura() != null && !reg.getCobertura().trim().isEmpty()
+                ? reg.getCobertura().trim()
+                : (cabeceraOrigen != null ? cabeceraOrigen.getCodigoCobertura() : null));
+        alManual.setPlan(reg.getPlan());
+        alManual.setCarnet(reg.getCarnet());
+        alManual.setCodigo(reg.getCodigo());
+        alManual.setDescripcion(reg.getDescripcion());
+        alManual.setFecha(parsearFecha(reg.getFecha()));
+        alManual.setCantidad(reg.getCantidad() != null && reg.getCantidad() > 0 ? reg.getCantidad() : 1);
+        alManual.setTotalNeto(BigDecimal.ZERO);
+        alManual.setIva(BigDecimal.ZERO);
+        alManual.setCoseguro(BigDecimal.ZERO);
+        alManual.setTotal(BigDecimal.ZERO);
+        alManual.setTiporegistro(cabeceraOrigen != null ? cabeceraOrigen.getTiporegistro() : null);
+        alManual = ambLiquidadoRepository.save(alManual);
+
+        AmbLiquidadoManual alm = new AmbLiquidadoManual(alManual.getId(), usuario, ZonedDateTime.now(), "Prestación externa manual");
+        ambLiquidadoManualRepository.save(alm);
+
+        return alManual;
+    }
 
     private void invalidarCacheTablero() {
         if (cacheConfig != null) {
@@ -429,15 +475,33 @@ public class AuditoriaService {
         }
 
         Cabecera cabeceraActual = cabeceraActualOpt.get();
-        Long grupoId = cabeceraActual.getAsociadogrupo();
+
+        // 1. Ascenso por 'asociado' para localizar la raíz real o la Factura Madre
+        Cabecera cursor = cabeceraActual;
+        Set<Long> visitadosAsc = new HashSet<>();
+        if (cursor.getId() != null) visitadosAsc.add(cursor.getId());
+        while (cursor.getAsociado() != null && !cursor.getAsociado().equals(cursor.getId())) {
+            Optional<Cabecera> padreOpt = cabeceraRepository.findById(cursor.getAsociado());
+            if (padreOpt.isEmpty()) break;
+            cursor = padreOpt.get();
+            if (cursor.getId() != null && !visitadosAsc.add(cursor.getId())) break;
+            if (Cabecera.esFactura(cursor.getTipo())) {
+                break;
+            }
+        }
+
+        final Cabecera cabeceraRaizCandidata = cursor;
+        final Long idRaizCandidata = cursor.getId();
+
+        Long grupoId = cursor.getAsociadogrupo();
         if (grupoId == null || grupoId == 0L) {
-            grupoId = cabeceraActual.getGrupo();
+            grupoId = cursor.getGrupo();
         }
         if (grupoId == null || grupoId == 0L) {
-            grupoId = cabeceraActual.getAsociado();
+            grupoId = cursor.getAsociado();
         }
         if (grupoId == null || grupoId == 0L) {
-            grupoId = cabeceraActual.getId();
+            grupoId = cursor.getId();
         }
 
         List<Cabecera> familia = (grupoId != null && grupoId != 0L)
@@ -450,6 +514,24 @@ public class AuditoriaService {
 
         if (familia.stream().noneMatch(c -> Objects.equals(c.getId(), cabeceraActual.getId()))) {
             familia.add(cabeceraActual);
+        }
+        if (idRaizCandidata != null && familia.stream().noneMatch(c -> Objects.equals(c.getId(), idRaizCandidata))) {
+            familia.add(cabeceraRaizCandidata);
+        }
+
+        // 2. Descenso transitivo por 'asociado': cargar documentos sueltos que apunten a cualquier miembro
+        Set<Long> idsFamilia = familia.stream().map(Cabecera::getId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> idsConocidos = new HashSet<>(idsFamilia);
+        List<Long> aExplorar = new ArrayList<>(idsFamilia);
+        while (!aExplorar.isEmpty()) {
+            List<Cabecera> hijosDirectos = cabeceraRepository.findByAsociadoIn(aExplorar);
+            aExplorar.clear();
+            for (Cabecera h : hijosDirectos) {
+                if (h.getId() != null && idsConocidos.add(h.getId())) {
+                    familia.add(h);
+                    aExplorar.add(h.getId());
+                }
+            }
         }
 
         // Buscar la Cabecera Raíz (Factura Madre Nivel 0): FC / FAC / FCE
@@ -502,10 +584,11 @@ public class AuditoriaService {
             netoFc = raiz.getDebe();
         }
 
+        boolean esRcRaiz = "RC".equalsIgnoreCase(resolverTipoBase(raiz.getTipo()));
         FilaHistorialDTO filaFc = new FilaHistorialDTO(
                 raiz.getTipo() != null ? raiz.getTipo() : "FC",
-                raiz.getLetra(),
-                raiz.getPtovta(),
+                esRcRaiz ? null : raiz.getLetra(),
+                esRcRaiz ? null : raiz.getPtovta(),
                 raiz.getNumero(),
                 periodoFcStr,
                 netoFc
@@ -633,7 +716,7 @@ public class AuditoriaService {
         for (Cabecera c : familia) {
             if (c.getId() != null && !visitados.contains(c.getId())) {
                 visitados.add(c.getId());
-                FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(c, 1);
+                FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(c, 1, familia);
                 historial.add(fila);
             }
         }
@@ -654,7 +737,7 @@ public class AuditoriaService {
             if (hijo.getId() != null && visitados.contains(hijo.getId())) continue;
             if (hijo.getId() != null) visitados.add(hijo.getId());
 
-            FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(hijo, nivel);
+            FilaHistorialDTO fila = mapearCabeceraAFilaHistorial(hijo, nivel, familia);
             historial.add(fila);
 
             // Si es una NC con Ajuste de IVA (exclusiva o conjunta), verificar si tiene ND de ajuste IVA hija en memoria o repositorio
@@ -698,7 +781,7 @@ public class AuditoriaService {
         }
     }
 
-    private FilaHistorialDTO mapearCabeceraAFilaHistorial(Cabecera cab, int nivel) {
+    private FilaHistorialDTO mapearCabeceraAFilaHistorial(Cabecera cab, int nivel, List<Cabecera> familia) {
         String tipoBase = resolverTipoBase(cab.getTipo());
         String fechaStr = cab.getFecha() != null ? cab.getFecha().toString() : "";
         String origenTipo = "REF";
@@ -808,10 +891,11 @@ public class AuditoriaService {
             } catch (Exception ignored) {}
         }
 
+        boolean esRc = "RC".equalsIgnoreCase(tipoBase);
         FilaHistorialDTO fila = new FilaHistorialDTO(
                 cab.getTipo() != null ? cab.getTipo() : tipoBase,
-                cab.getLetra(),
-                cab.getPtovta(),
+                esRc ? null : cab.getLetra(),
+                esRc ? null : cab.getPtovta(),
                 num,
                 fechaStr,
                 montoNeto
@@ -823,6 +907,25 @@ public class AuditoriaService {
         fila.setTienePrestaciones(tienePrestaciones);
         fila.setIdGrupo(cab.getAsociadogrupo() != null ? cab.getAsociadogrupo() : (cab.getGrupo() != null ? cab.getGrupo() : cab.getId()));
         fila.setIdEstado(cab.getIdEstado() != null ? cab.getIdEstado() : 1);
+
+        String compAsoc = cab.getComprobanteAsociado();
+        if ((compAsoc == null || compAsoc.trim().isEmpty()) && cab.getAsociado() != null && familia != null) {
+            for (Cabecera cFam : familia) {
+                if (Objects.equals(cFam.getId(), cab.getAsociado())) {
+                    compAsoc = cFam.getComprobante();
+                    if (compAsoc == null || compAsoc.trim().isEmpty()) {
+                        String t = cFam.getTipo() != null ? cFam.getTipo().trim().toUpperCase() : "";
+                        String l = cFam.getLetra() != null ? cFam.getLetra().trim().toUpperCase() : "";
+                        int pv = cFam.getPtovta() != null ? cFam.getPtovta() : 0;
+                        int numF = cFam.getNumero() != null ? cFam.getNumero() : 0;
+                        compAsoc = String.format("%s %s %04d-%08d", t, l, pv, numF).trim();
+                    }
+                    break;
+                }
+            }
+        }
+        fila.setComprobanteAsociado(compAsoc);
+
         return fila;
     }
 
@@ -930,6 +1033,13 @@ public class AuditoriaService {
                     log.info("Eliminando {} NotaDeCredito por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
                     notaDeCreditoRepository.deleteAll(ncsABorrar);
                 }
+                List<AmbLiquidadoManual> manualesABorrar = ambLiquidadoManualRepository.findByIdAmbLiquidadoIn(idsParaBorrar);
+                if (!manualesABorrar.isEmpty()) {
+                    log.info("Eliminando {} registros de amb_liquidado_manual y amb_liquidado por limpieza de usuario", manualesABorrar.size());
+                    ambLiquidadoManualRepository.deleteAll(manualesABorrar);
+                    List<Integer> idsAmbManuales = manualesABorrar.stream().map(AmbLiquidadoManual::getIdAmbLiquidado).toList();
+                    ambLiquidadoRepository.deleteAllById(idsAmbManuales);
+                }
             } else if ("NC".equals(origenBase)) {
                 List<NotaDeDebito> ndsABorrar = notaDeDebitoRepository.findByNcPadreCabeceraAndPrestacionIds(letra, ptovta, numero, idsParaBorrar);
                 if (!ndsABorrar.isEmpty()) {
@@ -942,6 +1052,14 @@ public class AuditoriaService {
                     log.info("Eliminando {} NotaDeCredito (hijas de ND) por solicitud de limpieza del usuario {}", ncsABorrar.size(), usuario);
                     notaDeCreditoRepository.deleteAll(ncsABorrar);
                 }
+            }
+        }
+
+        // Crear/persistir prestaciones manuales que vengan sin ID persistido aún (id == null || id < 0)
+        for (RegistroAuditoriaDTO reg : registros) {
+            if (reg != null && Boolean.TRUE.equals(reg.getEsManual()) && (reg.getId() == null || reg.getId() < 0)) {
+                AmbLiquidado alManual = persistirPrestacionManual(reg, cabeceraOrigenOpt.orElse(null), usuario);
+                reg.setId(alManual.getId());
             }
         }
 
@@ -1331,6 +1449,16 @@ public class AuditoriaService {
 
         boolean esConjunta = "Prestacional y Ajuste de IVA".equalsIgnoreCase(datosNota.getTipoNc())
                 || "Mixta".equalsIgnoreCase(datosNota.getTipoNc());
+
+        // Crear/persistir prestaciones manuales que vengan sin ID persistido aún (id == null || id < 0)
+        if (registros != null) {
+            for (RegistroAuditoriaDTO reg : registros) {
+                if (reg != null && Boolean.TRUE.equals(reg.getEsManual()) && (reg.getId() == null || reg.getId() < 0)) {
+                    AmbLiquidado alManual = persistirPrestacionManual(reg, cabeceraOrigenOpt.orElse(null), usuario);
+                    reg.setId(alManual.getId());
+                }
+            }
+        }
 
         // 1. Calcular el Haber en caso de creación manual de Cabecera (NC)
         BigDecimal totalHaberCalculado = null;

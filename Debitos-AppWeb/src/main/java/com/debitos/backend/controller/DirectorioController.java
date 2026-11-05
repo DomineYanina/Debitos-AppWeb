@@ -15,7 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/directorio")
 @CrossOrigin(origins = "http://localhost:4200")
-@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN')")
+@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")
 public class DirectorioController {
 
     @Autowired

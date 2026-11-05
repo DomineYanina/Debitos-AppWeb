@@ -6,9 +6,13 @@ import { App } from './app/app';
 
 import { Chart, registerables } from 'chart.js';
 
+registerLocaleData(localeEsAr);
 registerLocaleData(localeEsAr, 'es-AR');
 Chart.register(...registerables);
 
 bootstrapApplication(App, appConfig)
   .catch((err) => console.error(err));
+
+// Reload trigger
+
 

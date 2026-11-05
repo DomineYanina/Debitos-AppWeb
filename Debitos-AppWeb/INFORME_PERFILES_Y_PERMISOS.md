@@ -44,7 +44,7 @@ Este relevamiento sirve como base y especificación técnica para futuras amplia
 
 ## 3. Matriz de Perfiles Identificados
 
-El sistema reconoce formalmente **4 perfiles de usuario** en su interfaz y lógica de negocio:
+El sistema reconoce formalmente **6 perfiles de usuario** en su interfaz y lógica de negocio:
 
 | Código de Rol | Denominación en Sistema | Propósito / Enfoque |
 | :--- | :--- | :--- |
@@ -52,6 +52,8 @@ El sistema reconoce formalmente **4 perfiles de usuario** en su interfaz y lógi
 | **`OPERADOR`** | **Operador de Débitos** | Carga operativa, auditoría individual, ajuste de prestaciones y generación de NC/ND. |
 | **`DIRECTORIO`** | **Directorio** | Análisis macroeconómico, KPIs ejecutivos, balances por financiador y toma de decisiones. |
 | **`AUDITOR`** | **Auditor (Solo Consulta)** | Inspección y seguimiento de comprobantes e historial de trámites sin capacidad de cierre. |
+| **`GERENTE_DEBITOS`** | **Gerente de Débitos** | Autorizaciones operativas plenas de OPERADOR junto con acceso a solapas analíticas de débitos en Tablero de Control. |
+| **`TESORERIA`** | **Tesorería** | Acceso exclusivo a las 4 solapas financieras del Tablero de Control (Tablero de Control, Cuenta Corriente, Tiempos de Cobranza y Matriz de Cobranzas) y modo solo consulta en Buscador de Documentos (búsqueda, prestaciones e historial, sin permisos de edición). |
 
 ---
 
@@ -178,23 +180,100 @@ Orientado a auditores externos, peritos contables o personal de supervisión de 
 
 ---
 
+### 💼📊 4.5. Perfil `GERENTE_DEBITOS` (Gerente de Débitos)
+
+Diseñado para responsables de gestión y auditoría de débitos que precisan ejecutar las tareas operativas habituales de un `OPERADOR` y simultáneamente supervisar la productividad, causas de débitos y métricas de desempeño desde el Tablero de Control.
+
+#### Vistas y Rutas Autorizadas:
+* ✅ `/auditoria` (Buscador de Documentos y Grilla de Prestaciones con autorizaciones operativas plenas de OPERADOR).
+* ✅ `/directorio` (Tablero de Control - Acceso restringido a solapas operativas y analíticas de débitos).
+* ✅ `/directorio/motivo/:motivoId` (Detalle Profundo de Prestaciones por Motivo de Débito).
+
+#### Permisos Operativos:
+1. **Módulo de Auditoría (`/auditoria`):**
+   * Búsqueda integral de comprobantes (FC, ND, NC, RC).
+   * Modificación de débitos y refacturación.
+   * Acciones masivas sobre prestaciones.
+   * Emisión de Notas de Crédito y Notas de Débito.
+   * Reporte de comprobantes ausentes/no encontrados.
+2. **Solapas Permitidas en Tablero de Control (`/directorio`):**
+   * ✅ **Motivos de Débito y Refacturación** (`motivos`): ranking, Pareto y drill-down individual por causa de pérdida.
+   * ✅ **Analista de Débito** (`analistas`): productividad y volumen debitado/recuperado por analista.
+   * ✅ **Bucles de Insistencia** (`bucles`): detección de rechazos reiterados y re-refacturaciones.
+   * ✅ **Usuario de Carga** (`usuarios-carga`): métricas operativas por usuario emisor.
+   * ✅ **Prestadores / Médicos** (`medicos`): desempeño y débitos distribuidos por efector/médico.
+   * ✅ **Detalle y Trazabilidad** (`trazabilidad`): trazabilidad punto a punto de prestaciones.
+
+#### Restricciones Operativas:
+* ⛔ **Solapas Prohibidas en Tablero de Control:**
+  * ❌ **Tablero de Control** (`tablero`) - Oculto y bloqueado.
+  * ❌ **Cuenta Corriente** (`cuenta-corriente`) - Oculto y bloqueado.
+  * ❌ **Tiempos de Cobranza** (`tiempos-cobranza`) - Oculto y bloqueado.
+  * ❌ **Matriz de Cobranzas** (`matriz-cobranzas`) - Oculto y bloqueado.
+* ⛔ No puede finalizar ni reabrir trámites de conciliación (exclusivo de `ADMIN`).
+* ⛔ No dispone de selector de simulación ni campana de notificaciones operativas globales.
+
+---
+
+### 🏛️ 4.6. Perfil `TESORERIA` (Tesorería)
+
+Diseñado específicamente para el equipo de Finanzas y Tesorería institucional, quienes requieren acceso analítico enfocado en las métricas económico-financieras, recaudación, cobranzas y cuenta corriente en el Tablero de Control, complementado con la capacidad de realizar búsquedas, auditorías y trazabilidad de comprobantes y prestaciones en modo solo lectura estricto.
+
+#### Vistas y Rutas Autorizadas:
+* ✅ `/directorio` (Tablero de Control - Acceso enfocado a las 4 solapas financieras).
+* ✅ `/auditoria` (Buscador de Documentos y Grilla en modo **solo consulta**).
+
+#### Capacidades en Tablero de Control:
+* Acceso exclusivo a las **4 solapas financieras** del Dashboard analítico:
+  * ✅ **Tablero de Control** (`tablero`): KPIs de facturación, saldo cobrado, neto debitado y aceptado.
+  * ✅ **Cuenta Corriente** (`cuenta-corriente`): saldos, composición de deuda y conciliaciones.
+  * ✅ **Tiempos de Cobranza** (`tiempos-cobranza`): rotación de cartera y plazos de pago.
+  * ✅ **Matriz de Cobranzas** (`matriz-cobranzas`): eficiencia de recupero por financiador.
+
+#### Restricciones en Tablero de Control:
+* ⛔ **Sin acceso a solapas analíticas de débitos y auditoría médica:** Ocultas y bloqueadas las solapas de *Motivos de Débito y Refacturación*, *Analista de Débito*, *Bucles de Insistencia*, *Usuario de Carga*, *Prestadores / Médicos* y *Detalle y Trazabilidad*.
+* ⛔ **Sin acceso a la ruta de detalle por motivo:** Bloqueada la ruta `/directorio/motivo/:motivoId`.
+
+#### Capacidades en Buscador de Documentos (`/auditoria`):
+* ✅ Búsqueda de cualquier comprobante (Facturas FC, Notas de Crédito NC, Notas de Débito ND, Recibos RC).
+* ✅ Visualización completa de todas las prestaciones asociadas, datos del paciente, código médico, efector y valores debitados/facturados.
+* ✅ Visualización del historial de comprobantes vinculados (botón *Ver historial*).
+* ✅ Exportación de resultados a Excel (*Exportar Excel*).
+* ✅ Visualización del badge informativo de estado de conciliación (Pendiente / Finalizado).
+
+#### Restricciones Operativas:
+* ⛔ **Sin edición de prestaciones:** Todas las celdas de AG-Grid quedan bloqueadas en modo solo lectura (`editable: false`).
+* ⛔ **Sin acciones de modificación:** Botón de guardado parcial oculto y protegido.
+* ⛔ **Sin generación de comprobantes:** Botones de emisión de Notas de Crédito (NC), Notas de Débito (ND) y Ajuste de IVA completamente ocultos y deshabilitados en UI y bloqueados en backend.
+* ⛔ **Sin acciones masivas:** Barra de aplicación masiva oculta.
+* ⛔ **Sin importación de prestaciones:** Botón de importación entre facturas oculto.
+* ⛔ No puede alterar el estado de conciliación de trámites.
+
+---
+
 ## 5. Tabla Comparativa de Permisos y Capacidades
 
-| Módulo / Funcionalidad | ADMIN | OPERADOR | DIRECTORIO | AUDITOR | Nivel de Seguridad |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| **Buscador de Documentos (`/auditoria`)** | ✅ | ✅ | ❌ *(Redirige)* | ✅ | Frontend (`authGuard`) |
-| **Edición de Débitos y Refacturación** | ✅ | ✅ | ❌ | ❌ | UI / Estado de Grupo |
-| **Acciones Masivas sobre Prestaciones** | ✅ | ✅ | ❌ | ❌ | Frontend |
-| **Emisión de NC y ND** | ✅ | ✅ | ❌ | ❌ | Backend (`/api/auditoria/*`) |
-| **Finalizar / Reabrir Trámite Conciliación** | ✅ | ❌ | ❌ | ❌ | Backend (`@PreAuthorize("hasRole('ADMIN')")`) |
-| **Ver Indicador Visual de Estado de Conciliación** | ✅ | ❌ | ❌ | ✅ | Frontend (`auditoria.html`) |
-| **Reportar Documento No Encontrado** | ✅ | ✅ | ❌ | ✅ | Backend (`/api/notificaciones/reportar-*`) |
-| **Tablero de Control Financiero (`/directorio`)** | ✅ | ❌ | ✅ | ❌ | Backend (`@PreAuthorize("hasAnyRole('DIRECTORIO','ADMIN')")`) |
-| **Detalle por Motivo (`/directorio/motivo/:id`)** | ✅ | ❌ | ✅ | ❌ | Backend (`DirectorioController`) |
-| **Acceso a Endpoints de Gráficos (`/api/graficos`)** | ✅ | ❌ | ✅ | ❌ | Backend (`GraficosController`) |
-| **Campana de Notificaciones Operativas** | ✅ | ❌ | ❌ | ❌ | UI y Backend (`NotificacionController`) |
-| **Selector de Simulación de Perfiles ("Ver como")** | ✅ | ❌ | ❌ | ❌ | Frontend (`AuthService.simularRol`) |
-| **Preguntas Frecuentes Exclusivas de Admin** | ✅ | ❌ | ❌ | ❌ | Frontend (`HelpDrawerComponent`) |
+| Módulo / Funcionalidad | ADMIN | OPERADOR | DIRECTORIO | AUDITOR | GERENTE_DEBITOS | TESORERIA | Nivel de Seguridad |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **Buscador de Documentos (`/auditoria`)** | ✅ | ✅ | ❌ *(Redirige)* | ✅ | ✅ | ✅ *(Solo Consulta)* | Frontend (`authGuard` / `roleGuard`) |
+| **Ver Prestaciones e Historial** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | Frontend / Backend |
+| **Edición de Débitos y Refacturación** | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | UI / Backend (`AuditoriaController`) |
+| **Acciones Masivas sobre Prestaciones** | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | Frontend |
+| **Emisión de NC y ND** | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | Backend (`@PreAuthorize`) |
+| **Finalizar / Reabrir Trámite Conciliación** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Backend (`@PreAuthorize("hasRole('ADMIN')")`) |
+| **Ver Indicador Visual de Estado de Conciliación** | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | Frontend (`auditoria.html`) |
+| **Reportar Documento No Encontrado** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | Backend (`/api/notificaciones/reportar-*`) |
+| **Tablero de Control (`/directorio`)** | ✅ *(10 solapas)* | ❌ | ✅ *(10 solapas)* | ❌ | ⚠️ *(6 solapas)* | ⚠️ *(4 solapas financieras)* | Frontend / Backend |
+| **Solapa Tablero de Control Macro** | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ | Frontend (`esSolapaPermitida`) |
+| **Solapa Cuenta Corriente** | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ | Frontend (`esSolapaPermitida`) |
+| **Solapa Tiempos de Cobranza** | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ | Frontend (`esSolapaPermitida`) |
+| **Solapa Matriz de Cobranzas** | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ | Frontend (`esSolapaPermitida`) |
+| **Solapas Motivos, Analistas, Bucles, etc.** | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | Frontend / Backend |
+| **Detalle por Motivo (`/directorio/motivo/:id`)** | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | Backend / Frontend (`app.routes.ts`) |
+| **Acceso a Endpoints de Gráficos (`/api/graficos`)** | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | Backend (`GraficosController`) |
+| **Campana de Notificaciones Operativas** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | UI y Backend (`NotificacionController`) |
+| **Selector de Simulación de Perfiles ("Ver como")** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Frontend (`AuthService.simularRol`) |
+| **Preguntas Frecuentes Exclusivas de Admin** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | Frontend (`HelpDrawerComponent`) |
 
 ---
 
@@ -205,9 +284,14 @@ Orientado a auditores externos, peritos contables o personal de supervisión de 
 | `/api/auth/login` | `POST` | Público (`permitAll`) | Autenticación y firma JWT |
 | `/api/auth/roles` | `GET` | Autenticado | Retorna roles distintos sin `ADMIN` |
 | `/api/auditoria/grupo/{id}/estado/{estado}` | `PUT` | **Solo `ADMIN`** | `@PreAuthorize("hasRole('ADMIN')")` |
-| `/api/auditoria/**` | `GET/POST` | Autenticado (`ADMIN`, `OPERADOR`, `AUDITOR`) | Token JWT válido |
-| `/api/directorio/**` | `GET` | **`DIRECTORIO` o `ADMIN`** | `@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN')")` |
-| `/api/graficos/**` | `GET` | **`DIRECTORIO` o `ADMIN`** | `@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN')")` |
+| `/api/auditoria/guardar-parcialmente` | `POST` | **`OPERADOR`, `ADMIN`, `GERENTE_DEBITOS`** | `@PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")` |
+| `/api/auditoria/nueva-nota-credito` | `POST` | **`OPERADOR`, `ADMIN`, `GERENTE_DEBITOS`** | `@PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")` |
+| `/api/auditoria/nueva-nota-debito` | `POST` | **`OPERADOR`, `ADMIN`, `GERENTE_DEBITOS`** | `@PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")` |
+| `/api/auditoria/nueva-nota-debito-ajuste-iva` | `POST` | **`OPERADOR`, `ADMIN`, `GERENTE_DEBITOS`** | `@PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")` |
+| `/api/auditoria/editar-nc-ajuste-iva` | `POST` | **`OPERADOR`, `ADMIN`, `GERENTE_DEBITOS`** | `@PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")` |
+| `/api/auditoria/**` (Consultas / Lectura) | `GET/POST` | Autenticado (`ADMIN`, `OPERADOR`, `AUDITOR`, `GERENTE_DEBITOS`, `TESORERIA`) | Token JWT válido |
+| `/api/directorio/**` | `GET` | **`DIRECTORIO`, `ADMIN`, `GERENTE_DEBITOS` o `TESORERIA`** | `@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")` |
+| `/api/graficos/**` | `GET` | **`DIRECTORIO`, `ADMIN`, `GERENTE_DEBITOS` o `TESORERIA`** | `@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")` |
 | `/api/notificaciones/recientes` | `GET` | **`ADMIN`** (por defecto) | Filtro por rol en repositorio |
 
 ---

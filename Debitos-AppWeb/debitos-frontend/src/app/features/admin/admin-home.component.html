@@ -1,0 +1,889 @@
+<div class="admin-dashboard-container">
+
+  <!-- Encabezado Principal -->
+  <header class="admin-header">
+    <div class="header-left">
+      <div class="header-badge">Panel de Administración</div>
+      <h1 class="main-title">Centro Operativo & Integración</h1>
+      <p class="subtitle">
+        Gestión de sincronización de cuentas corrientes externas, control de consistencia de documentos y monitoreo de servicios.
+      </p>
+    </div>
+
+    <!-- Controles de Período y Refresco -->
+    <div class="header-controls">
+      <div class="control-group">
+        <label for="select-anio">Año de Proceso:</label>
+        <select id="select-anio" class="select-anio" [(ngModel)]="anioSeleccionado" (change)="onCambioAnio()" [disabled]="sincronizando || cargandoEstado">
+          <option *ngFor="let anio of aniosDisponibles" [value]="anio">
+            {{ anio }} {{ anio === anioActual ? '(Año en curso)' : '' }}
+          </option>
+        </select>
+      </div>
+
+      <button type="button" class="btn-refresh" (click)="cargarEstado()" [disabled]="cargandoEstado || sincronizando" title="Recargar métricas y estado">
+        <span class="refresh-icon" [class.spinning]="cargandoEstado">🔄</span>
+        <span class="refresh-text">{{ cargandoEstado ? 'Actualizando...' : 'Actualizar' }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Alerta de Error de Carga -->
+  <div class="alert-banner alert-error" *ngIf="errorCarga">
+    <span class="alert-icon">⚠️</span>
+    <span class="alert-text">{{ errorCarga }}</span>
+    <button class="alert-btn-retry" (click)="cargarEstado()">Reintentar</button>
+  </div>
+
+  <!-- Alerta de Éxito de Exportación -->
+  <div class="alert-banner alert-success" *ngIf="mensajeExitoExportacion">
+    <span class="alert-icon">✅</span>
+    <span class="alert-text">{{ mensajeExitoExportacion }}</span>
+  </div>
+
+  <!-- Grid Principal de Tarjetas -->
+  <div class="dashboard-grid">
+
+    <!-- TARJETA 1: CENTRO DE SINCRONIZACIÓN (HERO PRINCIPAL) -->
+    <section class="card-hero card-sync">
+      <div class="card-header-flex">
+        <div class="card-title-group">
+          <span class="card-icon">⚡</span>
+          <div>
+            <h2 class="card-title">Sincronización de Cuenta Corriente (cct_comprobantes)</h2>
+            <p class="card-subtitle">Extracción y migración automática hacia la tabla cabecera de Débitos.</p>
+          </div>
+        </div>
+
+        <!-- Semáforo de Estado -->
+        <div class="sync-status-badge" 
+             [class.status-loading]="cargandoEstado"
+             [class.status-ok]="!cargandoEstado && estado?.conexionOk && estado?.pendientes === 0"
+             [class.status-pending]="!cargandoEstado && estado?.conexionOk && (estado?.pendientes || 0) > 0"
+             [class.status-error]="!cargandoEstado && !estado?.conexionOk">
+          <span class="status-indicator-dot"></span>
+          <span class="status-indicator-text" *ngIf="cargandoEstado">Verificando...</span>
+          <span class="status-indicator-text" *ngIf="!cargandoEstado && !estado?.conexionOk">Conexión Inactiva</span>
+          <span class="status-indicator-text" *ngIf="!cargandoEstado && estado?.conexionOk && estado?.pendientes === 0">Al Día</span>
+          <span class="status-indicator-text" *ngIf="!cargandoEstado && estado?.conexionOk && (estado?.pendientes || 0) > 0">
+            {{ estado?.pendientes }} comprobantes pendientes
+          </span>
+        </div>
+      </div>
+
+      <!-- Métricas Clave de la Sincronización -->
+      <div class="sync-metrics-grid">
+        <div class="metric-box">
+          <span class="metric-label">En Gestión (Año {{ anioSeleccionado }})</span>
+          <span class="metric-value">{{ estado?.totalGestion || 0 | number }}</span>
+          <span class="metric-hint">Registros en cct_comprobantes</span>
+        </div>
+
+        <div class="metric-box">
+          <span class="metric-label">Pendientes de Importar</span>
+          <span class="metric-value highlight-warning" [class.highlight-ok]="estado?.pendientes === 0">
+            {{ estado?.pendientes || 0 | number }}
+          </span>
+          <span class="metric-hint">No presentes en cabecera</span>
+        </div>
+
+        <div class="metric-box">
+          <span class="metric-label">Última Sincronización</span>
+          <span class="metric-value-small" *ngIf="estado?.ultimaSincronizacion">
+            {{ estado?.ultimaSincronizacion | date:'dd/MM/yyyy HH:mm' }}
+          </span>
+          <span class="metric-value-small text-muted" *ngIf="!estado?.ultimaSincronizacion">
+            Sin registros previos
+          </span>
+          <span class="metric-hint" *ngIf="estado?.ultimoUsuario">
+            Por: <strong>{{ estado?.ultimoUsuario }}</strong> (+{{ estado?.ultimosInsertados }} docs)
+          </span>
+        </div>
+      </div>
+
+      <!-- Barra de Progreso cuando sincroniza -->
+      <div class="sync-progress-container" *ngIf="sincronizando">
+        <div class="progress-bar-animated"></div>
+        <p class="progress-caption">
+          ⏳ Conectando con Gestión, leyendo comprobantes e insertando en cabecera... Por favor espere.
+        </p>
+      </div>
+
+      <!-- Acciones de Sincronización -->
+      <div class="sync-actions-row">
+        <div class="actions-buttons-group">
+          <!-- Botón de Previsualización (Paso previo recomendado) -->
+          <button type="button" 
+                  class="btn-preview-action" 
+                  (click)="abrirPrevisualizacion()" 
+                  [disabled]="sincronizando || !estado?.conexionOk || (estado?.pendientes || 0) === 0">
+            <span class="btn-icon">👁️</span>
+            <span class="btn-text">
+              Previsualizar Comprobantes a Importar ({{ estado?.pendientes || 0 | number }})
+            </span>
+          </button>
+
+          <!-- Botón de Importación Directa -->
+          <button type="button" 
+                  class="btn-sync-action btn-sync-secondary" 
+                  (click)="ejecutarSincronizacion()" 
+                  [disabled]="sincronizando || !estado?.conexionOk || (estado?.pendientes || 0) === 0">
+            <span class="btn-icon" *ngIf="!sincronizando">📥</span>
+            <span class="btn-icon spinner" *ngIf="sincronizando">🔄</span>
+            <span class="btn-text">
+              {{ sincronizando ? 'Sincronizando...' : 'Importar Directamente' }}
+            </span>
+          </button>
+        </div>
+
+        <div class="sync-disclaimer">
+          <span>ℹ️ La sincronización es <strong>idempotente</strong>: solo inserta documentos nuevos y no duplicará comprobantes existentes.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TARJETA 2: MONITOR DE CONECTIVIDAD GESTIÓN -->
+    <section class="card-standard card-health">
+      <div class="card-header-flex">
+        <div class="card-title-group">
+          <span class="card-icon">🔌</span>
+          <div>
+            <h3 class="card-title">Salud de Enlace con Gestión</h3>
+            <p class="card-subtitle">PostgreSQL 172.16.15.41:9090 / gestion</p>
+          </div>
+        </div>
+
+        <span class="badge-health" [class.badge-health-ok]="estado?.conexionOk" [class.badge-health-fail]="!estado?.conexionOk">
+          {{ estado?.conexionOk ? 'EN LÍNEA' : 'DESCONECTADO' }}
+        </span>
+      </div>
+
+      <div class="health-details">
+        <p class="health-message" [class.health-message-ok]="estado?.conexionOk" [class.health-message-fail]="!estado?.conexionOk">
+          {{ estado?.mensajeConexion || 'Verificando conectividad...' }}
+        </p>
+        <div class="health-specs">
+          <div class="spec-item">
+            <span class="spec-label">Host:</span>
+            <span class="spec-value">172.16.15.41</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Puerto:</span>
+            <span class="spec-value">9090</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Base de datos:</span>
+            <span class="spec-value">gestion</span>
+          </div>
+          <div class="spec-item">
+            <span class="spec-label">Modo:</span>
+            <span class="spec-value">Sólo Lectura (Read-Only)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TARJETA 3: INTEGRIDAD Y CONTROL OPERATIVO -->
+    <section class="card-standard card-integrity">
+      <div class="card-header-flex">
+        <div class="card-title-group">
+          <span class="card-icon">📊</span>
+          <div>
+            <h3 class="card-title">Comprobantes en Débitos</h3>
+            <p class="card-subtitle">Distribución histórica por origen e integridad</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="integrity-grid">
+        <div class="integrity-stat">
+          <div class="stat-top">
+            <span class="stat-icon">🗄️</span>
+            <span class="stat-title">Origen Gestión (Auto)</span>
+          </div>
+          <span class="stat-num">{{ estado?.totalOrigenBdd || 0 | number }}</span>
+          <span class="stat-desc">Importados automáticamente (APP_AUTO_ADMIN / BDD)</span>
+        </div>
+
+        <div class="integrity-stat">
+          <div class="stat-top">
+            <span class="stat-icon">✍️</span>
+            <span class="stat-title">Origen Aplicación (APP)</span>
+          </div>
+          <span class="stat-num">{{ estado?.totalOrigenApp || 0 | number }}</span>
+          <span class="stat-desc">Cargados manualmente en sistema</span>
+        </div>
+
+        <div class="integrity-stat" [class.stat-warning]="(estado?.comprobantesSinAsociar || 0) > 0">
+          <div class="stat-top">
+            <span class="stat-icon">🔗</span>
+            <span class="stat-title">NC/RC Sin Asociar</span>
+          </div>
+          <span class="stat-num">{{ estado?.comprobantesSinAsociar || 0 | number }}</span>
+          <span class="stat-desc">Documentos crédito sin comprobante padre</span>
+          <div class="stat-actions">
+            <button type="button" class="btn-stat-export" 
+                    (click)="exportarSinAsociar()" 
+                    [disabled]="exportandoSinAsociar || (estado?.comprobantesSinAsociar || 0) === 0"
+                    title="Descargar lista completa en archivo Excel (.xlsx)">
+              <span *ngIf="!exportandoSinAsociar">📥 Exportar a Excel</span>
+              <span *ngIf="exportandoSinAsociar">⏳ Generando Excel...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TARJETA 4: SINCRONIZACIÓN DE PRESTACIONES (amb_liquidado) -->
+    <section class="card-hero card-prestaciones">
+      <div class="card-header-flex">
+        <div class="card-title-group">
+          <span class="card-icon">🩺</span>
+          <div>
+            <h2 class="card-title">Sincronización de Prestaciones Médicas (amb_liquidado)</h2>
+            <p class="card-subtitle">Extracción y migración automática de turnos ambulatorios e internaciones hacia la tabla amb_liquidado.</p>
+          </div>
+        </div>
+
+        <!-- Semáforo de Estado Prestaciones -->
+        <div class="sync-status-badge" 
+             [class.status-loading]="cargandoEstadoPrestaciones"
+             [class.status-ok]="!cargandoEstadoPrestaciones && estadoPrestaciones?.conexionOk && estadoPrestaciones?.pendientes === 0"
+             [class.status-pending]="!cargandoEstadoPrestaciones && estadoPrestaciones?.conexionOk && (estadoPrestaciones?.pendientes || 0) > 0"
+             [class.status-error]="!cargandoEstadoPrestaciones && !estadoPrestaciones?.conexionOk">
+          <span class="status-indicator-dot"></span>
+          <span class="status-indicator-text" *ngIf="cargandoEstadoPrestaciones">Consultando estado...</span>
+          <span class="status-indicator-text" *ngIf="!cargandoEstadoPrestaciones && !estadoPrestaciones?.conexionOk">Conexión Inactiva</span>
+          <span class="status-indicator-text" *ngIf="!cargandoEstadoPrestaciones && estadoPrestaciones?.conexionOk && estadoPrestaciones?.pendientes === 0">Al Día</span>
+          <span class="status-indicator-text" *ngIf="!cargandoEstadoPrestaciones && estadoPrestaciones?.conexionOk && (estadoPrestaciones?.pendientes || 0) > 0">
+            {{ estadoPrestaciones?.pendientes | number }} prestaciones pendientes
+          </span>
+        </div>
+      </div>
+
+      <!-- Métricas de Prestaciones -->
+      <div class="sync-metrics-grid prestaciones-metrics-grid">
+        <div class="metric-box">
+          <span class="metric-label">En Gestión (Año {{ anioSeleccionado }})</span>
+          <span class="metric-value">{{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.totalGestion || 0 | number) }}</span>
+          <span class="metric-hint">
+            Amb: {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.totalGestionAmbulatorios || 0 | number) }} | Int: {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.totalGestionInternados || 0 | number) }}
+          </span>
+        </div>
+
+        <div class="metric-box">
+          <span class="metric-label">En Débitos (Año {{ anioSeleccionado }})</span>
+          <span class="metric-value">{{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.totalDebitos || 0 | number) }}</span>
+          <span class="metric-hint">
+            Vinculadas: {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.vinculadasCabecera || 0 | number) }} | Huérfanas: {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.huerfanasCabecera || 0 | number) }}
+          </span>
+        </div>
+
+        <div class="metric-box">
+          <span class="metric-label">Pendientes de Importar</span>
+          <span class="metric-value highlight-warning" [class.highlight-ok]="!cargandoEstadoPrestaciones && estadoPrestaciones?.pendientes === 0">
+            {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.pendientes || 0 | number) }}
+          </span>
+          <span class="metric-hint">
+            Gestión Amb: {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.totalGestionAmbulatorios || 0 | number) }} | Int: {{ cargandoEstadoPrestaciones ? '...' : (estadoPrestaciones?.totalGestionInternados || 0 | number) }}
+          </span>
+        </div>
+
+        <div class="metric-box">
+          <span class="metric-label">Última Sincronización</span>
+          <span class="metric-value-small" *ngIf="!cargandoEstadoPrestaciones && estadoPrestaciones?.ultimaSincronizacion">
+            {{ estadoPrestaciones?.ultimaSincronizacion | date:'dd/MM/yyyy HH:mm' }}
+          </span>
+          <span class="metric-value-small text-muted" *ngIf="cargandoEstadoPrestaciones">
+            Consultando...
+          </span>
+          <span class="metric-value-small text-muted" *ngIf="!cargandoEstadoPrestaciones && !estadoPrestaciones?.ultimaSincronizacion">
+            Sin registros previos
+          </span>
+          <span class="metric-hint" *ngIf="!cargandoEstadoPrestaciones && estadoPrestaciones?.ultimoUsuario">
+            Por: <strong>{{ estadoPrestaciones?.ultimoUsuario }}</strong> (+{{ estadoPrestaciones?.ultimasInsertadas | number }} filas)
+          </span>
+        </div>
+      </div>
+
+      <!-- Barra de Progreso cuando sincroniza o reconcilia prestaciones -->
+      <div class="sync-progress-container" *ngIf="sincronizandoPrestaciones || reconciliandoPrestaciones">
+        <div class="progress-bar-animated bar-prestaciones"></div>
+        <p class="progress-caption" *ngIf="sincronizandoPrestaciones">
+          ⏳ Extrayendo prestaciones desde Gestión, vinculando con facturas en Débitos e insertando en amb_liquidado... Por favor espere.
+        </p>
+        <p class="progress-caption" *ngIf="reconciliandoPrestaciones">
+          ⏳ Reconciliando prestaciones huérfanas con facturas en cabecera... Por favor espere.
+        </p>
+      </div>
+
+      <!-- Acciones de Sincronización de Prestaciones -->
+      <div class="sync-actions-row">
+        <div class="actions-buttons-group">
+          <!-- Previsualizar Prestaciones -->
+          <button type="button" 
+                  class="btn-preview-action btn-preview-prestaciones" 
+                  (click)="abrirPrevisualizacionPrestaciones()" 
+                  [disabled]="sincronizandoPrestaciones || reconciliandoPrestaciones || !estadoPrestaciones?.conexionOk">
+            <span class="btn-icon">👁️</span>
+            <span class="btn-text">
+              Previsualizar Prestaciones ({{ estadoPrestaciones?.pendientes || 0 | number }})
+            </span>
+          </button>
+
+          <!-- Sincronizar Directamente -->
+          <button type="button" 
+                  class="btn-sync-action btn-sync-prestaciones" 
+                  (click)="ejecutarSincronizacionPrestaciones()" 
+                  [disabled]="sincronizandoPrestaciones || reconciliandoPrestaciones || !estadoPrestaciones?.conexionOk"
+                  title="Sincronizar delta de prestaciones médicas desde Gestión hacia amb_liquidado">
+            <span class="btn-icon" *ngIf="!sincronizandoPrestaciones">📥</span>
+            <span class="btn-icon spinner" *ngIf="sincronizandoPrestaciones">🔄</span>
+            <span class="btn-text">
+              {{ sincronizandoPrestaciones ? 'Sincronizando...' : ((estadoPrestaciones?.pendientes || 0) > 0 ? 'Importar Prestaciones Ahora (' + ((estadoPrestaciones?.pendientes || 0) | number) + ')' : 'Sincronizar Prestaciones') }}
+            </span>
+          </button>
+
+          <!-- Reconciliar Huérfanas -->
+          <button type="button" 
+                  class="btn-reconcile-action"
+                  (click)="reconciliarPrestaciones()" 
+                  [disabled]="sincronizandoPrestaciones || reconciliandoPrestaciones || (estadoPrestaciones?.huerfanasCabecera || 0) === 0"
+                  title="Buscar comprobantes en cabecera para vincular aquellas prestaciones de amb_liquidado que no tengan idcabecera asignado. Las internaciones en curso se vincularán automáticamente cuando Gestión emita sus facturas.">
+            <span class="btn-icon" *ngIf="!reconciliandoPrestaciones">🔗</span>
+            <span class="btn-icon spinner" *ngIf="reconciliandoPrestaciones">🔄</span>
+            <span class="btn-text">
+              {{ reconciliandoPrestaciones ? 'Reconciliando...' : 'Reconciliar Huérfanas (' + (estadoPrestaciones?.huerfanasCabecera || 0 | number) + ')' }}
+            </span>
+          </button>
+
+          <!-- Exportar Prestaciones a Excel desde Card -->
+          <button type="button" 
+                  class="btn-reconcile-action btn-export-excel-card"
+                  (click)="exportarPrestacionesDesdeCard()" 
+                  [disabled]="exportandoPrestaciones || (estadoPrestaciones?.pendientes || 0) === 0"
+                  title="Descargar lista de prestaciones pendientes a importar en archivo Excel (.xlsx)">
+            <span class="btn-icon" *ngIf="!exportandoPrestaciones">📊</span>
+            <span class="btn-icon spinner" *ngIf="exportandoPrestaciones">🔄</span>
+            <span class="btn-text">
+              {{ exportandoPrestaciones ? 'Generando Excel...' : 'Exportar a Excel' }}
+            </span>
+          </button>
+        </div>
+
+        <div class="sync-disclaimer">
+          <span>ℹ️ Migración <strong>idempotente</strong> por <code>idregistro</code> y tipo. Asigna automáticamente <code>idcabecera</code> si la factura ya existe en Débitos. Las internaciones huérfanas corresponden a pacientes asistenciales en curso o aún pendientes de facturación contable en Gestión.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TARJETA 5: ACCESOS RÁPIDOS A MÓDULOS -->
+    <section class="card-standard card-shortcuts">
+      <div class="card-header-flex">
+        <div class="card-title-group">
+          <span class="card-icon">🧭</span>
+          <div>
+            <h3 class="card-title">Accesos Rápidos del Sistema</h3>
+            <p class="card-subtitle">Navegación directa para perfil Administrador</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="shortcuts-grid">
+        <button type="button" class="btn-shortcut" (click)="irAAuditoria()">
+          <span class="shortcut-icon">🔍</span>
+          <div class="shortcut-text">
+            <strong>Buscador de Documentos</strong>
+            <span>Auditoría de prestaciones, débitos y refacturaciones</span>
+          </div>
+          <span class="shortcut-arrow">➔</span>
+        </button>
+
+        <button type="button" class="btn-shortcut" (click)="irADirectorio()">
+          <span class="shortcut-icon">📈</span>
+          <div class="shortcut-text">
+            <strong>Tablero de Control Financiero</strong>
+            <span>Métricas globales de deuda, financiadores y cobranza</span>
+          </div>
+          <span class="shortcut-arrow">➔</span>
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL DE PREVISUALIZACIÓN DE COMPROBANTES -->
+  <div class="modal-backdrop modal-preview-backdrop" *ngIf="mostrarModalPrevisualizacion" (click)="cerrarModalPrevisualizacion()">
+    <div class="modal-dialog modal-dialog-xl" (click)="$event.stopPropagation()">
+      <div class="modal-header header-preview">
+        <div class="modal-title-group">
+          <span class="modal-icon">👁️</span>
+          <div>
+            <h3 class="modal-title">Previsualización de Comprobantes a Importar</h3>
+            <span class="modal-subtitle">
+              Documentos de Gestión que aún no existen en la tabla cabecera (Año {{ anioSeleccionado }})
+            </span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="cerrarModalPrevisualizacion()">✕</button>
+      </div>
+
+      <!-- Estado de Carga -->
+      <div class="modal-body modal-preview-loading" *ngIf="cargandoPrevisualizacion">
+        <div class="preview-spinner"></div>
+        <p class="loading-preview-text">Analizando comprobantes en Gestión y detectando faltantes en Débitos...</p>
+        <span class="loading-preview-sub">Esto puede demorar unos segundos debido al volumen de documentos.</span>
+      </div>
+
+      <!-- Contenido de la Previsualización -->
+      <div class="modal-body modal-preview-body" *ngIf="!cargandoPrevisualizacion && datosPrevisualizacion">
+
+        <!-- Barra Superior de Métricas de la Muestra -->
+        <div class="preview-summary-bar">
+          <div class="summary-chip total-chip">
+            <span class="chip-label">Total a Importar:</span>
+            <span class="chip-value">{{ datosPrevisualizacion.totalPendientes | number }}</span>
+          </div>
+
+          <div class="summary-chips-types">
+            <button type="button" 
+                    class="type-chip" 
+                    [class.type-chip-active]="filtroTipoPrev === 'TODOS'"
+                    (click)="seleccionarTipo('TODOS')">
+              TODOS ({{ datosPrevisualizacion.totalPendientes | number }})
+            </button>
+            <button type="button" 
+                    class="type-chip" 
+                    *ngFor="let tipo of tiposDisponiblesPrev"
+                    [class.type-chip-active]="filtroTipoPrev === tipo"
+                    [class.chip-fc]="tipo === 'FC' || tipo === 'FAC' || tipo === 'FCE' || tipo === 'FR'"
+                    [class.chip-nc]="tipo === 'NC' || tipo === 'NCE'"
+                    [class.chip-rc]="tipo === 'RC' || tipo === 'REC' || tipo === 'RCA' || tipo === 'RCB' || tipo === 'OP'"
+                    [class.chip-nd]="tipo === 'ND' || tipo === 'NDE'"
+                    (click)="seleccionarTipo(tipo)">
+              {{ tipo }}: {{ datosPrevisualizacion.desglosePorTipo[tipo] | number }}
+            </button>
+          </div>
+
+          <div class="summary-totals-box">
+            <div class="tot-item">
+              <span class="tot-lbl">Total Debe:</span>
+              <span class="tot-val val-debe">${{ datosPrevisualizacion.totalDebe | number:'1.2-2' }}</span>
+            </div>
+            <div class="tot-item">
+              <span class="tot-lbl">Total Haber:</span>
+              <span class="tot-val val-haber">${{ datosPrevisualizacion.totalHaber | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buscador y Filtro Local -->
+        <div class="preview-search-row">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" 
+                   class="input-search-preview" 
+                   [(ngModel)]="filtroTextoPrev" 
+                   placeholder="Filtrar por comprobante, cobertura, o documento asociado...">
+            <button class="btn-clear-search" *ngIf="filtroTextoPrev" (click)="filtroTextoPrev = ''">✕</button>
+          </div>
+
+          <div class="preview-count-label">
+            Mostrando <strong>{{ comprobantesFiltrados.length }}</strong> de {{ datosPrevisualizacion.comprobantes.length }} en muestra
+            <span *ngIf="datosPrevisualizacion.totalPendientes > datosPrevisualizacion.comprobantes.length" class="text-muted">
+              (Total general: {{ datosPrevisualizacion.totalPendientes | number }})
+            </span>
+          </div>
+        </div>
+
+        <!-- Tabla de Comprobantes Candidatos -->
+        <div class="preview-table-container" [class.table-loading-active]="cargandoMuestraTipo">
+          <div class="table-loading-overlay" *ngIf="cargandoMuestraTipo">
+            <span class="mini-spinner"></span>
+            <span>Cargando muestra de tipo {{ filtroTipoPrev }}...</span>
+          </div>
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Comprobante</th>
+                <th>Fecha</th>
+                <th>Período</th>
+                <th>Financiador / Cobertura</th>
+                <th class="text-right">Debe</th>
+                <th class="text-right">Haber</th>
+                <th>Asociado (Padre)</th>
+                <th>Grupo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of comprobantesFiltrados">
+                <td>
+                  <span class="badge-tipo-doc" 
+                        [class.badge-fc]="c.tipo === 'FC' || c.tipo === 'FAC' || c.tipo === 'FCE' || c.tipo === 'FR'"
+                        [class.badge-nc]="c.tipo === 'NC' || c.tipo === 'NCE'"
+                        [class.badge-rc]="c.tipo === 'RC' || c.tipo === 'REC' || c.tipo === 'RCA' || c.tipo === 'RCB' || c.tipo === 'OP'"
+                        [class.badge-nd]="c.tipo === 'ND' || c.tipo === 'NDE'">
+                    {{ c.tipo }}
+                  </span>
+                </td>
+                <td class="font-mono font-bold">{{ c.comprobante }}</td>
+                <td>{{ c.fecha | date:'dd/MM/yyyy' }}</td>
+                <td>{{ c.periodo | date:'MM/yyyy' }}</td>
+                <td>
+                  <span class="cob-name" [title]="c.cobertura || ''">{{ c.cobertura || '-' }}</span>
+                  <span class="cob-code" *ngIf="c.codigoCobertura">({{ c.codigoCobertura }})</span>
+                </td>
+                <td class="text-right" [class.val-debe]="c.debe > 0">
+                  {{ c.debe > 0 ? ('$' + (c.debe | number:'1.2-2')) : '-' }}
+                </td>
+                <td class="text-right" [class.val-haber]="c.haber > 0">
+                  {{ c.haber > 0 ? ('$' + (c.haber | number:'1.2-2')) : '-' }}
+                </td>
+                <td>
+                  <span class="asoc-badge" *ngIf="c.comprobanteAsociado">🔗 {{ c.comprobanteAsociado }}</span>
+                  <span class="text-muted" *ngIf="!c.comprobanteAsociado">-</span>
+                </td>
+                <td>
+                  <span class="font-mono text-muted" *ngIf="c.asociadogrupo">#{{ c.asociadogrupo }}</span>
+                  <span class="text-muted" *ngIf="!c.asociadogrupo">-</span>
+                </td>
+              </tr>
+              <tr *ngIf="comprobantesFiltrados.length === 0">
+                <td colspan="9" class="td-empty">
+                  No se encontraron comprobantes que coincidan con el filtro ingresado.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal con Confirmación de Importación y Exportación a Excel -->
+      <div class="modal-footer footer-preview-flex">
+        <button type="button" class="btn-modal-cancel" (click)="cerrarModalPrevisualizacion()">
+          Cancelar
+        </button>
+
+        <div class="footer-actions-right">
+          <button type="button" 
+                  class="btn-modal-export-excel" 
+                  (click)="exportarComprobantesExcel()" 
+                  [disabled]="exportandoComprobantes || !datosPrevisualizacion || datosPrevisualizacion.totalPendientes === 0"
+                  title="Descargar todos los comprobantes candidatos a importar en archivo Excel (.xlsx)">
+            <span class="btn-icon">{{ exportandoComprobantes ? '⏳' : '📥' }}</span>
+            <span class="btn-text">
+              {{ exportandoComprobantes ? 'Generando Excel...' : 'Exportar a Excel (.xlsx)' }}
+            </span>
+          </button>
+
+          <button type="button" 
+                  class="btn-modal-confirm-import" 
+                  (click)="confirmarDesdePrevisualizacion()"
+                  [disabled]="cargandoPrevisualizacion || exportandoComprobantes || !datosPrevisualizacion || datosPrevisualizacion.totalPendientes === 0">
+            <span class="btn-icon">🚀</span>
+            <span class="btn-text">
+              Confirmar e Importar Ahora ({{ datosPrevisualizacion?.totalPendientes | number }} comprobantes)
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE RESULTADO DE SINCRONIZACIÓN -->
+  <div class="modal-backdrop" *ngIf="mostrarModalResultado" (click)="cerrarModalResultado()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header" [class.header-success]="resumenResultado?.exito" [class.header-error]="!resumenResultado?.exito">
+        <div class="modal-title-group">
+          <span class="modal-icon">{{ resumenResultado?.exito ? '✅' : '❌' }}</span>
+          <div>
+            <h3 class="modal-title">{{ resumenResultado?.exito ? 'Sincronización Exitosa' : 'Aviso de Sincronización' }}</h3>
+            <span class="modal-subtitle">Proceso finalizado para el año {{ resumenResultado?.anioProcesado }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="cerrarModalResultado()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-message">{{ resumenResultado?.mensaje }}</p>
+
+        <div class="results-summary-grid" *ngIf="resumenResultado?.exito">
+          <div class="summary-item">
+            <span class="summary-label">Leídos en Gestión:</span>
+            <span class="summary-value">{{ resumenResultado?.totalLeidosGestion }}</span>
+          </div>
+          <div class="summary-item item-highlight-success">
+            <span class="summary-label">Nuevos Insertados:</span>
+            <span class="summary-value">+{{ resumenResultado?.nuevosInsertados }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Omitidos (Ya Existían):</span>
+            <span class="summary-value">{{ resumenResultado?.existentesOmitidos }}</span>
+          </div>
+          <div class="summary-item item-highlight-info">
+            <span class="summary-label">Vínculos de la Tanda:</span>
+            <span class="summary-value">{{ resumenResultado?.asociadosActualizados }}</span>
+          </div>
+          <div class="summary-item item-highlight-success" *ngIf="resumenResultado?.huerfanosReconciliados && (resumenResultado?.huerfanosReconciliados || 0) > 0">
+            <span class="summary-label">Huérfanos Históricos Reconciliados:</span>
+            <span class="summary-value">+{{ resumenResultado?.huerfanosReconciliados }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Tiempo de Ejecución:</span>
+            <span class="summary-value">{{ resumenResultado?.duracionMs }} ms</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-primary" (click)="cerrarModalResultado()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE PREVISUALIZACIÓN DE PRESTACIONES (amb_liquidado) -->
+  <div class="modal-backdrop modal-preview-backdrop" *ngIf="mostrarModalPrevPrestaciones" (click)="cerrarModalPrevPrestaciones()">
+    <div class="modal-dialog modal-dialog-xl" (click)="$event.stopPropagation()">
+      <div class="modal-header header-preview header-prestaciones">
+        <div class="modal-title-group">
+          <span class="modal-icon">🩺</span>
+          <div>
+            <h3 class="modal-title">Previsualización de Prestaciones a Importar</h3>
+            <span class="modal-subtitle">
+              Turnos ambulatorios e internaciones de Gestión pendientes de migración a amb_liquidado (Año {{ anioSeleccionado }})
+            </span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="cerrarModalPrevPrestaciones()">✕</button>
+      </div>
+
+      <!-- Estado de Carga -->
+      <div class="modal-body modal-preview-loading" *ngIf="cargandoPrevPrestaciones">
+        <div class="preview-spinner spinner-purple"></div>
+        <p class="loading-preview-text">Extrayendo prestaciones desde Gestión y verificando existencia en Débitos...</p>
+        <span class="loading-preview-sub">Consultando tur_prestaciones e int_prestaciones. Esto puede tomar unos segundos.</span>
+      </div>
+
+      <!-- Contenido de la Previsualización -->
+      <div class="modal-body modal-preview-body" *ngIf="!cargandoPrevPrestaciones && datosPrevPrestaciones">
+
+        <!-- Barra Superior de Métricas -->
+        <div class="preview-summary-bar">
+          <div class="summary-chip total-chip total-chip-prestaciones">
+            <span class="chip-label">Total a Importar:</span>
+            <span class="chip-value">{{ datosPrevPrestaciones.totalPendientes | number }}</span>
+          </div>
+
+          <div class="summary-chips-types">
+            <button type="button" 
+                    class="type-chip" 
+                    [class.type-chip-active]="filtroTipoPrevPrestaciones === 'TODOS'"
+                    (click)="seleccionarTipoPrestacion('TODOS')">
+              TODOS ({{ datosPrevPrestaciones.totalPendientes | number }})
+            </button>
+            <button type="button" 
+                    class="type-chip chip-ambulatorios"
+                    [class.type-chip-active]="filtroTipoPrevPrestaciones === 'Ambulatorios'"
+                    (click)="seleccionarTipoPrestacion('Ambulatorios')">
+              🏥 Ambulatorios: {{ datosPrevPrestaciones.totalAmbulatorios | number }}
+            </button>
+            <button type="button" 
+                    class="type-chip chip-internados"
+                    [class.type-chip-active]="filtroTipoPrevPrestaciones === 'Internados'"
+                    (click)="seleccionarTipoPrestacion('Internados')">
+              🛏️ Internados: {{ datosPrevPrestaciones.totalInternados | number }}
+            </button>
+          </div>
+
+          <div class="summary-totals-box">
+            <div class="tot-item">
+              <span class="tot-lbl">Total Neto:</span>
+              <span class="tot-val highlight-neto">{{ datosPrevPrestaciones.sumaTotalNeto | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
+            </div>
+            <div class="tot-item">
+              <span class="tot-lbl">Total General:</span>
+              <span class="tot-val highlight-total">{{ datosPrevPrestaciones.sumaTotal | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Búsqueda y Filtro Rápido -->
+        <div class="preview-search-row">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" 
+                   class="input-search-preview" 
+                   [(ngModel)]="filtroTextoPrevPrestaciones" 
+                   placeholder="Buscar en la muestra por código, práctica, paciente, médico, factura o cobertura..." />
+            <button type="button" 
+                    class="btn-clear-search" 
+                    *ngIf="filtroTextoPrevPrestaciones" 
+                    (click)="filtroTextoPrevPrestaciones = ''">✕</button>
+          </div>
+          <div class="search-actions-group">
+            <div class="preview-count-label">
+              Mostrando <strong>{{ prestacionesFiltradas.length }}</strong> de {{ datosPrevPrestaciones.prestaciones.length }} prestaciones de la muestra
+            </div>
+            <button type="button" 
+                    class="btn-excel-export" 
+                    (click)="exportarPrestacionesExcel()" 
+                    [disabled]="exportandoPrestaciones || prestacionesFiltradas.length === 0"
+                    title="Exportar prestaciones visibles a archivo Excel (.xlsx)">
+              <span class="btn-icon">{{ exportandoPrestaciones ? '⏳' : '📊' }}</span>
+              <span>{{ exportandoPrestaciones ? 'Exportando...' : 'Exportar a Excel' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla de Prestaciones Candidatas -->
+        <div class="preview-table-container">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th style="width: 110px;">Tipo</th>
+                <th style="width: 95px;">Fecha</th>
+                <th>Paciente</th>
+                <th>Código / Descripción</th>
+                <th>Médico Prestador</th>
+                <th>Factura Gestión</th>
+                <th style="width: 110px;">Vínculo Débitos</th>
+                <th style="width: 105px; text-align: right;">Total Neto</th>
+                <th style="width: 105px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of prestacionesFiltradas">
+                <td>
+                  <span class="badge-tipo-prestacion" [class.badge-tipo-amb]="p.tiporegistro === 'Ambulatorios'" [class.badge-tipo-int]="p.tiporegistro === 'Internados'">
+                    {{ p.tiporegistro }}
+                  </span>
+                </td>
+                <td class="td-mono td-fecha">{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <div class="td-cell-lead">
+                    <span class="paciente-name">{{ p.paciente || '-' }}</span>
+                    <span class="paciente-carnet" *ngIf="p.carnet">Carnet: {{ p.carnet }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="td-cell-lead">
+                    <span class="codigo-mono">{{ p.codigo || '-' }}</span>
+                    <span class="descripcion-text" [title]="p.descripcion">{{ p.descripcion || '-' }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="medico-name">{{ p.medico || '-' }}</span>
+                </td>
+                <td>
+                  <span class="factura-badge" *ngIf="p.facturaComprobante">{{ p.facturaComprobante }}</span>
+                  <span class="text-muted" *ngIf="!p.facturaComprobante">Sin factura</span>
+                </td>
+                <td>
+                  <span class="badge-vinc" [class.badge-vinc-ok]="p.facturaExisteEnDebitos" [class.badge-vinc-warn]="!p.facturaExisteEnDebitos">
+                    {{ p.facturaExisteEnDebitos ? '✓ Enlazada' : '⚠️ Sin Factura' }}
+                  </span>
+                </td>
+                <td class="td-monto td-mono">{{ p.totalNeto | currency:'ARS':'symbol-narrow':'1.2-2' }}</td>
+                <td class="td-monto td-mono td-monto-bold">{{ p.total | currency:'ARS':'symbol-narrow':'1.2-2' }}</td>
+              </tr>
+              <tr *ngIf="prestacionesFiltradas.length === 0">
+                <td colspan="9" class="td-empty">
+                  No se encontraron prestaciones que coincidan con los filtros aplicados.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <!-- Footer Modal Prestaciones -->
+      <div class="modal-footer footer-preview-flex">
+        <button type="button" class="btn-modal-cancel" (click)="cerrarModalPrevPrestaciones()">
+          Cerrar
+        </button>
+
+        <div class="footer-actions-right">
+          <button type="button" 
+                  class="btn-modal-export-excel" 
+                  (click)="exportarPrestacionesExcel()" 
+                  [disabled]="exportandoPrestaciones || !prestacionesFiltradas.length"
+                  title="Descargar las prestaciones candidatas a importar en archivo Excel (.xlsx)">
+            <span class="btn-icon">{{ exportandoPrestaciones ? '⏳' : '📥' }}</span>
+            <span class="btn-text">
+              {{ exportandoPrestaciones ? 'Generando Excel...' : 'Exportar a Excel (.xlsx)' }}
+            </span>
+          </button>
+
+          <button type="button" 
+                  class="btn-modal-confirm-import btn-confirm-prestaciones" 
+                  (click)="confirmarDesdePrevisualizacionPrestaciones()"
+                  [disabled]="cargandoPrevPrestaciones || !datosPrevPrestaciones || datosPrevPrestaciones.totalPendientes === 0">
+            <span class="btn-icon">🚀</span>
+            <span class="btn-text">
+              Confirmar e Importar Ahora ({{ datosPrevPrestaciones?.totalPendientes | number }} prestaciones)
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE RESULTADO DE SINCRONIZACIÓN DE PRESTACIONES -->
+  <div class="modal-backdrop" *ngIf="mostrarModalResultadoPrestaciones" (click)="cerrarModalResultadoPrestaciones()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header" [class.header-success]="resumenResultadoPrestaciones?.exito" [class.header-error]="!resumenResultadoPrestaciones?.exito">
+        <div class="modal-title-group">
+          <span class="modal-icon">{{ resumenResultadoPrestaciones?.exito ? '✅' : '❌' }}</span>
+          <div>
+            <h3 class="modal-title">{{ resumenResultadoPrestaciones?.exito ? 'Sincronización de Prestaciones Exitosa' : 'Aviso de Sincronización' }}</h3>
+            <span class="modal-subtitle">Proceso de amb_liquidado finalizado para el año {{ resumenResultadoPrestaciones?.anioProcesado }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="cerrarModalResultadoPrestaciones()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-message">{{ resumenResultadoPrestaciones?.mensaje }}</p>
+
+        <div class="results-summary-grid" *ngIf="resumenResultadoPrestaciones?.exito">
+          <div class="summary-item">
+            <span class="summary-label">Leídas en Gestión:</span>
+            <span class="summary-value">{{ resumenResultadoPrestaciones?.totalLeidosGestion | number }}</span>
+          </div>
+          <div class="summary-item item-highlight-success">
+            <span class="summary-label">Nuevas Insertadas en amb_liquidado:</span>
+            <span class="summary-value">+{{ resumenResultadoPrestaciones?.nuevasInsertadas | number }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Omitidas (Ya Existían):</span>
+            <span class="summary-value">{{ resumenResultadoPrestaciones?.existentesOmitidas | number }}</span>
+          </div>
+          <div class="summary-item item-highlight-info">
+            <span class="summary-label">Vinculadas a Factura en Cabecera:</span>
+            <span class="summary-value">{{ resumenResultadoPrestaciones?.vinculadasCabecera | number }}</span>
+          </div>
+          <div class="summary-item item-highlight-warning" *ngIf="(resumenResultadoPrestaciones?.huerfanasSinCabecera || 0) > 0">
+            <span class="summary-label">Sin Factura en Cabecera (Huérfanas):</span>
+            <span class="summary-value">{{ resumenResultadoPrestaciones?.huerfanasSinCabecera | number }}</span>
+          </div>
+          <div class="summary-item item-highlight-success" *ngIf="(resumenResultadoPrestaciones?.huerfanasPreviasReconciliadas || 0) > 0">
+            <span class="summary-label">Huérfanas Previas Reconciliadas:</span>
+            <span class="summary-value">+{{ resumenResultadoPrestaciones?.huerfanasPreviasReconciliadas | number }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Tiempo de Ejecución:</span>
+            <span class="summary-value">{{ resumenResultadoPrestaciones?.duracionMs | number }} ms</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-primary" (click)="cerrarModalResultadoPrestaciones()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+</div>

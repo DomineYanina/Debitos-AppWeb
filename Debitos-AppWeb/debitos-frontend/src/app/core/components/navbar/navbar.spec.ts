@@ -88,6 +88,7 @@ describe('NavbarComponent', () => {
     expect(component.formatearNombreRol('OPERADOR')).toBe('Operador de Débitos');
     expect(component.formatearNombreRol('AUDITOR')).toBe('Auditor (Solo Consulta)');
     expect(component.formatearNombreRol('DIRECTORIO')).toBe('Directorio');
+    expect(component.formatearNombreRol('GERENTE_DEBITOS')).toBe('Gerente de Débitos');
     expect(component.formatearNombreRol('OTRO')).toBe('Otro');
   });
 
@@ -128,6 +129,14 @@ describe('NavbarComponent', () => {
 
     component.cambiarRolSimulado('OPERADOR');
     expect(router.navigate).toHaveBeenCalledWith(['/auditoria']);
+  });
+
+  it('cambiarRolSimulado NO debería redirigir si está en /directorio y simula GERENTE_DEBITOS', () => {
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/directorio');
+    authServiceSpy.obtenerRol.mockReturnValue('GERENTE_DEBITOS');
+
+    component.cambiarRolSimulado('GERENTE_DEBITOS');
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it('cambiarRolSimulado debería redirigir a /directorio si está en /auditoria y simula DIRECTORIO', () => {

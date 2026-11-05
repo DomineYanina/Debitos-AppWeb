@@ -27,4 +27,6 @@ public interface CabeceraBase {
     BigDecimal getHaber();
     Integer getIdEstado();
     String getComprobante();
+    String getComprobanteAsociado();
+    default Long getIdAsignacion() { return null; }
 }

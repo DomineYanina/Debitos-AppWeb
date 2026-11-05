@@ -45,11 +45,13 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
                NULL AS "comentarioPrevio", nc.comentarios AS comentarios,
                CAST(NULL AS INTEGER) AS "idNotaDeDebito",
                c_nc.numero AS "ncNumero", c_nc.tipo AS "ncTipo", c_nc.letra AS "ncLetra", c_nc.ptovta AS "ncPtoVenta", c_nc.fecha AS "ncFecha",
-               c.tipo AS "facturaOrigenTipo", c.letra AS "facturaOrigenLetra", c.ptovta AS "facturaOrigenPtovta", c.numero AS "facturaOrigenNumero"
+               c.tipo AS "facturaOrigenTipo", c.letra AS "facturaOrigenLetra", c.ptovta AS "facturaOrigenPtovta", c.numero AS "facturaOrigenNumero",
+               CASE WHEN alm.id_amb_liquidado IS NOT NULL THEN true ELSE false END AS "esManual"
         FROM amb_liquidado al
         INNER JOIN cabecera c ON al.idcabecera = c.id
         LEFT JOIN notadecredito nc ON al.id = nc.id_prestacion AND nc.id_notadedebito IS NULL
         LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
+        LEFT JOIN amb_liquidado_manual alm ON al.id = alm.id_amb_liquidado
         WHERE c.tipo IN :tipos AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero
         """, nativeQuery = true)
     List<PrestacionAuditoriaDTO> findPrestacionesPorFactura(@Param("tipos") java.util.Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);

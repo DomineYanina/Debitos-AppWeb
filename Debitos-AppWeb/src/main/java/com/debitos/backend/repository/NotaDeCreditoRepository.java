@@ -194,11 +194,13 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura", 
                ndPadre.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios,
                nc.id_notadedebito AS "idNotaDeDebito",
-               c_fc.tipo AS "facturaOrigenTipo", c_fc.letra AS "facturaOrigenLetra", c_fc.ptovta AS "facturaOrigenPtovta", c_fc.numero AS "facturaOrigenNumero"
+               c_fc.tipo AS "facturaOrigenTipo", c_fc.letra AS "facturaOrigenLetra", c_fc.ptovta AS "facturaOrigenPtovta", c_fc.numero AS "facturaOrigenNumero",
+               CASE WHEN alm.id_amb_liquidado IS NOT NULL THEN true ELSE false END AS "esManual"
         FROM notadecredito nc
         INNER JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
         LEFT JOIN notadedebito ndPadre ON nc.id_notadedebito = ndPadre.id
         JOIN amb_liquidado al ON nc.id_prestacion = al.id
+        LEFT JOIN amb_liquidado_manual alm ON al.id = alm.id_amb_liquidado
         INNER JOIN cabecera c_fc ON al.idcabecera = c_fc.id
         WHERE c_nc.tipo IN :tipos AND UPPER(c_nc.letra) = UPPER(:letra) AND c_nc.ptovta = :ptovta AND c_nc.numero = :numero
         """, nativeQuery = true)

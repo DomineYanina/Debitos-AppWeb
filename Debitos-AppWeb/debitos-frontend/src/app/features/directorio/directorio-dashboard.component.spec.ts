@@ -68,7 +68,7 @@ describe('DirectorioDashboardComponent', () => {
   ];
 
   const mockMotivos = [
-    { motivo: 'Falta de autorización', montoTotal: 60000, porcentaje: 60, cantidadCasos: 12 },
+    { motivo: 'Falta de autorización/Token', montoTotal: 60000, porcentaje: 60, cantidadCasos: 12 },
     { motivo: 'Falta firma médico', montoTotal: 40000, porcentaje: 40, cantidadCasos: 8 }
   ];
 
@@ -80,7 +80,8 @@ describe('DirectorioDashboardComponent', () => {
       obtenerTotales: vi.fn().mockReturnValue(of(mockTotales)),
       obtenerGrupos: vi.fn().mockReturnValue(of(mockGrupos)),
       obtenerMotivos: vi.fn().mockReturnValue(of(mockMotivos)),
-      getTiemposCobranza: vi.fn().mockReturnValue(of({ dsoGlobal: 150, cobroRealPromedio: 0, saldoTotalMora: 10000, detalles: [] }))
+      getTiemposCobranza: vi.fn().mockReturnValue(of({ dsoGlobal: 150, cobroRealPromedio: 0, saldoTotalMora: 10000, detalles: [] })),
+      getRecibosNoImputados: vi.fn().mockReturnValue(of([]))
     };
 
     await TestBed.configureTestingModule({
@@ -141,10 +142,10 @@ describe('DirectorioDashboardComponent', () => {
     component.solapaActiva = 'motivos';
     component.codigoCoberturaSeleccionada = 'OSDE';
     component.tipoDocSeleccionado = 'FCE';
-    component.navegarADetalleMotivo('Falta de autorización');
+    component.navegarADetalleMotivo('Falta de autorización/Token');
 
     expect(router.navigate).toHaveBeenCalledWith(
-      ['/directorio/motivo', encodeURIComponent('Falta de autorización')],
+      ['/directorio/motivo', encodeURIComponent('Falta de autorización/Token')],
       {
         queryParams: {
           codigoCobertura: 'OSDE',
@@ -346,7 +347,7 @@ describe('DirectorioDashboardComponent', () => {
   });
 
   it('cargarTiposDocumento y cargarCoberturas deberían capturar errores', () => {
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
     directorioServiceSpy.obtenerTiposDocumento.mockReturnValue(throwError(() => new Error('err')));
     directorioServiceSpy.obtenerCoberturas.mockReturnValue(throwError(() => new Error('err')));
 
@@ -598,7 +599,7 @@ describe('DirectorioDashboardComponent', () => {
 
       component.cargarDesempenoOperativo();
 
-      expect(directorioServiceSpy.getDesempenoGlobal).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15');
+      expect(directorioServiceSpy.getDesempenoGlobal).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15', 'periodo');
     });
 
     it('cargarOperadores debería llamar a getDesempenoOperadores con rango de fechas y poblar operadoresDatos', () => {
@@ -620,10 +621,135 @@ describe('DirectorioDashboardComponent', () => {
 
       component.cargarOperadores();
 
-      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15');
+      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15', 'periodo');
       expect(component.operadoresDatos.length).toBe(1);
       expect(component.operadoresDatos[0].operador).toBe('Operador Test');
       expect(component.cargandoOperadores).toBe(false);
+    });
+
+    it('debería calcular correctamente los totales consolidados de operadores', () => {
+      component.operadoresDatos = [
+        {
+          operador: 'Operador 1',
+          cantidadRegistros: 10,
+          debitosAceptados: 3000,
+          debitosRefacturados: 7000,
+          totalTramitado: 10000,
+          ticketPromedio: 1000,
+          tasaRecupero: 70,
+          motivos: []
+        },
+        {
+          operador: 'Operador 2',
+          cantidadRegistros: 5,
+          debitosAceptados: 2000,
+          debitosRefacturados: 3000,
+          totalTramitado: 5000,
+          ticketPromedio: 1000,
+          tasaRecupero: 60,
+          motivos: []
+        }
+      ];
+
+      expect(component.totalCasosOperadores).toBe(15);
+      expect(component.totalMontoDebitadoOperadores).toBe(15000);
+      expect(component.totalAceptadosOperadores).toBe(5000);
+      expect(component.totalRefacturadosOperadores).toBe(10000);
+      expect(component.ticketPromedioGlobalOperadores).toBe(1000);
+      expect(component.tasaRecuperoGlobalOperadores).toBeCloseTo(66.666, 2);
+    });
+
+    it('debería manejar casos de borde (cero casos / montos) en totales consolidados de operadores sin error', () => {
+      component.operadoresDatos = [];
+      expect(component.totalCasosOperadores).toBe(0);
+      expect(component.totalMontoDebitadoOperadores).toBe(0);
+      expect(component.totalAceptadosOperadores).toBe(0);
+      expect(component.totalRefacturadosOperadores).toBe(0);
+      expect(component.ticketPromedioGlobalOperadores).toBe(0);
+      expect(component.tasaRecuperoGlobalOperadores).toBe(0);
+    });
+
+    it('debería calcular correctamente la suma de financiadores de analistas (4 + 11 = 15)', () => {
+      component.analistasDatos = [
+        {
+          analista: 'FernandaCortes',
+          cantidadFinanciadores: 11,
+          cantidadRegistros: 447,
+          debitosAceptados: 27260585,
+          debitosRefacturados: 72137469,
+          totalTramitado: 107859656,
+          ticketPromedio: 241297,
+          tasaRecupero: 66.8,
+          diferencia: 8461603,
+          motivos: []
+        },
+        {
+          analista: 'PaolaBurniego',
+          cantidadFinanciadores: 4,
+          cantidadRegistros: 81,
+          debitosAceptados: 2489699,
+          debitosRefacturados: 20420919,
+          totalTramitado: 23121790,
+          ticketPromedio: 285454,
+          tasaRecupero: 88.3,
+          diferencia: 211172,
+          motivos: []
+        }
+      ];
+
+      expect(component.totalFinanciadoresAnalistas).toBe(15);
+      expect(component.totalCasosAnalistas).toBe(528);
+      expect(component.totalMontoDebitadoAnalistas).toBe(130981446);
+    });
+
+    it('debería calcular correctamente los totales consolidados de médicos', () => {
+      component.medicosDatos = [
+        {
+          medico: 'ROSSINI GUILLERMO JULIAN',
+          cantidadRegistros: 26,
+          debitosAceptados: 6683109.29,
+          debitosRefacturados: 0,
+          totalTramitado: 6683109.29,
+          ticketPromedio: 257042.67,
+          tasaRecupero: 0,
+          motivos: [
+            { motivo: 'Falta documentación', casos: 10, montoDebitado: 2000000, aceptado: 2000000, refacturado: 0, financiadores: [] },
+            { motivo: 'Fuera de término', casos: 16, montoDebitado: 4683109.29, aceptado: 4683109.29, refacturado: 0, financiadores: [] }
+          ]
+        },
+        {
+          medico: 'REILLY JORGE ALBERTO',
+          cantidadRegistros: 4,
+          debitosAceptados: 108577.93,
+          debitosRefacturados: 5737707.87,
+          totalTramitado: 5846285.80,
+          ticketPromedio: 1461571.45,
+          tasaRecupero: 98.1,
+          motivos: [
+            { motivo: 'Falta documentación', casos: 2, montoDebitado: 3000000, aceptado: 0, refacturado: 3000000, financiadores: [] },
+            { motivo: 'Falta autorización', casos: 2, montoDebitado: 2846285.80, aceptado: 108577.93, refacturado: 2737707.87, financiadores: [] }
+          ]
+        }
+      ];
+
+      expect(component.totalMotivosMedicos).toBe(4); // 2 motivos + 2 motivos = 4 asignaciones en total
+      expect(component.totalCasosMedicos).toBe(30);
+      expect(component.totalMontoDebitadoMedicos).toBeCloseTo(12529395.09, 2);
+      expect(component.totalAceptadosMedicos).toBeCloseTo(6791687.22, 2);
+      expect(component.totalRefacturadosMedicos).toBeCloseTo(5737707.87, 2);
+      expect(component.ticketPromedioGlobalMedicos).toBeCloseTo(12529395.09 / 30, 2);
+      expect(component.tasaRecuperoGlobalMedicos).toBeCloseTo((5737707.87 * 100) / 12529395.09, 2);
+    });
+
+    it('debería manejar casos de borde (cero casos / montos) en totales consolidados de médicos sin error', () => {
+      component.medicosDatos = [];
+      expect(component.totalMotivosMedicos).toBe(0);
+      expect(component.totalCasosMedicos).toBe(0);
+      expect(component.totalMontoDebitadoMedicos).toBe(0);
+      expect(component.totalAceptadosMedicos).toBe(0);
+      expect(component.totalRefacturadosMedicos).toBe(0);
+      expect(component.ticketPromedioGlobalMedicos).toBe(0);
+      expect(component.tasaRecuperoGlobalMedicos).toBe(0);
     });
 
     it('los selectores de cobertura y tipo de comprobante deben estar deshabilitados en la solapa analistas', () => {
@@ -1271,7 +1397,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esFiltroFechaDeshabilitado).toBe(false);
 
       component.solapaActiva = 'tiempos-cobranza';
-      expect(component.esFiltroFechaDeshabilitado).toBe(true);
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
 
       component.solapaActiva = 'matriz-cobranzas';
       expect(component.esFiltroFechaDeshabilitado).toBe(true);
@@ -1326,24 +1452,43 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.tooltipFiltroFecha).toContain('fecha de emisión cronológica');
 
       component.solapaActiva = 'tiempos-cobranza';
-      expect(component.tooltipFiltroFecha).toContain('no filtra por rango de fechas');
+      expect(component.tooltipFiltroFecha).toContain('período prestacional o fecha de emisión');
     });
 
     it('debería invocar getTiemposCobranza con la cobertura seleccionada y sin filtro de tipoDoc al estar deshabilitado en tiempos-cobranza', () => {
       component.solapaActiva = 'tiempos-cobranza';
       component.codigoCoberturaSeleccionada = 'OSDE';
       component.tipoDocSeleccionado = 'FC';
+      component.fechaDesde = '2026-01-01';
+      component.fechaHasta = '2026-06-30';
 
       component.aplicarFiltros();
 
       expect(directorioServiceSpy.getTiemposCobranza).toHaveBeenCalledWith(
         'OSDE',
         undefined,
-        undefined,
-        undefined
+        '2026-01-01',
+        '2026-06-30'
       );
       expect(component.tiemposCobranzaDatos?.dsoGlobal).toBe(150);
       expect(component.tiemposCobranzaDatos?.saldoTotalMora).toBe(10000);
+    });
+
+    it('debería invocar getTiemposCobranza respetando las fechas seleccionadas en el dashboard con piso en 2025-01-01', () => {
+      component.solapaActiva = 'tablero';
+      component.codigoCoberturaSeleccionada = 'TODAS';
+      component.tipoDocSeleccionado = 'FCA';
+      component.fechaDesde = '2026-09-01';
+      component.fechaHasta = '2026-09-30';
+
+      component.seleccionarSolapa('tiempos-cobranza');
+
+      expect(directorioServiceSpy.getTiemposCobranza).toHaveBeenCalledWith(
+        undefined,
+        undefined,
+        '2026-09-01',
+        '2026-09-30'
+      );
     });
   });
 
@@ -1501,5 +1646,325 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esSolapaValida('')).toBe(false);
     });
   });
+
+  describe('Permisos y Solapas para rol GERENTE_DEBITOS', () => {
+    it('debería identificar si el usuario es GERENTE_DEBITOS', () => {
+      vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'GERENTE_DEBITOS');
+      expect(component.esGerenteDebitos).toBe(true);
+    });
+
+    it('debería restringir exactamente tablero, cuenta-corriente, tiempos-cobranza y matriz-cobranzas para GERENTE_DEBITOS', () => {
+      vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'GERENTE_DEBITOS');
+
+      // Solapas excluidas
+      expect(component.esSolapaPermitida('tablero')).toBe(false);
+      expect(component.esSolapaPermitida('cuenta-corriente')).toBe(false);
+      expect(component.esSolapaPermitida('tiempos-cobranza')).toBe(false);
+      expect(component.esSolapaPermitida('matriz-cobranzas')).toBe(false);
+
+      // Solapas permitidas
+      expect(component.esSolapaPermitida('motivos')).toBe(true);
+      expect(component.esSolapaPermitida('analistas')).toBe(true);
+      expect(component.esSolapaPermitida('bucles')).toBe(true);
+      expect(component.esSolapaPermitida('usuarios-carga')).toBe(true);
+      expect(component.esSolapaPermitida('medicos')).toBe(true);
+      expect(component.esSolapaPermitida('trazabilidad')).toBe(true);
+    });
+
+    it('debería permitir todas las solapas si el usuario no es GERENTE_DEBITOS', () => {
+      vi.spyOn(component.authService, 'hasRole').mockReturnValue(false);
+
+      expect(component.esSolapaPermitida('tablero')).toBe(true);
+      expect(component.esSolapaPermitida('cuenta-corriente')).toBe(true);
+      expect(component.esSolapaPermitida('tiempos-cobranza')).toBe(true);
+      expect(component.esSolapaPermitida('matriz-cobranzas')).toBe(true);
+      expect(component.esSolapaPermitida('motivos')).toBe(true);
+    });
+
+    it('seleccionarSolapa debería cambiar a motivos si se intenta seleccionar una solapa prohibida siendo GERENTE_DEBITOS', () => {
+      vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'GERENTE_DEBITOS');
+      component.solapaActiva = 'motivos';
+
+      component.seleccionarSolapa('tablero');
+      expect(component.solapaActiva).toBe('motivos');
+
+      component.seleccionarSolapa('cuenta-corriente');
+      expect(component.solapaActiva).toBe('motivos');
+
+      component.seleccionarSolapa('tiempos-cobranza');
+      expect(component.solapaActiva).toBe('motivos');
+
+      component.seleccionarSolapa('matriz-cobranzas');
+      expect(component.solapaActiva).toBe('motivos');
+
+      component.seleccionarSolapa('analistas');
+      expect(component.solapaActiva).toBe('analistas');
+    });
+  });
+
+  describe('Permisos y Solapas para rol TESORERIA', () => {
+    it('debería identificar si el usuario es TESORERIA', () => {
+      vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'TESORERIA');
+      expect(component.esTesoreria).toBe(true);
+    });
+
+    it('debería permitir únicamente tablero, cuenta-corriente, tiempos-cobranza y matriz-cobranzas para TESORERIA', () => {
+      vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'TESORERIA');
+
+      // Solapas permitidas
+      expect(component.esSolapaPermitida('tablero')).toBe(true);
+      expect(component.esSolapaPermitida('cuenta-corriente')).toBe(true);
+      expect(component.esSolapaPermitida('tiempos-cobranza')).toBe(true);
+      expect(component.esSolapaPermitida('matriz-cobranzas')).toBe(true);
+
+      // Solapas excluidas
+      expect(component.esSolapaPermitida('motivos')).toBe(false);
+      expect(component.esSolapaPermitida('analistas')).toBe(false);
+      expect(component.esSolapaPermitida('bucles')).toBe(false);
+      expect(component.esSolapaPermitida('usuarios-carga')).toBe(false);
+      expect(component.esSolapaPermitida('medicos')).toBe(false);
+      expect(component.esSolapaPermitida('trazabilidad')).toBe(false);
+    });
+
+    it('seleccionarSolapa debería cambiar a tablero si se intenta seleccionar una solapa no permitida siendo TESORERIA', () => {
+      vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'TESORERIA');
+      component.solapaActiva = 'tablero';
+
+      component.seleccionarSolapa('motivos');
+      expect(component.solapaActiva).toBe('tablero');
+
+      component.seleccionarSolapa('analistas');
+      expect(component.solapaActiva).toBe('tablero');
+
+      component.seleccionarSolapa('cuenta-corriente');
+      expect(component.solapaActiva).toBe('cuenta-corriente');
+    });
+  });
+
+  describe('Selector unificado de Período / Fecha en todas las solapas', () => {
+    it('debería sincronizar las fechas globales al cambiar entre criterios', () => {
+      component.ccPeriodoDesde = '2026-08-01';
+      component.ccPeriodoHasta = '2026-08-31';
+      component.ccFechaDesde = '2026-07-01';
+      component.ccFechaHasta = '2026-07-31';
+
+      component.seleccionarCriterioCc('fecha');
+      expect(component.criterioFechaCc).toBe('fecha');
+      expect(component.fechaDesde).toBe('2026-07-01');
+      expect(component.fechaHasta).toBe('2026-07-31');
+
+      component.seleccionarCriterioCc('periodo');
+      expect(component.criterioFechaCc).toBe('periodo');
+      expect(component.fechaDesde).toBe('2026-08-01');
+      expect(component.fechaHasta).toBe('2026-08-31');
+    });
+
+    it('irAlMesAnterior debería decrementar el mes del criterio activo y sincronizar fechaDesde/fechaHasta', () => {
+      component.criterioFechaCc = 'periodo';
+      component.ccPeriodoDesde = '2026-08-01';
+      component.ccPeriodoHasta = '2026-08-31';
+
+      component.irAlMesAnterior();
+
+      expect(component.ccPeriodoDesde).toBe('2026-07-01');
+      expect(component.ccPeriodoHasta).toBe('2026-07-31');
+      expect(component.fechaDesde).toBe('2026-07-01');
+      expect(component.fechaHasta).toBe('2026-07-31');
+    });
+
+    it('irAlMesSiguiente debería incrementar el mes del criterio activo y sincronizar fechaDesde/fechaHasta', () => {
+      component.criterioFechaCc = 'fecha';
+      component.ccFechaDesde = '2026-07-01';
+      component.ccFechaHasta = '2026-07-31';
+
+      component.irAlMesSiguiente();
+
+      expect(component.ccFechaDesde).toBe('2026-08-01');
+      expect(component.ccFechaHasta).toBe('2026-08-31');
+      expect(component.fechaDesde).toBe('2026-08-01');
+      expect(component.fechaHasta).toBe('2026-08-31');
+    });
+
+    it('aplicarFiltros debería usar las fechas del criterio activo y recargar el dashboard', () => {
+      const spyDashboard = vi.spyOn(component, 'cargarDashboard');
+      component.criterioFechaCc = 'fecha';
+      component.ccFechaDesde = '2026-05-01';
+      component.ccFechaHasta = '2026-05-31';
+
+      component.aplicarFiltros();
+
+      expect(component.fechaDesde).toBe('2026-05-01');
+      expect(component.fechaHasta).toBe('2026-05-31');
+      expect(spyDashboard).toHaveBeenCalled();
+    });
+
+    it('debería identificar solapas con filtro de fecha deshabilitado', () => {
+      component.solapaActiva = 'tiempos-cobranza';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'matriz-cobranzas';
+      expect(component.esFiltroFechaDeshabilitado).toBe(true);
+
+      component.solapaActiva = 'tablero';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'motivos';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'analistas';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+
+      component.solapaActiva = 'cuenta-corriente';
+      expect(component.esFiltroFechaDeshabilitado).toBe(false);
+    });
+
+    it('cargarCuentaCorriente debería excluir comprobantes de tipo OP y conservar FC, NC, ND y RC', () => {
+      directorioServiceSpy.getCuentaCorrienteTresNiveles = vi.fn().mockReturnValue(of([
+        {
+          financiador: 'OSDE',
+          facturacionFc: 10000,
+          incrementosNd: 0,
+          debitosNc: 2000,
+          refacturacionNd: 1500,
+          cobranzasRc: 5000,
+          saldo: 4500,
+          periodos: [
+            {
+              periodo: '2026-05',
+              facturacionFc: 10000,
+              incrementosNd: 0,
+              debitosNc: 2000,
+              refacturacionNd: 1500,
+              cobranzasRc: 5000,
+              saldo: 4500,
+              comprobantes: [
+                {
+                  tipo: 'FC',
+                  comprobante: 'FC A0030-00001001',
+                  fecha: '2026-05-10',
+                  facturacionFc: 10000,
+                  incrementosNd: 0,
+                  debitosNc: 2000,
+                  refacturacionNd: 1500,
+                  cobranzasRc: 5000,
+                  saldo: 4500,
+                  hijos: [
+                    { tipo: 'FC', comprobante: 'FC A0030-00001001', fecha: '2026-05-10', facturacionFc: 10000, incrementosNd: 0, debitosNc: 0, refacturacionNd: 0, cobranzasRc: 0, saldo: 10000 },
+                    { tipo: 'NC', comprobante: 'NC A0001-00002001', fecha: '2026-05-15', facturacionFc: 0, incrementosNd: 0, debitosNc: 2000, refacturacionNd: 0, cobranzasRc: 0, saldo: -2000 },
+                    { tipo: 'ND', comprobante: 'ND A0001-00003001', fecha: '2026-05-20', facturacionFc: 0, incrementosNd: 0, debitosNc: 0, refacturacionNd: 1500, cobranzasRc: 0, saldo: 1500 },
+                    { tipo: 'RC', comprobante: '4001', fecha: '2026-05-25', facturacionFc: 0, incrementosNd: 0, debitosNc: 0, refacturacionNd: 0, cobranzasRc: 5000, saldo: -5000 },
+                    { tipo: 'OP', comprobante: 'OP A0001-00005001', fecha: '2026-05-26', facturacionFc: 0, incrementosNd: 0, debitosNc: 0, refacturacionNd: 0, cobranzasRc: 3000, saldo: -3000 }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]));
+
+      component.cargarCuentaCorriente();
+
+      const hijos = component.cuentaCorrienteDatos[0].periodos[0].comprobantes[0].hijos || [];
+      expect(hijos.length).toBe(4);
+      expect(hijos.some(h => h.tipo === 'OP')).toBe(false);
+      expect(hijos.map(h => h.tipo)).toEqual(['FC', 'NC', 'ND', 'RC']);
+    });
+
+    it('el footer de paginación de Cuenta Corriente debe renderizarse fuera de .table-responsive y mantenerse siempre visible', () => {
+      directorioServiceSpy.getCuentaCorrienteTresNiveles = vi.fn().mockReturnValue(of([
+        {
+          financiador: 'OSDE',
+          facturacionFc: 10000,
+          incrementosNd: 0,
+          debitosNc: 0,
+          refacturacionNd: 0,
+          cobranzasRc: 0,
+          saldo: 10000,
+          periodos: []
+        }
+      ]));
+
+      component.solapaActiva = 'cuenta-corriente';
+      component.subSolapaCc = 'imputados';
+      component.cargarCuentaCorriente();
+      fixture.detectChanges();
+
+      const tableResponsive = fixture.nativeElement.querySelector('.table-responsive');
+      const paginationBar = fixture.nativeElement.querySelector('.trazabilidad-pagination-bar');
+
+      expect(tableResponsive).toBeTruthy();
+      expect(paginationBar).toBeTruthy();
+      expect(tableResponsive.contains(paginationBar)).toBe(false);
+    });
+
+    it('cargarMedicos debería enviar criterioFechaCc a getDesempenoMedicos', () => {
+      directorioServiceSpy.getDesempenoMedicos = vi.fn().mockReturnValue(of([]));
+      component.fechaDesde = '2026-06-01';
+      component.fechaHasta = '2026-06-30';
+      component.criterioFechaCc = 'periodo';
+
+      component.cargarMedicos();
+
+      expect(directorioServiceSpy.getDesempenoMedicos).toHaveBeenCalledWith(
+        '2026-06',
+        '2026-06-01',
+        '2026-06-30',
+        'periodo'
+      );
+
+      component.criterioFechaCc = 'fecha';
+      component.cargarMedicos();
+
+      expect(directorioServiceSpy.getDesempenoMedicos).toHaveBeenCalledWith(
+        '2026-06',
+        '2026-06-01',
+        '2026-06-30',
+        'fecha'
+      );
+    });
+
+    it('getters de totales consolidados de Cuenta Corriente deben retornar 0 cuando la lista está vacía', () => {
+      component.cuentaCorrienteDatos = [];
+      expect(component.totalFacturacionCc).toBe(0);
+      expect(component.totalIncrementosCc).toBe(0);
+      expect(component.totalDebitosCc).toBe(0);
+      expect(component.totalRefacturacionCc).toBe(0);
+      expect(component.totalCobranzasCc).toBe(0);
+      expect(component.totalSaldoCc).toBe(0);
+    });
+
+    it('getters de totales consolidados de Cuenta Corriente deben sumar con precisión todos los financiadores', () => {
+      component.cuentaCorrienteDatos = [
+        {
+          financiador: 'OSDE',
+          facturacionFc: 100000,
+          incrementosNd: 5000,
+          debitosNc: 20000,
+          refacturacionNd: 15000,
+          cobranzasRc: 80000,
+          saldo: 20000,
+          periodos: []
+        },
+        {
+          financiador: 'SWISS MEDICAL',
+          facturacionFc: 200000,
+          incrementosNd: 10000,
+          debitosNc: 30000,
+          refacturacionNd: 25000,
+          cobranzasRc: 150000,
+          saldo: 55000,
+          periodos: []
+        }
+      ];
+
+      expect(component.totalFacturacionCc).toBe(300000);
+      expect(component.totalIncrementosCc).toBe(15000);
+      expect(component.totalDebitosCc).toBe(50000);
+      expect(component.totalRefacturacionCc).toBe(40000);
+      expect(component.totalCobranzasCc).toBe(230000);
+      expect(component.totalSaldoCc).toBe(75000);
+    });
+  });
 });
+
 

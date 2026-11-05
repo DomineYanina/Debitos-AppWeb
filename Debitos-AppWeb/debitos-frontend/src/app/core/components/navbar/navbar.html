@@ -3,7 +3,7 @@
 
     <!-- Lado Izquierdo: Branding & Rol -->
     <div class="navbar-left">
-      <a routerLink="/auditoria" class="navbar-brand">
+      <a [routerLink]="rolActual === 'ADMIN' ? '/admin' : (rolActual === 'DIRECTORIO' ? '/directorio' : '/auditoria')" class="navbar-brand">
         <span class="brand-title">Débitos</span>
       </a>
 
@@ -17,10 +17,13 @@
     <!-- Centro: Navegación & Selector de Simulación (para Admin) -->
     <div class="navbar-center">
       <nav class="nav-links">
+        <a routerLink="/admin" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'ADMIN'">
+          <span class="nav-label">Administración</span>
+        </a>
         <a routerLink="/auditoria" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual !== 'DIRECTORIO'">
           <span class="nav-label">Buscador de Documentos</span>
         </a>
-        <a routerLink="/directorio" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'DIRECTORIO' || rolActual === 'ADMIN'">
+        <a routerLink="/directorio" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'DIRECTORIO' || rolActual === 'ADMIN' || rolActual === 'GERENTE_DEBITOS' || rolActual === 'TESORERIA'">
           <span class="nav-label">Tablero de Control</span>
         </a>
       </nav>

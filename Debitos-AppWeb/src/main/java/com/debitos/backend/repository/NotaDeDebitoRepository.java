@@ -40,7 +40,7 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
         SELECT nd.* FROM notadedebito nd
         LEFT JOIN cabecera c ON nd.idcabecera = c.id
         WHERE nd.id_notadecredito = :idNotaCredito
-        ORDER BY CASE WHEN c.origen <> 'BDD' THEN 0 ELSE 1 END, nd.id DESC
+        ORDER BY CASE WHEN c.origen NOT IN ('BDD', 'APP_AUTO_ADMIN') THEN 0 ELSE 1 END, nd.id DESC
         LIMIT 1
         """, nativeQuery = true)
     Optional<NotaDeDebito> findByNotaDeCreditoPadreId(@Param("idNotaCredito") Integer idNotaCredito);
@@ -101,7 +101,7 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
      * Las NDs con cabecera de origen "BDD" son importaciones automáticas del financiador
      * y no bloquean la creación de una nueva ND por parte del usuario.
      */
-    @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd WHERE nd.notaDeCreditoPadre.id = :notaDeCreditoPadreId AND nd.tipoNd = :tipoNd AND nd.cabecera.origen <> 'BDD'")
+    @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd WHERE nd.notaDeCreditoPadre.id = :notaDeCreditoPadreId AND nd.tipoNd = :tipoNd AND nd.cabecera.origen NOT IN ('BDD', 'APP_AUTO_ADMIN')")
     boolean existsByNotaDeCreditoPadreIdAndTipoNdAndOrigenNoBDD(@Param("notaDeCreditoPadreId") Integer notaDeCreditoPadreId, @Param("tipoNd") String tipoNd);
 
     @Query("SELECT COUNT(nd) > 0 FROM NotaDeDebito nd JOIN nd.cabecera c WHERE c.tiporegistro = :tipoRegistro AND nd.tipoNd = :tipoNd")
@@ -118,12 +118,14 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
                nc.prestacionenglobante AS "prestacionEnglobante",
                nc.motivoderefactura AS "motivoRefactura", nc.importederefactura AS "importeRefactura",
                nc1.comentarios AS "comentarioPrevio", nc.comentarios AS comentarios,
-               c_fc.tipo AS "facturaOrigenTipo", c_fc.letra AS "facturaOrigenLetra", c_fc.ptovta AS "facturaOrigenPtovta", c_fc.numero AS "facturaOrigenNumero"
+               c_fc.tipo AS "facturaOrigenTipo", c_fc.letra AS "facturaOrigenLetra", c_fc.ptovta AS "facturaOrigenPtovta", c_fc.numero AS "facturaOrigenNumero",
+               CASE WHEN alm.id_amb_liquidado IS NOT NULL THEN true ELSE false END AS "esManual"
         FROM notadedebito nd 
         INNER JOIN cabecera c_nd ON nd.idcabecera = c_nd.id
         RIGHT JOIN notadecredito nc1 ON nd.id_notadecredito = nc1.id 
         LEFT JOIN notadecredito nc ON nd.id = nc.id_notadedebito 
         LEFT JOIN amb_liquidado al ON al.id = nc1.id_prestacion 
+        LEFT JOIN amb_liquidado_manual alm ON al.id = alm.id_amb_liquidado
         LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
         WHERE c_nd.tipo IN :tipos AND UPPER(c_nd.letra) = UPPER(:letra) AND c_nd.ptovta = :ptovta AND c_nd.numero = :numero
         """, nativeQuery = true)

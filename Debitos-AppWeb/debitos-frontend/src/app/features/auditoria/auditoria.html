@@ -173,19 +173,20 @@
       <div class="contador-box contador-debitado has-tooltip"
         data-tooltip="Suma del importe neto de todos los débitos cargados">
         <span class="contador-label">Total Debitado:</span>
-        <span class="contador-valor text-danger">{{ totalDebitado | currency }}</span>
+        <span class="contador-valor text-danger">{{ totalDebitado | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
       </div>
       <div class="contador-box contador-refacturar has-tooltip"
         data-tooltip="Monto total habilitado para una nueva refacturación">
         <span class="contador-label">Total a Refacturar:</span>
-        <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency }}</span>
+        <span class="contador-valor text-success">{{ totalRefacturarRechazado | currency:'ARS':'symbol-narrow':'1.2-2'
+          }}</span>
       </div>
       <button class="btn-clear-rows has-tooltip" (click)="limpiarFilasSeleccionadas()"
         [disabled]="registrosSeleccionados.length === 0"
         data-tooltip="Quita las filas seleccionadas actualmente de la vista">Limpiar Filas</button>
     </div>
 
-    <div class="filtro-columna botonera-acciones-container">
+    <div class="filtro-columna botonera-acciones-container" [class.botonera-factura]="esTipoFactura()">
       <div class="indicador-guardado" *ngIf="modificadosSinGuardar.size > 0"
         style="color: #d9534f; font-weight: bold; background: #fdf2f2; padding: 8px 12px; border-radius: 5px; border: 1px solid #d9534f;">
         ⚠️ {{ modificadosSinGuardar.size }} registro(s) sin guardar
@@ -193,20 +194,28 @@
       <button class="btn-exportar" (click)="exportarAExcel()" [disabled]="prestacionesFiltradas.length === 0">Exportar
         Excel</button>
 
-      <!-- Se oculta si es NC o si la Nota de Crédito ya fue creada -->
-      <button class="btn-accion-doc btn-guardar" *ngIf="!esTipoNotaCredito() && !notaDeCreditoYaCreada"
+      <!-- Se oculta si es NC o si la Nota de Crédito ya fue creada, o si no tiene permiso de edición -->
+      <button class="btn-accion-doc btn-guardar"
+        *ngIf="puedeEditarPrestaciones && !esTipoNotaCredito() && !notaDeCreditoYaCreada"
         (click)="guardarParcialmente()">Guardar parcialmente</button>
 
       <!-- Botón NC: visible si es FC o ND -->
       <!-- Regla 1: en FC, siempre visible (múltiples NC permitidas).
            En ND, se oculta si ya existe una NC hija (relación 1:1). -->
-      <ng-container *ngIf="esTipoFactura() || esTipoNotaDebito()">
+      <ng-container *ngIf="puedeEditarPrestaciones && (esTipoFactura() || esTipoNotaDebito())">
         <!-- Botón para importar prestaciones de otra factura a la NC actual -->
         <button class="btn-accion-doc btn-importar-prestacion"
           *ngIf="esTipoFactura() && prestaciones.length > 0 && idEstadoActual !== 2" type="button"
           (click)="abrirModalImportarPrestaciones()"
           title="Incorporar prestaciones de otra Factura a esta Nota de Crédito">
           Importar de otra Factura
+        </button>
+
+        <!-- Boton para agregar prestacion externa a la NC actual -->
+        <button class="btn-accion-doc btn-agregar-externa" *ngIf="esTipoFactura() && idEstadoActual !== 2" type="button"
+          (click)="abrirModalPrestacionExterna()"
+          title="Agregar una prestación externa no realizada en la clínica para incluir en la Nota de Crédito">
+          + Agregar prestación externa
         </button>
 
         <!-- Para FC: siempre visible; para ND: visible solo si aún no hay NC hija -->
@@ -216,7 +225,7 @@
       </ng-container>
 
       <!-- Botón ND: visible para cualquier NC -->
-      <ng-container *ngIf="esTipoNotaCredito()">
+      <ng-container *ngIf="puedeEditarPrestaciones && esTipoNotaCredito()">
         <button class="btn-accion-doc btn-nueva-nota" (click)="abrirModalNuevaNota('ND')">Nueva
           Nota de Débito</button>
         <button class="btn-accion-doc btn-nueva-nota-iva" *ngIf="tieneAjusteIvaNcConjunta && !tieneNdAjusteIvaCreada"
@@ -259,7 +268,7 @@
 
   <section class="grilla-section" style="position: relative;">
     <div class="acciones-masivas-bar"
-      *ngIf="registrosSeleccionados.length > 0 && !cargando && tipoBusquedaRealizada !== 'NC'">
+      *ngIf="puedeEditarPrestaciones && registrosSeleccionados.length > 0 && !cargando && tipoBusquedaRealizada !== 'NC'">
       <div class="info-seleccion">
         <span class="badge">{{ registrosSeleccionados.length }}</span> filas seleccionadas
       </div>
@@ -361,20 +370,22 @@
           data-tooltip="Suma de las cantidades de todas las prestaciones visibles">Total Cantidad: {{ totalCantidad
           }}</span>
         <span class="total-neto-item has-tooltip"
-          data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal | currency
+          data-tooltip="Sumatoria del importe neto de todas las prestaciones">Total Neto: {{ totalNetoGlobal |
+          currency:'ARS':'symbol-narrow':'1.2-2'
           }}</span>
         <span class="total-coseguro-item has-tooltip"
           data-tooltip="Total del coseguro a cargo del paciente en este documento">Coseguro: {{ totalCoseguroGlobal |
-          currency }}</span>
+          currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
         <span class="total-facturado-item has-tooltip"
-          data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado | currency
+          data-tooltip="Monto total facturado incluyendo neto y coseguro">Total Facturado: {{ totalFacturado |
+          currency:'ARS':'symbol-narrow':'1.2-2'
           }}</span>
         <span class="total-debitado-item text-danger has-tooltip" *ngIf="tipoBusquedaRealizada !== 'NC'"
           data-tooltip="Suma total de los importes debitados en este documento">Total Debitado: {{ totalDebitado |
-          currency }}</span>
+          currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
         <span class="total-refacturado-item text-success has-tooltip"
           data-tooltip="Monto total aprobado para refacturación en este período">Total Refacturado: {{
-          totalRefacturarRechazado | currency }}</span>
+          totalRefacturarRechazado | currency:'ARS':'symbol-narrow':'1.2-2' }}</span>
       </div>
     </div>
 
@@ -467,9 +478,9 @@
                         }}-{{ ('00000000' + cabeceraSeleccionadaObjeto.numero).slice(-8) }}</div>
                       <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
                       <div *ngIf="cabeceraSeleccionadaObjeto.haber"><strong>Monto Haber:</strong> {{
-                        cabeceraSeleccionadaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
+                        cabeceraSeleccionadaObjeto.haber | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
                       <div *ngIf="cabeceraSeleccionadaObjeto.debe"><strong>Monto Debe:</strong> {{
-                        cabeceraSeleccionadaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
+                        cabeceraSeleccionadaObjeto.debe | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
                       <div *ngIf="cabeceraSeleccionadaObjeto.cobertura"><strong>Cobertura:</strong> {{
                         cabeceraSeleccionadaObjeto.cobertura }}</div>
                     </div>
@@ -611,7 +622,7 @@
                     <div
                       style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a; height: 42px; box-sizing: border-box; display: flex; align-items: center;">
                       <strong>Monto de IVA:</strong>&nbsp;{{ (nuevaNotaForm.get('ivaNc')?.value != null ?
-                      nuevaNotaForm.get('ivaNc')?.value : 0) | currency:'USD':'symbol':'1.2-2' }}
+                      nuevaNotaForm.get('ivaNc')?.value : 0) | currency:'ARS':'symbol-narrow':'1.2-2' }}
                     </div>
                   </div>
 
@@ -629,7 +640,7 @@
                       <div style="margin-bottom: 10px; font-size: 0.9rem; color: #334155;">
                         <div style="margin-bottom: 6px;">
                           <strong>Monto Neto (Prestaciones "Iva mal facturado"):</strong> {{ montoNetoPrestacional |
-                          currency:'USD':'symbol':'1.2-2' }}
+                          currency:'ARS':'symbol-narrow':'1.2-2' }}
                         </div>
                       </div>
 
@@ -653,7 +664,7 @@
 
                       <div
                         style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a;">
-                        <strong>Monto de IVA:</strong> {{ montoIvaCalculado | currency:'USD':'symbol':'1.2-2' }}
+                        <strong>Monto de IVA:</strong> {{ montoIvaCalculado | currency:'ARS':'symbol-narrow':'1.2-2' }}
                       </div>
                     </div>
                   </div>
@@ -702,7 +713,7 @@
                     <div
                       style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a; height: 42px; box-sizing: border-box; display: flex; align-items: center;">
                       <strong>Monto de IVA:</strong>&nbsp;{{ (nuevaNotaForm.get('ivaNc')?.value != null ?
-                      nuevaNotaForm.get('ivaNc')?.value : 0) | currency:'USD':'symbol':'1.2-2' }}
+                      nuevaNotaForm.get('ivaNc')?.value : 0) | currency:'ARS':'symbol-narrow':'1.2-2' }}
                     </div>
                   </div>
                 </ng-container>
@@ -809,9 +820,9 @@
                         cabeceraSeleccionadaNdIvaObjeto.numero).slice(-8) }}</div>
                       <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
                       <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.debe"><strong>Monto Debe:</strong> {{
-                        cabeceraSeleccionadaNdIvaObjeto.debe | currency:'USD':'symbol':'1.2-2' }}</div>
+                        cabeceraSeleccionadaNdIvaObjeto.debe | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
                       <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.haber"><strong>Monto Haber:</strong> {{
-                        cabeceraSeleccionadaNdIvaObjeto.haber | currency:'USD':'symbol':'1.2-2' }}</div>
+                        cabeceraSeleccionadaNdIvaObjeto.haber | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
                       <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.cobertura"><strong>Cobertura:</strong> {{
                         cabeceraSeleccionadaNdIvaObjeto.cobertura }}</div>
                     </div>
@@ -870,7 +881,7 @@
                     Neto ($) <span *ngIf="modoIngresoManualNdIva">*</span></label>
                   <div *ngIf="!modoIngresoManualNdIva"
                     style="width: 100%; height: 38px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; background: #ffffff; color: #334155; font-weight: 500; box-sizing: border-box; display: flex; align-items: center;">
-                    {{ netoAjusteIva | currency:'USD':'symbol':'1.2-2' }}
+                    {{ netoAjusteIva | currency:'ARS':'symbol-narrow':'1.2-2' }}
                   </div>
                   <input *ngIf="modoIngresoManualNdIva" type="number" formControlName="netoNd" class="input-grilla"
                     placeholder="Ej: 1000.00" step="0.01" min="0.01"
@@ -904,7 +915,7 @@
 
                 <div
                   style="margin-top: 12px; padding: 10px; background: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe; font-size: 0.9rem; color: #1e3a8a; height: 42px; box-sizing: border-box; display: flex; align-items: center;">
-                  <strong>Monto de IVA:</strong>&nbsp;{{ montoIvaNdCalculado | currency:'USD':'symbol':'1.2-2' }}
+                  <strong>Monto de IVA:</strong>&nbsp;{{ montoIvaNdCalculado | currency:'ARS':'symbol-narrow':'1.2-2' }}
                 </div>
               </div>
             </form>
@@ -1062,17 +1073,17 @@
                       class="badge-estado badge-estado-finalizado">Finalizado</span>
                   </div>
                 </td>
-                <td>{{ fila.letra }}</td>
-                <td>{{ fila.puntoVenta }}</td>
+                <td>{{ esRecibo(fila) ? '' : fila.letra }}</td>
+                <td>{{ (esRecibo(fila) || fila.puntoVenta == null) ? '' : fila.puntoVenta }}</td>
                 <td>{{ fila.numero }}</td>
                 <td>{{ fila.fechaDocumento }}</td>
-                <td>{{ fila.montoNeto != null ? (fila.montoNeto | currency:'USD':'symbol':'1.2-2') : '' }}</td>
+                <td>{{ fila.montoNeto != null ? (fila.montoNeto | currency:'ARS':'symbol-narrow':'1.2-2') : '' }}</td>
                 <!-- Columnas IVA: solo se muestran con valor para filas de ajuste IVA -->
                 <td style="text-align: center; color: #475569;">
                   {{ fila.porcentajeIva != null ? (fila.porcentajeIva + '%') : '' }}
                 </td>
                 <td style="color: #475569;">
-                  {{ fila.montoIva != null ? (fila.montoIva | currency:'USD':'symbol':'1.2-2') : '' }}
+                  {{ fila.montoIva != null ? (fila.montoIva | currency:'ARS':'symbol-narrow':'1.2-2') : '' }}
                 </td>
                 <!-- Columna Acciones -->
                 <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: center;">
@@ -1109,6 +1120,130 @@
       </div>
       <div class="modal-footer" style="justify-content: center;">
         <button class="btn-modal-cancelar" (click)="cerrarModalHistorialComprobantes()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AGREGAR PRESTACION EXTERNA -->
+  <div class="modal-overlay" *ngIf="modalPrestacionExternaVisible">
+    <div class="modal-box modal-externa-box">
+      <div class="modal-header">
+        <div>
+          <h3>Agregar Prestación Externa</h3>
+          <p class="subtitulo-modal" style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+            Registrá una prestación debitada que no fue realizada ni liquidada en la clínica para incluir en la Nota de
+            Crédito.
+          </p>
+        </div>
+        <button type="button" class="btn-cerrar-modal" (click)="cerrarModalPrestacionExterna()"
+          aria-label="Cerrar modal" title="Cerrar">✕</button>
+      </div>
+
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto; padding: 16px 20px;">
+        <form [formGroup]="prestacionExternaForm" (ngSubmit)="confirmarPrestacionExterna()" class="form-modal">
+
+          <!-- FILA 1: Paciente y Carnet -->
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input" style="flex: 2;">
+              <label>Paciente <span style="color: #ef4444;">*</span></label>
+              <input type="text" formControlName="paciente" class="input-grilla"
+                placeholder="Nombre completo del paciente">
+            </div>
+            <div class="form-grupo-input" style="flex: 1;">
+              <label>Carnet / Afiliado</label>
+              <input type="text" formControlName="carnet" class="input-grilla" placeholder="N° de carnet">
+            </div>
+          </div>
+
+          <!-- FILA 2: Cobertura y Plan -->
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input" style="flex: 2;">
+              <label>Cobertura / Obra Social <span style="color: #ef4444;">*</span></label>
+              <input type="text" formControlName="cobertura" class="input-grilla" placeholder="Ej: OSDE, PAMI, etc.">
+            </div>
+            <div class="form-grupo-input" style="flex: 1;">
+              <label>Plan</label>
+              <input type="text" formControlName="plan" class="input-grilla" placeholder="Plan">
+            </div>
+          </div>
+
+          <!-- FILA 3: Codigo y Descripcion -->
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input" style="flex: 1;">
+              <label>Código Prestación <span style="color: #ef4444;">*</span></label>
+              <input type="text" formControlName="codigo" class="input-grilla" placeholder="Ej: 420101">
+            </div>
+            <div class="form-grupo-input" style="flex: 2;">
+              <label>Descripción Prestación <span style="color: #ef4444;">*</span></label>
+              <input type="text" formControlName="descripcion" class="input-grilla"
+                placeholder="Descripción de la prestación">
+            </div>
+          </div>
+
+          <!-- FILA 4: Fecha, Cantidad e Importe Debitado -->
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input">
+              <label>Fecha Prestación <span style="color: #ef4444;">*</span></label>
+              <input type="date" formControlName="fecha" class="input-grilla">
+            </div>
+            <div class="form-grupo-input" style="max-width: 90px;">
+              <label>Cantidad <span style="color: #ef4444;">*</span></label>
+              <input type="number" formControlName="cantidad" class="input-grilla" min="1" step="1">
+            </div>
+            <div class="form-grupo-input">
+              <label>Importe Debitado <span style="color: #ef4444;">*</span></label>
+              <input type="number" formControlName="importeDebitado" class="input-grilla" placeholder="0.00" step="0.01"
+                min="0.01">
+            </div>
+          </div>
+
+          <!-- FILA 5: Debito Aceptado -->
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input" style="flex: 1;">
+              <label>Débito Aceptado <span style="color: #ef4444;">*</span></label>
+              <select formControlName="debitoAceptado" class="input-grilla">
+                <option value="NO">NO (Genera Refactura)</option>
+                <option value="SI">SI (Acepta el débito)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- FILA 6: Motivo Debito y Motivo Refactura -->
+          <div class="form-grupo-fila">
+            <div class="form-grupo-input" style="flex: 1;">
+              <label>Motivo Débito (Opcional)</label>
+              <select formControlName="motivoDebito" class="input-grilla">
+                <option value="">(Seleccionar en grilla o aquí)</option>
+                <optgroup *ngFor="let cat of listaMotivosAgrupados" [label]="cat.categoria">
+                  <option *ngFor="let m of cat.motivos" [value]="m">{{ m }}</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-grupo-input" style="flex: 1;">
+              <label>Motivo Refactura (Opcional)</label>
+              <select formControlName="motivoRefactura" class="input-grilla">
+                <option value="">(Seleccionar en grilla o aquí)</option>
+                <optgroup *ngFor="let cat of listaMotivosRefacturaAgrupados" [label]="cat.categoria">
+                  <option *ngFor="let m of cat.motivos" [value]="m">{{ m }}</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <div
+            style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 14px; margin-top: 10px; font-size: 0.82rem; color: #1e40af;">
+            ℹ️ El importe de refactura será igual al importe debitado. Al presionar <strong>"Agregar a la
+              grilla"</strong> se incorporará como fila externa no clínica y podrás continuar editando sus valores antes
+            de generar la Nota de Crédito.
+          </div>
+
+          <div class="modal-footer" style="padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0;">
+            <button type="button" class="btn-modal-cancelar" (click)="cerrarModalPrestacionExterna()">Cancelar</button>
+            <button type="submit" class="btn-modal-aceptar" [disabled]="prestacionExternaForm.invalid">
+              + Agregar a la grilla
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

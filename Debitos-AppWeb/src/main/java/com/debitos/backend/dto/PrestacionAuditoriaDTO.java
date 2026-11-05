@@ -50,4 +50,7 @@ public interface PrestacionAuditoriaDTO {
     String getFacturaOrigenLetra();
     Integer getFacturaOrigenPtovta();
     Integer getFacturaOrigenNumero();
+
+    // Indica si la prestación fue agregada manualmente (externa a la clínica)
+    Boolean getEsManual();
 }

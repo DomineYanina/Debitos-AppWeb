@@ -47,7 +47,7 @@ describe('DirectorioMotivoDetalleComponent', () => {
       ptovtaDoc: 1,
       numeroDoc: 302,
       fechaDoc: '2026-08-22',
-      motivoDebito: 'Falta de autorización',
+      motivoDebito: 'Falta de autorización/Token',
       comentariosDebito: '',
       importeDebitado: 8000,
       debitoAceptado: false
@@ -67,7 +67,7 @@ describe('DirectorioMotivoDetalleComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(convertToParamMap({ motivoId: encodeURIComponent('Falta de autorización') })),
+            paramMap: of(convertToParamMap({ motivoId: encodeURIComponent('Falta de autorización/Token') })),
             queryParamMap: of(convertToParamMap({
               codigoCobertura: 'OSDE',
               tipoDoc: 'FCE',
@@ -89,10 +89,10 @@ describe('DirectorioMotivoDetalleComponent', () => {
 
   it('debería crearse y cargar prestaciones para el motivo indicado', () => {
     expect(component).toBeTruthy();
-    expect(component.motivo).toBe('Falta de autorización');
+    expect(component.motivo).toBe('Falta de autorización/Token');
     expect(component.codigoCobertura).toBe('OSDE');
     expect(component.tipoDoc).toBe('FCE');
-    expect(directorioServiceSpy.obtenerMotivoDetalle).toHaveBeenCalledWith('Falta de autorización', 'OSDE', 'FCE', '2026-08-01', '2026-08-31');
+    expect(directorioServiceSpy.obtenerMotivoDetalle).toHaveBeenCalledWith('Falta de autorización/Token', 'OSDE', 'FCE', '2026-08-01', '2026-08-31');
     expect(component.prestaciones.length).toBe(2);
     expect(component.totalMontoDebitado).toBe(12500);
     expect(component.totalCasos).toBe(2);

@@ -161,7 +161,9 @@ export class LoginComponent implements OnInit {
 
           // 2. Redirigimos según el rol
           const userRole = (respuesta.rol || '').toUpperCase();
-          if (userRole === 'DIRECTORIO') {
+          if (userRole === 'ADMIN') {
+            this.router.navigate(['/admin']);
+          } else if (userRole === 'DIRECTORIO') {
             this.router.navigate(['/directorio']);
           } else {
             this.router.navigate(['/auditoria']);

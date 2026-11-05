@@ -26,6 +26,9 @@ CREATE INDEX IF NOT EXISTS idx_notadedebito_id_notadecredito ON notadedebito (id
 
 -- 4. Índices en 'amb_liquidado' y 'nd_ajustedeiva' para subconsultas y trazabilidad
 CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idcabecera ON amb_liquidado (idcabecera);
+CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idregistro ON amb_liquidado (idregistro);
+CREATE INDEX IF NOT EXISTS idx_amb_liquidado_fecha ON amb_liquidado (fecha);
+CREATE INDEX IF NOT EXISTS idx_amb_liquidado_tiporegistro ON amb_liquidado (tiporegistro);
 CREATE INDEX IF NOT EXISTS idx_nd_ajustedeiva_idcabecera ON nd_ajustedeiva (idcabecera);
 CREATE INDEX IF NOT EXISTS idx_nc_ajustedeiva_idcabecera ON nc_ajustedeiva (idcabecera);
 

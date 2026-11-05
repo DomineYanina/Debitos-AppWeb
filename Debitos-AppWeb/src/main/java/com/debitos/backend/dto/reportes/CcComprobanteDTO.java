@@ -21,6 +21,7 @@ public class CcComprobanteDTO {
     private Long id;
     private Long asociado;
     private Long asociadogrupo;
+    private String comprobanteAsociado;
     private Integer nivel = 0;
     private String origenTipo;
     private java.util.List<CcComprobanteDTO> hijos = new java.util.ArrayList<>();
@@ -64,6 +65,14 @@ public class CcComprobanteDTO {
 
     public void setAsociadogrupo(Long asociadogrupo) {
         this.asociadogrupo = asociadogrupo;
+    }
+
+    public String getComprobanteAsociado() {
+        return comprobanteAsociado;
+    }
+
+    public void setComprobanteAsociado(String comprobanteAsociado) {
+        this.comprobanteAsociado = comprobanteAsociado;
     }
 
     public Integer getNivel() {

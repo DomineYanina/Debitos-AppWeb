@@ -51,6 +51,9 @@ class AuditoriaServiceTest {
     @Mock
     private NotificacionService notificacionService;
 
+    @Mock
+    private AmbLiquidadoManualRepository ambLiquidadoManualRepository;
+
     @InjectMocks
     private AuditoriaService auditoriaService;
 
@@ -2165,6 +2168,244 @@ class AuditoriaServiceTest {
                 auditoriaService.procesarNuevaNotaDebitoAjusteIva(req)
         );
         assertTrue(ex.getMessage().contains("Ya existe una Nota de Débito por Ajuste de IVA para la Nota de Crédito seleccionada"));
+    }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - Comprobante suelto asciende a la FC raíz e incluye documentos vinculados por asociado")
+    void testObtenerHistorialComprobantes_documentoSueltoVinculadoPorAsociado() {
+        Cabecera fc = new Cabecera();
+        fc.setId(100L);
+        fc.setTipo("FC");
+        fc.setLetra("A");
+        fc.setPtovta(1);
+        fc.setNumero(1000);
+        fc.setGrupo(100L);
+        fc.setAsociadogrupo(100L);
+        fc.setFecha(LocalDate.of(2026, 9, 1));
+        fc.setDebe(new BigDecimal("10000.00"));
+
+        Cabecera nc = new Cabecera();
+        nc.setId(101L);
+        nc.setTipo("NC");
+        nc.setLetra("A");
+        nc.setPtovta(1);
+        nc.setNumero(2000);
+        nc.setGrupo(100L);
+        nc.setAsociadogrupo(100L);
+        nc.setAsociado(100L);
+        nc.setFecha(LocalDate.of(2026, 9, 5));
+        nc.setHaber(new BigDecimal("2000.00"));
+
+        Cabecera ndSuelto = new Cabecera();
+        ndSuelto.setId(102L);
+        ndSuelto.setTipo("ND");
+        ndSuelto.setLetra("A");
+        ndSuelto.setPtovta(1);
+        ndSuelto.setNumero(3000);
+        ndSuelto.setGrupo(999L);
+        ndSuelto.setAsociadogrupo(999L);
+        ndSuelto.setAsociado(101L);
+        ndSuelto.setFecha(LocalDate.of(2026, 9, 10));
+        ndSuelto.setDebe(new BigDecimal("500.00"));
+
+        // Se busca directamente la ND suelta
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(3000)))
+                .thenReturn(List.of(ndSuelto));
+
+        // Ascenso por asociado: ND (102) -> NC (101) -> FC (100)
+        when(cabeceraRepository.findById(101L)).thenReturn(Optional.of(nc));
+        when(cabeceraRepository.findById(100L)).thenReturn(Optional.of(fc));
+
+        // Búsqueda por grupo de la FC raíz
+        when(cabeceraRepository.findByAsociadogrupo(100L)).thenReturn(List.of(fc, nc));
+
+        // Descenso transitivo por asociado: encuentra la ND suelta
+        when(cabeceraRepository.findByAsociadoIn(anyCollection()))
+                .thenReturn(List.of(ndSuelto))
+                .thenReturn(Collections.emptyList());
+
+        when(ambLiquidadoRepository.findTotalesFacturaMadre("A", 1, 1000))
+                .thenReturn(new Object[][]{{"2026-09", "10000.00", "0.00"}});
+        when(ambLiquidadoRepository.findByCabecera_Id(100L)).thenReturn(Collections.emptyList());
+        when(notaDeCreditoRepository.findByCabecera_Id(101L)).thenReturn(Collections.emptyList());
+        when(notaDeDebitoRepository.findByCabecera_Id(102L)).thenReturn(Collections.emptyList());
+        when(ndAjusteDeIvaRepository.findByCabecera_Id(101L)).thenReturn(Optional.empty());
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("ND", "A", 1, 3000);
+
+        assertNotNull(historial);
+        assertEquals(3, historial.size(), "El historial debe incluir a la FC raíz, la NC y la ND suelta");
+
+        // Fila 0: FC raíz
+        FilaHistorialDTO filaFc = historial.get(0);
+        assertEquals("FC", filaFc.getTipoDocumento());
+        assertEquals(0, filaFc.getNivel());
+
+        // Fila 1: NC vinculada a la FC
+        FilaHistorialDTO filaNc = historial.get(1);
+        assertEquals("NC", filaNc.getTipoDocumento());
+        assertEquals(1, filaNc.getNivel());
+        assertEquals("FC A 0001-00001000", filaNc.getComprobanteAsociado());
+
+        // Fila 2: ND suelta vinculada a la NC
+        FilaHistorialDTO filaNd = historial.get(2);
+        assertEquals("ND", filaNd.getTipoDocumento());
+        assertEquals(2, filaNd.getNivel());
+        assertEquals("NC A 0001-00002000", filaNd.getComprobanteAsociado());
+    }
+
+    @Test
+    @DisplayName("Guardado Parcial - Prestación externa manual genera AmbLiquidado y AmbLiquidadoManual")
+    void testProcesarGuardadoParcial_PrestacionManual() {
+        GuardarParcialRequest request = new GuardarParcialRequest();
+        request.setDocumentoOrigen("FC");
+        request.setLetra("A");
+        request.setPtovta(1);
+        request.setNumero(1000);
+        request.setUsuario("usuario.manual");
+
+        RegistroAuditoriaDTO regManual = new RegistroAuditoriaDTO();
+        regManual.setId(-99);
+        regManual.setEsManual(true);
+        regManual.setPaciente("PACIENTE EXTERNO PRUEBA");
+        regManual.setCobertura("OSDE");
+        regManual.setCodigo("420101");
+        regManual.setDescripcion("CONSULTA MEDICA EXTERNA");
+        regManual.setFecha("2026-05-10");
+        regManual.setCantidad(1);
+        regManual.setImporteDebitado(new BigDecimal("15000.00"));
+        regManual.setImporteRefactura(new BigDecimal("15000.00"));
+        regManual.setDebitoAceptado("NO");
+        regManual.setMotivoDebito("Prestación no realizada");
+        regManual.setMotivoRefactura("Refactura por prestación ajena");
+
+        request.setRegistros(List.of(regManual));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+
+        AmbLiquidado ambGuardado = new AmbLiquidado();
+        ambGuardado.setId(999);
+        ambGuardado.setCabecera(cabeceraFC);
+        ambGuardado.setTotalNeto(BigDecimal.ZERO);
+        ambGuardado.setIva(BigDecimal.ZERO);
+        ambGuardado.setTotal(BigDecimal.ZERO);
+        when(ambLiquidadoRepository.save(any(AmbLiquidado.class))).thenReturn(ambGuardado);
+        when(ambLiquidadoRepository.findAllById(List.of(999))).thenReturn(List.of(ambGuardado));
+
+        auditoriaService.procesarGuardadoParcial(request);
+
+        // Verifica que se guardó la prestación en amb_liquidado con montos en 0
+        ArgumentCaptor<AmbLiquidado> captorAmb = ArgumentCaptor.forClass(AmbLiquidado.class);
+        verify(ambLiquidadoRepository).save(captorAmb.capture());
+        AmbLiquidado ambCapturado = captorAmb.getValue();
+        assertEquals("PACIENTE EXTERNO PRUEBA", ambCapturado.getPaciente());
+        assertEquals("420101", ambCapturado.getCodigo());
+        assertEquals(BigDecimal.ZERO, ambCapturado.getTotalNeto());
+        assertEquals(BigDecimal.ZERO, ambCapturado.getTotal());
+
+        // Verifica que se guardó en amb_liquidado_manual
+        verify(ambLiquidadoManualRepository).save(any(AmbLiquidadoManual.class));
+
+        // Verifica que se guardó la NC en notaDeCreditoRepository
+        verify(notaDeCreditoRepository).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("procesarNuevaNotaCredito - Prestación externa manual se crea y genera NC")
+    void testProcesarNuevaNotaCredito_PrestacionManual() {
+        NuevaNotaCreditoRequest req = new NuevaNotaCreditoRequest();
+        req.setOrigen("FC");
+        req.setLetraOriginal("A");
+        req.setPtovtaOriginal(1);
+        req.setNumeroOriginal(1000);
+        req.setUsuario("auditor.nc.manual");
+
+        DatosNotaDTO datos = new DatosNotaDTO();
+        datos.setTipo("NC");
+        datos.setLetra("A");
+        datos.setPuntoVenta(2);
+        datos.setNumero(500);
+        datos.setFecha("2026-06-01");
+        datos.setTipoNc("Refactura");
+        req.setDatosNota(datos);
+
+        RegistroAuditoriaDTO regManual = new RegistroAuditoriaDTO();
+        regManual.setId(-123);
+        regManual.setEsManual(true);
+        regManual.setPaciente("PACIENTE MANUAL NC");
+        regManual.setCobertura("SWISS MEDICAL");
+        regManual.setCodigo("430101");
+        regManual.setDescripcion("INTERNACION EXTERNA");
+        regManual.setFecha("2026-05-15");
+        regManual.setCantidad(1);
+        regManual.setImporteDebitado(new BigDecimal("25000.00"));
+        regManual.setImporteRefactura(new BigDecimal("25000.00"));
+        regManual.setDebitoAceptado("NO");
+        regManual.setMotivoDebito("Prestación no realizada");
+        regManual.setMotivoRefactura("Refactura total");
+
+        req.setRegistros(List.of(regManual));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+
+        AmbLiquidado ambGuardado = new AmbLiquidado();
+        ambGuardado.setId(777);
+        ambGuardado.setCabecera(cabeceraFC);
+        ambGuardado.setTotalNeto(BigDecimal.ZERO);
+        ambGuardado.setIva(BigDecimal.ZERO);
+        ambGuardado.setTotal(BigDecimal.ZERO);
+        when(ambLiquidadoRepository.save(any(AmbLiquidado.class))).thenReturn(ambGuardado);
+        when(ambLiquidadoRepository.findAllById(List.of(777))).thenReturn(List.of(ambGuardado));
+
+        Cabecera cabeceraNCResultado = new Cabecera();
+        cabeceraNCResultado.setId(205L);
+        cabeceraNCResultado.setTipo("NC");
+        cabeceraNCResultado.setLetra("A");
+        cabeceraNCResultado.setPtovta(2);
+        cabeceraNCResultado.setNumero(500);
+        when(cabeceraRepository.save(any(Cabecera.class))).thenReturn(cabeceraNCResultado);
+
+        auditoriaService.procesarNuevaNotaCredito(req);
+
+        // Verifica que se guardó en amb_liquidado y amb_liquidado_manual
+        verify(ambLiquidadoRepository).save(any(AmbLiquidado.class));
+        verify(ambLiquidadoManualRepository).save(any(AmbLiquidadoManual.class));
+
+        // Verifica que se guardó la NC
+        verify(notaDeCreditoRepository).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("Guardado Parcial - Eliminación de prestación manual borra en cascada")
+    void testProcesarGuardadoParcial_BorradoManual() {
+        GuardarParcialRequest request = new GuardarParcialRequest();
+        request.setDocumentoOrigen("FC");
+        request.setLetra("A");
+        request.setPtovta(1);
+        request.setNumero(1000);
+        request.setUsuario("usuario.borrado");
+        request.setIdsParaBorrar(List.of(888));
+        request.setRegistros(List.of());
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+
+        NotaDeCredito nc = new NotaDeCredito();
+        nc.setId(30);
+        when(notaDeCreditoRepository.findByPrestacionIdInAndNotaDeDebitoPadreIsNull(List.of(888)))
+                .thenReturn(List.of(nc));
+
+        AmbLiquidadoManual alm = new AmbLiquidadoManual(888, "usuario.creador", ZonedDateTime.now(), "Test");
+        when(ambLiquidadoManualRepository.findByIdAmbLiquidadoIn(List.of(888)))
+                .thenReturn(List.of(alm));
+
+        auditoriaService.procesarGuardadoParcial(request);
+
+        verify(notaDeCreditoRepository).deleteAll(List.of(nc));
+        verify(ambLiquidadoManualRepository).deleteAll(List.of(alm));
+        verify(ambLiquidadoRepository).deleteAllById(List.of(888));
     }
 }
 

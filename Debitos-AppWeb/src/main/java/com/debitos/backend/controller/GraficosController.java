@@ -11,6 +11,7 @@ import com.debitos.backend.dto.reportes.MetricaMedicoDTO;
 import com.debitos.backend.dto.reportes.MetricaOperadorDTO;
 import com.debitos.backend.dto.reportes.PuntoDonutDTO;
 import com.debitos.backend.dto.reportes.TiemposCobranzaDTO;
+import com.debitos.backend.dto.ComprobanteSinAsociarDTO;
 import com.debitos.backend.service.DirectorioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -26,12 +27,12 @@ import java.util.List;
  * del frontend (Chart.js / ng2-charts).
  *
  * Base path: /api/graficos
- * Acceso:    roles DIRECTORIO y ADMIN
+ * Acceso:    roles DIRECTORIO, ADMIN, GERENTE_DEBITOS y TESORERIA
  */
 @RestController
 @RequestMapping("/api/graficos")
 @CrossOrigin(origins = "http://localhost:4200")
-@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN')")
+@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")
 public class GraficosController {
 
     @Autowired
@@ -173,8 +174,12 @@ public class GraficosController {
      * para la tabla de Cuenta Corriente, con montos totalizados y saldo neto.
      * Permite filtrar opcionalmente por financiador y/o período (formato YYYY-MM).
      *
-     * @param financiador filtro opcional por nombre o código de cobertura
-     * @param periodo     filtro opcional por período YYYY-MM
+     * @param financiador  filtro opcional por nombre o código de cobertura
+     * @param periodo      filtro opcional por período YYYY-MM
+     * @param fechaDesde   filtro opcional por fecha/período desde (YYYY-MM-DD)
+     * @param fechaHasta   filtro opcional por fecha/período hasta (YYYY-MM-DD)
+     * @param criterioFecha criterio de filtrado: "periodo" (campo periodo de la FC Madre, por defecto)
+     *                     o "fecha" (campo fecha de emisión de la FC Madre)
      * @return Lista de CcFinanciadorDTO ordenados por saldo descendente
      */
     @GetMapping("/cuenta-corriente")
@@ -182,8 +187,29 @@ public class GraficosController {
             @RequestParam(required = false) String financiador,
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) String fechaDesde,
+            @RequestParam(required = false) String fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha) {
+        List<CcFinanciadorDTO> resultado = directorioService.getCuentaCorrienteTresNiveles(financiador, periodo, fechaDesde, fechaHasta, criterioFecha);
+        return ResponseEntity.ok(resultado);
+    }
+
+    /**
+     * GET /api/graficos/recibos-no-imputados
+     *
+     * Retorna los recibos (RC, RCA, RCB, REC, OP) que no poseen imputación o vinculación
+     * en Cuenta Corriente (asociadogrupo nulo o 0).
+     *
+     * @param financiador filtro opcional por nombre o código de cobertura
+     * @param fechaDesde  filtro opcional por fecha desde (YYYY-MM-DD)
+     * @param fechaHasta  filtro opcional por fecha hasta (YYYY-MM-DD)
+     * @return Lista de ComprobanteSinAsociarDTO ordenados por fecha descendente
+     */
+    @GetMapping("/recibos-no-imputados")
+    public ResponseEntity<List<ComprobanteSinAsociarDTO>> getRecibosNoImputados(
+            @RequestParam(required = false) String financiador,
+            @RequestParam(required = false) String fechaDesde,
             @RequestParam(required = false) String fechaHasta) {
-        List<CcFinanciadorDTO> resultado = directorioService.getCuentaCorrienteTresNiveles(financiador, periodo, fechaDesde, fechaHasta);
+        List<ComprobanteSinAsociarDTO> resultado = directorioService.getRecibosNoImputados(financiador, fechaDesde, fechaHasta);
         return ResponseEntity.ok(resultado);
     }
 
@@ -267,8 +293,9 @@ public class GraficosController {
     public ResponseEntity<DesempenoGlobalDTO> getDesempenoGlobal(
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        DesempenoGlobalDTO resultado = directorioService.getDesempenoGlobal(periodo, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(defaultValue = "analisis") String criterioFecha) {
+        DesempenoGlobalDTO resultado = directorioService.getDesempenoGlobal(periodo, fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(resultado);
     }
 
@@ -281,14 +308,16 @@ public class GraficosController {
      * @param periodo filtro opcional por período YYYY-MM
      * @param fechaDesde fecha límite inferior opcional (YYYY-MM-DD)
      * @param fechaHasta fecha límite superior opcional (YYYY-MM-DD)
+     * @param criterioFecha criterio de fecha ('periodo', 'fecha' o 'analisis')
      * @return Lista de MetricaAnalistaDTO
      */
     @GetMapping("/desempeno/analistas")
     public ResponseEntity<List<MetricaAnalistaDTO>> getDesempenoAnalistas(
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<MetricaAnalistaDTO> resultado = directorioService.getMetricasAnalistas(periodo, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(defaultValue = "analisis") String criterioFecha) {
+        List<MetricaAnalistaDTO> resultado = directorioService.getMetricasAnalistas(periodo, fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(resultado);
     }
 
@@ -307,8 +336,9 @@ public class GraficosController {
     public ResponseEntity<List<MetricaOperadorDTO>> getDesempenoOperadores(
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(defaultValue = "analisis") String criterioFecha) {
+        List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(resultado);
     }
 
@@ -322,14 +352,16 @@ public class GraficosController {
      * @param periodo filtro opcional por período YYYY-MM
      * @param fechaDesde fecha límite inferior opcional (YYYY-MM-DD)
      * @param fechaHasta fecha límite superior opcional (YYYY-MM-DD)
+     * @param criterioFecha criterio de fecha ("periodo", "fecha" o "analisis")
      * @return Lista de MetricaMedicoDTO
      */
     @GetMapping("/desempeno/medicos")
     public ResponseEntity<List<MetricaMedicoDTO>> getDesempenoMedicos(
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<MetricaMedicoDTO> resultado = directorioService.getMetricasMedicos(periodo, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha) {
+        List<MetricaMedicoDTO> resultado = directorioService.getMetricasMedicos(periodo, fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(resultado);
     }
 }

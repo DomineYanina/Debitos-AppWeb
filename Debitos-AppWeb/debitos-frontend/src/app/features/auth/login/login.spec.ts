@@ -52,11 +52,21 @@ describe('LoginComponent', () => {
     expect(mockAuthService.logout).toHaveBeenCalled();
   });
 
-  it('debería realizar login exitoso, guardar token y navegar a /auditoria', () => {
+  it('debería realizar login exitoso, guardar token y navegar a /admin si rol es ADMIN', () => {
     component.loginForm.setValue({ usuario: 'admin', password: '123' });
     component.onSubmit();
 
     expect(mockAuthService.guardarToken).toHaveBeenCalledWith('abc', 'admin', 'ADMIN');
+    expect(router.navigate).toHaveBeenCalledWith(['/admin']);
+    expect(component.cargando).toBe(false);
+  });
+
+  it('debería navegar a /auditoria si el rol es GERENTE_DEBITOS u OPERADOR', () => {
+    mockAuthService.loginResult = of({ token: 'xyz', usuario: 'gerente', rol: 'GERENTE_DEBITOS' });
+    component.loginForm.setValue({ usuario: 'gerente', password: '123' });
+    component.onSubmit();
+
+    expect(mockAuthService.guardarToken).toHaveBeenCalledWith('xyz', 'gerente', 'GERENTE_DEBITOS');
     expect(router.navigate).toHaveBeenCalledWith(['/auditoria']);
     expect(component.cargando).toBe(false);
   });

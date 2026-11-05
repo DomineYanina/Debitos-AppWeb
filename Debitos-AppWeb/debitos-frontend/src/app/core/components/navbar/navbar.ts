@@ -129,6 +129,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
     if (upper === 'OPERADOR') return 'Operador de Débitos';
     if (upper === 'AUDITOR') return 'Auditor (Solo Consulta)';
     if (upper === 'DIRECTORIO') return 'Directorio';
+    if (upper === 'GERENTE_DEBITOS') return 'Gerente de Débitos';
+    if (upper === 'TESORERIA') return 'Tesorería';
     return rol.charAt(0).toUpperCase() + rol.slice(1).toLowerCase();
   }
 
@@ -177,7 +179,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     const rolUpper = rol.toUpperCase();
     const urlActual = this.router.url;
 
-    if (urlActual.includes('/directorio') && rolUpper !== 'ADMIN' && rolUpper !== 'DIRECTORIO') {
+    if (urlActual.includes('/directorio') && rolUpper !== 'ADMIN' && rolUpper !== 'DIRECTORIO' && rolUpper !== 'GERENTE_DEBITOS' && rolUpper !== 'TESORERIA') {
       this.router.navigate(['/auditoria']);
     } else if (urlActual.includes('/auditoria') && rolUpper === 'DIRECTORIO') {
       this.router.navigate(['/directorio']);

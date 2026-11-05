@@ -71,4 +71,23 @@ class GlobalExceptionHandlerTest {
         assertEquals(500, response.getBody().getStatus());
         assertTrue(response.getBody().getMessage().contains("Null reference"));
     }
+
+    @Test
+    @DisplayName("Captura AsyncRequestNotUsableException y ClientAbortException sin lanzar 500 ni ensuciar logs")
+    void testHandleClientAbort() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/api/graficos/balance");
+
+        org.apache.catalina.connector.ClientAbortException clientAbort = new org.apache.catalina.connector.ClientAbortException("Client abort");
+        assertDoesNotThrow(() -> handler.handleClientAbort(clientAbort, request));
+
+        org.springframework.web.context.request.async.AsyncRequestNotUsableException asyncEx =
+                new org.springframework.web.context.request.async.AsyncRequestNotUsableException("Async response not usable");
+        assertDoesNotThrow(() -> handler.handleClientAbort(asyncEx, request));
+
+        // Prueba cuando viene anidada en una Exception genérica
+        Exception wrapped = new RuntimeException("Error en stream", new java.io.IOException("Se ha anulado una conexión establecida por el software en su equipo host."));
+        ResponseEntity<ApiErrorResponse> response = handler.handleGenericException(wrapped, request);
+        assertNull(response, "Debe retornar null sin enviar respuesta porque el cliente ya canceló la conexión");
+    }
 }

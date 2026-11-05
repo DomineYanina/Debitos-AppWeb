@@ -46,6 +46,7 @@ class DtoAndModelTest {
         c.setIdEstado(1);
         c.setOrigen("APP_MANUAL");
         c.setPeriodo(periodo);
+        c.setIdAsignacion(283112L);
 
         assertEquals(10L, c.getId());
         assertEquals("FC", c.getTipo());
@@ -64,6 +65,15 @@ class DtoAndModelTest {
         assertEquals(10L, c.getAsociadogrupo());
         assertEquals(1, c.getIdEstado());
         assertEquals("APP_MANUAL", c.getOrigen());
+        assertEquals(283112L, c.getIdAsignacion());
+
+        CabeceraLigeraDTO dtoLigera = new CabeceraLigeraDTO();
+        dtoLigera.setIdAsignacion(283112L);
+        assertEquals(283112L, dtoLigera.getIdAsignacion());
+
+        ComprobanteCandidatoDTO dtoCand = new ComprobanteCandidatoDTO();
+        dtoCand.setIdAsignacion(283112L);
+        assertEquals(283112L, dtoCand.getIdAsignacion());
 
         // Comprobación de asignación de período a recibos según fecha
         Cabecera rc = new Cabecera();
@@ -93,8 +103,8 @@ class DtoAndModelTest {
         a.setEfector("Clinica Central");
         a.setMedico("Dr. Garcia");
         a.setFecha(LocalDate.now());
-        a.setModulo("MOD1");
-        a.setGrupomodulo("GMOD1");
+        a.setModulo(100L);
+        a.setGrupomodulo(200L);
         a.setCantidad(2);
         a.setCoseguro(new BigDecimal("50.00"));
         a.setTotal(new BigDecimal("655.00"));
@@ -129,8 +139,8 @@ class DtoAndModelTest {
         assertEquals("Clinica Central", a.getEfector());
         assertEquals("Dr. Garcia", a.getMedico());
         assertNotNull(a.getFecha());
-        assertEquals("MOD1", a.getModulo());
-        assertEquals("GMOD1", a.getGrupomodulo());
+        assertEquals(100L, a.getModulo());
+        assertEquals(200L, a.getGrupomodulo());
         assertEquals(2, a.getCantidad());
         assertEquals(new BigDecimal("50.00"), a.getCoseguro());
         assertEquals(new BigDecimal("655.00"), a.getTotal());

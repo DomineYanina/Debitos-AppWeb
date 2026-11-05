@@ -120,11 +120,11 @@ describe('DirectorioService', () => {
 
   it('obtenerMotivoDetalle debería enviar el parámetro motivo, tipoDoc y paginación', () => {
     const mockResponse = { content: [], totalElements: 0, totalPages: 0, page: 0, size: 50, first: true, last: true };
-    service.obtenerMotivoDetalle('Falta de autorización', 'OSDE', 'FCE', undefined, undefined, 0, 50).subscribe(res => {
+    service.obtenerMotivoDetalle('Falta de autorización/Token', 'OSDE', 'FCE', undefined, undefined, 0, 50).subscribe(res => {
       expect(res).toEqual(mockResponse);
     });
 
-    const req = httpMock.expectOne(r => r.url === `${apiUrl}/motivo-detalle` && r.params.get('motivo') === 'Falta de autorización' && r.params.get('tipoDoc') === 'FCE' && r.params.get('page') === '0' && r.params.get('size') === '50');
+    const req = httpMock.expectOne(r => r.url === `${apiUrl}/motivo-detalle` && r.params.get('motivo') === 'Falta de autorización/Token' && r.params.get('tipoDoc') === 'FCE' && r.params.get('page') === '0' && r.params.get('size') === '50');
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
   });

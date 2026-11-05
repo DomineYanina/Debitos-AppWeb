@@ -39,6 +39,7 @@ public class FilaHistorialDTO {
 
     private Long idGrupo;
     private Integer idEstado;
+    private String comprobanteAsociado;
 
     public FilaHistorialDTO() {}
 
@@ -94,4 +95,7 @@ public class FilaHistorialDTO {
 
     public Integer getIdEstado() { return idEstado; }
     public void setIdEstado(Integer idEstado) { this.idEstado = idEstado; }
+
+    public String getComprobanteAsociado() { return comprobanteAsociado; }
+    public void setComprobanteAsociado(String comprobanteAsociado) { this.comprobanteAsociado = comprobanteAsociado; }
 }

@@ -733,6 +733,15 @@ describe('AuditoriaComponent', () => {
       expect(component.esDocumentoBuscado({ tipoDocumento: 'RC', numero: 60 })).toBe(false);
     });
 
+    it('esRecibo debería identificar correctamente recibos (RC, RCA, RCB, REC)', () => {
+      expect(component.esRecibo({ tipoDocumento: 'RC' })).toBe(true);
+      expect(component.esRecibo({ tipoDocumento: 'rc' })).toBe(true);
+      expect(component.esRecibo({ tipoDocumento: 'RCA' })).toBe(true);
+      expect(component.esRecibo({ tipoDocumento: 'FC' })).toBe(false);
+      expect(component.esRecibo({ tipoDocumento: 'NC' })).toBe(false);
+      expect(component.esRecibo(null)).toBe(false);
+    });
+
     it('cargarDocumentoDesdeHistorial debería cargar parámetros en busquedaForm y ejecutar búsqueda', () => {
       const filaFC = { tipoDocumento: 'FC', letra: 'A', puntoVenta: 2, numero: 200, tienePrestaciones: true };
       let busquedaEjecutada = false;
@@ -828,13 +837,14 @@ describe('AuditoriaComponent', () => {
 
   describe('Acciones Masivas Adicionales', () => {
     it('aplicarImporteDebitadoMasivo debería asignar importe a las filas seleccionadas', () => {
-      const p1 = { id: 1, importeDebitado: undefined } as any;
+      const p1 = { id: 1, motivoDebito: 'Diferencia de aranceles', importeDebitado: undefined } as any;
       component.registrosSeleccionados = [p1];
       component.importeDebitadoMasivo = 250;
 
       component.aplicarImporteDebitadoMasivo();
       expect(p1.importeDebitado).toBe(250);
       expect(component.importeDebitadoMasivo).toBeUndefined();
+      expect(component.modificadosSinGuardar.has(1)).toBe(true);
     });
 
     it('aplicarImporteRefacturaMasivo debería ignorar filas con débito aceptado SI', () => {
@@ -871,6 +881,7 @@ describe('AuditoriaComponent', () => {
       component.comentariosDebitoMasivo = 'Comentario debito test';
       component.aplicarComentariosDebitoMasivo();
       expect(p1.comentariosDebito).toBe('Comentario debito test');
+      expect(component.modificadosSinGuardar.has(1)).toBe(true);
     });
   });
 

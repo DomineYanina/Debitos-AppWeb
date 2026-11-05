@@ -133,30 +133,35 @@ public class AuditoriaController {
     }
 
     @PostMapping("/guardar-parcialmente")
+    @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
     public ResponseEntity<Void> guardarParcialmente(@RequestBody GuardarParcialRequest payload) {
         auditoriaService.procesarGuardadoParcialAsincrono(payload);
         return ResponseEntity.accepted().build();
     }
 
     @PostMapping("/nueva-nota-credito")
+    @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
     public ResponseEntity<Map<String, String>> guardarNuevaNotaCredito(@RequestBody NuevaNotaCreditoRequest payload) {
         auditoriaService.procesarNuevaNotaCredito(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito generada exitosamente"));
     }
 
     @PutMapping("/editar-nc-ajuste-iva")
+    @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
     public ResponseEntity<Map<String, String>> editarNcAjusteDeIva(@RequestBody NuevaNotaCreditoRequest payload) {
         auditoriaService.editarNcAjusteDeIva(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito por Ajuste de IVA actualizada exitosamente"));
     }
 
     @PostMapping("/nueva-nota-debito")
+    @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
     public ResponseEntity<Map<String, String>> guardarNuevaNotaDebito(@RequestBody NuevaNotaDebitoRequest payload) {
         auditoriaService.procesarNuevaNotaDebito(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Débito generada exitosamente"));
     }
 
     @PostMapping("/nueva-nota-debito-ajuste-iva")
+    @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
     public ResponseEntity<Map<String, String>> guardarNuevaNotaDebitoAjusteIva(@RequestBody NuevaNotaDebitoAjusteIvaRequest payload) {
         auditoriaService.procesarNuevaNotaDebitoAjusteIva(payload);
         return ResponseEntity.ok(Map.of("mensaje", "Nota de Débito por Ajuste de IVA generada exitosamente"));

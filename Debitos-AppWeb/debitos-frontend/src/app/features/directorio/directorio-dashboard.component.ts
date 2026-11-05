@@ -11,6 +11,7 @@ import {
   registerables
 } from 'chart.js';
 import { DirectorioService } from '../../core/services/directorio.service';
+import { AuthService } from '../../core/services/auth';
 import {
   CcComprobanteDTO,
   CcFinanciadorDTO,
@@ -33,7 +34,8 @@ import {
   DesgloseFinanciadorDTO,
   BalanceFinanciadorDTO,
   PuntoDonutDTO,
-  TiemposCobranzaDTO
+  TiemposCobranzaDTO,
+  ReciboSinImputarDTO
 } from '../../core/models/directorio.model';
 
 // Registro global de todos los módulos y controladores de Chart.js necesarios (doughnut, line, bar, etc.)
@@ -60,6 +62,7 @@ interface SliceDonut {
 })
 export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private directorioService = inject(DirectorioService);
+  public authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
@@ -82,6 +85,26 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   esSolapaValida(solapa: string): boolean {
     return this.SOLAPAS_VALIDAS.has(solapa);
+  }
+
+  get esGerenteDebitos(): boolean {
+    return this.authService.hasRole('GERENTE_DEBITOS');
+  }
+
+  get esTesoreria(): boolean {
+    return this.authService.hasRole('TESORERIA');
+  }
+
+  esSolapaPermitida(solapa: string): boolean {
+    if (this.esGerenteDebitos) {
+      const solapasExcluidas = ['tablero', 'cuenta-corriente', 'tiempos-cobranza', 'matriz-cobranzas'];
+      return !solapasExcluidas.includes(solapa);
+    }
+    if (this.esTesoreria) {
+      const solapasPermitidas = ['tablero', 'cuenta-corriente', 'tiempos-cobranza', 'matriz-cobranzas'];
+      return solapasPermitidas.includes(solapa);
+    }
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -113,6 +136,26 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     }, 350);
   }
 
+  private algunEstadoCargando(): boolean {
+    return (
+      this.cargandoTotales ||
+      this.cargandoGrupos ||
+      this.cargandoMotivos ||
+      this.cargandoCuentaCorriente ||
+      this.cargandoRecibosNoImputados ||
+      this.cargandoMatriz ||
+      this.cargandoTrazabilidad ||
+      this.cargandoBucles ||
+      this.cargandoAnalistas ||
+      this.cargandoMedicos ||
+      this.cargandoOperadores ||
+      this.cargandoBalance ||
+      this.cargandoTiemposCobranza ||
+      this.cargandoEvolucion ||
+      this.cargandoGraficos
+    );
+  }
+
   seleccionarSolapa(
     solapa:
       | 'tablero'
@@ -126,6 +169,26 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       | 'medicos'
       | 'trazabilidad'
   ): void {
+    if (!this.esSolapaPermitida(solapa)) {
+      if (this.esGerenteDebitos) {
+        solapa = 'motivos';
+      } else if (this.esTesoreria) {
+        solapa = 'tablero';
+      } else {
+        return;
+      }
+    }
+    if (this.solapaActiva === solapa && this.solapasCargadas.has(solapa)) {
+      return;
+    }
+
+    const solapaPrevia = this.solapaActiva;
+    if (this.algunEstadoCargando() && solapaPrevia) {
+      this.solapasCargadas.delete(solapaPrevia);
+    }
+    this.cancelarPeticionesEnVuelo$.next();
+    this.resetearEstadosCarga();
+
     this.solapaActiva = solapa;
     if (
       solapa === 'tiempos-cobranza' ||
@@ -136,6 +199,16 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       solapa === 'usuarios-carga'
     ) {
       this.tipoDocSeleccionado = 'TODOS';
+    }
+    if (solapa !== 'analistas' && this.criterioFechaCc === 'analisis') {
+      this.criterioFechaCc = 'periodo';
+      const fDesde = this._ccPeriodoDesde || this.fechaDesde;
+      const fHasta = this._ccPeriodoHasta || this.fechaHasta;
+      if (fDesde) this.fechaDesde = fDesde;
+      if (fHasta) this.fechaHasta = fHasta;
+      this.fechaDesdeAplicada = this.fechaDesde;
+      this.fechaHastaAplicada = this.fechaHasta;
+      this.validarFechas();
     }
     if (solapa === 'bucles') {
       if (this.codigoCoberturaSeleccionada !== 'TODAS' && this.coberturasBucles.length > 0) {
@@ -154,6 +227,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   cargarDatosSolapa(solapa: string, forzarRecarga = false): void {
+    if (!this.esSolapaPermitida(solapa)) {
+      return;
+    }
     if (!forzarRecarga && this.solapasCargadas.has(solapa)) {
       return;
     }
@@ -167,6 +243,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         break;
       case 'cuenta-corriente':
         this.cargarCuentaCorriente();
+        this.cargarRecibosNoImputados();
         break;
       case 'tiempos-cobranza':
         this.cargarAgingFinanciero();
@@ -201,7 +278,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   coberturasBucles: DirectorioCobertura[] = [];
   buclesTodos: CadenaTrazabilidadDTO[] = [];
   codigoCoberturaSeleccionada: string = 'TODAS';
-  tiposDocumento: string[] = [];
+  tiposDocumento: string[] = ['Facturas', 'Notas de Crédito', 'Notas de Débito', 'Recibos (RC)'];
   tipoDocSeleccionado: string = 'TODOS';
   fechaDesde: string = '';
   fechaHasta: string = '';
@@ -246,10 +323,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   get esFiltroFechaDeshabilitado(): boolean {
-    return (
-      this.solapaActiva === 'tiempos-cobranza' ||
-      this.solapaActiva === 'matriz-cobranzas'
-    );
+    return this.solapaActiva === 'matriz-cobranzas';
   }
 
   get esFiltroTipoDocDeshabilitado(): boolean {
@@ -266,7 +340,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (
       this.solapaActiva === 'tablero' ||
       this.solapaActiva === 'motivos' ||
-      this.solapaActiva === 'cuenta-corriente'
+      this.solapaActiva === 'cuenta-corriente' ||
+      this.solapaActiva === 'tiempos-cobranza'
     ) {
       return 'Período Desde';
     }
@@ -277,7 +352,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (
       this.solapaActiva === 'tablero' ||
       this.solapaActiva === 'motivos' ||
-      this.solapaActiva === 'cuenta-corriente'
+      this.solapaActiva === 'cuenta-corriente' ||
+      this.solapaActiva === 'tiempos-cobranza'
     ) {
       return 'Período Hasta';
     }
@@ -303,7 +379,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       case 'trazabilidad':
         return 'Filtra expedientes según la fecha de emisión cronológica de la Factura Original.';
       case 'tiempos-cobranza':
-        return 'Esta solapa no filtra por rango de fechas; calcula la antigüedad y DSO a la fecha de hoy sobre comprobantes impagos.';
+        return 'Filtra comprobantes según su período prestacional o fecha de emisión de la Factura Madre (desde enero 2025 en adelante).';
       case 'matriz-cobranzas':
         return 'Esta solapa no filtra por rango de fechas; utiliza el selector anual de recaudación de la tabla.';
       default:
@@ -436,6 +512,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   private readonly COLORES_DONA_BORDE: string[] = this.COLORES_DONA.map(c => c); // mismo color de borde
 
   cargandoGraficos = false;
+  cargandoEvolucion = false;
 
   puntosDonut: PuntoDonutDTO[] = [];
 
@@ -688,6 +765,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     scales: {
       x: {
         stacked: true,
+        min: 0,
+        beginAtZero: true,
         ticks: {
           color: '#334155',
           font: { size: 12, weight: 600 },
@@ -725,10 +804,24 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       error: (err) => console.error('Error al obtener fecha mínima permitida:', err)
     });
 
-    this.route.queryParamMap.subscribe((params) => {
+    this.authService.rolActual$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      if (this.esGerenteDebitos && !this.esSolapaPermitida(this.solapaActiva)) {
+        this.seleccionarSolapa('motivos');
+        this.cdr.markForCheck();
+      } else if (this.esTesoreria && !this.esSolapaPermitida(this.solapaActiva)) {
+        this.seleccionarSolapa('tablero');
+        this.cdr.markForCheck();
+      }
+    });
+
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       const solapaParam = params.get('solapa');
-      if (solapaParam && this.esSolapaValida(solapaParam)) {
+      if (solapaParam && this.esSolapaValida(solapaParam) && this.esSolapaPermitida(solapaParam)) {
         this.solapaActiva = solapaParam as any;
+      } else if (this.esGerenteDebitos && !this.esSolapaPermitida(this.solapaActiva)) {
+        this.solapaActiva = 'motivos';
+      } else if (this.esTesoreria && !this.esSolapaPermitida(this.solapaActiva)) {
+        this.solapaActiva = 'tablero';
       }
       const codCob = params.get('codigoCobertura');
       if (codCob) {
@@ -776,6 +869,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       clearTimeout(this.debounceFiltroTimer);
       this.debounceFiltroTimer = null;
     }
+    if (this.precargaTimer) {
+      clearTimeout(this.precargaTimer);
+      this.precargaTimer = null;
+    }
   }
 
   @HostListener('window:resize')
@@ -800,6 +897,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         theadHeight: number;
         l1Height: number;
         l2Height: number;
+        totalRowHeight: number;
       }> = [];
 
       tables.forEach((tableEl) => {
@@ -817,6 +915,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           if (thead) {
             theadHeight = Math.round(thead.getBoundingClientRect().height);
           }
+        }
+
+        let totalRowHeight = 0;
+        const totalRow = table.querySelector('tr.tr-total-superior-operadores, tr.tr-total-superior-medicos, tr.tr-totales-fijos, tr.tr-totales-cc') as HTMLElement | null;
+        if (totalRow) {
+          totalRowHeight = Math.round(totalRow.getBoundingClientRect().height);
         }
 
         let l1Height = 0;
@@ -837,13 +941,16 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           l2Height = Math.round((td || l2Expanded).getBoundingClientRect().height);
         }
 
-        updates.push({ table, theadHeight, l1Height, l2Height });
+        updates.push({ table, theadHeight, l1Height, l2Height, totalRowHeight });
       });
 
       // FASE 2: Escrituras en lote (aplica propiedades CSS sin re-leer layout)
       for (const u of updates) {
         if (u.theadHeight > 0) {
           u.table.style.setProperty('--sticky-header-top', `${u.theadHeight}px`);
+        }
+        if (u.totalRowHeight > 0) {
+          u.table.style.setProperty('--sticky-total-height', `${u.totalRowHeight}px`);
         }
         if (u.l1Height > 0) {
           u.table.style.setProperty('--sticky-l1-height', `${u.l1Height}px`);
@@ -865,6 +972,15 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.fechaHasta = this.formatearFechaIso(ultimoDiaMesAnterior);
     this.fechaDesdeAplicada = this.fechaDesde;
     this.fechaHastaAplicada = this.fechaHasta;
+
+    // Inicializar los rangos independientes de Cuenta Corriente con el mismo período
+    this._ccPeriodoDesde = this.fechaDesde;
+    this._ccPeriodoHasta = this.fechaHasta;
+    this._ccFechaDesde = this.fechaDesde;
+    this._ccFechaHasta = this.fechaHasta;
+    this._ccAnalisisDesde = this.fechaDesde;
+    this._ccAnalisisHasta = this.fechaHasta;
+
     this.validarFechas();
   }
 
@@ -1094,10 +1210,18 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   cargarTiposDocumento(): void {
     this.directorioService.obtenerTiposDocumento().subscribe({
       next: (data) => {
-        this.tiposDocumento = data || [];
+        if (data && data.length > 0) {
+          this.tiposDocumento = data;
+        } else {
+          this.tiposDocumento = ['Facturas', 'Notas de Crédito', 'Notas de Débito', 'Recibos (RC)'];
+        }
         this.cdr.markForCheck();
       },
-      error: (err) => console.error('Error al cargar tipos de documento:', err)
+      error: (err) => {
+        console.error('Error al cargar tipos de documento:', err);
+        this.tiposDocumento = ['Facturas', 'Notas de Crédito', 'Notas de Débito', 'Recibos (RC)'];
+        this.cdr.markForCheck();
+      }
     });
   }
 
@@ -1106,6 +1230,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoGrupos = false;
     this.cargandoMotivos = false;
     this.cargandoCuentaCorriente = false;
+    this.cargandoRecibosNoImputados = false;
     this.cargandoMatriz = false;
     this.cargandoTrazabilidad = false;
     this.cargandoBucles = false;
@@ -1114,8 +1239,21 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoOperadores = false;
     this.cargandoBalance = false;
     this.cargandoTiemposCobranza = false;
+    this.cargandoEvolucion = false;
     this.cargandoGraficos = false;
     this.graficosPendientes = 0;
+  }
+
+  private precargaTimer: any = null;
+
+  private programarPrecargaSolapasSecundarias(): void {
+    if (this.precargaTimer) {
+      clearTimeout(this.precargaTimer);
+      this.precargaTimer = null;
+    }
+    // Desactivada la precarga automática en ráfaga para evitar sobrecargar PostgreSQL
+    // con múltiples consultas analíticas pesadas simultáneas (previniendo statement timeouts).
+    // Cada solapa se carga bajo demanda al hacer clic en ella y se almacena en solapasCargadas.
   }
 
   cargarDashboard(): void {
@@ -1123,6 +1261,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.resetearEstadosCarga();
     this.solapasCargadas.clear();
     this.cargarDatosSolapa(this.solapaActiva, true);
+    this.programarPrecargaSolapasSecundarias();
   }
 
   onFechaDesdeChange(): void {
@@ -1150,45 +1289,36 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       this.cdr.markForCheck();
       return;
     }
+    this.ccPaginaActual = 1;
     this.fechaDesdeAplicada = this.fechaDesde;
     this.fechaHastaAplicada = this.fechaHasta;
+    this.solapasCargadas.clear();
     this.cargarDashboard();
   }
 
   irAlMesAnterior(): void {
-    if (this.noPuedeIrAlMesAnterior) {
-      return;
-    }
+    if (this.esFiltroFechaDeshabilitado) return;
+    if (this.noPuedeIrAlMesAnterior) return;
 
     let baseDate = new Date();
     if (this.fechaDesde) {
       const parts = this.fechaDesde.split('-');
       if (parts.length === 3) {
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        baseDate = new Date(year, month, 1);
+        baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
       }
     } else if (this.fechaHasta) {
       const parts = this.fechaHasta.split('-');
       if (parts.length === 3) {
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        baseDate = new Date(year, month, 1);
+        baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
       }
     }
+    const primerDia = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+    const ultimoDia = new Date(baseDate.getFullYear(), baseDate.getMonth(), 0);
+    let fDesdeIso = this.formatearFechaIso(primerDia);
+    const fHastaIso = this.formatearFechaIso(ultimoDia);
 
-    const primerDiaMesAnterior = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
-    const ultimoDiaMesAnterior = new Date(baseDate.getFullYear(), baseDate.getMonth(), 0);
-
-    let fDesdeIso = this.formatearFechaIso(primerDiaMesAnterior);
-    let fHastaIso = this.formatearFechaIso(ultimoDiaMesAnterior);
-
-    if (fHastaIso < this.fechaMinimaPermitida) {
-      return;
-    }
-    if (fDesdeIso < this.fechaMinimaPermitida) {
-      fDesdeIso = this.fechaMinimaPermitida;
-    }
+    if (fHastaIso < this.fechaMinimaPermitida) return;
+    if (fDesdeIso < this.fechaMinimaPermitida) fDesdeIso = this.fechaMinimaPermitida;
 
     this.fechaDesde = fDesdeIso;
     this.fechaHasta = fHastaIso;
@@ -1196,36 +1326,37 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.fechaHastaAplicada = this.fechaHasta;
     this.validarFechas();
 
+    this.solapasCargadas.clear();
     this.cargarDashboard();
   }
 
   irAlMesSiguiente(): void {
+    if (this.esFiltroFechaDeshabilitado) return;
+
     let baseDate = new Date();
     if (this.fechaDesde) {
       const parts = this.fechaDesde.split('-');
       if (parts.length === 3) {
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        baseDate = new Date(year, month, 1);
+        baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
       }
     } else if (this.fechaHasta) {
       const parts = this.fechaHasta.split('-');
       if (parts.length === 3) {
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        baseDate = new Date(year, month, 1);
+        baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
       }
     }
+    const primerDia = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
+    const ultimoDia = new Date(baseDate.getFullYear(), baseDate.getMonth() + 2, 0);
+    const fDesdeIso = this.formatearFechaIso(primerDia);
+    const fHastaIso = this.formatearFechaIso(ultimoDia);
 
-    const primerDiaMesSiguiente = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
-    const ultimoDiaMesSiguiente = new Date(baseDate.getFullYear(), baseDate.getMonth() + 2, 0);
-
-    this.fechaDesde = this.formatearFechaIso(primerDiaMesSiguiente);
-    this.fechaHasta = this.formatearFechaIso(ultimoDiaMesSiguiente);
+    this.fechaDesde = fDesdeIso;
+    this.fechaHasta = fHastaIso;
     this.fechaDesdeAplicada = this.fechaDesde;
     this.fechaHastaAplicada = this.fechaHasta;
     this.validarFechas();
 
+    this.solapasCargadas.clear();
     this.cargarDashboard();
   }
 
@@ -1304,32 +1435,32 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.obtenerMotivos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data: any) => {
-        const items: DirectorioMotivoDebito[] = Array.isArray(data) ? data : (data?.content || []);
-        this.motivosDebito = items.map((m, idx) => ({
-          ...m,
-          montoAceptado: m.montoAceptado ?? 0,
-          montoRefacturado: m.montoRefacturado ?? 0,
-          porcentajeAceptados: m.porcentajeAceptados ?? 0,
-          porcentajeRefacturados: m.porcentajeRefacturados ?? 0,
-          _originalIndex: idx,
-          color: this.paletaColores[idx % this.paletaColores.length]
-        }));
-        this.totalDebitadoGeneralCalculado = this.motivosDebito.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
-        if (this.columnaOrdenMotivos) {
-          this.aplicarOrdenMotivos();
-        } else {
-          this.calcularSlicesDonut();
+        next: (data: any) => {
+          const items: DirectorioMotivoDebito[] = Array.isArray(data) ? data : (data?.content || []);
+          this.motivosDebito = items.map((m, idx) => ({
+            ...m,
+            montoAceptado: m.montoAceptado ?? 0,
+            montoRefacturado: m.montoRefacturado ?? 0,
+            porcentajeAceptados: m.porcentajeAceptados ?? 0,
+            porcentajeRefacturados: m.porcentajeRefacturados ?? 0,
+            _originalIndex: idx,
+            color: this.paletaColores[idx % this.paletaColores.length]
+          }));
+          this.totalDebitadoGeneralCalculado = this.motivosDebito.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
+          if (this.columnaOrdenMotivos) {
+            this.aplicarOrdenMotivos();
+          } else {
+            this.calcularSlicesDonut();
+          }
+          this.cargandoMotivos = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Error al cargar motivos:', err);
+          this.cargandoMotivos = false;
+          this.cdr.markForCheck();
         }
-        this.cargandoMotivos = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error al cargar motivos:', err);
-        this.cargandoMotivos = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   toggleGrupo(grupo: DirectorioGrupoFactura): void {
@@ -1465,25 +1596,36 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   get debitoAceptadoPerdidaMotivos(): number {
-    const sumaAceptado = (this.motivosDebito || []).reduce((acc, m) => acc + (m.montoAceptado || 0), 0);
-    if (sumaAceptado > 0) return sumaAceptado;
-    const deb = this.totalDebitadoMotivos;
-    const ref = this.totalRefacturadoMotivos;
-    return Math.max(0, deb - ref);
+    return (this.motivosDebito || []).reduce((acc, m) => acc + (m.montoAceptado || 0), 0);
+  }
+
+  get diferenciaDebitadoVsRefacturado(): number {
+    const deb = Math.round(this.totalDebitadoMotivos);
+    const aceptado = Math.round(this.debitoAceptadoPerdidaMotivos);
+    const refacturado = Math.round(this.totalRefacturadoMotivos);
+    return Math.max(0, deb - (aceptado + refacturado));
   }
 
   get tasaPerdidaMotivos(): number {
-    const deb = this.totalDebitadoMotivos;
+    const deb = Math.round(this.totalDebitadoMotivos);
     if (!deb || deb <= 0) return 0;
-    const perdida = this.debitoAceptadoPerdidaMotivos;
-    return Math.min(100, Math.max(0, Math.round((perdida / deb) * 100)));
+    const perdida = Math.round(this.debitoAceptadoPerdidaMotivos);
+    return Math.round((perdida / deb) * 1000) / 10;
   }
 
   get tasaRecuperoMotivos(): number {
-    const deb = this.totalDebitadoMotivos;
+    const deb = Math.round(this.totalDebitadoMotivos);
     if (!deb || deb <= 0) return 0;
-    const ref = this.totalRefacturadoMotivos;
-    return Math.min(100, Math.max(0, Math.round((ref / deb) * 100)));
+    const ref = Math.round(this.totalRefacturadoMotivos);
+    return Math.round((ref / deb) * 1000) / 10;
+  }
+
+  get tasaDiferenciaMotivos(): number {
+    const deb = Math.round(this.totalDebitadoMotivos);
+    if (!deb || deb <= 0) return 0;
+    const p = this.tasaPerdidaMotivos;
+    const r = this.tasaRecuperoMotivos;
+    return Math.max(0, Math.round((100.0 - (p + r)) * 10) / 10);
   }
 
   get motivosIdentificadosCount(): number {
@@ -1535,15 +1677,15 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getCarteraDonut(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (puntos: PuntoDonutDTO[]) => {
-        this.actualizarGraficoDonut(puntos);
-        this.finalizarCargaGrafico();
-      },
-      error: (err) => {
-        console.error('Error al cargar distribución de cartera:', err);
-        this.finalizarCargaGrafico();
-      }
-    });
+        next: (puntos: PuntoDonutDTO[]) => {
+          this.actualizarGraficoDonut(puntos);
+          this.finalizarCargaGrafico();
+        },
+        error: (err) => {
+          console.error('Error al cargar distribución de cartera:', err);
+          this.finalizarCargaGrafico();
+        }
+      });
   }
 
   private actualizarGraficoDonut(puntos: PuntoDonutDTO[]): void {
@@ -1643,33 +1785,33 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getBalanceFinanciero(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data: BalanceFinanciadorDTO[]) => {
-        this.balanceFinanciadores = (data || []).map((b, idx) => ({
-          ...b,
-          _originalIndex: idx
-        }));
-        if (this.columnaOrdenBalance) {
-          this.aplicarOrdenBalance();
-        }
-        this.calcularTotalesBalance();
-        // Sincronizar inmediatamente la dona de distribución de cartera con los saldos calculados del balance
-        const puntosDonut = (data || [])
-          .filter(b => Number(b.saldoPendiente || 0) > 0)
-          .map(b => ({
-            etiqueta: b.financiador,
-            saldo: Number(b.saldoPendiente || 0)
+        next: (data: BalanceFinanciadorDTO[]) => {
+          this.balanceFinanciadores = (data || []).map((b, idx) => ({
+            ...b,
+            _originalIndex: idx
           }));
-        this.actualizarGraficoDonut(puntosDonut);
-        this.cargandoBalance = false;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error al cargar balance financiero:', err);
-        this.actualizarGraficoDonut([]);
-        this.cargandoBalance = false;
-        this.cdr.markForCheck();
-      }
-    });
+          if (this.columnaOrdenBalance) {
+            this.aplicarOrdenBalance();
+          }
+          this.calcularTotalesBalance();
+          // Sincronizar inmediatamente la dona de distribución de cartera con los saldos calculados del balance
+          const puntosDonut = (data || [])
+            .filter(b => Number(b.saldoPendiente || 0) > 0)
+            .map(b => ({
+              etiqueta: b.financiador,
+              saldo: Number(b.saldoPendiente || 0)
+            }));
+          this.actualizarGraficoDonut(puntosDonut);
+          this.cargandoBalance = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Error al cargar balance financiero:', err);
+          this.actualizarGraficoDonut([]);
+          this.cargandoBalance = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   private calcularTotalesBalance(): void {
@@ -1694,6 +1836,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   private cargarEvolucionMensual(): void {
     if (!this.directorioService.getEvolucionMensual) return;
+    this.cargandoEvolucion = true;
     this.iniciarCargaGrafico();
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
@@ -1701,99 +1844,102 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getEvolucionMensual(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (datasets: DatasetGraficoDTO[]) => {
-        if (!datasets || datasets.length < 3) {
-          this.finalizarCargaGrafico();
-          return;
-        }
+        next: (datasets: DatasetGraficoDTO[]) => {
+          if (!datasets || datasets.length < 3) {
+            this.cargandoEvolucion = false;
+            this.finalizarCargaGrafico();
+            return;
+          }
 
-        // Los datasets llegan: Facturación, Débitos, Refacturación (ND), Cobranzas y Deudas
-        const dsFacturacion = datasets.find(d => d.tituloDataset.toLowerCase().includes('factura')) || datasets[0];
-        const dsDebitos = datasets.find(d => d.tituloDataset.toLowerCase().includes('débito') || d.tituloDataset.toLowerCase().includes('debito')) || datasets[1];
-        const dsRefacturacion = datasets.find(d => d.tituloDataset.toLowerCase().includes('refactura'));
-        const dsCobranzas = datasets.find(d => d.tituloDataset.toLowerCase().includes('cobra')) || datasets[Math.min(3, datasets.length - 1)];
-        const dsDeudas = datasets.find(d => d.tituloDataset.toLowerCase().includes('deuda'));
+          // Los datasets llegan: Facturación, Débitos, Refacturación (ND), Cobranzas y Deudas
+          const dsFacturacion = datasets.find(d => d.tituloDataset.toLowerCase().includes('factura')) || datasets[0];
+          const dsDebitos = datasets.find(d => d.tituloDataset.toLowerCase().includes('débito') || d.tituloDataset.toLowerCase().includes('debito')) || datasets[1];
+          const dsRefacturacion = datasets.find(d => d.tituloDataset.toLowerCase().includes('refactura'));
+          const dsCobranzas = datasets.find(d => d.tituloDataset.toLowerCase().includes('cobra')) || datasets[Math.min(3, datasets.length - 1)];
+          const dsDeudas = datasets.find(d => d.tituloDataset.toLowerCase().includes('deuda'));
 
-        const labels = dsFacturacion.puntos.map(p => p.etiqueta);
+          const labels = dsFacturacion.puntos.map(p => p.etiqueta);
 
-        const chartDatasets: any[] = [
-          {
-            label: 'Facturación',
-            data: dsFacturacion.puntos.map(p => Number(p.valor)),
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56,189,248,0.10)',
+          const chartDatasets: any[] = [
+            {
+              label: 'Facturación',
+              data: dsFacturacion.puntos.map(p => Number(p.valor)),
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56,189,248,0.10)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              borderWidth: 2
+            },
+            {
+              label: 'Débitos (NC)',
+              data: dsDebitos.puntos.map(p => Number(p.valor)),
+              borderColor: '#f87171',
+              backgroundColor: 'rgba(248,113,113,0.08)',
+              fill: false,
+              tension: 0.4,
+              borderDash: [6, 3],
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              borderWidth: 2
+            }
+          ];
+
+          if (dsRefacturacion) {
+            chartDatasets.push({
+              label: 'Refacturación (ND)',
+              data: dsRefacturacion.puntos.map(p => Number(p.valor)),
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245,158,11,0.08)',
+              fill: false,
+              tension: 0.4,
+              borderDash: [5, 5],
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              borderWidth: 2
+            });
+          }
+
+          chartDatasets.push({
+            label: 'Cobranzas (RC)',
+            data: dsCobranzas.puntos.map(p => Number(p.valor)),
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52,211,153,0.10)',
             fill: true,
             tension: 0.4,
             pointRadius: 4,
             pointHoverRadius: 6,
             borderWidth: 2
-          },
-          {
-            label: 'Débitos (NC)',
-            data: dsDebitos.puntos.map(p => Number(p.valor)),
-            borderColor: '#f87171',
-            backgroundColor: 'rgba(248,113,113,0.08)',
-            fill: false,
-            tension: 0.4,
-            borderDash: [6, 3],
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            borderWidth: 2
+          });
+
+          if (dsDeudas) {
+            chartDatasets.push({
+              label: 'Deudas',
+              data: dsDeudas.puntos.map(p => Number(p.valor)),
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.08)',
+              fill: false,
+              tension: 0.4,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              borderWidth: 2.5
+            });
           }
-        ];
 
-        if (dsRefacturacion) {
-          chartDatasets.push({
-            label: 'Refacturación (ND)',
-            data: dsRefacturacion.puntos.map(p => Number(p.valor)),
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245,158,11,0.08)',
-            fill: false,
-            tension: 0.4,
-            borderDash: [5, 5],
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            borderWidth: 2
-          });
+          this.evolucionChartData = {
+            labels,
+            datasets: chartDatasets
+          };
+          this.cargandoEvolucion = false;
+          this.finalizarCargaGrafico();
+        },
+        error: (err) => {
+          console.error('Error al cargar evolución mensual:', err);
+          this.cargandoEvolucion = false;
+          this.finalizarCargaGrafico();
         }
-
-        chartDatasets.push({
-          label: 'Cobranzas (RC)',
-          data: dsCobranzas.puntos.map(p => Number(p.valor)),
-          borderColor: '#34d399',
-          backgroundColor: 'rgba(52,211,153,0.10)',
-          fill: true,
-          tension: 0.4,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          borderWidth: 2
-        });
-
-        if (dsDeudas) {
-          chartDatasets.push({
-            label: 'Deudas',
-            data: dsDeudas.puntos.map(p => Number(p.valor)),
-            borderColor: '#8b5cf6',
-            backgroundColor: 'rgba(139, 92, 246, 0.08)',
-            fill: false,
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            borderWidth: 2.5
-          });
-        }
-
-        this.evolucionChartData = {
-          labels,
-          datasets: chartDatasets
-        };
-        this.finalizarCargaGrafico();
-      },
-      error: (err) => {
-        console.error('Error al cargar evolución mensual:', err);
-        this.finalizarCargaGrafico();
-      }
-    });
+      });
   }
 
   private cargarAgingFinanciero(): void {
@@ -1801,37 +1947,38 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoTiemposCobranza = true;
     this.iniciarCargaGrafico();
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
-    const tipoDoc = !this.esFiltroTipoDocDeshabilitado && this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
-    const fDesde = !this.esFiltroFechaDeshabilitado ? (this.fechaDesde || undefined) : undefined;
-    const fHasta = !this.esFiltroFechaDeshabilitado ? (this.fechaHasta || undefined) : undefined;
+    const tipoDoc = undefined;
+    // En Tiempos de Cobranza se consideran las facturas con período desde enero de 2025 en adelante
+    const fDesde = (this.fechaDesde && this.fechaDesde >= '2025-01-01') ? this.fechaDesde : '2025-01-01';
+    const fHasta = this.fechaHasta || undefined;
 
     this.directorioService.getTiemposCobranza(codCob, tipoDoc, fDesde, fHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (res: TiemposCobranzaDTO) => {
-        this.tiemposCobranzaDatos = res;
-        const detalles = res?.detalles ?? [];
-        this.agingChartData = {
-          labels: detalles.map(d => d.rango),
-          datasets: [{
-            label: 'Monto',
-            data: detalles.map(d => Number(d.saldoEnMora)),
-            backgroundColor: detalles.map(d => this.obtenerColorRango(d.rango)),
-            borderRadius: 4,
-            maxBarThickness: 75
-          }]
-        };
-        this.cargandoTiemposCobranza = false;
-        this.finalizarCargaGrafico();
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error al cargar tiempos de cobranza:', err);
-        this.cargandoTiemposCobranza = false;
-        this.finalizarCargaGrafico();
-        this.cdr.markForCheck();
-      }
-    });
+        next: (res: TiemposCobranzaDTO) => {
+          this.tiemposCobranzaDatos = res;
+          const detalles = res?.detalles ?? [];
+          this.agingChartData = {
+            labels: detalles.map(d => d.rango),
+            datasets: [{
+              label: 'Monto',
+              data: detalles.map(d => Number(d.saldoEnMora)),
+              backgroundColor: detalles.map(d => this.obtenerColorRango(d.rango)),
+              borderRadius: 4,
+              maxBarThickness: 75
+            }]
+          };
+          this.cargandoTiemposCobranza = false;
+          this.finalizarCargaGrafico();
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          console.error('Error al cargar tiempos de cobranza:', err);
+          this.cargandoTiemposCobranza = false;
+          this.finalizarCargaGrafico();
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   private cargarParetoMotivos(): void {
@@ -1843,14 +1990,41 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getParetoMotivos(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (datasets: DatasetGraficoDTO[]) => {
-        if (!datasets || datasets.length < 2 || !datasets[0]?.puntos?.length) {
+        next: (datasets: DatasetGraficoDTO[]) => {
+          if (!datasets || datasets.length < 2 || !datasets[0]?.puntos?.length) {
+            this.motivosChartData = {
+              labels: [],
+              datasets: [
+                {
+                  label: 'Refacturado ($)',
+                  data: [],
+                  backgroundColor: '#2563eb',
+                  borderColor: '#1d4ed8',
+                  borderWidth: 1,
+                  borderRadius: 4
+                },
+                {
+                  label: 'Pérdida ($)',
+                  data: [],
+                  backgroundColor: '#dc2626',
+                  borderColor: '#b91c1c',
+                  borderWidth: 1,
+                  borderRadius: 4
+                }
+              ]
+            };
+            this.finalizarCargaGrafico();
+            return;
+          }
+
+          // [0] = Refacturado, [1] = Pérdida — comparten las mismas etiquetas (motivos)
+          const labels = datasets[0].puntos.map(p => p.etiqueta);
           this.motivosChartData = {
-            labels: [],
+            labels,
             datasets: [
               {
                 label: 'Refacturado ($)',
-                data: [],
+                data: datasets[0].puntos.map(p => Number(p.valor)),
                 backgroundColor: '#2563eb',
                 borderColor: '#1d4ed8',
                 borderWidth: 1,
@@ -1858,7 +2032,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               },
               {
                 label: 'Pérdida ($)',
-                data: [],
+                data: datasets[1].puntos.map(p => Number(p.valor)),
                 backgroundColor: '#dc2626',
                 borderColor: '#b91c1c',
                 borderWidth: 1,
@@ -1867,88 +2041,373 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             ]
           };
           this.finalizarCargaGrafico();
-          return;
+        },
+        error: (err) => {
+          console.error('Error al cargar pareto de motivos:', err);
+          this.motivosChartData = { labels: [], datasets: [] };
+          this.finalizarCargaGrafico();
         }
-
-        // [0] = Refacturado, [1] = Pérdida — comparten las mismas etiquetas (motivos)
-        const labels = datasets[0].puntos.map(p => p.etiqueta);
-        this.motivosChartData = {
-          labels,
-          datasets: [
-            {
-              label: 'Refacturado ($)',
-              data: datasets[0].puntos.map(p => Number(p.valor)),
-              backgroundColor: '#2563eb',
-              borderColor: '#1d4ed8',
-              borderWidth: 1,
-              borderRadius: 4
-            },
-            {
-              label: 'Pérdida ($)',
-              data: datasets[1].puntos.map(p => Number(p.valor)),
-              backgroundColor: '#dc2626',
-              borderColor: '#b91c1c',
-              borderWidth: 1,
-              borderRadius: 4
-            }
-          ]
-        };
-        this.finalizarCargaGrafico();
-      },
-      error: (err) => {
-        console.error('Error al cargar pareto de motivos:', err);
-        this.motivosChartData = { labels: [], datasets: [] };
-        this.finalizarCargaGrafico();
-      }
-    });
+      });
   }
 
   // ---------------------------------------------------------------------------
-  // Cuenta Corriente a 3 Niveles
+  // Cuenta Corriente a 3 Niveles y Recibos No Imputados
   // ---------------------------------------------------------------------------
+
+  subSolapaCc: 'imputados' | 'no-imputados' = 'imputados';
+
+  // ── Selector de criterio de filtrado (Cuenta Corriente / Analistas) ────────
+  // En Cuenta Corriente: Período de FC Madre o Fecha de emisión de FC Madre.
+  // En Analista de Débito: se suma la opción de Fecha de Análisis de Débito.
+  criterioFechaCc: 'periodo' | 'fecha' | 'analisis' = 'periodo';
+
+  // Rango para filtro por Período de la Factura Madre
+  private _ccPeriodoDesde: string = '';
+  get ccPeriodoDesde(): string {
+    return this.criterioFechaCc === 'periodo' ? this.fechaDesde : this._ccPeriodoDesde;
+  }
+  set ccPeriodoDesde(val: string) {
+    this._ccPeriodoDesde = val;
+    if (this.criterioFechaCc === 'periodo') {
+      this.fechaDesde = val;
+    }
+  }
+
+  private _ccPeriodoHasta: string = '';
+  get ccPeriodoHasta(): string {
+    return this.criterioFechaCc === 'periodo' ? this.fechaHasta : this._ccPeriodoHasta;
+  }
+  set ccPeriodoHasta(val: string) {
+    this._ccPeriodoHasta = val;
+    if (this.criterioFechaCc === 'periodo') {
+      this.fechaHasta = val;
+    }
+  }
+
+  ccErrorPeriodoDesde: string | null = null;
+  ccErrorPeriodoHasta: string | null = null;
+
+  // Rango para filtro por Fecha de emisión de la Factura Madre
+  private _ccFechaDesde: string = '';
+  get ccFechaDesde(): string {
+    return this.criterioFechaCc === 'fecha' ? this.fechaDesde : this._ccFechaDesde;
+  }
+  set ccFechaDesde(val: string) {
+    this._ccFechaDesde = val;
+    if (this.criterioFechaCc === 'fecha') {
+      this.fechaDesde = val;
+    }
+  }
+
+  private _ccFechaHasta: string = '';
+  get ccFechaHasta(): string {
+    return this.criterioFechaCc === 'fecha' ? this.fechaHasta : this._ccFechaHasta;
+  }
+  set ccFechaHasta(val: string) {
+    this._ccFechaHasta = val;
+    if (this.criterioFechaCc === 'fecha') {
+      this.fechaHasta = val;
+    }
+  }
+
+  ccErrorFechaDesde: string | null = null;
+  ccErrorFechaHasta: string | null = null;
+
+  // Rango para filtro por Fecha de Análisis de Débito
+  private _ccAnalisisDesde: string = '';
+  get ccAnalisisDesde(): string {
+    return this.criterioFechaCc === 'analisis' ? this.fechaDesde : this._ccAnalisisDesde;
+  }
+  set ccAnalisisDesde(val: string) {
+    this._ccAnalisisDesde = val;
+    if (this.criterioFechaCc === 'analisis') {
+      this.fechaDesde = val;
+    }
+  }
+
+  private _ccAnalisisHasta: string = '';
+  get ccAnalisisHasta(): string {
+    return this.criterioFechaCc === 'analisis' ? this.fechaHasta : this._ccAnalisisHasta;
+  }
+  set ccAnalisisHasta(val: string) {
+    this._ccAnalisisHasta = val;
+    if (this.criterioFechaCc === 'analisis') {
+      this.fechaHasta = val;
+    }
+  }
+
+  ccErrorAnalisisDesde: string | null = null;
+  ccErrorAnalisisHasta: string | null = null;
+
+  cambiarSubSolapaCc(sub: 'imputados' | 'no-imputados'): void {
+    if (this.subSolapaCc === sub) return;
+    this.subSolapaCc = sub;
+    if (sub === 'no-imputados') {
+      if (!this.recibosNoImputados || this.recibosNoImputados.length === 0) {
+        this.cargarRecibosNoImputados();
+      }
+    } else {
+      if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) {
+        this.cargarCuentaCorriente();
+      }
+    }
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  /** Cambia el criterio de filtrado (periodo/fecha/analisis) y recarga los datos de la solapa activa */
+  seleccionarCriterioCc(criterio: 'periodo' | 'fecha' | 'analisis'): void {
+    if (this.criterioFechaCc === criterio) return;
+
+    // Guardar el estado actual en el backing field del criterio saliente
+    if (this.criterioFechaCc === 'periodo') {
+      this._ccPeriodoDesde = this.fechaDesde;
+      this._ccPeriodoHasta = this.fechaHasta;
+    } else if (this.criterioFechaCc === 'fecha') {
+      this._ccFechaDesde = this.fechaDesde;
+      this._ccFechaHasta = this.fechaHasta;
+    } else if (this.criterioFechaCc === 'analisis') {
+      this._ccAnalisisDesde = this.fechaDesde;
+      this._ccAnalisisHasta = this.fechaHasta;
+    }
+
+    this.criterioFechaCc = criterio;
+
+    // Recuperar fechas del criterio al que pasamos
+    const fDesde = criterio === 'fecha'
+      ? this._ccFechaDesde
+      : (criterio === 'analisis' ? this._ccAnalisisDesde : this._ccPeriodoDesde);
+    const fHasta = criterio === 'fecha'
+      ? this._ccFechaHasta
+      : (criterio === 'analisis' ? this._ccAnalisisHasta : this._ccPeriodoHasta);
+
+    if (fDesde) this.fechaDesde = fDesde;
+    if (fHasta) this.fechaHasta = fHasta;
+    this.fechaDesdeAplicada = this.fechaDesde;
+    this.fechaHastaAplicada = this.fechaHasta;
+    this.validarFechas();
+    this.solapasCargadas.clear();
+    this.cargarDashboard();
+    this.cdr.markForCheck();
+  }
+
+  /** Getter: si no puede retroceder un mes (según el criterio activo) */
+  get noPuedeIrAlMesAnteriorCc(): boolean {
+    return this.noPuedeIrAlMesAnterior;
+  }
+
+  // ── Recibos No Imputados (Sin asociadogrupo) ──────────────────────────────
+  recibosNoImputados: ReciboSinImputarDTO[] = [];
+  cargandoRecibosNoImputados: boolean = false;
+  busquedaTextoNoImputados: string = '';
+
+  noImputadosPaginaActual: number = 1;
+  noImputadosItemsPorPagina: number = 15;
+  readonly noImputadosOpcionesItemsPorPagina: number[] = [10, 15, 25, 50];
+
+  columnaOrdenNoImputados: string = '';
+  direccionOrdenNoImputados: 'asc' | 'desc' = 'desc';
+  pasoOrdenNoImputados: number = 0;
+  filtrarFechasNoImputados: boolean = false;
+
+  toggleFiltroFechasNoImputados(): void {
+    this.filtrarFechasNoImputados = !this.filtrarFechasNoImputados;
+    this.cargarRecibosNoImputados();
+  }
+
+  cargarRecibosNoImputados(): void {
+    if (!this.directorioService.getRecibosNoImputados) return;
+    this.cargandoRecibosNoImputados = true;
+    this.noImputadosPaginaActual = 1;
+    const financiador = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
+    const fDesde = this.filtrarFechasNoImputados ? (this.fechaDesde || undefined) : undefined;
+    const fHasta = this.filtrarFechasNoImputados ? (this.fechaHasta || undefined) : undefined;
+
+    this.directorioService.getRecibosNoImputados(financiador, fDesde, fHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.recibosNoImputados = (data || []).map((r, idx) => ({
+            ...r,
+            _originalIndex: idx
+          }));
+          if (this.columnaOrdenNoImputados) {
+            this.aplicarOrdenNoImputados();
+          }
+          this.cargandoRecibosNoImputados = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar recibos no imputados:', err);
+          this.cargandoRecibosNoImputados = false;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  get recibosNoImputadosFiltrados(): ReciboSinImputarDTO[] {
+    let lista = this.recibosNoImputados;
+    if (this.busquedaTextoNoImputados && this.busquedaTextoNoImputados.trim() !== '') {
+      const q = this.busquedaTextoNoImputados.trim().toLowerCase();
+      lista = lista.filter(r =>
+        (r.comprobante && r.comprobante.toLowerCase().includes(q)) ||
+        (r.cobertura && r.cobertura.toLowerCase().includes(q)) ||
+        (r.codigoCobertura && r.codigoCobertura.toLowerCase().includes(q)) ||
+        (r.tipo && r.tipo.toLowerCase().includes(q)) ||
+        (r.numero && String(r.numero).includes(q))
+      );
+    }
+    return lista;
+  }
+
+  get totalPaginasNoImputados(): number {
+    const total = this.recibosNoImputadosFiltrados.length;
+    if (total === 0) return 1;
+    return Math.ceil(total / this.noImputadosItemsPorPagina);
+  }
+
+  get recibosNoImputadosPaginados(): ReciboSinImputarDTO[] {
+    const lista = this.recibosNoImputadosFiltrados;
+    if (lista.length === 0) return [];
+    if (this.noImputadosPaginaActual > this.totalPaginasNoImputados) {
+      this.noImputadosPaginaActual = 1;
+    }
+    const inicio = (this.noImputadosPaginaActual - 1) * this.noImputadosItemsPorPagina;
+    return lista.slice(inicio, inicio + this.noImputadosItemsPorPagina);
+  }
+
+  cambiarPaginaNoImputados(pagina: number): void {
+    if (pagina >= 1 && pagina <= this.totalPaginasNoImputados) {
+      this.noImputadosPaginaActual = pagina;
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
+  onNoImputadosItemsPorPaginaChange(tamano: any): void {
+    this.noImputadosItemsPorPagina = Number(tamano) || 15;
+    this.noImputadosPaginaActual = 1;
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  get totalMontoNoImputados(): number {
+    return this.recibosNoImputadosFiltrados.reduce((acc, r) => acc + (r.importe || r.haber || 0), 0);
+  }
+
+  ordenarNoImputados(columna: string): void {
+    if (this.columnaOrdenNoImputados === columna) {
+      if (this.pasoOrdenNoImputados === 1) {
+        this.pasoOrdenNoImputados = 2;
+        this.direccionOrdenNoImputados = this.direccionOrdenNoImputados === 'asc' ? 'desc' : 'asc';
+        this.aplicarOrdenNoImputados();
+      } else {
+        this.columnaOrdenNoImputados = '';
+        this.pasoOrdenNoImputados = 0;
+        this.restaurarOrdenNoImputados();
+      }
+    } else {
+      this.columnaOrdenNoImputados = columna;
+      this.pasoOrdenNoImputados = 1;
+      this.direccionOrdenNoImputados = (columna === 'fecha' || columna === 'importe') ? 'desc' : 'asc';
+      this.aplicarOrdenNoImputados();
+    }
+  }
+
+  aplicarOrdenNoImputados(): void {
+    const factor = this.direccionOrdenNoImputados === 'asc' ? 1 : -1;
+    const col = this.columnaOrdenNoImputados;
+
+    this.recibosNoImputados.sort((a, b) => {
+      switch (col) {
+        case 'comprobante':
+          return (a.comprobante || '').localeCompare(b.comprobante || '') * factor;
+        case 'fecha':
+          return ((a.fecha || '').localeCompare(b.fecha || '')) * factor;
+        case 'financiador':
+          return ((a.cobertura || a.codigoCobertura || '').localeCompare(b.cobertura || b.codigoCobertura || '')) * factor;
+        case 'periodo':
+          return ((a.periodo || '').localeCompare(b.periodo || '')) * factor;
+        case 'importe':
+          return ((a.importe || a.haber || 0) - (b.importe || b.haber || 0)) * factor;
+        case 'origen':
+          return ((a.origen || '').localeCompare(b.origen || '')) * factor;
+        default:
+          return 0;
+      }
+    });
+    this.recibosNoImputados = [...this.recibosNoImputados];
+    this.cdr.markForCheck();
+  }
+
+  restaurarOrdenNoImputados(): void {
+    this.recibosNoImputados.sort((a, b) => (a._originalIndex ?? 0) - (b._originalIndex ?? 0));
+    this.recibosNoImputados = [...this.recibosNoImputados];
+    this.cdr.markForCheck();
+  }
 
   cargarCuentaCorriente(): void {
     if (!this.directorioService.getCuentaCorrienteTresNiveles) return;
     this.cargandoCuentaCorriente = true;
+    this.ccPaginaActual = 1;
     const financiador = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
-    const fDesde = this.fechaDesde || undefined;
-    const fHasta = this.fechaHasta || undefined;
 
-    this.directorioService.getCuentaCorrienteTresNiveles(financiador, undefined, fDesde, fHasta)
+    // Seleccionar el rango de fechas según el criterio activo del selector de CC
+    const fDesde = this.criterioFechaCc === 'fecha'
+      ? (this.ccFechaDesde || this.fechaDesde || undefined)
+      : (this.ccPeriodoDesde || this.fechaDesde || undefined);
+    const fHasta = this.criterioFechaCc === 'fecha'
+      ? (this.ccFechaHasta || this.fechaHasta || undefined)
+      : (this.ccPeriodoHasta || this.fechaHasta || undefined);
+
+    const criterioCc: 'periodo' | 'fecha' = this.criterioFechaCc === 'fecha' ? 'fecha' : 'periodo';
+    this.directorioService.getCuentaCorrienteTresNiveles(financiador, undefined, fDesde, fHasta, criterioCc)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data) => {
-        this.cuentaCorrienteDatos = (data || []).map((f, idxF) => ({
-          ...f,
-          _originalIndex: idxF,
-          expanded: false,
-          periodos: (f.periodos || []).map((p, idxP) => ({
-            ...p,
-            _originalIndex: idxP,
-            expanded: false,
-            comprobantes: (p.comprobantes || []).map((c, idxC) => ({
-              ...c,
-              _originalIndex: idxC,
-              hijos: (c.hijos || []).map((h, idxH) => ({
-                ...h,
-                _originalIndex: idxH
-              }))
+        next: (data) => {
+          const esFiltradoEspecifico = (financiador !== undefined && financiador !== 'TODAS') || (data && data.length === 1);
+          this.cuentaCorrienteDatos = (data || []).map((f, idxF) => ({
+            ...f,
+            _originalIndex: idxF,
+            expanded: esFiltradoEspecifico ? true : false,
+            periodos: (f.periodos || []).map((p, idxP) => ({
+              ...p,
+              _originalIndex: idxP,
+              expanded: esFiltradoEspecifico ? true : false,
+              comprobantes: (p.comprobantes || [])
+                .filter((c) => {
+                  const t = (c.tipo || '').trim().toUpperCase();
+                  return t !== 'OP' && !t.startsWith('OP');
+                })
+                .map((c, idxC) => ({
+                  ...c,
+                  _originalIndex: idxC,
+                  hijos: (c.hijos || [])
+                    .filter((h) => {
+                      const t = (h.tipo || '').trim().toUpperCase();
+                      return t !== 'OP' && !t.startsWith('OP');
+                    })
+                    .map((h, idxH) => ({
+                      ...h,
+                      _originalIndex: idxH
+                    }))
+                }))
             }))
-          }))
-        }));
-        if (this.columnaOrdenCc) {
-          this.aplicarOrdenCuentaCorriente();
+          }));
+          if (this.columnaOrdenCc) {
+            this.aplicarOrdenCuentaCorriente();
+          }
+          this.cargandoCuentaCorriente = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar cuenta corriente:', err);
+          this.cargandoCuentaCorriente = false;
+          this.cdr.markForCheck();
         }
-        this.cargandoCuentaCorriente = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar cuenta corriente:', err);
-        this.cargandoCuentaCorriente = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   toggleFinanciador(f: CcFinanciadorDTO): void {
@@ -1981,6 +2440,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   get cuentaCorrienteDatosPaginados(): CcFinanciadorDTO[] {
     if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return [];
+    if (this.ccPaginaActual > this.totalPaginasCc) {
+      this.ccPaginaActual = 1;
+    }
     const inicio = (this.ccPaginaActual - 1) * this.ccItemsPorPagina;
     return this.cuentaCorrienteDatos.slice(inicio, inicio + this.ccItemsPorPagina);
   }
@@ -1998,6 +2460,37 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.ccPaginaActual = 1;
     this.cdr.markForCheck();
     this.actualizarAlturasSticky();
+  }
+
+  // ── Totales Consolidados Fila Superior Cuenta Corriente ──────────────────
+  get totalFacturacionCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 0;
+    return this.cuentaCorrienteDatos.reduce((acc, f) => acc + (f.facturacionFc || 0), 0);
+  }
+
+  get totalIncrementosCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 0;
+    return this.cuentaCorrienteDatos.reduce((acc, f) => acc + (f.incrementosNd || 0), 0);
+  }
+
+  get totalDebitosCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 0;
+    return this.cuentaCorrienteDatos.reduce((acc, f) => acc + (f.debitosNc || 0), 0);
+  }
+
+  get totalRefacturacionCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 0;
+    return this.cuentaCorrienteDatos.reduce((acc, f) => acc + (f.refacturacionNd || 0), 0);
+  }
+
+  get totalCobranzasCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 0;
+    return this.cuentaCorrienteDatos.reduce((acc, f) => acc + (f.cobranzasRc || 0), 0);
+  }
+
+  get totalSaldoCc(): number {
+    if (!this.cuentaCorrienteDatos || this.cuentaCorrienteDatos.length === 0) return 0;
+    return this.cuentaCorrienteDatos.reduce((acc, f) => acc + (f.saldo || 0), 0);
   }
 
   expandirTodosCuentaCorriente(expandir: boolean): void {
@@ -2028,9 +2521,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     return comprobante.replace(/^(FC[A-Z]?|FAC)\s+/i, '');
   }
 
+  formatearNumeroComprobanteNoImputado(r: ReciboSinImputarDTO): string {
+    if (!r || !r.comprobante) return '';
+    const tipo = (r.tipo || '').trim().toUpperCase();
+    let comp = r.comprobante.trim();
+    if (tipo && comp.toUpperCase().startsWith(tipo)) {
+      comp = comp.substring(tipo.length).trim();
+    }
+    return comp;
+  }
+
   trackByFinanciador(index: number, item: CcFinanciadorDTO): string { return item.financiador; }
   trackByPeriodo(index: number, item: CcPeriodoDTO): string { return item.periodo; }
   trackByComprobante(index: number, item: CcComprobanteDTO): string { return item.comprobante; }
+  trackByNoImputado(index: number, item: ReciboSinImputarDTO): number | string { return item.id || index; }
 
   // ---------------------------------------------------------------------------
   // Matriz Anual de Recaudación
@@ -2045,91 +2549,91 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getMatrizRecaudacion(anioConsulta, financiador)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data) => {
-        if (data?.filas) {
-          data.filas.forEach(f => {
-            if (f.codigoFinanciador && !f.financiador.toLowerCase().startsWith(f.codigoFinanciador.toLowerCase() + ' - ') && !f.financiador.toLowerCase().startsWith(f.codigoFinanciador.toLowerCase() + '-')) {
-              f.financiador = `${f.codigoFinanciador} - ${f.financiador}`;
-            } else if (!f.financiador.includes(' - ')) {
-              const cob = this.coberturas.find(c =>
-                c.nombre && f.financiador && (
-                  c.nombre.trim().toLowerCase() === f.financiador.trim().toLowerCase()
-                )
-              );
-              if (cob && cob.codigo && !f.financiador.toLowerCase().startsWith(cob.codigo.toLowerCase())) {
-                f.codigoFinanciador = cob.codigo;
-                f.financiador = `${cob.codigo} - ${f.financiador}`;
+        next: (data) => {
+          if (data?.filas) {
+            data.filas.forEach(f => {
+              if (f.codigoFinanciador && !f.financiador.toLowerCase().startsWith(f.codigoFinanciador.toLowerCase() + ' - ') && !f.financiador.toLowerCase().startsWith(f.codigoFinanciador.toLowerCase() + '-')) {
+                f.financiador = `${f.codigoFinanciador} - ${f.financiador}`;
+              } else if (!f.financiador.includes(' - ')) {
+                const cob = this.coberturas.find(c =>
+                  c.nombre && f.financiador && (
+                    c.nombre.trim().toLowerCase() === f.financiador.trim().toLowerCase()
+                  )
+                );
+                if (cob && cob.codigo && !f.financiador.toLowerCase().startsWith(cob.codigo.toLowerCase())) {
+                  f.codigoFinanciador = cob.codigo;
+                  f.financiador = `${cob.codigo} - ${f.financiador}`;
+                }
               }
-            }
-          });
-        }
-
-        if (data && financiador) {
-          const cobObj = this.coberturas.find(c => c.codigo === financiador);
-
-          const normalizar = (txt: string) =>
-            (txt || '')
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-
-          const fNorm = normalizar(financiador);
-          const nomFiltroNorm = normalizar(cobObj ? cobObj.nombre : '');
-          const palabrasFiltro = nomFiltroNorm.split(' ').filter(w => w.length > 2);
-
-          // Filtrar filas coincidentes (por código, por nombre completo o por palabras clave)
-          const filasFiltradas = (data.filas || []).filter(f => {
-            const rowFinNorm = normalizar(f.financiador || '');
-            if (!rowFinNorm) return false;
-            if (rowFinNorm.includes(fNorm) || (nomFiltroNorm && (rowFinNorm.includes(nomFiltroNorm) || nomFiltroNorm.includes(rowFinNorm)))) {
-              return true;
-            }
-            if (palabrasFiltro.length > 0 && palabrasFiltro.every(palabra => rowFinNorm.includes(palabra))) {
-              return true;
-            }
-            return false;
-          });
-
-          // Recalcular siempre totales mensuales y total general para la vista filtrada
-          const totalesMes = new Array(12).fill(0);
-          let granTotal = 0;
-          for (const f of filasFiltradas) {
-            granTotal += (f.totalAnual || 0);
-            for (let i = 0; i < 12; i++) {
-              totalesMes[i] += (f.meses?.[i] || 0);
-            }
+            });
           }
 
-          data = {
-            ...data,
-            filas: filasFiltradas.map((f, idx) => ({ ...f, _originalIndex: idx })),
-            totalesMes,
-            granTotal
-          };
-        } else {
-          data = {
-            ...data,
-            filas: (data.filas || []).map((f, idx) => ({ ...f, _originalIndex: idx }))
-          };
-        }
+          if (data && financiador) {
+            const cobObj = this.coberturas.find(c => c.codigo === financiador);
 
-        this.matrizRecaudacion = data;
-        if (this.columnaOrdenMatriz) {
-          this.aplicarOrdenMatriz();
+            const normalizar = (txt: string) =>
+              (txt || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const fNorm = normalizar(financiador);
+            const nomFiltroNorm = normalizar(cobObj ? cobObj.nombre : '');
+            const palabrasFiltro = nomFiltroNorm.split(' ').filter(w => w.length > 2);
+
+            // Filtrar filas coincidentes (por código, por nombre completo o por palabras clave)
+            const filasFiltradas = (data.filas || []).filter(f => {
+              const rowFinNorm = normalizar(f.financiador || '');
+              if (!rowFinNorm) return false;
+              if (rowFinNorm.includes(fNorm) || (nomFiltroNorm && (rowFinNorm.includes(nomFiltroNorm) || nomFiltroNorm.includes(rowFinNorm)))) {
+                return true;
+              }
+              if (palabrasFiltro.length > 0 && palabrasFiltro.every(palabra => rowFinNorm.includes(palabra))) {
+                return true;
+              }
+              return false;
+            });
+
+            // Recalcular siempre totales mensuales y total general para la vista filtrada
+            const totalesMes = new Array(12).fill(0);
+            let granTotal = 0;
+            for (const f of filasFiltradas) {
+              granTotal += (f.totalAnual || 0);
+              for (let i = 0; i < 12; i++) {
+                totalesMes[i] += (f.meses?.[i] || 0);
+              }
+            }
+
+            data = {
+              ...data,
+              filas: filasFiltradas.map((f, idx) => ({ ...f, _originalIndex: idx })),
+              totalesMes,
+              granTotal
+            };
+          } else {
+            data = {
+              ...data,
+              filas: (data.filas || []).map((f, idx) => ({ ...f, _originalIndex: idx }))
+            };
+          }
+
+          this.matrizRecaudacion = data;
+          if (this.columnaOrdenMatriz) {
+            this.aplicarOrdenMatriz();
+          }
+          this.cargandoMatriz = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar matriz de recaudación:', err);
+          this.cargandoMatriz = false;
+          this.cdr.markForCheck();
         }
-        this.cargandoMatriz = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar matriz de recaudación:', err);
-        this.cargandoMatriz = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   onAnioMatrizChange(nuevoAnio: any): void {
@@ -2159,26 +2663,26 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getTrazabilidad(financiador, undefined, undefined, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data) => {
-        this.trazabilidadDatos = (data || []).map((c, idx) => ({
-          ...c,
-          _originalIndex: idx,
-          expanded: false
-        }));
-        this.trazabilidadPaginaActual = 1;
-        if (this.columnaOrdenTrazabilidad) {
-          this.aplicarOrdenTrazabilidad();
+        next: (data) => {
+          this.trazabilidadDatos = (data || []).map((c, idx) => ({
+            ...c,
+            _originalIndex: idx,
+            expanded: false
+          }));
+          this.trazabilidadPaginaActual = 1;
+          if (this.columnaOrdenTrazabilidad) {
+            this.aplicarOrdenTrazabilidad();
+          }
+          this.cargandoTrazabilidad = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar trazabilidad:', err);
+          this.cargandoTrazabilidad = false;
+          this.cdr.markForCheck();
         }
-        this.cargandoTrazabilidad = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar trazabilidad:', err);
-        this.cargandoTrazabilidad = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   get totalPaginasTrazabilidad(): number {
@@ -2258,25 +2762,27 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   precargarBucles(): void {
     if (!this.directorioService.getBuclesInsistencia) return;
-    this.directorioService.getBuclesInsistencia(undefined, undefined, undefined, this.fechaDesde, this.fechaHasta).subscribe({
-      next: (data) => {
-        const chains = (data || []).map(c => ({
-          ...c,
-          expanded: false,
-          prestaciones: (c.prestaciones || []).map(p => ({
-            ...p,
-            expanded: (c.prestaciones?.length === 1)
-          }))
-        }));
-        this.buclesTodos = chains;
-        this.actualizarCoberturasBucles(chains);
-        if (this.solapaActiva === 'bucles') {
-          this.filtrarBuclesLocales();
-        }
-        this.cdr.markForCheck();
-      },
-      error: (err) => console.error('Error al precargar bucles de insistencia:', err)
-    });
+    this.directorioService.getBuclesInsistencia(undefined, undefined, undefined, this.fechaDesde, this.fechaHasta)
+      .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          const chains = (data || []).map(c => ({
+            ...c,
+            expanded: false,
+            prestaciones: (c.prestaciones || []).map(p => ({
+              ...p,
+              expanded: (c.prestaciones?.length === 1)
+            }))
+          }));
+          this.buclesTodos = chains;
+          this.actualizarCoberturasBucles(chains);
+          if (this.solapaActiva === 'bucles') {
+            this.filtrarBuclesLocales();
+          }
+          this.cdr.markForCheck();
+        },
+        error: (err) => console.error('Error al precargar bucles de insistencia:', err)
+      });
   }
 
   actualizarCoberturasBucles(cadenas: CadenaTrazabilidadDTO[]): void {
@@ -2408,30 +2914,30 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.directorioService.getBuclesInsistencia(codCob, undefined, undefined, this.fechaDesde, this.fechaHasta)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data) => {
-        const chains = (data || []).map((c, idx) => ({
-          ...c,
-          _originalIndex: idx,
-          expanded: false,
-          prestaciones: (c.prestaciones || []).map(p => ({
-            ...p,
-            expanded: false
-          }))
-        }));
-        this.buclesTodos = chains;
-        this.actualizarCoberturasBucles(chains);
-        this.filtrarBuclesLocales();
-        this.buclesPaginaActual = 1;
-        this.cargandoBucles = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar bucles de insistencia:', err);
-        this.cargandoBucles = false;
-        this.cdr.markForCheck();
-      }
-    });
+        next: (data) => {
+          const chains = (data || []).map((c, idx) => ({
+            ...c,
+            _originalIndex: idx,
+            expanded: false,
+            prestaciones: (c.prestaciones || []).map(p => ({
+              ...p,
+              expanded: false
+            }))
+          }));
+          this.buclesTodos = chains;
+          this.actualizarCoberturasBucles(chains);
+          this.filtrarBuclesLocales();
+          this.buclesPaginaActual = 1;
+          this.cargandoBucles = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar bucles de insistencia:', err);
+          this.cargandoBucles = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   // ---------------------------------------------------------------------------
@@ -2446,54 +2952,68 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoAnalistas = true;
     const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoAnalistas(periodo, this.fechaDesde, this.fechaHasta)
+    this.directorioService.getDesempenoAnalistas(periodo, this.fechaDesde, this.fechaHasta, this.criterioFechaCc)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (analistas) => {
-        this.analistasDatos = (analistas || []).map((a, idxA) => {
-          const distinctFins = new Set<string>();
-          (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
-            if (f.financiador) distinctFins.add(f.financiador);
-          }));
-          return {
-            ...a,
-            _originalIndex: idxA,
-            expanded: false,
-            cantidadFinanciadores: distinctFins.size,
-            motivos: (a.motivos || []).map((m, idxM) => ({
-              ...m,
-              _originalIndex: idxM,
+        next: (analistas) => {
+          this.analistasDatos = (analistas || []).map((a, idxA) => {
+            const distinctFins = new Set<string>();
+            (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
+              if (f.financiador) distinctFins.add(f.financiador);
+            }));
+            const totalMontoA = a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0;
+            const difA = Math.max(0, totalMontoA - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0)));
+            return {
+              ...a,
+              _originalIndex: idxA,
               expanded: false,
-              financiadores: (m.financiadores || []).map((f, idxF) => ({
-                ...f,
-                _originalIndex: idxF
-              }))
-            }))
-          };
-        });
+              cantidadFinanciadores: distinctFins.size,
+              diferencia: difA,
+              motivos: (a.motivos || []).map((m, idxM) => {
+                const montoM = m.montoDebitado || 0;
+                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                return {
+                  ...m,
+                  _originalIndex: idxM,
+                  expanded: false,
+                  diferencia: difM,
+                  financiadores: (m.financiadores || []).map((f, idxF) => {
+                    const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
+                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    return {
+                      ...f,
+                      _originalIndex: idxF,
+                      diferencia: difF
+                    };
+                  })
+                };
+              })
+            };
+          });
 
-        if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
-          !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
-          this.filtroAnalistaSeleccionado = 'TODOS';
-        }
+          if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
+            !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
+            this.filtroAnalistaSeleccionado = 'TODOS';
+          }
 
-        if (this.columnaOrdenAnalista) {
-          this.aplicarOrdenAnalistas();
-        }
-        if (this.columnaOrdenMotivoAnalista) {
-          this.aplicarOrdenMotivosAnalistas();
-        }
+          if (this.columnaOrdenAnalista) {
+            this.aplicarOrdenAnalistas();
+          }
+          if (this.columnaOrdenMotivoAnalista) {
+            this.aplicarOrdenMotivosAnalistas();
+          }
 
-        this.cargandoAnalistas = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar analistas de débito:', err);
-        this.cargandoAnalistas = false;
-        this.cdr.markForCheck();
-      }
-    });
+          this.cargandoAnalistas = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+          setTimeout(() => this.actualizarAlturasSticky(), 80);
+        },
+        error: (err) => {
+          console.error('Error al cargar analistas de débito:', err);
+          this.cargandoAnalistas = false;
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   cargarOperadores(): void {
@@ -2504,45 +3024,61 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoOperadores = true;
     const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta)
+    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta, this.criterioFechaCc)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (operadores) => {
-        this.operadoresDatos = (operadores || []).map((op, idxOp) => ({
-          ...op,
-          _originalIndex: idxOp,
-          expanded: false,
-          motivos: (op.motivos || []).map((m, idxM) => ({
-            ...m,
-            _originalIndex: idxM,
-            expanded: false,
-            financiadores: (m.financiadores || []).map((f, idxF) => ({
-              ...f,
-              _originalIndex: idxF
-            }))
-          }))
-        }));
+        next: (operadores) => {
+          this.operadoresDatos = (operadores || []).map((op, idxOp) => {
+            const totalMontoOp = op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados) || 0;
+            const difOp = Math.max(0, totalMontoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
+            return {
+              ...op,
+              _originalIndex: idxOp,
+              expanded: false,
+              diferencia: difOp,
+              motivos: (op.motivos || []).map((m, idxM) => {
+                const montoM = m.montoDebitado || 0;
+                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                return {
+                  ...m,
+                  _originalIndex: idxM,
+                  expanded: false,
+                  diferencia: difM,
+                  financiadores: (m.financiadores || []).map((f, idxF) => {
+                    const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
+                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    return {
+                      ...f,
+                      _originalIndex: idxF,
+                      diferencia: difF
+                    };
+                  })
+                };
+              })
+            };
+          });
 
-        if (this.columnaOrdenOperador) {
-          this.aplicarOrdenOperadores();
+          if (this.columnaOrdenOperador) {
+            this.aplicarOrdenOperadores();
+          }
+
+          if (this.filtroOperadorSeleccionado !== 'TODOS' &&
+            !this.operadoresDatos.some(o => o.operador === this.filtroOperadorSeleccionado)) {
+            this.filtroOperadorSeleccionado = 'TODOS';
+          }
+          this.operadoresPaginaActual = 1;
+
+          this.cargandoOperadores = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+          setTimeout(() => this.actualizarAlturasSticky(), 80);
+        },
+        error: (err) => {
+          console.error('Error al cargar operadores de carga:', err);
+          this.cargandoOperadores = false;
+          this.cdr.markForCheck();
         }
-
-        if (this.filtroOperadorSeleccionado !== 'TODOS' &&
-          !this.operadoresDatos.some(o => o.operador === this.filtroOperadorSeleccionado)) {
-          this.filtroOperadorSeleccionado = 'TODOS';
-        }
-        this.operadoresPaginaActual = 1;
-
-        this.cargandoOperadores = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar operadores de carga:', err);
-        this.cargandoOperadores = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   cargarMedicos(): void {
@@ -2553,44 +3089,44 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoMedicos = true;
     const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoMedicos(periodo, this.fechaDesde, this.fechaHasta)
+    this.directorioService.getDesempenoMedicos(periodo, this.fechaDesde, this.fechaHasta, this.criterioFechaCc)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (medicos) => {
-        this.medicosDatos = (medicos || []).map((med, idxMed) => ({
-          ...med,
-          _originalIndex: idxMed,
-          expanded: false,
-          motivos: (med.motivos || []).map((m, idxM) => ({
-            ...m,
-            _originalIndex: idxM,
+        next: (medicos) => {
+          this.medicosDatos = (medicos || []).map((med, idxMed) => ({
+            ...med,
+            _originalIndex: idxMed,
             expanded: false,
-            financiadores: (m.financiadores || []).map((f, idxF) => ({
-              ...f,
-              _originalIndex: idxF
+            motivos: (med.motivos || []).map((m, idxM) => ({
+              ...m,
+              _originalIndex: idxM,
+              expanded: false,
+              financiadores: (m.financiadores || []).map((f, idxF) => ({
+                ...f,
+                _originalIndex: idxF
+              }))
             }))
-          }))
-        }));
+          }));
 
-        if (this.columnaOrdenMedico) {
-          this.aplicarOrdenMedicos();
+          if (this.columnaOrdenMedico) {
+            this.aplicarOrdenMedicos();
+          }
+
+          if (this.filtroMedicoSeleccionado !== 'TODOS' &&
+            !this.medicosDatos.some(m => m.medico === this.filtroMedicoSeleccionado)) {
+            this.filtroMedicoSeleccionado = 'TODOS';
+          }
+
+          this.cargandoMedicos = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar médicos:', err);
+          this.cargandoMedicos = false;
+          this.cdr.markForCheck();
         }
-
-        if (this.filtroMedicoSeleccionado !== 'TODOS' &&
-          !this.medicosDatos.some(m => m.medico === this.filtroMedicoSeleccionado)) {
-          this.filtroMedicoSeleccionado = 'TODOS';
-        }
-
-        this.cargandoMedicos = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar médicos:', err);
-        this.cargandoMedicos = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   cargarDesempenoOperativo(): void {
@@ -2600,21 +3136,49 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoOperadores = true;
     const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoGlobal(periodo, this.fechaDesde, this.fechaHasta)
+    this.directorioService.getDesempenoGlobal(periodo, this.fechaDesde, this.fechaHasta, this.criterioFechaCc)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
-      next: (data) => {
-        this.analistasDatos = (data?.analistas || []).map((a, idxA) => {
-          const distinctFins = new Set<string>();
-          (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
-            if (f.financiador) distinctFins.add(f.financiador);
-          }));
-          return {
-            ...a,
-            _originalIndex: idxA,
+        next: (data) => {
+          this.analistasDatos = (data?.analistas || []).map((a, idxA) => {
+            const distinctFins = new Set<string>();
+            (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
+              if (f.financiador) distinctFins.add(f.financiador);
+            }));
+            return {
+              ...a,
+              _originalIndex: idxA,
+              expanded: false,
+              cantidadFinanciadores: distinctFins.size,
+              motivos: (a.motivos || []).map((m, idxM) => ({
+                ...m,
+                _originalIndex: idxM,
+                expanded: false,
+                financiadores: (m.financiadores || []).map((f, idxF) => ({
+                  ...f,
+                  _originalIndex: idxF
+                }))
+              }))
+            };
+          });
+
+          if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
+            !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
+            this.filtroAnalistaSeleccionado = 'TODOS';
+          }
+
+          if (this.columnaOrdenAnalista) {
+            this.aplicarOrdenAnalistas();
+          }
+          if (this.columnaOrdenMotivoAnalista) {
+            this.aplicarOrdenMotivosAnalistas();
+          }
+
+          this.medicosDatos = (data?.medicos || []).map((med, idxMed) => ({
+            ...med,
+            _originalIndex: idxMed,
             expanded: false,
-            cantidadFinanciadores: distinctFins.size,
-            motivos: (a.motivos || []).map((m, idxM) => ({
+            motivos: (med.motivos || []).map((m, idxM) => ({
               ...m,
               _originalIndex: idxM,
               expanded: false,
@@ -2623,78 +3187,50 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                 _originalIndex: idxF
               }))
             }))
-          };
-        });
+          }));
 
-        if (this.filtroAnalistaSeleccionado !== 'TODOS' &&
-          !this.analistasDatos.some(a => a.analista === this.filtroAnalistaSeleccionado)) {
-          this.filtroAnalistaSeleccionado = 'TODOS';
-        }
+          if (this.columnaOrdenMedico) {
+            this.aplicarOrdenMedicos();
+          }
 
-        if (this.columnaOrdenAnalista) {
-          this.aplicarOrdenAnalistas();
-        }
-        if (this.columnaOrdenMotivoAnalista) {
-          this.aplicarOrdenMotivosAnalistas();
-        }
+          if (this.filtroMedicoSeleccionado !== 'TODOS' &&
+            !this.medicosDatos.some(m => m.medico === this.filtroMedicoSeleccionado)) {
+            this.filtroMedicoSeleccionado = 'TODOS';
+          }
 
-        this.medicosDatos = (data?.medicos || []).map((med, idxMed) => ({
-          ...med,
-          _originalIndex: idxMed,
-          expanded: false,
-          motivos: (med.motivos || []).map((m, idxM) => ({
-            ...m,
-            _originalIndex: idxM,
+          this.operadoresDatos = (data?.operadores || []).map((op, idxOp) => ({
+            ...op,
+            _originalIndex: idxOp,
             expanded: false,
-            financiadores: (m.financiadores || []).map((f, idxF) => ({
-              ...f,
-              _originalIndex: idxF
+            motivos: (op.motivos || []).map((m, idxM) => ({
+              ...m,
+              _originalIndex: idxM,
+              expanded: false,
+              financiadores: (m.financiadores || []).map((f, idxF) => ({
+                ...f,
+                _originalIndex: idxF
+              }))
             }))
-          }))
-        }));
+          }));
 
-        if (this.columnaOrdenMedico) {
-          this.aplicarOrdenMedicos();
+          if (this.columnaOrdenOperador) {
+            this.aplicarOrdenOperadores();
+          }
+
+          this.cargandoAnalistas = false;
+          this.cargandoMedicos = false;
+          this.cargandoOperadores = false;
+          this.cdr.markForCheck();
+          this.actualizarAlturasSticky();
+        },
+        error: (err) => {
+          console.error('Error al cargar desempeño operativo global:', err);
+          this.cargandoAnalistas = false;
+          this.cargandoMedicos = false;
+          this.cargandoOperadores = false;
+          this.cdr.markForCheck();
         }
-
-        if (this.filtroMedicoSeleccionado !== 'TODOS' &&
-          !this.medicosDatos.some(m => m.medico === this.filtroMedicoSeleccionado)) {
-          this.filtroMedicoSeleccionado = 'TODOS';
-        }
-
-        this.operadoresDatos = (data?.operadores || []).map((op, idxOp) => ({
-          ...op,
-          _originalIndex: idxOp,
-          expanded: false,
-          motivos: (op.motivos || []).map((m, idxM) => ({
-            ...m,
-            _originalIndex: idxM,
-            expanded: false,
-            financiadores: (m.financiadores || []).map((f, idxF) => ({
-              ...f,
-              _originalIndex: idxF
-            }))
-          }))
-        }));
-
-        if (this.columnaOrdenOperador) {
-          this.aplicarOrdenOperadores();
-        }
-
-        this.cargandoAnalistas = false;
-        this.cargandoMedicos = false;
-        this.cargandoOperadores = false;
-        this.cdr.markForCheck();
-        this.actualizarAlturasSticky();
-      },
-      error: (err) => {
-        console.error('Error al cargar desempeño operativo global:', err);
-        this.cargandoAnalistas = false;
-        this.cargandoMedicos = false;
-        this.cargandoOperadores = false;
-        this.cdr.markForCheck();
-      }
-    });
+      });
   }
 
   toggleAnalista(analista: MetricaAnalistaDTO): void {
@@ -2718,6 +3254,52 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   limpiarFiltroAnalista(): void {
     this.filtroAnalistaSeleccionado = 'TODOS';
+  }
+
+  // ── Totales Consolidados Fila Fija Analistas ──────────────────────────────
+  get totalCasosAnalistas(): number {
+    return (this.analistasFiltrados || []).reduce((acc, a) => acc + (a.cantidadRegistros || 0), 0);
+  }
+
+  get totalFinanciadoresAnalistas(): number {
+    return (this.analistasFiltrados || []).reduce((acc, a) => acc + (a.cantidadFinanciadores || 0), 0);
+  }
+
+  get totalMontoDebitadoAnalistas(): number {
+    return (this.analistasFiltrados || []).reduce((acc, a) =>
+      acc + (a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0), 0);
+  }
+
+  get totalAceptadosAnalistas(): number {
+    return (this.analistasFiltrados || []).reduce((acc, a) => acc + (a.debitosAceptados || 0), 0);
+  }
+
+  get totalRefacturadosAnalistas(): number {
+    return (this.analistasFiltrados || []).reduce((acc, a) => acc + (a.debitosRefacturados || 0), 0);
+  }
+
+  get totalDiferenciaAnalistas(): number {
+    return Math.max(0, this.totalMontoDebitadoAnalistas - (this.totalAceptadosAnalistas + this.totalRefacturadosAnalistas));
+  }
+
+  get ticketPromedioGlobalAnalistas(): number {
+    const casos = this.totalCasosAnalistas;
+    return casos > 0 ? (this.totalMontoDebitadoAnalistas / casos) : 0;
+  }
+
+  get tasaRecuperoGlobalAnalistas(): number {
+    const deb = this.totalMontoDebitadoAnalistas;
+    return deb > 0 ? ((this.totalRefacturadosAnalistas * 100) / deb) : 0;
+  }
+
+  get distribucionAtencionGlobalAnalistas(): string {
+    const amb = (this.analistasFiltrados || []).reduce((acc, a) => acc + (a.cantidadAmb || 0), 0);
+    const in_ = (this.analistasFiltrados || []).reduce((acc, a) => acc + (a.cantidadInt || 0), 0);
+    const tot = amb + in_;
+    if (tot === 0) return '—';
+    const pAmb = Math.round((amb * 100) / tot);
+    const pInt = 100 - pAmb;
+    return `${pAmb}% Amb / ${pInt}% Int`;
   }
 
   // ── Ordenamiento Analistas ───────────────────────────────────────────────
@@ -2766,11 +3348,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           case 'monto':
           case 'montoDebitado':
             return ((a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0) -
-                    (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
+              (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
           case 'aceptados':
             return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
           case 'refacturados':
             return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'diferencia':
+            return (((a as any).diferencia || 0) - ((b as any).diferencia || 0)) * factor;
           case 'ticket':
             return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
           case 'atencion':
@@ -2786,42 +3370,44 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (hayAnalistaDesplegado || (!hayMotivoDesplegado && !hayAnalistaDesplegado)) {
       for (const a of this.analistasDatos) {
         if (hayAnalistaDesplegado && !a.expanded) continue;
-      if (a.motivos && a.motivos.length > 0) {
-        a.motivos.sort((m1, m2) => {
-          switch (columna) {
-            case 'analista':
-              return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
-            case 'financiadores':
-              return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
-            case 'documentos':
-            case 'casos':
-              return ((m1.casos || 0) - (m2.casos || 0)) * factor;
-            case 'monto':
-            case 'montoDebitado':
-              return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
-            case 'aceptados':
-              return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
-            case 'refacturados':
-              return ((m1.refacturado || 0) - (m2.refacturado || 0)) * factor;
-            case 'ticket': {
-              const t1 = (m1.casos && m1.casos > 0) ? (m1.montoDebitado / m1.casos) : 0;
-              const t2 = (m2.casos && m2.casos > 0) ? (m2.montoDebitado / m2.casos) : 0;
-              return (t1 - t2) * factor;
+        if (a.motivos && a.motivos.length > 0) {
+          a.motivos.sort((m1, m2) => {
+            switch (columna) {
+              case 'analista':
+                return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+              case 'financiadores':
+                return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
+              case 'documentos':
+              case 'casos':
+                return ((m1.casos || 0) - (m2.casos || 0)) * factor;
+              case 'monto':
+              case 'montoDebitado':
+                return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
+              case 'aceptados':
+                return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
+              case 'refacturados':
+                return ((m1.refacturado || 0) - (m2.refacturado || 0)) * factor;
+              case 'diferencia':
+                return (((m1 as any).diferencia || 0) - ((m2 as any).diferencia || 0)) * factor;
+              case 'ticket': {
+                const t1 = (m1.casos && m1.casos > 0) ? (m1.montoDebitado / m1.casos) : 0;
+                const t2 = (m2.casos && m2.casos > 0) ? (m2.montoDebitado / m2.casos) : 0;
+                return (t1 - t2) * factor;
+              }
+              case 'atencion': {
+                const amb1 = m1.porcentajeAmb ?? 100;
+                const amb2 = m2.porcentajeAmb ?? 100;
+                return (amb1 - amb2) * factor;
+              }
+              case 'recupero': {
+                const r1 = m1.montoDebitado > 0 ? (m1.refacturado * 100 / m1.montoDebitado) : 0;
+                const r2 = m2.montoDebitado > 0 ? (m2.refacturado * 100 / m2.montoDebitado) : 0;
+                return (r1 - r2) * factor;
+              }
+              default:
+                return 0;
             }
-            case 'atencion': {
-              const amb1 = m1.porcentajeAmb ?? 100;
-              const amb2 = m2.porcentajeAmb ?? 100;
-              return (amb1 - amb2) * factor;
-            }
-            case 'recupero': {
-              const r1 = m1.montoDebitado > 0 ? (m1.refacturado * 100 / m1.montoDebitado) : 0;
-              const r2 = m2.montoDebitado > 0 ? (m2.refacturado * 100 / m2.montoDebitado) : 0;
-              return (r1 - r2) * factor;
-            }
-            default:
-              return 0;
-          }
-        });
+          });
 
           a.motivos = [...a.motivos];
         }
@@ -2852,6 +3438,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                 return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
               case 'refacturados':
                 return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+              case 'diferencia':
+                return (((f1 as any).diferencia || 0) - ((f2 as any).diferencia || 0)) * factor;
               case 'ticket': {
                 const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : (f1.monto || 0);
                 const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : (f2.monto || 0);
@@ -3241,11 +3829,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           case 'monto':
           case 'montoDebitado':
             return ((a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0) -
-                    (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
+              (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
           case 'aceptados':
             return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
           case 'refacturados':
             return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'diferencia':
+            return (((a as any).diferencia || 0) - ((b as any).diferencia || 0)) * factor;
           case 'ticket':
             return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
           case 'recupero':
@@ -3497,6 +4087,38 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.busquedaTextoMedico = '';
     this.medicosPaginaActual = 1;
     this.actualizarAlturasSticky();
+  }
+
+  // ── Totales Consolidados Fila Superior Médicos (Prestadores) ─────────────
+  get totalMotivosMedicos(): number {
+    return (this.medicosFiltrados || []).reduce((acc, med) => acc + (med.motivos?.length || 0), 0);
+  }
+
+  get totalCasosMedicos(): number {
+    return (this.medicosFiltrados || []).reduce((acc, med) => acc + (med.cantidadRegistros || 0), 0);
+  }
+
+  get totalMontoDebitadoMedicos(): number {
+    return (this.medicosFiltrados || []).reduce((acc, med) =>
+      acc + (med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados) || 0), 0);
+  }
+
+  get totalAceptadosMedicos(): number {
+    return (this.medicosFiltrados || []).reduce((acc, med) => acc + (med.debitosAceptados || 0), 0);
+  }
+
+  get totalRefacturadosMedicos(): number {
+    return (this.medicosFiltrados || []).reduce((acc, med) => acc + (med.debitosRefacturados || 0), 0);
+  }
+
+  get ticketPromedioGlobalMedicos(): number {
+    const casos = this.totalCasosMedicos;
+    return casos > 0 ? (this.totalMontoDebitadoMedicos / casos) : 0;
+  }
+
+  get tasaRecuperoGlobalMedicos(): number {
+    const deb = this.totalMontoDebitadoMedicos;
+    return deb > 0 ? ((this.totalRefacturadosMedicos * 100) / deb) : 0;
   }
 
   // ── Ordenamiento Cuenta Corriente ─────────────────────────────────────────
@@ -3817,11 +4439,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           case 'monto':
           case 'montoDebitado':
             return ((a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0) -
-                    (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
+              (b.totalTramitado || (b.debitosAceptados + b.debitosRefacturados) || 0)) * factor;
           case 'aceptados':
             return ((a.debitosAceptados || 0) - (b.debitosAceptados || 0)) * factor;
           case 'refacturados':
             return ((a.debitosRefacturados || 0) - (b.debitosRefacturados || 0)) * factor;
+          case 'diferencia':
+            return (((a as any).diferencia || 0) - ((b as any).diferencia || 0)) * factor;
           case 'ticket':
             return ((a.ticketPromedio || 0) - (b.ticketPromedio || 0)) * factor;
           case 'recupero':
@@ -3836,38 +4460,40 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (hayOperadorDesplegado || (!hayMotivoDesplegado && !hayOperadorDesplegado)) {
       for (const op of this.operadoresDatos) {
         if (hayOperadorDesplegado && !op.expanded) continue;
-      if (op.motivos && op.motivos.length > 0) {
-        op.motivos.sort((m1, m2) => {
-          switch (columna) {
-            case 'operador':
-            case 'motivo':
-              return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
-            case 'financiador':
-              return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
-            case 'documentos':
-            case 'casos':
-              return ((m1.casos || 0) - (m2.casos || 0)) * factor;
-            case 'monto':
-            case 'montoDebitado':
-              return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
-            case 'aceptados':
-              return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
-            case 'refacturados':
-              return ((m1.refacturado || 0) - (m2.refacturado || 0)) * factor;
-            case 'ticket': {
-              const t1 = (m1.casos && m1.casos > 0) ? (m1.montoDebitado / m1.casos) : 0;
-              const t2 = (m2.casos && m2.casos > 0) ? (m2.montoDebitado / m2.casos) : 0;
-              return (t1 - t2) * factor;
+        if (op.motivos && op.motivos.length > 0) {
+          op.motivos.sort((m1, m2) => {
+            switch (columna) {
+              case 'operador':
+              case 'motivo':
+                return (m1.motivo || '').localeCompare(m2.motivo || '') * factor;
+              case 'financiador':
+                return ((m1.financiadores?.length || 0) - (m2.financiadores?.length || 0)) * factor;
+              case 'documentos':
+              case 'casos':
+                return ((m1.casos || 0) - (m2.casos || 0)) * factor;
+              case 'monto':
+              case 'montoDebitado':
+                return ((m1.montoDebitado || 0) - (m2.montoDebitado || 0)) * factor;
+              case 'aceptados':
+                return ((m1.aceptado || 0) - (m2.aceptado || 0)) * factor;
+              case 'refacturados':
+                return ((m1.refacturado || 0) - (m2.refacturado || 0)) * factor;
+              case 'diferencia':
+                return (((m1 as any).diferencia || 0) - ((m2 as any).diferencia || 0)) * factor;
+              case 'ticket': {
+                const t1 = (m1.casos && m1.casos > 0) ? (m1.montoDebitado / m1.casos) : 0;
+                const t2 = (m2.casos && m2.casos > 0) ? (m2.montoDebitado / m2.casos) : 0;
+                return (t1 - t2) * factor;
+              }
+              case 'recupero': {
+                const r1 = m1.montoDebitado > 0 ? (m1.refacturado * 100 / m1.montoDebitado) : 0;
+                const r2 = m2.montoDebitado > 0 ? (m2.refacturado * 100 / m2.montoDebitado) : 0;
+                return (r1 - r2) * factor;
+              }
+              default:
+                return 0;
             }
-            case 'recupero': {
-              const r1 = m1.montoDebitado > 0 ? (m1.refacturado * 100 / m1.montoDebitado) : 0;
-              const r2 = m2.montoDebitado > 0 ? (m2.refacturado * 100 / m2.montoDebitado) : 0;
-              return (r1 - r2) * factor;
-            }
-            default:
-              return 0;
-          }
-        });
+          });
 
           op.motivos = [...op.motivos];
         }
@@ -3899,6 +4525,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                 return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
               case 'refacturados':
                 return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+              case 'diferencia':
+                return (((f1 as any).diferencia || 0) - ((f2 as any).diferencia || 0)) * factor;
               case 'ticket': {
                 const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
                 const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
@@ -4064,6 +4692,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             const montoMot = finsFiltrados.reduce((acc, f) => acc + (f.monto || (f as any).montoDebitado || 0), 0);
             const aceptadoMot = finsFiltrados.reduce((acc, f) => acc + (f.aceptado || 0), 0);
             const refacturadoMot = finsFiltrados.reduce((acc, f) => acc + (f.refacturado || 0), 0);
+            const difMot = Math.max(0, montoMot - (aceptadoMot + refacturadoMot));
 
             motivosFiltrados.push({
               ...mot,
@@ -4072,6 +4701,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               montoDebitado: montoMot,
               aceptado: aceptadoMot,
               refacturado: refacturadoMot,
+              diferencia: difMot,
               financiadores: finsFiltrados
             });
           }
@@ -4080,6 +4710,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           const aceptadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.aceptado || 0), 0);
           const refacturadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.refacturado || 0), 0);
           const montoTotal = motivosFiltrados.reduce((acc, m) => acc + (m.montoDebitado || 0), 0);
+          const difTotal = Math.max(0, montoTotal - (aceptadosTotal + refacturadosTotal));
           const ticketProm = casosTotal > 0 ? (montoTotal / casosTotal) : 0;
           const tasaRec = montoTotal > 0 ? (refacturadosTotal * 100 / montoTotal) : 0;
 
@@ -4090,6 +4721,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             debitosAceptados: aceptadosTotal,
             debitosRefacturados: refacturadosTotal,
             totalTramitado: montoTotal,
+            diferencia: difTotal,
             ticketPromedio: ticketProm,
             tasaRecupero: tasaRec,
             motivos: motivosFiltrados
@@ -4147,6 +4779,38 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.busquedaTextoOperador = '';
     this.operadoresPaginaActual = 1;
     this.actualizarAlturasSticky();
+  }
+
+  // ── Totales Consolidados Fila Superior Operadores (Usuario de Carga) ───────
+  get totalCasosOperadores(): number {
+    return (this.operadoresFiltrados || []).reduce((acc, op) => acc + (op.cantidadRegistros || 0), 0);
+  }
+
+  get totalMontoDebitadoOperadores(): number {
+    return (this.operadoresFiltrados || []).reduce((acc, op) =>
+      acc + (op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados) || 0), 0);
+  }
+
+  get totalAceptadosOperadores(): number {
+    return (this.operadoresFiltrados || []).reduce((acc, op) => acc + (op.debitosAceptados || 0), 0);
+  }
+
+  get totalRefacturadosOperadores(): number {
+    return (this.operadoresFiltrados || []).reduce((acc, op) => acc + (op.debitosRefacturados || 0), 0);
+  }
+
+  get totalDiferenciaOperadores(): number {
+    return Math.max(0, this.totalMontoDebitadoOperadores - (this.totalAceptadosOperadores + this.totalRefacturadosOperadores));
+  }
+
+  get ticketPromedioGlobalOperadores(): number {
+    const casos = this.totalCasosOperadores;
+    return casos > 0 ? (this.totalMontoDebitadoOperadores / casos) : 0;
+  }
+
+  get tasaRecuperoGlobalOperadores(): number {
+    const deb = this.totalMontoDebitadoOperadores;
+    return deb > 0 ? ((this.totalRefacturadosOperadores * 100) / deb) : 0;
   }
 
   // ── Ordenamiento Trazabilidad ─────────────────────────────────────────────

@@ -15,7 +15,8 @@ export class AuditoriaGridConfigService {
     editorComponent: any, // Recibe el GroupedSelectEditor por parámetro
     tramiteFinalizado: boolean = false,
     tienePrestacionesImportadas: boolean = false,
-    onQuitarPrestacion?: (prestacion: any) => void
+    onQuitarPrestacion?: (prestacion: any) => void,
+    tienePrestacionesManuales: boolean = false
   ): ColDef[] {
     const esSoloLectura = tipo === 'NC' || tipo === 'NCE' || tramiteFinalizado;
 
@@ -24,33 +25,47 @@ export class AuditoriaGridConfigService {
     ];
 
     const esNc = tipo === 'NC' || tipo === 'NCE';
-    if (esNc || tienePrestacionesImportadas) {
+    if (esNc || tienePrestacionesImportadas || tienePrestacionesManuales) {
       columnas.push({
         headerName: 'Factura\nOrigen',
         field: 'facturaOrigenComprobante',
-        headerTooltip: 'Factura original a la que pertenece esta prestación (ORI: Original, IMP: Importada de otra factura)',
+        headerTooltip: 'Factura original a la que pertenece esta prestación (ORI: Original, IMP: Importada de otra factura, EXT: Externa no clínica)',
         width: 175,
         minWidth: 165,
-        cellClass: params => params.data?.esImportada ? 'bg-importada-tag' : 'bg-celeste',
+        cellClass: params => params.data?.esImportada ? 'bg-importada-tag' : (params.data?.esManual ? 'bg-externa-tag' : 'bg-celeste'),
         headerClass: 'bg-celeste',
         cellRenderer: (params: any) => {
-          if (!params.value) return '';
+          if (!params.value && !params.data?.esManual) return '';
           const esImp = !!params.data?.esImportada;
-          const badgeStyle = esImp
-            ? 'background: #fae8ff; color: #86198f; border: 1px solid #f0abfc;'
-            : 'background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;';
-          const badgeTexto = esImp ? 'IMP' : 'ORI';
-          const badgeTitle = esImp ? 'Prestación importada de otra factura' : 'Prestación de la factura original';
+          const esMan = !!params.data?.esManual;
+          let badgeStyle = 'background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;';
+          let badgeTexto = 'ORI';
+          let badgeTitle = 'Prestación de la factura original';
+          if (esImp) {
+            badgeStyle = 'background: #fae8ff; color: #86198f; border: 1px solid #f0abfc;';
+            badgeTexto = 'IMP';
+            badgeTitle = 'Prestación importada de otra factura';
+          } else if (esMan) {
+            badgeStyle = 'background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;';
+            badgeTexto = 'EXT';
+            badgeTitle = 'Prestación externa (no realizada en la clínica)';
+          }
+          const valorComp = params.value || '(Externa)';
           return `<div class="factura-origen-celda" style="display:inline-flex; align-items:center; gap:8px; width:100%; height:100%;">` +
-            `<span class="badge-origen-tag ${esImp ? 'badge-tag-imp' : 'badge-tag-ori'}" style="display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:800; line-height:1; padding:2px 5px; border-radius:3px; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0; margin-right:6px; ${badgeStyle}" title="${badgeTitle}">${badgeTexto}</span>` +
-            `<span class="factura-origen-nro" style="font-size:0.81rem; font-weight:600; color:#1e293b; white-space:nowrap;">${params.value}</span>` +
+            `<span class="badge-origen-tag" style="display:inline-flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:800; line-height:1; padding:2px 5px; border-radius:3px; letter-spacing:0.5px; text-transform:uppercase; flex-shrink:0; margin-right:6px; ${badgeStyle}" title="${badgeTitle}">${badgeTexto}</span>` +
+            `<span class="factura-origen-nro" style="font-size:0.81rem; font-weight:600; color:#1e293b; white-space:nowrap;">${valorComp}</span>` +
           `</div>`;
         }
       });
     }
 
     columnas.push(
-      { headerName: 'Paciente', field: 'paciente', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
+      {
+        headerName: 'Paciente',
+        field: 'paciente',
+        cellClass: params => params.data?.esManual ? 'bg-externa-tag' : 'bg-celeste',
+        headerClass: 'bg-celeste'
+      },
       { headerName: 'Plan', field: 'plan', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Efector', field: 'efector', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
       { headerName: 'Médico', field: 'medico', cellClass: 'bg-celeste', headerClass: 'bg-celeste' },
@@ -159,21 +174,22 @@ export class AuditoriaGridConfigService {
       }
     );
 
-    if (tienePrestacionesImportadas && onQuitarPrestacion) {
+    if ((tienePrestacionesImportadas || tienePrestacionesManuales) && onQuitarPrestacion) {
       columnas.push({
         headerName: 'Acción',
-        field: 'esImportada',
+        field: 'id',
         width: 90,
         minWidth: 90,
         suppressAutoSize: true,
         cellRenderer: (params: any) => {
-          if (params.data?.esImportada) {
-            return `<button type="button" class="btn-quitar-importada-grid" title="Quitar prestación importada de esta auditoría">✕ Quitar</button>`;
+          if (params.data?.esImportada || params.data?.esManual) {
+            const titulo = params.data?.esManual ? 'Quitar prestación externa de esta auditoría' : 'Quitar prestación importada de esta auditoría';
+            return `<button type="button" class="btn-quitar-importada-grid" title="${titulo}">✕ Quitar</button>`;
           }
           return '';
         },
         onCellClicked: (params: any) => {
-          if (params.data?.esImportada && onQuitarPrestacion) {
+          if ((params.data?.esImportada || params.data?.esManual) && onQuitarPrestacion) {
             onQuitarPrestacion(params.data);
           }
         }
