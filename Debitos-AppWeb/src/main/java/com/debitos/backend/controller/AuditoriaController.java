@@ -3,6 +3,7 @@ package com.debitos.backend.controller;
 import com.debitos.backend.dto.CambioEstadoResponse;
 import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.GuardarParcialRequest;
+import com.debitos.backend.dto.GuardarParcialResponseDTO;
 import com.debitos.backend.dto.NuevaNotaCreditoRequest;
 import com.debitos.backend.dto.NuevaNotaDebitoAjusteIvaRequest;
 import com.debitos.backend.dto.NuevaNotaDebitoRequest;
@@ -16,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -116,6 +119,13 @@ public class AuditoriaController {
         return ResponseEntity.ok(historial);
     }
 
+    @GetMapping("/prestaciones-catalogo")
+    public ResponseEntity<List<com.debitos.backend.dto.PrestacionCatalogoDTO>> buscarPrestacionesCatalogo(
+            @RequestParam(required = false) String filtro) {
+        List<com.debitos.backend.dto.PrestacionCatalogoDTO> lista = auditoriaService.buscarPrestacionesCatalogo(filtro);
+        return ResponseEntity.ok(lista);
+    }
+
     @GetMapping("/buscar")
     public ResponseEntity<?> buscar(
             @RequestParam String tipo,
@@ -134,16 +144,19 @@ public class AuditoriaController {
 
     @PostMapping("/guardar-parcialmente")
     @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
-    public ResponseEntity<Void> guardarParcialmente(@RequestBody GuardarParcialRequest payload) {
-        auditoriaService.procesarGuardadoParcialAsincrono(payload);
-        return ResponseEntity.accepted().build();
+    public ResponseEntity<GuardarParcialResponseDTO> guardarParcialmente(@RequestBody GuardarParcialRequest payload) {
+        GuardarParcialResponseDTO resultado = auditoriaService.procesarGuardadoParcial(payload);
+        return ResponseEntity.ok(resultado != null ? resultado : new GuardarParcialResponseDTO());
     }
 
     @PostMapping("/nueva-nota-credito")
     @PreAuthorize("hasAnyRole('OPERADOR', 'ADMIN', 'GERENTE_DEBITOS')")
-    public ResponseEntity<Map<String, String>> guardarNuevaNotaCredito(@RequestBody NuevaNotaCreditoRequest payload) {
-        auditoriaService.procesarNuevaNotaCredito(payload);
-        return ResponseEntity.ok(Map.of("mensaje", "Nota de Crédito generada exitosamente"));
+    public ResponseEntity<Map<String, Object>> guardarNuevaNotaCredito(@RequestBody NuevaNotaCreditoRequest payload) {
+        Map<Integer, Integer> idsMapeados = auditoriaService.procesarNuevaNotaCredito(payload);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("mensaje", "Nota de Crédito generada exitosamente");
+        resp.put("idsMapeados", idsMapeados != null ? idsMapeados : Collections.emptyMap());
+        return ResponseEntity.ok(resp);
     }
 
     @PutMapping("/editar-nc-ajuste-iva")

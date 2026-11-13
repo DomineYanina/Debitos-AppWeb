@@ -894,18 +894,32 @@ public class SincronizacionCtaCteService {
                     }
                 }
 
-                // Paso 4.1: En facturas, auto-asociarse a sí mismas (asociado = id) en un solo UPDATE en lote
-                int facturasAutoAsociadas = debitosJdbcTemplate.update("""
+                // Paso 4.1: En facturas, auto-asociarse a sí mismas (asociado = id) en un solo UPDATE en lote (acotado al año si aplica)
+                StringBuilder sqlFacturas = new StringBuilder("""
                     UPDATE cabecera
                     SET asociado = id,
                         comprobante_asociado = COALESCE(comprobante_asociado, comprobante)
                     WHERE UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
                       AND (asociado IS NULL OR asociado <> id)
                 """);
+                int facturasAutoAsociadas;
+                if (anio > 2000) {
+                    sqlFacturas.append("""
+                      AND (
+                          (periodo >= ? AND periodo <= ?)
+                          OR (periodo IS NULL AND fecha >= ? AND fecha <= ?)
+                      )
+                    """);
+                    Date fechaDesde = Date.valueOf(LocalDate.of(anio, 1, 1));
+                    Date fechaHasta = Date.valueOf(LocalDate.of(anio, 12, 31));
+                    facturasAutoAsociadas = debitosJdbcTemplate.update(sqlFacturas.toString(), fechaDesde, fechaHasta, fechaDesde, fechaHasta);
+                } else {
+                    facturasAutoAsociadas = debitosJdbcTemplate.update(sqlFacturas.toString());
+                }
                 contadorAsociados[0] += facturasAutoAsociadas;
 
-                // Paso 4.2: En documentos hijos con comprobante_asociado textual, vincular al ID del padre en un solo UPDATE
-                int hijosAsociados = debitosJdbcTemplate.update("""
+                // Paso 4.2: En documentos hijos con comprobante_asociado textual, vincular al ID del padre en un solo UPDATE acotado al año
+                StringBuilder sqlHijos = new StringBuilder("""
                     UPDATE cabecera c_hijo
                     SET asociado = c_padre.id
                     FROM cabecera c_padre
@@ -919,6 +933,20 @@ public class SincronizacionCtaCteService {
                       )
                       AND (c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id)
                 """);
+                int hijosAsociados;
+                if (anio > 2000) {
+                    sqlHijos.append("""
+                      AND (
+                          (c_hijo.periodo >= ? AND c_hijo.periodo <= ?)
+                          OR (c_hijo.periodo IS NULL AND c_hijo.fecha >= ? AND c_hijo.fecha <= ?)
+                      )
+                    """);
+                    Date fechaDesde = Date.valueOf(LocalDate.of(anio, 1, 1));
+                    Date fechaHasta = Date.valueOf(LocalDate.of(anio, 12, 31));
+                    hijosAsociados = debitosJdbcTemplate.update(sqlHijos.toString(), fechaDesde, fechaHasta, fechaDesde, fechaHasta);
+                } else {
+                    hijosAsociados = debitosJdbcTemplate.update(sqlHijos.toString());
+                }
                 contadorAsociados[0] += hijosAsociados;
             });
 

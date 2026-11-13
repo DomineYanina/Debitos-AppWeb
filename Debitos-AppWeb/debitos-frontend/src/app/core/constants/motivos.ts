@@ -115,3 +115,78 @@ export const LISTA_MOTIVOS_REFACTURA = [
     ]
   }
 ];
+
+export function normalizarTextoMotivo(txt: string): string {
+  if (!txt) return '';
+  return txt
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function obtenerCategoriaDeMotivo(motivo: string): string {
+  if (!motivo) return '6. OTROS / SIN CLASIFICAR';
+  const norm = normalizarTextoMotivo(motivo);
+  if (!norm || norm === 'borrar' || norm === 'no aplica' || norm === 'sin motivo' || norm === 'sin motivo especificado') {
+    return '6. OTROS / SIN CLASIFICAR';
+  }
+
+  // 1. Coincidencia exacta con catálogo oficial
+  for (const catObj of LISTA_MOTIVOS_DEBITO) {
+    for (const m of catObj.motivos) {
+      if (norm === normalizarTextoMotivo(m)) {
+        return catObj.categoria;
+      }
+    }
+  }
+
+  // 2. Coincidencia por inclusión de subcadenas del catálogo
+  for (const catObj of LISTA_MOTIVOS_DEBITO) {
+    for (const m of catObj.motivos) {
+      const normCat = normalizarTextoMotivo(m);
+      if (normCat.length >= 6 && (norm.includes(normCat) || normCat.includes(norm))) {
+        return catObj.categoria;
+      }
+    }
+  }
+
+  // 3. Reglas semánticas para variantes históricas
+  if (norm.includes('criterio medico') || norm.includes('inter consulta') || norm.includes('resolucion quirurgica')
+      || norm.includes('alta demorada') || norm.includes('prestacion no justificada')
+      || norm.includes('no reconoce prestacion') || norm.includes('reconoce prestacion')
+      || norm.includes('diagnostico') || norm.includes('sello medico') || norm.includes('hc firmada')) {
+    return '2. MÉDICOS / AUDITORÍA';
+  }
+
+  if (norm.includes('arancel') || norm.includes('nomenclador') || norm.includes('normas operativas')
+      || norm.includes('normas contractuales') || norm.includes('medicamentos descartables')
+      || norm.includes('medicamentos/descartables') || norm.includes('incluida en otra')
+      || norm.includes('inclusiones modulares') || norm.includes('apb') || norm.includes('convenio')
+      || norm.includes('homologada') || norm.includes('presupuesto acordado')) {
+    return '3. CONTRACTUALES / NOMENCLADOR';
+  }
+
+  if (norm.includes('firma paciente') || norm.includes('firma profesional') || norm.includes('historia clinica')
+      || norm.includes('historia/informe') || norm.includes('documentacion avalatoria') || norm.includes('documentacion')
+      || norm.includes('exceso de facturacion') || norm.includes('troquel') || norm.includes('hojas de enfermeria')
+      || norm.includes('no suministrada') || norm.includes('no utilizado')) {
+    return '4. OPERATIVOS Y DOCUMENTALES (administrativo)';
+  }
+
+  if (norm.includes('impuesto') || norm.includes('departamento comercial') || norm.includes('gestion comercial')
+      || norm.includes('rechazo de refactura') || norm.includes('tesoreria')) {
+    return '5. AJUSTES Y GESTIÓN COMERCIAL';
+  }
+
+  if (norm.includes('autorizacion') || norm.includes('token') || norm.includes('duplicada')
+      || norm.includes('error de carga') || norm.includes('codigos multiples') || norm.includes('coseguro')
+      || norm.includes('iva') || norm.includes('afiliado') || norm.includes('fuera de termino')
+      || norm.includes('capitado') || norm.includes('honorarios')) {
+    return '1. ADMINISTRATIVOS';
+  }
+
+  return '6. OTROS / SIN CLASIFICAR';
+}

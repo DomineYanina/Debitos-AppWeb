@@ -84,23 +84,29 @@
           <div class="cc-filtro-panel-body">
             <div class="cc-filtro-field">
               <label for="cc-periodo-desde" class="cc-field-label">Período Desde</label>
-              <input type="date" id="cc-periodo-desde" class="form-control cc-date-input" [(ngModel)]="ccPeriodoDesde"
-                [min]="fechaMinimaPermitida" max="2035-12-31"
+              <select id="cc-periodo-desde" class="form-control cc-select-periodo" [(ngModel)]="periodoMesDesde"
                 [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo'"
                 [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo' ? '' : null"
                 (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('periodo')"
-                (change)="onFechaDesdeChange()" (keydown.enter)="aplicarFiltros()"
+                (change)="onPeriodoDesdeChange()" (keydown.enter)="aplicarFiltros()"
                 title="Período prestacional desde (inclusive)">
+                <option *ngFor="let opt of opcionesPeriodos" [value]="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
             </div>
             <div class="cc-filtro-field">
               <label for="cc-periodo-hasta" class="cc-field-label">Período Hasta</label>
-              <input type="date" id="cc-periodo-hasta" class="form-control cc-date-input" [(ngModel)]="ccPeriodoHasta"
-                [min]="fechaMinimaPermitida" max="2035-12-31"
+              <select id="cc-periodo-hasta" class="form-control cc-select-periodo" [(ngModel)]="periodoMesHasta"
                 [disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo'"
                 [attr.disabled]="esFiltroFechaDeshabilitado || criterioFechaCc !== 'periodo' ? '' : null"
                 (click)="$event.stopPropagation(); !esFiltroFechaDeshabilitado && seleccionarCriterioCc('periodo')"
-                (change)="onFechaHastaChange()" (keydown.enter)="aplicarFiltros()"
+                (change)="onPeriodoHastaChange()" (keydown.enter)="aplicarFiltros()"
                 title="Período prestacional hasta (inclusive)">
+                <option *ngFor="let opt of opcionesPeriodos" [value]="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
             </div>
           </div>
         </div>
@@ -269,6 +275,11 @@
       <button *ngIf="esSolapaPermitida('trazabilidad')" type="button" class="tab-strip-item"
         [class.active]="solapaActiva === 'trazabilidad'" (click)="seleccionarSolapa('trazabilidad')">
         <span class="tab-strip-text">Detalle y Trazabilidad</span>
+      </button>
+
+      <button *ngIf="esSolapaPermitida('prestaciones')" type="button" class="tab-strip-item"
+        [class.active]="solapaActiva === 'prestaciones'" (click)="seleccionarSolapa('prestaciones')">
+        <span class="tab-strip-text">Prestaciones</span>
       </button>
     </nav>
   </header>
@@ -521,6 +532,18 @@
             <p class="section-subtitle">Consolidado por financiador: Facturación, Incrementos, Débitos, Refacturaciones
               y Cobranzas</p>
           </div>
+          <div class="grid-tools">
+            <button type="button" id="btn-export-tablero" class="btn-export-excel"
+              [disabled]="cargandoBalance || cargandoTotales || exportandoExcel || balanceFinanciadores.length === 0"
+              (click)="exportarExcelTablero()"
+              title="Exportar KPIs y Resumen de Cartera y Balance Financiero a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
+          </div>
         </div>
 
         <div *ngIf="cargandoBalance" class="loading-state">
@@ -664,6 +687,16 @@
               <button type="button" class="btn btn-outline-sm" (click)="expandirTodosCuentaCorriente(false)"
                 title="Colapsa todos los niveles jerárquicos para una vista resumida">
                 [-] Contraer Todo
+              </button>
+              <button type="button" id="btn-export-cc-imputados" class="btn-export-excel"
+                [disabled]="cargandoCuentaCorriente || exportandoExcel || cuentaCorrienteDatos.length === 0"
+                (click)="exportarExcelCuentaCorrienteImputados()"
+                title="Exportar Cuenta Corriente (Imputados) con los 3 niveles desplegables a Excel (.xlsx)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+                <span>Exportar a Excel</span>
               </button>
             </div>
           </div>
@@ -1002,6 +1035,15 @@
                   placeholder="Buscar por comprobante, financiador..." [(ngModel)]="busquedaTextoNoImputados"
                   (input)="noImputadosPaginaActual = 1" />
               </div>
+              <button type="button" id="btn-export-cc-no-imputados" class="btn-export-excel"
+                [disabled]="cargandoRecibosNoImputados || exportandoExcel || recibosNoImputadosFiltrados.length === 0"
+                (click)="exportarExcelNoImputados()" title="Exportar Recibos No Imputados filtrados a Excel (.xlsx)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+                <span>Exportar a Excel</span>
+              </button>
             </div>
           </div>
 
@@ -1250,12 +1292,7 @@
 
       <!-- Fila 2: Tabla Inferior -->
       <div class="tiempos-box tabla-aging-box">
-        <div class="tiempos-box-header">
-          <!--<span class="tiempos-box-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </span>-->
+        <div class="tiempos-box-header" style="justify-content: space-between; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <h3 class="tiempos-box-title">Detalle de Cobranzas por Rango y Saldo Pendiente</h3>
             <span class="filtro-info-wrapper">
@@ -1266,6 +1303,16 @@
               </span>
             </span>
           </div>
+          <button type="button" id="btn-export-tiempos" class="btn-export-excel"
+            [disabled]="cargandoTiemposCobranza || exportandoExcel || !tiemposCobranzaDatos?.detalles?.length"
+            (click)="exportarExcelTiemposCobranza()"
+            title="Exportar Tiempos de Cobranza (Aging de Deuda) a Excel (.xlsx)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            <span>Exportar a Excel</span>
+          </button>
         </div>
 
         <div class="tabla-aging-wrap">
@@ -1331,7 +1378,7 @@
             </div>
             <p class="section-subtitle">Imputación basada estrictamente en la fecha real de cobro</p>
           </div>
-          <div class="grid-tools matriz-tools">
+          <div class="grid-tools matriz-tools" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <label for="select-anio-matriz" class="matriz-select-label">Año Calendario:</label>
             <select id="select-anio-matriz" class="form-control select-custom select-anio"
               [ngModel]="matrizRecaudacion?.anioSeleccionado" (ngModelChange)="onAnioMatrizChange($event)">
@@ -1339,6 +1386,15 @@
                 {{ anio }}
               </option>
             </select>
+            <button type="button" id="btn-export-matriz" class="btn-export-excel"
+              [disabled]="cargandoMatriz || exportandoExcel || !matrizRecaudacion?.filas?.length"
+              (click)="exportarExcelMatriz()" title="Exportar Matriz Anual de Cobranzas a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
           </div>
         </div>
 
@@ -1442,6 +1498,38 @@
         <strong>Motivos de Débito y Refacturación:</strong> Desglose por resolución y refacturación. Todos
         los filtros aplican.
       </span>
+    </div>
+
+    <!-- Controles y Filtro por Categoría de Motivos de Débito -->
+    <div class="motivos-header-controls" *ngIf="motivosDebitoOriginal.length > 0">
+      <div class="filtro-analista-container">
+        <label for="select-categoria-motivo" class="filtro-analista-label">
+          Filtrar por Categoría:
+        </label>
+        <div class="select-wrapper-analista">
+          <select id="select-categoria-motivo" class="form-control select-custom select-filtro-analista"
+            [(ngModel)]="categoriaMotivoSeleccionada" (ngModelChange)="onCategoriaMotivoChange()">
+            <option value="TODAS">-- Todas las Categorías ({{ motivosDebitoOriginal.length }} motivos) --</option>
+            <option *ngFor="let cat of categoriasMotivoDisponibles" [value]="cat.categoria">
+              {{ cat.categoria }} ({{ cat.cantidad }})
+            </option>
+          </select>
+          <button *ngIf="categoriaMotivoSeleccionada !== 'TODAS'" type="button" class="btn-clear-filtro-analista"
+            (click)="limpiarFiltroCategoriaMotivo()" title="Limpiar filtro de categoría">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Badge de Estado de Filtrado -->
+      <div class="badge-analistas-activos" [class.badge-analistas-filtrados]="categoriaMotivoSeleccionada !== 'TODAS'">
+        <span *ngIf="categoriaMotivoSeleccionada === 'TODAS'">
+          {{ motivosDebitoOriginal.length }} Motivos Identificados
+        </span>
+        <span *ngIf="categoriaMotivoSeleccionada !== 'TODAS'">
+          Mostrando: {{ motivosDebito.length }} de {{ motivosDebitoOriginal.length }}
+        </span>
+      </div>
     </div>
 
     <!-- 4 Contadores KPI Superiores (Estilo Referencia) -->
@@ -1560,13 +1648,12 @@
             <span class="filtro-info-btn" tabindex="0" role="img" aria-label="Información">ℹ</span>
             <span class="filtro-tooltip-popup tooltip-wide tooltip-bottom">
               <strong>Principio de Pareto 80/20:</strong> Identifica el 20% de los motivos que concentran el 80% del
-              valor debitado, comparando cuánto se refactura (barra azul) vs. cuánto se pierde definitivamente (barra
-              roja).
+              valor debitado, comparando cuánto se refactura (barra azul), cuánto se pierde definitivamente (barra
+              roja) y la diferencia debitada pendiente (barra violeta).
             </span>
           </span>
         </div>
-        <p class="section-subtitle">Top 10 motivos de rechazo · Monto refacturado vs. Pérdida asumida definitivamente
-        </p>
+        <p class="section-subtitle">Top 10 motivos de rechazo · Refacturado vs. Pérdida vs. Diferencia</p>
       </div>
 
       <div class="graficos-grid graficos-grid--single">
@@ -1574,7 +1661,7 @@
           <div class="grafico-card-header">
             <div>
               <h3 class="grafico-title">Pareto de Glosas</h3>
-              <p class="grafico-subtitle">Top 10 motivos · Refacturado vs. Pérdida asumida</p>
+              <p class="grafico-subtitle">Top 10 motivos · Refacturado vs. Pérdida vs. Diferencia</p>
             </div>
           </div>
 
@@ -1613,8 +1700,19 @@
               detalle con los comentarios de los operadores.
             </p>
           </div>
-          <div class="total-debitado-badge" *ngIf="motivosDebito.length > 0">
-            Total Debitado: <strong>{{ formatearMoneda(obtenerTotalDebitadoGeneral()) }}</strong>
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div class="total-debitado-badge" *ngIf="motivosDebito.length > 0">
+              Total Debitado: <strong>{{ formatearMoneda(obtenerTotalDebitadoGeneral()) }}</strong>
+            </div>
+            <button type="button" id="btn-export-motivos" class="btn-export-excel"
+              [disabled]="cargandoMotivos || exportandoExcel || motivosDebito.length === 0"
+              (click)="exportarExcelMotivos()" title="Exportar Motivos de Débito y Refacturación a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
           </div>
         </div>
 
@@ -1801,6 +1899,17 @@
                 Mostrando: {{ analistasFiltrados.length }} de {{ analistasDatos.length }}
               </span>
             </div>
+
+            <button type="button" id="btn-export-analistas" class="btn-export-excel"
+              [disabled]="cargandoAnalistas || exportandoExcel || analistasFiltrados.length === 0"
+              (click)="exportarExcelAnalistas()"
+              title="Exportar Desempeño de Analistas de Débito con los 3 niveles desplegables a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
           </div>
         </div>
 
@@ -2101,6 +2210,17 @@
             <p class="section-subtitle">Prestaciones críticas con 2 o más refacturaciones (ND) tras débitos recibidos.
             </p>
           </div>
+          <div class="analistas-header-controls">
+            <button type="button" id="btn-export-bucles" class="btn-export-excel"
+              [disabled]="cargandoBucles || exportandoExcel || buclesDatos.length === 0" (click)="exportarExcelBucles()"
+              title="Exportar Auditoría de Bucles de Insistencia con los 3 niveles desplegables a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
+          </div>
         </div>
 
         <!-- Estado de Carga -->
@@ -2167,7 +2287,7 @@
                   <span>{{ cadena.financiador }}</span>
                 </td>
                 <td>
-                  <span class="badge-medico" style="font-size: 0.8rem; color: #475569;">{{ cadena.medico }}</span>
+                  <span class="badge-medico" style="font-size: 0.8rem;">{{ cadena.medico }}</span>
                 </td>
                 <td class="text-right color-facturado font-weight-bold">
                   {{ cadena.montoFacturadoOriginal | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
@@ -2345,7 +2465,8 @@
   <!-- =====================================================================
        SOLAPA 8: USUARIO DE CARGA (3 NIVELES)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'usuarios-carga' && esSolapaPermitida('usuarios-carga')">
+  <div class="dashboard-tab-pane pane-operadores" id="pane-operadores"
+    *ngIf="solapaActiva === 'usuarios-carga' && esSolapaPermitida('usuarios-carga')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -2362,20 +2483,36 @@
               </span>
             </div>
             <p class="section-subtitle">
-              Auditoría de emisión original a 3 niveles: Nivel 1 (Operador FC) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3
+              Auditoría de emisión original a 3 niveles: Nivel 1 ({{ tipoRegistroOperador === 'Internados' ? 'Operador
+              Liquidación FC' : 'Operador FC' }}) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3
               (Financiador Afectado).
             </p>
           </div>
 
           <!-- Controles y Filtro exclusivo de la Solapa Operadores -->
-          <div class="analistas-header-controls" *ngIf="operadoresDatos.length > 0">
-            <!-- Buscador rápido por texto -->
+          <div class="analistas-header-controls">
+            <!-- Selector de Tipo de Atención (Ambulatorios / Internados) -->
             <div class="filtro-analista-container">
+              <label for="select-tipo-registro-operador" class="filtro-analista-label">
+                Tipo de Atención:
+              </label>
+              <div class="select-wrapper-analista">
+                <select id="select-tipo-registro-operador" class="form-control select-custom select-filtro-analista"
+                  [ngModel]="tipoRegistroOperador" (ngModelChange)="cambiarTipoRegistroOperador($event)">
+                  <option value="Ambulatorios">Ambulatorios</option>
+                  <option value="Internados">Internados</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Buscador rápido por texto -->
+            <div class="filtro-analista-container" *ngIf="operadoresDatos.length > 0">
               <label for="input-busqueda-operador" class="filtro-analista-label">
                 Buscar Operador:
               </label>
               <div class="input-search-wrapper">
-                <input id="input-busqueda-operador" type="text" class="form-control input-search-medico"
+                <input id="input-busqueda-operador" type="text"
+                  class="form-control input-search-medico input-search-operador"
                   placeholder="Escriba el nombre del operador..." [(ngModel)]="busquedaTextoOperador"
                   (ngModelChange)="onBusquedaTextoOperadorChange()" />
                 <button *ngIf="busquedaTextoOperador" type="button" class="btn-clear-search"
@@ -2385,39 +2522,27 @@
               </div>
             </div>
 
-            <!-- Selector desplegable de Operador individual -->
-            <div class="filtro-analista-container">
-              <label for="select-filtro-operador" class="filtro-analista-label">
-                Filtrar Operador:
-              </label>
-              <div class="select-wrapper-analista">
-                <select id="select-filtro-operador" class="form-control select-custom select-filtro-analista"
-                  [(ngModel)]="filtroOperadorSeleccionado"
-                  (ngModelChange)="operadoresPaginaActual = 1; actualizarAlturasSticky()">
-                  <option value="TODOS">-- Todos los Operadores ({{ operadoresDatos.length }}) --</option>
-                  <option *ngFor="let nombre of listaNombresOperadores" [value]="nombre">
-                    {{ nombre }}
-                  </option>
-                </select>
-                <button *ngIf="filtroOperadorSeleccionado !== 'TODOS'" type="button" class="btn-clear-filtro-analista"
-                  (click)="limpiarFiltroOperador()" title="Limpiar filtro de operador">
-                  ✕
-                </button>
-              </div>
-            </div>
-
             <!-- Badge de Operadores Activos / Filtrados -->
-            <div class="badge-analistas-activos"
-              [class.badge-analistas-filtrados]="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador !== '' || (codigoCoberturaSeleccionada !== 'TODAS' && codigoCoberturaSeleccionada !== '')">
-              <span
-                *ngIf="filtroOperadorSeleccionado === 'TODOS' && !busquedaTextoOperador && (codigoCoberturaSeleccionada === 'TODAS' || !codigoCoberturaSeleccionada)">
+            <div class="badge-analistas-activos badge-operadores-activos"
+              [class.badge-analistas-filtrados]="tieneFiltroOperadorActivo">
+              <span *ngIf="!tieneFiltroOperadorActivo">
                 {{ operadoresDatos.length }} Operadores Registrados
               </span>
-              <span
-                *ngIf="filtroOperadorSeleccionado !== 'TODOS' || busquedaTextoOperador || (codigoCoberturaSeleccionada && codigoCoberturaSeleccionada !== 'TODAS')">
+              <span *ngIf="tieneFiltroOperadorActivo">
                 Mostrando: {{ operadoresFiltrados.length }} de {{ operadoresDatos.length }}
               </span>
             </div>
+
+            <button type="button" id="btn-export-operadores" class="btn-export-excel"
+              [disabled]="cargandoOperadores || exportandoExcel || operadoresFiltrados.length === 0"
+              (click)="exportarExcelOperadores()"
+              title="Exportar Usuarios de Carga con los 3 niveles desplegables a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
           </div>
         </div>
 
@@ -2500,7 +2625,7 @@
               </tr>
 
               <!-- Fila Fija de Totales Consolidados (Sticky debajo de los títulos) -->
-              <tr class="tr-totales-fijos">
+              <tr class="tr-totales-fijos tr-totales-fijos-operadores">
                 <th class="th-tree th-total-label">
                   TOTAL GENERAL ({{ operadoresFiltrados.length }} {{ operadoresFiltrados.length === 1 ? 'Operador' :
                   'Operadores' }})
@@ -2520,16 +2645,8 @@
                 <th class="text-right font-weight-bold color-diferencia">
                   {{ totalDiferenciaOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </th>
-                <th class="text-right font-weight-bold color-ticket-promedio">
-                  {{ ticketPromedioGlobalOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
-                </th>
-                <th class="text-right font-weight-bold">
-                  <span class="badge-recupero" [class.recupero-alto]="tasaRecuperoGlobalOperadores >= 50"
-                    [class.recupero-medio]="tasaRecuperoGlobalOperadores > 0 && tasaRecuperoGlobalOperadores < 50"
-                    [class.recupero-cero]="tasaRecuperoGlobalOperadores === 0">
-                    {{ tasaRecuperoGlobalOperadores | number:'1.1-1' }}%
-                  </span>
-                </th>
+                <th class="text-right"></th>
+                <th class="text-right"></th>
               </tr>
             </thead>
 
@@ -2747,36 +2864,26 @@
               </div>
             </div>
 
-            <!-- Selector de Médicos -->
-            <div class="filtro-analista-container">
-              <label for="select-filtro-medico" class="filtro-analista-label">
-                Filtrar Selección:
-              </label>
-              <div class="select-wrapper-analista">
-                <select id="select-filtro-medico" class="form-control select-custom select-filtro-analista"
-                  [(ngModel)]="filtroMedicoSeleccionado" (ngModelChange)="medicosPaginaActual = 1">
-                  <option value="TODOS">-- Todos los Médicos ({{ listaNombresMedicos.length }}) --</option>
-                  <option *ngFor="let nombre of listaNombresMedicos" [value]="nombre">
-                    {{ nombre }}
-                  </option>
-                </select>
-                <button *ngIf="filtroMedicoSeleccionado !== 'TODOS'" type="button" class="btn-clear-filtro-analista"
-                  (click)="limpiarFiltroMedico()" title="Limpiar filtro de médico">
-                  ✕
-                </button>
-              </div>
-            </div>
-
             <!-- Badge de Médicos -->
-            <div class="badge-analistas-activos"
-              [class.badge-analistas-filtrados]="filtroMedicoSeleccionado !== 'TODOS' || codigoCoberturaSeleccionada !== 'TODAS'">
-              <span *ngIf="filtroMedicoSeleccionado === 'TODOS' && codigoCoberturaSeleccionada === 'TODAS'">
+            <div class="badge-analistas-activos" [class.badge-analistas-filtrados]="tieneFiltroMedicoActivo">
+              <span *ngIf="!tieneFiltroMedicoActivo">
                 {{ medicosDatos.length }} Médicos Activos
               </span>
-              <span *ngIf="filtroMedicoSeleccionado !== 'TODOS' || codigoCoberturaSeleccionada !== 'TODAS'">
+              <span *ngIf="tieneFiltroMedicoActivo">
                 Mostrando: {{ medicosFiltrados.length }} de {{ medicosDatos.length }}
               </span>
             </div>
+
+            <button type="button" id="btn-export-medicos" class="btn-export-excel"
+              [disabled]="cargandoMedicos || exportandoExcel || medicosFiltrados.length === 0"
+              (click)="exportarExcelMedicos()"
+              title="Exportar Prestadores / Médicos con los 3 niveles desplegables a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
           </div>
         </div>
 
@@ -2843,6 +2950,11 @@
                     [class.active]="columnaOrdenMedico === 'refacturados'">{{
                     columnaOrdenMedico === 'refacturados' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
                 </th>
+                <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'diferencia'"
+                  (click)="ordenarMedicos('diferencia')" title="Ordenar por Diferencia Debitado vs Refacturado">
+                  DIFERENCIA ($) <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'diferencia'">{{
+                    columnaOrdenMedico === 'diferencia' ? (direccionOrdenMedico === 'asc' ? '▲' : '▼') : '↕' }}</span>
+                </th>
                 <th class="text-right th-monto sortable-col" [class.col-sorted]="columnaOrdenMedico === 'ticket'"
                   (click)="ordenarMedicos('ticket')" title="Ordenar por Ticket Promedio">
                   TICKET PROMEDIO <span class="sort-indicator" [class.active]="columnaOrdenMedico === 'ticket'">{{
@@ -2882,6 +2994,9 @@
                 </td>
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ totalRefacturadosMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
+                <td class="text-right font-weight-bold color-diferencia">
+                  {{ totalDiferenciaMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right text-muted font-weight-bold">—</td>
                 <td class="text-right text-muted font-weight-bold">—</td>
@@ -2923,6 +3038,9 @@
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ med.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
+                <td class="text-right font-weight-bold color-diferencia">
+                  {{ (med.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                </td>
                 <td class="text-right font-weight-bold color-ticket">
                   {{ med.ticketPromedio | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
@@ -2961,6 +3079,9 @@
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
+                    <td class="text-right font-weight-bold color-diferencia">
+                      {{ (m.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
+                    </td>
                     <td class="text-right color-ticket">
                       {{ (m.casos > 0 ? (m.montoDebitado / m.casos) : 0) |
                       currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
@@ -2998,6 +3119,9 @@
                       <td class="text-right color-refacturado">
                         {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR')
                         : '—' }}
+                      </td>
+                      <td class="text-right color-diferencia">
+                        {{ (fin.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right color-ticket">
                         {{ (fin.casos > 0 ? ((fin.montoDebitado != null ? fin.montoDebitado : fin.monto) / fin.casos) :
@@ -3068,7 +3192,8 @@
   <!-- =====================================================================
        SOLAPA 10: DETALLE Y TRAZABILIDAD (ÁRBOL ENCADENADO)
        ===================================================================== -->
-  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'trazabilidad' && esSolapaPermitida('trazabilidad')">
+  <div class="dashboard-tab-pane pane-trazabilidad" id="pane-trazabilidad"
+    *ngIf="solapaActiva === 'trazabilidad' && esSolapaPermitida('trazabilidad')">
     <section class="grid-section">
       <div class="section-card">
         <div class="section-card-header">
@@ -3087,6 +3212,94 @@
             <p class="section-subtitle">Historial cronológico de vida de expedientes: Facturación (FC) ➔ Débitos (NC) ➔
               Refacturación / Incremento (ND) ➔ Cobranza (RC).</p>
           </div>
+
+          <!-- Controles de búsqueda por Factura Madre (Letra, Punto de Venta y Número) -->
+          <div class="trazabilidad-header-controls">
+            <!-- Letra (campo de texto libre) -->
+            <div class="filtro-trazabilidad-item">
+              <label for="input-trazabilidad-letra" class="filtro-trazabilidad-label">
+                Letra:
+              </label>
+              <div class="input-trazabilidad-wrapper input-wrapper-letra">
+                <input id="input-trazabilidad-letra" type="text" class="form-control input-trazabilidad-field"
+                  placeholder="A, B..." maxlength="1" [ngModel]="filtroTrazabilidadLetra"
+                  (input)="onInputLetraTrazabilidad($event)" (keyup.enter)="buscarTrazabilidadFactura()" />
+                <button *ngIf="filtroTrazabilidadLetra" type="button" class="btn-clear-search"
+                  (click)="filtroTrazabilidadLetra = ''; onFiltroTrazabilidadChange()" title="Limpiar letra">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Punto de Venta (selector) -->
+            <div class="filtro-trazabilidad-item">
+              <label for="select-trazabilidad-ptovta" class="filtro-trazabilidad-label">
+                Pto. Venta:
+              </label>
+              <div class="input-trazabilidad-wrapper input-wrapper-ptovta">
+                <select id="select-trazabilidad-ptovta" class="form-control select-custom select-trazabilidad-field"
+                  [(ngModel)]="filtroTrazabilidadPtoVta" (ngModelChange)="onFiltroTrazabilidadChange()">
+                  <option value="TODOS">-- Todos --</option>
+                  <option value="30">0030</option>
+                  <option value="31">0031</option>
+                  <option value="32">0032</option>
+                  <option value="53">0053</option>
+                </select>
+                <button *ngIf="filtroTrazabilidadPtoVta !== 'TODOS'" type="button" class="btn-clear-search"
+                  (click)="filtroTrazabilidadPtoVta = 'TODOS'; onFiltroTrazabilidadChange()"
+                  title="Limpiar punto de venta">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Número de Factura -->
+            <div class="filtro-trazabilidad-item">
+              <label for="input-trazabilidad-numero" class="filtro-trazabilidad-label">
+                Número:
+              </label>
+              <div class="input-trazabilidad-wrapper input-wrapper-numero">
+                <input id="input-trazabilidad-numero" type="text" inputmode="numeric"
+                  class="form-control input-trazabilidad-field" placeholder="Ej: 5364"
+                  [ngModel]="filtroTrazabilidadNumero" (input)="onInputNumeroTrazabilidad($event)"
+                  (keyup.enter)="buscarTrazabilidadFactura()" />
+                <button *ngIf="filtroTrazabilidadNumero" type="button" class="btn-clear-search"
+                  (click)="filtroTrazabilidadNumero = ''; onFiltroTrazabilidadChange()" title="Limpiar número">
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <!-- Botones de acción e indicador de expedientes -->
+            <button type="button" class="btn-buscar-trazabilidad" [disabled]="cargandoTrazabilidad"
+              (click)="buscarTrazabilidadFactura()" title="Buscar factura en el período y financiador seleccionados">
+              Buscar
+            </button>
+            <button *ngIf="tieneFiltrosFacturaTrazabilidad" type="button" class="btn-limpiar-trazabilidad"
+              (click)="limpiarFiltrosTrazabilidad()" title="Restablecer filtros de factura">
+              Limpiar
+            </button>
+
+            <div class="badge-analistas-activos" [class.badge-analistas-filtrados]="tieneFiltrosFacturaTrazabilidad">
+              <span *ngIf="!tieneFiltrosFacturaTrazabilidad">
+                {{ trazabilidadDatos.length }} Expedientes
+              </span>
+              <span *ngIf="tieneFiltrosFacturaTrazabilidad">
+                Mostrando: {{ trazabilidadFiltrada.length }} de {{ trazabilidadDatos.length }}
+              </span>
+            </div>
+
+            <button type="button" id="btn-export-trazabilidad" class="btn-export-excel"
+              [disabled]="cargandoTrazabilidad || exportandoExcel || trazabilidadFiltrada.length === 0"
+              (click)="exportarExcelTrazabilidad()"
+              title="Exportar Detalle y Trazabilidad con cadenas desplegables a Excel (.xlsx)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
+          </div>
         </div>
 
         <!-- Estado de Carga -->
@@ -3096,12 +3309,16 @@
         </div>
 
         <!-- Estado Vacío -->
-        <div *ngIf="!cargandoTrazabilidad && trazabilidadDatos.length === 0" class="empty-state">
+        <div *ngIf="!cargandoTrazabilidad && trazabilidadFiltrada.length === 0" class="empty-state">
           <p>No se encontraron expedientes vinculados para los filtros seleccionados.</p>
+          <button *ngIf="tieneFiltrosFacturaTrazabilidad" type="button" class="btn btn-sm btn-primary mt-2"
+            (click)="limpiarFiltrosTrazabilidad()">
+            Restablecer filtros de factura
+          </button>
         </div>
 
         <!-- Tabla Principal de Cadenas -->
-        <div *ngIf="!cargandoTrazabilidad && trazabilidadDatos.length > 0" class="table-responsive">
+        <div *ngIf="!cargandoTrazabilidad && trazabilidadFiltrada.length > 0" class="table-responsive">
           <table class="table-sanatorial table-bordered">
             <thead>
               <tr>
@@ -3155,7 +3372,7 @@
                   <span>{{ cadena.financiador }}</span>
                 </td>
                 <td>
-                  <span class="badge-medico" style="font-size: 0.8rem; color: #475569;">{{ cadena.medico }}</span>
+                  <span class="badge-medico" style="font-size: 0.8rem;">{{ cadena.medico }}</span>
                 </td>
                 <td class="text-right color-facturado font-weight-bold">
                   {{ cadena.montoFacturadoOriginal | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
@@ -3209,14 +3426,14 @@
           </table>
 
           <!-- Paginación de Trazabilidad -->
-          <div class="trazabilidad-pagination-bar" *ngIf="trazabilidadDatos.length > 0">
+          <div class="trazabilidad-pagination-bar" *ngIf="trazabilidadFiltrada.length > 0">
             <div class="pagination-info">
               Mostrando
               <strong>{{ (trazabilidadPaginaActual - 1) * trazabilidadItemsPorPagina + 1 }}</strong>
               -
-              <strong>{{ (trazabilidadPaginaActual * trazabilidadItemsPorPagina) > trazabilidadDatos.length ?
-                trazabilidadDatos.length : (trazabilidadPaginaActual * trazabilidadItemsPorPagina) }}</strong>
-              de <strong>{{ trazabilidadDatos.length }}</strong> expedientes
+              <strong>{{ (trazabilidadPaginaActual * trazabilidadItemsPorPagina) > trazabilidadFiltrada.length ?
+                trazabilidadFiltrada.length : (trazabilidadPaginaActual * trazabilidadItemsPorPagina) }}</strong>
+              de <strong>{{ trazabilidadFiltrada.length }}</strong> expedientes
             </div>
 
             <div class="pagination-controls">
@@ -3257,5 +3474,434 @@
       </div>
     </section>
   </div><!-- /tab-pane trazabilidad -->
+
+  <!-- =====================================================================
+       SOLAPA 11: PRESTACIONES FACTURADAS
+       ===================================================================== -->
+  <div class="dashboard-tab-pane" *ngIf="solapaActiva === 'prestaciones' && esSolapaPermitida('prestaciones')">
+
+    <!-- KPIs -->
+    <section class="kpi-grid kpi-grid--four">
+      <div class="kpi-card card-facturacion-fc">
+        <div class="kpi-header"><span class="kpi-title">TOTAL FACTURADO EN PRESTACIONES</span></div>
+        <div class="kpi-value kpi-val-fc">
+          <span *ngIf="!cargandoPrestaciones">{{ formatearMoneda(prestacionesTotalMonto) }}</span>
+          <span *ngIf="cargandoPrestaciones" class="skeleton-text">Cargando...</span>
+        </div>
+        <div class="kpi-footer-simple"><span class="kpi-desc">Suma de importes de las prestaciones filtradas</span>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><span class="kpi-title">CANTIDAD DE PRESTACIONES</span></div>
+        <div class="kpi-value">
+          <span *ngIf="!cargandoPrestaciones">{{ prestacionesTotalRegistros | number:'1.0-0':'es-AR' }}</span>
+          <span *ngIf="cargandoPrestaciones" class="skeleton-text">Cargando...</span>
+        </div>
+        <div class="kpi-footer-simple"><span class="kpi-desc">Registros de prestación</span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><span class="kpi-title">MÉDICOS INVOLUCRADOS</span></div>
+        <div class="kpi-value kpi-val-medicos">
+          <span *ngIf="!cargandoPrestaciones">{{ prestacionesTotalMedicos | number:'1.0-0':'es-AR' }}</span>
+          <span *ngIf="cargandoPrestaciones" class="skeleton-text">Cargando...</span>
+        </div>
+        <div class="kpi-footer-simple"><span class="kpi-desc">Profesionales distintos</span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-header"><span class="kpi-title">PACIENTES ATENDIDOS</span></div>
+        <div class="kpi-value">
+          <span *ngIf="!cargandoPrestaciones">{{ prestacionesTotalPacientes | number:'1.0-0':'es-AR' }}</span>
+          <span *ngIf="cargandoPrestaciones" class="skeleton-text">Cargando...</span>
+        </div>
+        <div class="kpi-footer-simple"><span class="kpi-desc">Afiliados distintos</span></div>
+      </div>
+    </section>
+
+    <section class="grid-section">
+      <div class="section-card">
+        <div class="section-card-header">
+          <div>
+            <h2 class="section-title">Prestaciones Facturadas</h2>
+            <p class="section-subtitle">
+              Prestaciones incluidas en las Facturas Madre del período o fecha filtrados.
+            </p>
+          </div>
+
+          <!-- Filtros locales -->
+          <div class="analistas-header-controls">
+            <div class="filtro-analista-container" style="position: relative;">
+              <label for="input-prestacion-medico" class="filtro-analista-label">Médico:</label>
+              <div class="select-wrapper-analista">
+                <input id="input-prestacion-medico" type="text" autocomplete="off"
+                  class="form-control select-custom select-filtro-analista" placeholder="Nombre o apellido..."
+                  role="combobox" aria-autocomplete="list" aria-controls="lista-sugerencias-medico"
+                  [attr.aria-expanded]="mostrarSugerenciasMedicos"
+                  [value]="textoMedicoInput" (input)="onInputPrestacionMedico($event)"
+                  (keydown)="onKeydownMedico($event)" (focus)="onFocusMedico()" (blur)="onBlurMedico()">
+                <button *ngIf="textoMedicoInput || filtroPrestacionMedico" type="button"
+                  class="btn-clear-filtro-analista" (click)="limpiarFiltroPrestacionMedico()"
+                  title="Limpiar médico">✕</button>
+              </div>
+              <ul id="lista-sugerencias-medico" class="autocomplete-dropdown-list" role="listbox"
+                *ngIf="mostrarSugerenciasMedicos">
+                <li *ngIf="cargandoSugerenciasMedicos" class="autocomplete-status">Buscando…</li>
+                <li *ngIf="!cargandoSugerenciasMedicos && sugerenciasMedicosPrestaciones.length === 0"
+                  class="autocomplete-status">Sin coincidencias</li>
+                <li *ngFor="let med of sugerenciasMedicosPrestaciones; let i = index" role="option"
+                  [class.activa]="i === sugerenciaMedicoActiva" [attr.aria-selected]="i === sugerenciaMedicoActiva"
+                  (mousedown)="seleccionarSugerenciaMedico(med)">{{ med }}</li>
+                <li *ngIf="!cargandoSugerenciasMedicos && sugerenciasMedicosPrestaciones.length >= limiteSugerencias"
+                  class="autocomplete-status autocomplete-hint">Mostrando los primeros {{ limiteSugerencias }}
+                  resultados. Escribí más caracteres para refinar la búsqueda.</li>
+              </ul>
+            </div>
+
+            <div class="filtro-analista-container" style="position: relative;">
+              <label for="input-prestacion-codigo" class="filtro-analista-label">Prestación:</label>
+              <div class="select-wrapper-analista">
+                <input id="input-prestacion-codigo" type="text" autocomplete="off"
+                  class="form-control select-custom select-filtro-analista"
+                  placeholder="Código o descripción (ej. 420101)"
+                  role="combobox" aria-autocomplete="list" aria-controls="lista-sugerencias-prestacion"
+                  [attr.aria-expanded]="mostrarSugerenciasPrestaciones"
+                  [value]="textoPrestacionInput" (input)="onInputPrestacionCodigo($event)"
+                  (keydown)="onKeydownPrestacion($event)" (focus)="onFocusPrestacion()"
+                  (blur)="onBlurPrestacion()">
+                <button *ngIf="textoPrestacionInput || filtroPrestacionCodigo" type="button"
+                  class="btn-clear-filtro-analista" (click)="limpiarFiltroPrestacionCodigo()"
+                  title="Limpiar prestación">✕</button>
+              </div>
+              <ul id="lista-sugerencias-prestacion" class="autocomplete-dropdown-list" role="listbox"
+                *ngIf="mostrarSugerenciasPrestaciones">
+                <li *ngIf="cargandoSugerenciasPrestaciones" class="autocomplete-status">Buscando…</li>
+                <li *ngIf="!cargandoSugerenciasPrestaciones && sugerenciasCodigosPrestaciones.length === 0"
+                  class="autocomplete-status">Sin coincidencias</li>
+                <li *ngFor="let p of sugerenciasCodigosPrestaciones; let i = index" role="option"
+                  [class.activa]="i === sugerenciaPrestacionActiva"
+                  [attr.aria-selected]="i === sugerenciaPrestacionActiva"
+                  (mousedown)="seleccionarSugerenciaPrestacion(p)">{{ p.codigo }} - {{ p.descripcion }}</li>
+                <li *ngIf="!cargandoSugerenciasPrestaciones && sugerenciasCodigosPrestaciones.length >= limiteSugerencias"
+                  class="autocomplete-status autocomplete-hint">Mostrando los primeros {{ limiteSugerencias }}
+                  resultados. Escribí más caracteres para refinar la búsqueda.</li>
+              </ul>
+            </div>
+
+            <div class="filtro-analista-container">
+              <label for="select-prestacion-tipo" class="filtro-analista-label">Atención:</label>
+              <div class="select-wrapper-analista">
+                <select id="select-prestacion-tipo" class="form-control select-custom select-filtro-analista"
+                  [(ngModel)]="filtroPrestacionTipoRegistro" (change)="onFiltroPrestacionTipoRegistroChange()">
+                  <option value="TODOS">Todos</option>
+                  <option value="Ambulatorios">Ambulatorios</option>
+                  <option value="Internados">Internados</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-sm btn-primary" (click)="limpiarTodosFiltrosPrestaciones()">
+              Limpiar filtros
+            </button>
+
+            <button type="button" id="btn-export-prestaciones" class="btn-export-excel"
+              [disabled]="cargandoPrestaciones || exportandoExcel || prestacionesDatos.length === 0 || !tieneFiltroLocalPrestaciones"
+              (click)="exportarExcelPrestaciones()"
+              [title]="!tieneFiltroLocalPrestaciones 
+                ? 'Debés aplicar al menos un filtro de Médico, Prestación o Atención para poder exportar a Excel' 
+                : (prestacionesDatos.length === 0 
+                    ? 'No hay prestaciones para exportar' 
+                    : 'Exportar prestaciones filtradas a Excel (.xlsx)')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+              <span>Exportar a Excel</span>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="cargandoPrestaciones" class="loading-state">
+          <div class="spinner"></div>
+          <p>Cargando prestaciones facturadas...</p>
+        </div>
+
+        <div *ngIf="!cargandoPrestaciones && errorCargaPrestaciones" class="empty-state">
+          <p>{{ errorCargaPrestaciones }}</p>
+          <button type="button" class="btn btn-sm btn-primary mt-2" (click)="cargarPrestaciones(1)">Reintentar</button>
+        </div>
+
+        <div *ngIf="!cargandoPrestaciones && !errorCargaPrestaciones && prestacionesDatos.length === 0"
+          class="empty-state">
+          <p>No se encontraron prestaciones para los filtros seleccionados.</p>
+        </div>
+
+        <div *ngIf="!cargandoPrestaciones && prestacionesDatos.length > 0" class="table-responsive">
+          <table class="table-sanatorial table-bordered table-prestaciones">
+            <thead>
+              <tr>
+                <th class="th-prestacion-comprobante sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'comprobante'"
+                  (click)="ordenarPrestaciones('comprobante')"
+                  title="Ordenar por Comprobante FC">
+                  Comprobante FC
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'comprobante'">{{
+                    columnaOrdenPrestaciones === 'comprobante' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-fecha sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'fecha'"
+                  (click)="ordenarPrestaciones('fecha')"
+                  title="Ordenar por Fecha Prestación">
+                  Fecha Prestación
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'fecha'">{{
+                    columnaOrdenPrestaciones === 'fecha' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-paciente sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'paciente'"
+                  (click)="ordenarPrestaciones('paciente')"
+                  title="Ordenar por Paciente">
+                  Paciente
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'paciente'">{{
+                    columnaOrdenPrestaciones === 'paciente' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-cobertura sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'cobertura'"
+                  (click)="ordenarPrestaciones('cobertura')"
+                  title="Ordenar por Institución / Cobertura">
+                  Institución / Cobertura
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'cobertura'">{{
+                    columnaOrdenPrestaciones === 'cobertura' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-plan sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'plan'"
+                  (click)="ordenarPrestaciones('plan')"
+                  title="Ordenar por Plan">
+                  Plan
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'plan'">{{
+                    columnaOrdenPrestaciones === 'plan' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-codigo sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'prestacion'"
+                  (click)="ordenarPrestaciones('prestacion')"
+                  title="Ordenar por Prestación">
+                  Prestación
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'prestacion'">{{
+                    columnaOrdenPrestaciones === 'prestacion' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-especialidad sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'especialidad'"
+                  (click)="ordenarPrestaciones('especialidad')"
+                  title="Ordenar por Especialidad">
+                  Especialidad
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'especialidad'">{{
+                    columnaOrdenPrestaciones === 'especialidad' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="text-right th-prestacion-cantidad sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'cantidad'"
+                  (click)="ordenarPrestaciones('cantidad')"
+                  title="Ordenar por Cantidad">
+                  Cant.
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'cantidad'">{{
+                    columnaOrdenPrestaciones === 'cantidad' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="text-right th-prestacion-importe sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'importe'"
+                  (click)="ordenarPrestaciones('importe')"
+                  title="Ordenar por Importe Total">
+                  Importe Total
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'importe'">{{
+                    columnaOrdenPrestaciones === 'importe' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="th-prestacion-medico sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'medico'"
+                  (click)="ordenarPrestaciones('medico')"
+                  title="Ordenar por Médico / Prestador">
+                  Médico / Prestador
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'medico'">{{
+                    columnaOrdenPrestaciones === 'medico' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+                <th class="text-center th-prestacion-tipo sortable-col"
+                  [class.col-sorted]="columnaOrdenPrestaciones === 'tipo'"
+                  (click)="ordenarPrestaciones('tipo')"
+                  title="Ordenar por Tipo">
+                  Tipo
+                  <span class="sort-indicator" [class.active]="columnaOrdenPrestaciones === 'tipo'">{{
+                    columnaOrdenPrestaciones === 'tipo' ? (direccionOrdenPrestaciones === 'asc' ? ' ▲' : ' ▼') : ' ⇅'
+                  }}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of prestacionesDatos" class="tr-prestacion-row">
+                <td class="td-prestacion-comprobante"><strong class="comprobante-numero">{{
+                    formatearComprobanteItem(item) }}</strong></td>
+                <td class="td-prestacion-fecha">{{ item.fechaPrestacion | date:'dd/MM/yyyy' }}</td>
+                <td class="td-prestacion-paciente">
+                  <div class="prestacion-paciente-nombre">{{ item.paciente || '-' }}</div>
+                  <small class="text-muted prestacion-paciente-carnet">{{ item.carnet }}</small>
+                </td>
+                <td class="td-prestacion-cobertura">{{ item.cobertura || '-' }}</td>
+                <td class="td-prestacion-plan">{{ item.plan || '-' }}</td>
+                <td class="td-prestacion-codigo">
+                  <strong class="prestacion-codigo-valor">{{ item.codigoPrestacion }}</strong>
+                  <div class="text-muted prestacion-descripcion-valor" style="font-size: 0.78rem;">{{
+                    item.descripcionPrestacion }}</div>
+                </td>
+                <td class="td-prestacion-especialidad">{{ item.especialidad || '-' }}</td>
+                <td class="text-right td-prestacion-cantidad">{{ item.cantidad }}</td>
+                <td class="text-right font-weight-bold td-prestacion-importe">{{ formatearMoneda(item.importeTotal) }}
+                </td>
+                <td class="td-prestacion-medico">{{ item.medico || '-' }}</td>
+                <td class="text-center td-prestacion-tipo">
+                  <span [ngClass]="item.tipoRegistro === 'Internados' ? 'badge-internados' : 'badge-ambulatorios'">
+                    {{ item.tipoRegistro }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="trazabilidad-pagination-bar">
+            <div class="pagination-info">
+              Mostrando
+              <strong>{{ (prestacionesPaginaActual - 1) * prestacionesTamanioPagina + 1 }}</strong> -
+              <strong>{{ (prestacionesPaginaActual * prestacionesTamanioPagina) > prestacionesTotalRegistros ?
+                prestacionesTotalRegistros : (prestacionesPaginaActual * prestacionesTamanioPagina) }}</strong>
+              de <strong>{{ prestacionesTotalRegistros | number:'1.0-0':'es-AR' }}</strong> prestaciones
+            </div>
+            <div class="pagination-controls">
+              <button type="button" class="btn-page-nav" [disabled]="prestacionesPaginaActual <= 1"
+                (click)="cambiarPaginaPrestaciones(1)" title="Primera página">⏮</button>
+              <button type="button" class="btn-page-nav" [disabled]="prestacionesPaginaActual <= 1"
+                (click)="cambiarPaginaPrestaciones(prestacionesPaginaActual - 1)" title="Página anterior">◀</button>
+              <span class="page-current-indicator">Página {{ prestacionesPaginaActual }} de {{ prestacionesTotalPaginas
+                }}</span>
+              <button type="button" class="btn-page-nav"
+                [disabled]="prestacionesPaginaActual >= prestacionesTotalPaginas"
+                (click)="cambiarPaginaPrestaciones(prestacionesPaginaActual + 1)" title="Página siguiente">▶</button>
+              <button type="button" class="btn-page-nav"
+                [disabled]="prestacionesPaginaActual >= prestacionesTotalPaginas"
+                (click)="cambiarPaginaPrestaciones(prestacionesTotalPaginas)" title="Última página">⏭</button>
+            </div>
+            <div class="pagination-page-size">
+              <label for="page-size-prestaciones">Ver:</label>
+              <select id="page-size-prestaciones" class="page-size-select" [ngModel]="prestacionesTamanioPagina"
+                (ngModelChange)="cambiarTamanioPaginaPrestaciones(+$event)">
+                <option [ngValue]="50">50 por pág.</option>
+                <option [ngValue]="100">100 por pág.</option>
+                <option [ngValue]="200">200 por pág.</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div><!-- /tab-pane prestaciones -->
+
+  <!-- MODAL: LÍMITE DE EXPORTACIÓN A EXCEL (SOLAPA PRESTACIONES - MÁXIMO 3 MESES) -->
+  <div class="modal-export-overlay" *ngIf="modalExportPrestacionesVisible"
+    (click)="cerrarModalExportarPrestaciones()">
+    <div class="modal-export-card" (click)="$event.stopPropagation()">
+      <div class="modal-export-header">
+        <div class="modal-export-header-title">
+          <span class="modal-export-icon">⚠️</span>
+          <h3>Límite de Exportación a Excel</h3>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="cerrarModalExportarPrestaciones()"
+          [disabled]="exportandoExcelModal" aria-label="Cerrar modal">✕</button>
+      </div>
+
+      <div class="modal-export-body">
+        <div class="modal-export-alert-box">
+          <p>
+            El volumen máximo permitido para exportar prestaciones es de <strong>3 meses</strong>.
+            Por favor, seleccioná el rango que deseás exportar dentro del período filtrado:
+          </p>
+        </div>
+
+        <!-- Resumen de filtros aplicados -->
+        <div class="modal-export-filtros-activos">
+          <span class="label-filtros-activos">Filtros aplicados:</span>
+          <span class="tag-filtro" *ngIf="filtroPrestacionMedico.trim()">Médico: {{ filtroPrestacionMedico }}</span>
+          <span class="tag-filtro" *ngIf="filtroPrestacionCodigo.trim()">Prestación: {{ textoPrestacionAplicado || filtroPrestacionCodigo }}</span>
+          <span class="tag-filtro" *ngIf="filtroPrestacionTipoRegistro !== 'TODOS'">Atención: {{ filtroPrestacionTipoRegistro }}</span>
+        </div>
+
+        <!-- Selectores según criterio Período -->
+        <div class="modal-export-form" *ngIf="modalExportCriterio === 'periodo'">
+          <div class="modal-export-field">
+            <label for="modal-export-periodo-desde">Período Desde</label>
+            <select id="modal-export-periodo-desde" class="form-control modal-select-custom"
+              [(ngModel)]="modalExportPeriodoDesde" (ngModelChange)="onModalPeriodoDesdeChange($event)"
+              [disabled]="exportandoExcelModal">
+              <option *ngFor="let opt of modalExportOpcionesDesde" [value]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+          <div class="modal-export-field">
+            <label for="modal-export-periodo-hasta">Período Hasta</label>
+            <select id="modal-export-periodo-hasta" class="form-control modal-select-custom"
+              [(ngModel)]="modalExportPeriodoHasta" (ngModelChange)="onModalPeriodoHastaChange()"
+              [disabled]="exportandoExcelModal">
+              <option *ngFor="let opt of modalExportOpcionesHasta" [value]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Selectores según criterio Fecha -->
+        <div class="modal-export-form" *ngIf="modalExportCriterio === 'fecha'">
+          <div class="modal-export-field">
+            <label for="modal-export-fecha-desde">Fecha Desde</label>
+            <input type="date" id="modal-export-fecha-desde" class="form-control modal-date-input"
+              [(ngModel)]="modalExportFechaDesde" [min]="ccFechaDesde || fechaDesde" [max]="ccFechaHasta || fechaHasta"
+              (ngModelChange)="onModalFechaDesdeChange($event)" [disabled]="exportandoExcelModal">
+          </div>
+          <div class="modal-export-field">
+            <label for="modal-export-fecha-hasta">Fecha Hasta</label>
+            <input type="date" id="modal-export-fecha-hasta" class="form-control modal-date-input"
+              [(ngModel)]="modalExportFechaHasta" [min]="modalExportFechaHastaMin" [max]="modalExportFechaHastaMax"
+              (ngModelChange)="onModalFechaHastaChange()" [disabled]="exportandoExcelModal">
+          </div>
+        </div>
+
+        <!-- Mensaje de advertencia o error en exportación modal -->
+        <div class="modal-export-error-box" *ngIf="errorModalExport">
+          <span class="modal-export-icon">⚠️</span>
+          <p>{{ errorModalExport }}</p>
+        </div>
+
+        <p class="modal-export-hint">
+          💡 La exportación descargará únicamente las prestaciones de este rango sin modificar la visualización en la pantalla.
+        </p>
+      </div>
+
+      <div class="modal-export-footer">
+        <button type="button" class="btn-modal-cancelar" (click)="cerrarModalExportarPrestaciones()"
+          [disabled]="exportandoExcelModal">
+          Cancelar
+        </button>
+        <button type="button" class="btn-export-excel btn-modal-exportar"
+          (click)="confirmarExportacionModalPrestaciones()" [disabled]="exportandoExcelModal">
+          <svg *ngIf="!exportandoExcelModal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+          </svg>
+          <span *ngIf="!exportandoExcelModal">Exportar a Excel</span>
+          <span *ngIf="exportandoExcelModal">Exportando prestaciones...</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
 </div>

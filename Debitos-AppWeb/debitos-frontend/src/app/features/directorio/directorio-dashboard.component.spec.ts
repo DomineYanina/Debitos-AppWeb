@@ -5,6 +5,8 @@ import localeEsAr from '@angular/common/locales/es-AR';
 import { of, throwError, Subject } from 'rxjs';
 import { DirectorioDashboardComponent } from './directorio-dashboard.component';
 import { DirectorioService } from '../../core/services/directorio.service';
+import { ExcelExportService } from '../../core/services/excel-export';
+import { DirectorioPrestacionesResponse } from '../../core/models/directorio.model';
 import { vi } from 'vitest';
 
 registerLocaleData(localeEsAr, 'es-AR');
@@ -80,6 +82,9 @@ describe('DirectorioDashboardComponent', () => {
       obtenerTotales: vi.fn().mockReturnValue(of(mockTotales)),
       obtenerGrupos: vi.fn().mockReturnValue(of(mockGrupos)),
       obtenerMotivos: vi.fn().mockReturnValue(of(mockMotivos)),
+      getPrestacionesFacturadas: vi.fn().mockReturnValue(of({ totalRegistros: 0, totalMontoFacturado: 0, cantidadMedicos: 0, cantidadPacientes: 0, paginaActual: 1, totalPaginas: 1, tamanioPagina: 50, items: [] })),
+      getSugerenciasMedicos: vi.fn().mockReturnValue(of([])),
+      getSugerenciasPrestaciones: vi.fn().mockReturnValue(of([])),
       getTiemposCobranza: vi.fn().mockReturnValue(of({ dsoGlobal: 150, cobroRealPromedio: 0, saldoTotalMora: 10000, detalles: [] })),
       getRecibosNoImputados: vi.fn().mockReturnValue(of([]))
     };
@@ -152,6 +157,7 @@ describe('DirectorioDashboardComponent', () => {
           tipoDoc: 'FCE',
           fechaDesde: component.fechaDesde,
           fechaHasta: component.fechaHasta,
+          criterioFecha: 'periodo',
           solapa: 'motivos'
         }
       }
@@ -621,10 +627,35 @@ describe('DirectorioDashboardComponent', () => {
 
       component.cargarOperadores();
 
-      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15', 'periodo');
+      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15', 'periodo', 'Ambulatorios');
       expect(component.operadoresDatos.length).toBe(1);
       expect(component.operadoresDatos[0].operador).toBe('Operador Test');
       expect(component.cargandoOperadores).toBe(false);
+    });
+
+    it('cambiarTipoRegistroOperador debería actualizar tipoRegistroOperador y recargar operadores filtrando por Internados', () => {
+      const mockOpsInt = [
+        {
+          operador: 'NAGYP',
+          cantidadRegistros: 25,
+          debitosAceptados: 182995,
+          debitosRefacturados: 27324245,
+          totalTramitado: 27507240,
+          ticketPromedio: 1100290,
+          tasaRecupero: 99.3,
+          motivos: []
+        }
+      ];
+      directorioServiceSpy.getDesempenoOperadores = vi.fn().mockReturnValue(of(mockOpsInt));
+      component.fechaDesde = '2026-08-01';
+      component.fechaHasta = '2026-08-31';
+
+      component.cambiarTipoRegistroOperador('Internados');
+
+      expect(component.tipoRegistroOperador).toBe('Internados');
+      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-31', 'periodo', 'Internados');
+      expect(component.operadoresDatos.length).toBe(1);
+      expect(component.operadoresDatos[0].operador).toBe('NAGYP');
     });
 
     it('debería calcular correctamente los totales consolidados de operadores', () => {
@@ -667,6 +698,28 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.totalRefacturadosOperadores).toBe(0);
       expect(component.ticketPromedioGlobalOperadores).toBe(0);
       expect(component.tasaRecuperoGlobalOperadores).toBe(0);
+    });
+
+    it('debería filtrar por busquedaTextoOperador y actualizar tieneFiltroOperadorActivo', () => {
+      component.operadoresDatos = [
+        { operador: 'Carlos Perez', cantidadRegistros: 10, totalTramitado: 1000, debitosAceptados: 0, debitosRefacturados: 1000, diferencia: 0, ticketPromedio: 100, tasaRecupero: 100, motivos: [] },
+        { operador: 'Ana Lopez', cantidadRegistros: 5, totalTramitado: 500, debitosAceptados: 0, debitosRefacturados: 500, diferencia: 0, ticketPromedio: 100, tasaRecupero: 100, motivos: [] }
+      ];
+      component.filtroOperadorSeleccionado = 'TODOS';
+      component.codigoCoberturaSeleccionada = 'TODAS';
+      component.busquedaTextoOperador = '';
+
+      expect(component.tieneFiltroOperadorActivo).toBe(false);
+      expect(component.operadoresFiltrados.length).toBe(2);
+
+      component.busquedaTextoOperador = 'Carlos';
+      expect(component.tieneFiltroOperadorActivo).toBe(true);
+      expect(component.operadoresFiltrados.length).toBe(1);
+      expect(component.operadoresFiltrados[0].operador).toBe('Carlos Perez');
+
+      component.busquedaTextoOperador = '';
+      expect(component.tieneFiltroOperadorActivo).toBe(false);
+      expect(component.operadoresFiltrados.length).toBe(2);
     });
 
     it('debería calcular correctamente la suma de financiadores de analistas (4 + 11 = 15)', () => {
@@ -862,6 +915,62 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.medicosDatos[0].medico).toBe('Dr. Alvarez'); // 40 vs 28.5
     });
 
+    it('ordenarMedicos por diferencia debe ordenar de mayor a menor y alternar a menor a mayor', () => {
+      component.medicosDatos[0].diferencia = 15000;
+      component.medicosDatos[1].diferencia = 5000;
+
+      component.ordenarMedicos('diferencia');
+      expect(component.columnaOrdenMedico).toBe('diferencia');
+      expect(component.direccionOrdenMedico).toBe('desc');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Perez');
+      expect(component.medicosDatos[1].medico).toBe('Dr. Alvarez');
+
+      component.ordenarMedicos('diferencia');
+      expect(component.direccionOrdenMedico).toBe('asc');
+      expect(component.medicosDatos[0].medico).toBe('Dr. Alvarez');
+      expect(component.medicosDatos[1].medico).toBe('Dr. Perez');
+    });
+
+    it('debe calcular correctamente totalDiferenciaMedicos', () => {
+      component.medicosDatos = [
+        {
+          medico: 'Dr. Uno',
+          cantidadRegistros: 10,
+          totalTramitado: 100000,
+          debitosAceptados: 30000,
+          debitosRefacturados: 50000,
+          ticketPromedio: 10000,
+          tasaRecupero: 50,
+          motivos: []
+        }
+      ];
+      component.filtroMedicoSeleccionado = 'TODOS';
+      expect(component.totalDiferenciaMedicos).toBe(20000);
+    });
+
+    it('cuando un médico está desplegado, ordenar por diferencia debe ordenar sus motivos por diferencia', () => {
+      component.medicosDatos[0].expanded = true;
+      component.medicosDatos[0].motivos[0].diferencia = 5000;
+      component.medicosDatos[0].motivos[1].diferencia = 15000;
+
+      component.ordenarMedicos('diferencia');
+      expect(component.medicosDatos[0].motivos[0].motivo).toBe('Autorización'); // 15000 desc
+      expect(component.medicosDatos[0].motivos[1].motivo).toBe('Falta firma');   // 5000
+    });
+
+    it('cuando dentro de un médico y motivo desplegado, ordenar por diferencia debe ordenar financiadores por diferencia', () => {
+      component.medicosDatos[0].expanded = true;
+      component.medicosDatos[0].motivos[0].expanded = true;
+      component.medicosDatos[0].motivos[0].financiadores = [
+        { financiador: 'OSDE', casos: 10, monto: 15000, montoDebitado: 15000, aceptado: 10000, refacturado: 2000, diferencia: 3000 } as any,
+        { financiador: 'SWISS', casos: 20, monto: 25000, montoDebitado: 25000, aceptado: 10000, refacturado: 5000, diferencia: 10000 } as any
+      ];
+
+      component.ordenarMedicos('diferencia');
+      expect(component.medicosDatos[0].motivos[0].financiadores[0].financiador).toBe('SWISS'); // 10000 desc
+      expect(component.medicosDatos[0].motivos[0].financiadores[1].financiador).toBe('OSDE');  // 3000
+    });
+
     it('cuando un médico está desplegado, ordenar debe ordenar los motivos del médico sin mover la lista de médicos', () => {
       component.medicosDatos[0].expanded = true;
       component.ordenarMedicos('casos');
@@ -1020,6 +1129,100 @@ describe('DirectorioDashboardComponent', () => {
       component.cargarDesempenoOperativo();
 
       expect(component.filtroMedicoSeleccionado).toBe('TODOS');
+    });
+
+    it('debería filtrar por busquedaTextoMedico y actualizar tieneFiltroMedicoActivo', () => {
+      expect(component.tieneFiltroMedicoActivo).toBe(false);
+      component.busquedaTextoMedico = 'Perez';
+      expect(component.tieneFiltroMedicoActivo).toBe(true);
+      expect(component.medicosFiltrados.length).toBe(1);
+      expect(component.medicosFiltrados[0].medico).toBe('Dr. Perez');
+
+      component.busquedaTextoMedico = '';
+      expect(component.tieneFiltroMedicoActivo).toBe(false);
+      expect(component.medicosFiltrados.length).toBe(2);
+    });
+  });
+
+  describe('Filtro por Categorías de Motivos de Débito', () => {
+    it('obtenerCategoriaDeMotivo debería categorizar correctamente motivos conocidos y variantes', () => {
+      expect(component.obtenerCategoriaDeMotivo('Facturación duplicada')).toBe('1. ADMINISTRATIVOS');
+      expect(component.obtenerCategoriaDeMotivo('Falta de autorización')).toBe('1. ADMINISTRATIVOS');
+      expect(component.obtenerCategoriaDeMotivo('Demora en resolución quirúrgica')).toBe('2. MÉDICOS / AUDITORÍA');
+      expect(component.obtenerCategoriaDeMotivo('Diferencia de criterio medico/prestaciones no ju')).toBe('2. MÉDICOS / AUDITORÍA');
+      expect(component.obtenerCategoriaDeMotivo('Diferencia de aranceles')).toBe('3. CONTRACTUALES / NOMENCLADOR');
+      expect(component.obtenerCategoriaDeMotivo('Debito por normas operativas')).toBe('3. CONTRACTUALES / NOMENCLADOR');
+      expect(component.obtenerCategoriaDeMotivo('Falta firma paciente')).toBe('4. OPERATIVOS Y DOCUMENTALES (administrativo)');
+      expect(component.obtenerCategoriaDeMotivo('Falta firma profesional')).toBe('4. OPERATIVOS Y DOCUMENTALES (administrativo)');
+      expect(component.obtenerCategoriaDeMotivo('El costo de los impuestos en el proceso de la refactura superan el importe posible de cobro de la misma')).toBe('5. AJUSTES Y GESTIÓN COMERCIAL');
+      expect(component.obtenerCategoriaDeMotivo('Borrar')).toBe('6. OTROS / SIN CLASIFICAR');
+      expect(component.obtenerCategoriaDeMotivo('')).toBe('6. OTROS / SIN CLASIFICAR');
+    });
+
+    it('calcularCategoriasMotivosDisponibles y aplicarFiltroCategoriaMotivos deben filtrar y recalcular KPIs', () => {
+      component.motivosDebitoOriginal = [
+        { motivo: 'Facturación duplicada', montoTotal: 1000, cantidadCasos: 2, montoAceptado: 400, montoRefacturado: 600, porcentaje: 50 },
+        { motivo: 'Demora en resolución quirúrgica', montoTotal: 1000, cantidadCasos: 1, montoAceptado: 1000, montoRefacturado: 0, porcentaje: 50 }
+      ];
+      component.totalElementsMotivos = 2;
+      component.totalDebitadoGeneralCalculado = 2000;
+      component.categoriaMotivoSeleccionada = 'TODAS';
+
+      component.calcularCategoriasMotivosDisponibles();
+      expect(component.categoriasMotivoDisponibles.length).toBe(2);
+      expect(component.categoriasMotivoDisponibles.some(c => c.categoria === '1. ADMINISTRATIVOS' && c.cantidad === 1)).toBe(true);
+      expect(component.categoriasMotivoDisponibles.some(c => c.categoria === '2. MÉDICOS / AUDITORÍA' && c.cantidad === 1)).toBe(true);
+
+      // Con TODAS
+      component.aplicarFiltroCategoriaMotivos();
+      expect(component.motivosDebito.length).toBe(2);
+      expect(component.totalDebitadoMotivos).toBe(2000);
+      expect(component.totalCasosAfectadosMotivos).toBe(3);
+      expect(component.debitoAceptadoPerdidaMotivos).toBe(1400);
+      expect(component.totalRefacturadoMotivos).toBe(600);
+      expect(component.motivosIdentificadosCount).toBe(2);
+
+      // Filtrar por 2. MÉDICOS / AUDITORÍA
+      component.categoriaMotivoSeleccionada = '2. MÉDICOS / AUDITORÍA';
+      component.aplicarFiltroCategoriaMotivos();
+      expect(component.motivosDebito.length).toBe(1);
+      expect(component.motivosDebito[0].motivo).toBe('Demora en resolución quirúrgica');
+      expect(component.motivosDebito[0].porcentaje).toBe(100);
+      expect(component.totalDebitadoMotivos).toBe(1000);
+      expect(component.totalCasosAfectadosMotivos).toBe(1);
+      expect(component.debitoAceptadoPerdidaMotivos).toBe(1000);
+      expect(component.totalRefacturadoMotivos).toBe(0);
+      expect(component.motivosIdentificadosCount).toBe(1);
+
+      // Limpiar filtro
+      component.limpiarFiltroCategoriaMotivo();
+      expect(component.categoriaMotivoSeleccionada).toBe('TODAS');
+      expect(component.motivosDebito.length).toBe(2);
+      expect(component.totalDebitadoMotivos).toBe(2000);
+    });
+
+    it('renderizarParetoMotivos debe actualizar motivosChartData según la categoría seleccionada', () => {
+      component.motivosDebitoOriginal = [
+        { motivo: 'Facturación duplicada', montoTotal: 1000, cantidadCasos: 2, montoAceptado: 400, montoRefacturado: 600, porcentaje: 50 },
+        { motivo: 'Demora en resolución quirúrgica', montoTotal: 1000, cantidadCasos: 1, montoAceptado: 1000, montoRefacturado: 0, porcentaje: 50 }
+      ];
+      component.motivosDebito = [...component.motivosDebitoOriginal];
+      component.rawDatasetsPareto = [
+        { tituloDataset: 'Refacturado', puntos: [{ etiqueta: 'Facturación duplicada', valor: 600 }] },
+        { tituloDataset: 'Pérdida', puntos: [{ etiqueta: 'Facturación duplicada', valor: 400 }] },
+        { tituloDataset: 'Diferencia', puntos: [{ etiqueta: 'Facturación duplicada', valor: 0 }] }
+      ];
+
+      component.categoriaMotivoSeleccionada = 'TODAS';
+      component.renderizarParetoMotivos();
+      expect(component.motivosChartData.labels?.length).toBe(1);
+
+      component.categoriaMotivoSeleccionada = '2. MÉDICOS / AUDITORÍA';
+      component.aplicarFiltroCategoriaMotivos();
+      component.renderizarParetoMotivos();
+      expect(component.motivosChartData.labels?.length).toBe(1);
+      expect(component.motivosChartData.labels?.[0]).toBe('Demora en resolución quirúrgica');
+      expect(component.motivosChartData.datasets[1].data[0]).toBe(1000); // Pérdida
     });
   });
 
@@ -1323,6 +1526,64 @@ describe('DirectorioDashboardComponent', () => {
       component.ordenarTrazabilidad('facturado');
       expect(component.columnaOrdenTrazabilidad).toBe('');
       expect(component.trazabilidadDatos[0].montoFacturadoOriginal).toBe(5000);
+    });
+
+    it('debería filtrar trazabilidad por Letra, Punto de Venta y Número (ignorando ceros a la izquierda) y consultar al backend', () => {
+      component.trazabilidadDatos = [
+        {
+          idPrestacion: 'FAC A0030-00005364',
+          descripcion: 'Factura 5364',
+          financiador: 'OSAP',
+          medico: 'No especificado',
+          montoFacturadoOriginal: 2463499.05,
+          totalDebitado: 0,
+          historialEventos: [],
+          expanded: false
+        },
+        {
+          idPrestacion: 'FAC B0031-00004320',
+          descripcion: 'Factura 4320',
+          financiador: 'SPF',
+          medico: 'Dra. Gianninoto',
+          montoFacturadoOriginal: 4919257.91,
+          totalDebitado: 0,
+          historialEventos: [],
+          expanded: false
+        }
+      ];
+
+      // Filtrar por Letra A
+      component.filtroTrazabilidadLetra = 'a';
+      expect(component.trazabilidadFiltrada.length).toBe(1);
+      expect(component.trazabilidadFiltrada[0].idPrestacion).toBe('FAC A0030-00005364');
+      expect(component.trazabilidadFiltrada[0].expanded).toBe(true);
+
+      // Filtrar por Punto de Venta 31 y Letra B
+      component.filtroTrazabilidadLetra = 'B';
+      component.filtroTrazabilidadPtoVta = '31';
+      expect(component.trazabilidadFiltrada.length).toBe(1);
+      expect(component.trazabilidadFiltrada[0].idPrestacion).toBe('FAC B0031-00004320');
+
+      // Filtrar por Número sin ceros a la izquierda
+      component.filtroTrazabilidadLetra = '';
+      component.filtroTrazabilidadPtoVta = 'TODOS';
+      component.filtroTrazabilidadNumero = '5364';
+      expect(component.trazabilidadFiltrada.length).toBe(1);
+      expect(component.trazabilidadFiltrada[0].idPrestacion).toBe('FAC A0030-00005364');
+
+      // Búsqueda explícita en backend respetando fechas y financiador
+      component.codigoCoberturaSeleccionada = '431';
+      component.fechaDesde = '2026-06-01';
+      component.fechaHasta = '2026-10-31';
+      component.filtroTrazabilidadLetra = 'A';
+      component.filtroTrazabilidadPtoVta = '30';
+      component.filtroTrazabilidadNumero = '00005364';
+      directorioServiceSpy.getTrazabilidad = vi.fn().mockReturnValue(of([component.trazabilidadDatos[0]]));
+
+      component.buscarTrazabilidadFactura();
+      expect(directorioServiceSpy.getTrazabilidad).toHaveBeenCalledWith(
+        '431', undefined, undefined, '2026-06-01', '2026-10-31', 30, 'A', 5364
+      );
     });
 
     it('paginación de trazabilidad debe paginar y navegar correctamente', () => {
@@ -1653,7 +1914,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esGerenteDebitos).toBe(true);
     });
 
-    it('debería restringir exactamente tablero, cuenta-corriente, tiempos-cobranza y matriz-cobranzas para GERENTE_DEBITOS', () => {
+    it('debería restringir exactamente tablero, cuenta-corriente, tiempos-cobranza, matriz-cobranzas y trazabilidad para GERENTE_DEBITOS', () => {
       vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'GERENTE_DEBITOS');
 
       // Solapas excluidas
@@ -1661,6 +1922,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esSolapaPermitida('cuenta-corriente')).toBe(false);
       expect(component.esSolapaPermitida('tiempos-cobranza')).toBe(false);
       expect(component.esSolapaPermitida('matriz-cobranzas')).toBe(false);
+      expect(component.esSolapaPermitida('trazabilidad')).toBe(false);
 
       // Solapas permitidas
       expect(component.esSolapaPermitida('motivos')).toBe(true);
@@ -1668,7 +1930,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esSolapaPermitida('bucles')).toBe(true);
       expect(component.esSolapaPermitida('usuarios-carga')).toBe(true);
       expect(component.esSolapaPermitida('medicos')).toBe(true);
-      expect(component.esSolapaPermitida('trazabilidad')).toBe(true);
+      expect(component.esSolapaPermitida('prestaciones')).toBe(false);
     });
 
     it('debería permitir todas las solapas si el usuario no es GERENTE_DEBITOS', () => {
@@ -1679,6 +1941,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esSolapaPermitida('tiempos-cobranza')).toBe(true);
       expect(component.esSolapaPermitida('matriz-cobranzas')).toBe(true);
       expect(component.esSolapaPermitida('motivos')).toBe(true);
+      expect(component.esSolapaPermitida('trazabilidad')).toBe(true);
     });
 
     it('seleccionarSolapa debería cambiar a motivos si se intenta seleccionar una solapa prohibida siendo GERENTE_DEBITOS', () => {
@@ -1697,6 +1960,9 @@ describe('DirectorioDashboardComponent', () => {
       component.seleccionarSolapa('matriz-cobranzas');
       expect(component.solapaActiva).toBe('motivos');
 
+      component.seleccionarSolapa('trazabilidad');
+      expect(component.solapaActiva).toBe('motivos');
+
       component.seleccionarSolapa('analistas');
       expect(component.solapaActiva).toBe('analistas');
     });
@@ -1708,7 +1974,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esTesoreria).toBe(true);
     });
 
-    it('debería permitir únicamente tablero, cuenta-corriente, tiempos-cobranza y matriz-cobranzas para TESORERIA', () => {
+    it('debería permitir exactamente tablero, cuenta-corriente, tiempos-cobranza, matriz-cobranzas y trazabilidad para TESORERIA', () => {
       vi.spyOn(component.authService, 'hasRole').mockImplementation((r) => r === 'TESORERIA');
 
       // Solapas permitidas
@@ -1716,6 +1982,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esSolapaPermitida('cuenta-corriente')).toBe(true);
       expect(component.esSolapaPermitida('tiempos-cobranza')).toBe(true);
       expect(component.esSolapaPermitida('matriz-cobranzas')).toBe(true);
+      expect(component.esSolapaPermitida('trazabilidad')).toBe(true);
 
       // Solapas excluidas
       expect(component.esSolapaPermitida('motivos')).toBe(false);
@@ -1723,7 +1990,7 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.esSolapaPermitida('bucles')).toBe(false);
       expect(component.esSolapaPermitida('usuarios-carga')).toBe(false);
       expect(component.esSolapaPermitida('medicos')).toBe(false);
-      expect(component.esSolapaPermitida('trazabilidad')).toBe(false);
+      expect(component.esSolapaPermitida('prestaciones')).toBe(false);
     });
 
     it('seleccionarSolapa debería cambiar a tablero si se intenta seleccionar una solapa no permitida siendo TESORERIA', () => {
@@ -1738,6 +2005,9 @@ describe('DirectorioDashboardComponent', () => {
 
       component.seleccionarSolapa('cuenta-corriente');
       expect(component.solapaActiva).toBe('cuenta-corriente');
+
+      component.seleccionarSolapa('trazabilidad');
+      expect(component.solapaActiva).toBe('trazabilidad');
     });
   });
 
@@ -1963,6 +2233,793 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.totalRefacturacionCc).toBe(40000);
       expect(component.totalCobranzasCc).toBe(230000);
       expect(component.totalSaldoCc).toBe(75000);
+    });
+  });
+
+  describe('Exportación a Excel de las 10 Solapas del Tablero', () => {
+    let excelService: ExcelExportService;
+
+    beforeEach(() => {
+      excelService = TestBed.inject(ExcelExportService);
+    });
+
+    it('debería invocar exportarTableroControl, exportarCuentaCorrienteImputados y exportarCuentaCorrienteNoImputados', async () => {
+      const spyTablero = vi.spyOn(excelService, 'exportarTableroControl').mockResolvedValue();
+      const spyCcImp = vi.spyOn(excelService, 'exportarCuentaCorrienteImputados').mockResolvedValue();
+      const spyCcNoImp = vi.spyOn(excelService, 'exportarCuentaCorrienteNoImputados').mockResolvedValue();
+
+      component.balanceFinanciadores = [
+        {
+          financiador: '750 - OMINT',
+          facturacionFc: 100,
+          incrementosNd: 0,
+          debitosNc: 10,
+          refacturadoNd: 5,
+          cobradoRc: 80,
+          saldoPendiente: 15
+        }
+      ];
+      await component.exportarExcelTablero();
+      expect(spyTablero).toHaveBeenCalled();
+
+      component.cuentaCorrienteDatos = [
+        {
+          financiador: '750 - OMINT',
+          facturacionFc: 100,
+          incrementosNd: 0,
+          debitosNc: 10,
+          refacturacionNd: 5,
+          cobranzasRc: 80,
+          saldo: 15,
+          periodos: []
+        }
+      ];
+      await component.exportarExcelCuentaCorrienteImputados();
+      expect(spyCcImp).toHaveBeenCalled();
+
+      component.recibosNoImputados = [
+        {
+          id: 1,
+          tipo: 'RC',
+          letra: 'X',
+          ptovta: 1,
+          numero: 10,
+          comprobante: 'RC X0001-00000010',
+          debe: 0,
+          haber: 500,
+          importe: 500
+        }
+      ];
+      await component.exportarExcelNoImputados();
+      expect(spyCcNoImp).toHaveBeenCalled();
+    });
+
+    it('debería invocar los métodos de exportación para las solapas 3 a 10', async () => {
+      const spyTiempos = vi.spyOn(excelService, 'exportarTiemposCobranza').mockResolvedValue();
+      const spyMatriz = vi.spyOn(excelService, 'exportarMatrizCobranzas').mockResolvedValue();
+      const spyMotivos = vi.spyOn(excelService, 'exportarMotivosDebito').mockResolvedValue();
+      const spyAnalistas = vi.spyOn(excelService, 'exportarAnalistasDebito').mockResolvedValue();
+      const spyBucles = vi.spyOn(excelService, 'exportarBuclesInsistencia').mockResolvedValue();
+      const spyOperadores = vi.spyOn(excelService, 'exportarUsuariosCarga').mockResolvedValue();
+      const spyMedicos = vi.spyOn(excelService, 'exportarPrestadoresMedicos').mockResolvedValue();
+      const spyTrazabilidad = vi.spyOn(excelService, 'exportarTrazabilidad').mockResolvedValue();
+
+      component.tiemposCobranzaDatos = {
+        dsoGlobal: 30,
+        cobroRealPromedio: 25,
+        saldoTotalMora: 1000,
+        detalles: [{ rango: 'De 0 a 45 días', cantidadComprobantes: 2, saldoEnMora: 1000, porcentajeCartera: 100 }]
+      };
+      await component.exportarExcelTiemposCobranza();
+      expect(spyTiempos).toHaveBeenCalled();
+
+      component.matrizRecaudacion = {
+        anioSeleccionado: 2026,
+        aniosDisponibles: [2026],
+        filas: [{ financiador: 'OSDE', meses: new Array(12).fill(100), totalAnual: 1200 }],
+        totalesMes: new Array(12).fill(100),
+        granTotal: 1200
+      };
+      await component.exportarExcelMatriz();
+      expect(spyMatriz).toHaveBeenCalled();
+
+      component.motivosDebito = [
+        { motivo: 'Falta orden', cantidadCasos: 3, montoTotal: 3000, porcentaje: 100 }
+      ];
+      await component.exportarExcelMotivos();
+      expect(spyMotivos).toHaveBeenCalled();
+
+      component.analistasDatos = [
+        {
+          analista: 'FernandaCortes',
+          cantidadRegistros: 2,
+          debitosAceptados: 500,
+          debitosRefacturados: 1500,
+          totalTramitado: 2000,
+          ticketPromedio: 1000,
+          tasaRecupero: 75,
+          motivos: []
+        }
+      ];
+      await component.exportarExcelAnalistas();
+      expect(spyAnalistas).toHaveBeenCalled();
+
+      component.buclesDatos = [
+        {
+          idPrestacion: 'FAC A0030-00001000',
+          descripcion: 'Factura',
+          financiador: 'OSDE',
+          medico: 'Dr. Test',
+          montoFacturadoOriginal: 5000,
+          totalDebitado: 1000,
+          historialEventos: []
+        }
+      ];
+      await component.exportarExcelBucles();
+      expect(spyBucles).toHaveBeenCalled();
+
+      component.operadoresDatos = [
+        {
+          operador: 'BALBELLASAN',
+          cantidadRegistros: 5,
+          debitosAceptados: 1000,
+          debitosRefacturados: 4000,
+          totalTramitado: 5000,
+          ticketPromedio: 1000,
+          tasaRecupero: 80,
+          motivos: []
+        }
+      ];
+      await component.exportarExcelOperadores();
+      expect(spyOperadores).toHaveBeenCalled();
+
+      component.medicosDatos = [
+        {
+          medico: 'ROSSINI GUILLERMO',
+          cantidadRegistros: 4,
+          debitosAceptados: 1000,
+          debitosRefacturados: 3000,
+          totalTramitado: 4000,
+          ticketPromedio: 1000,
+          tasaRecupero: 75,
+          motivos: []
+        }
+      ];
+      await component.exportarExcelMedicos();
+      expect(spyMedicos).toHaveBeenCalled();
+
+      component.trazabilidadDatos = [
+        {
+          idPrestacion: 'FAC A0030-00005364',
+          descripcion: 'Factura',
+          financiador: 'OSDE',
+          medico: 'Dr. Test',
+          montoFacturadoOriginal: 10000,
+          totalDebitado: 2000,
+          historialEventos: []
+        }
+      ];
+      await component.exportarExcelTrazabilidad();
+      expect(spyTrazabilidad).toHaveBeenCalled();
+    });
+  });
+
+  describe('Filtro desplegable Por Período de Factura Madre', () => {
+    it('debería generar opciones de períodos dinámicas en orden descendente desde fechaMinimaPermitida', () => {
+      component.fechaMinimaPermitida = '2024-07-01';
+      component.generarOpcionesPeriodos();
+
+      expect(component.opcionesPeriodos.length).toBeGreaterThan(0);
+      const primero = component.opcionesPeriodos[0];
+      expect(primero.value).toContain('-12');
+      expect(primero.label).toContain('Diciembre');
+
+      const ultimo = component.opcionesPeriodos[component.opcionesPeriodos.length - 1];
+      expect(ultimo.value).toBe('2024-07');
+      expect(ultimo.label).toBe('Julio 2024');
+      expect(ultimo.primerDiaIso).toBe('2024-07-01');
+      expect(ultimo.ultimoDiaIso).toBe('2024-07-31');
+    });
+
+    it('debería mapear correctamente periodoMesDesde al primer día y periodoMesHasta al último día del mes', () => {
+      component.criterioFechaCc = 'periodo';
+      component.periodoMesDesde = '2026-01';
+      component.periodoMesHasta = '2026-03';
+
+      expect(component.periodoMesDesde).toBe('2026-01');
+      expect(component.periodoMesHasta).toBe('2026-03');
+      expect(component.fechaDesde).toBe('2026-01-01');
+      expect(component.fechaHasta).toBe('2026-03-31');
+    });
+
+    it('debería cubrir el mes completo cuando se selecciona el mismo mes en Desde y Hasta', () => {
+      component.criterioFechaCc = 'periodo';
+      component.periodoMesDesde = '2026-02';
+      component.periodoMesHasta = '2026-02';
+
+      expect(component.fechaDesde).toBe('2026-02-01');
+      expect(component.fechaHasta).toBe('2026-02-28');
+    });
+
+    it('debería auto-ajustar Hasta cuando Desde es posterior a Hasta en onPeriodoDesdeChange', () => {
+      component.criterioFechaCc = 'periodo';
+      component.periodoMesDesde = '2026-02';
+      component.periodoMesHasta = '2026-02';
+
+      component.periodoMesDesde = '2026-05';
+      component.onPeriodoDesdeChange();
+
+      expect(component.periodoMesHasta).toBe('2026-05');
+      expect(component.fechaHasta).toBe('2026-05-31');
+    });
+
+    it('debería auto-ajustar Desde cuando Hasta es anterior a Desde en onPeriodoHastaChange', () => {
+      component.criterioFechaCc = 'periodo';
+      component.periodoMesDesde = '2026-08';
+      component.periodoMesHasta = '2026-08';
+
+      component.periodoMesHasta = '2026-04';
+      component.onPeriodoHastaChange();
+
+      expect(component.periodoMesDesde).toBe('2026-04');
+      expect(component.fechaDesde).toBe('2026-04-01');
+    });
+
+    it('irAlMesAnterior e irAlMesSiguiente deberían mantener sincronizados periodoMesDesde y periodoMesHasta', () => {
+      component.criterioFechaCc = 'periodo';
+      component.periodoMesDesde = '2026-08';
+      component.periodoMesHasta = '2026-08';
+
+      component.irAlMesAnterior();
+      expect(component.periodoMesDesde).toBe('2026-07');
+      expect(component.periodoMesHasta).toBe('2026-07');
+
+      component.irAlMesSiguiente();
+      expect(component.periodoMesDesde).toBe('2026-08');
+      expect(component.periodoMesHasta).toBe('2026-08');
+    });
+  });
+
+  describe('Solapa Prestaciones Facturadas', () => {
+    it('debería permitir acceder a la solapa prestaciones solo si el usuario es ADMIN', () => {
+      vi.spyOn(component.authService, 'isAdmin').mockReturnValue(true);
+      component.seleccionarSolapa('prestaciones');
+      expect(component.solapaActiva).toBe('prestaciones');
+      expect(component.esSolapaPermitida('prestaciones')).toBe(true);
+    });
+
+    it('no debería permitir acceder a la solapa prestaciones si el usuario no es ADMIN', () => {
+      vi.spyOn(component.authService, 'isAdmin').mockReturnValue(false);
+      component.solapaActiva = 'tablero';
+      component.seleccionarSolapa('prestaciones');
+      expect(component.solapaActiva).toBe('tablero');
+      expect(component.esSolapaPermitida('prestaciones')).toBe(false);
+    });
+
+    it('cargarPrestaciones debería invocar getPrestacionesFacturadas y poblar métricas y datos', () => {
+      const mockPrestacionesRes: DirectorioPrestacionesResponse = {
+        totalRegistros: 2,
+        totalMontoFacturado: 15000,
+        cantidadMedicos: 1,
+        cantidadPacientes: 2,
+        paginaActual: 1,
+        totalPaginas: 1,
+        tamanioPagina: 50,
+        items: [
+          {
+            id: 1,
+            tipoDoc: 'FC',
+            letraDoc: 'A',
+            ptovtaDoc: 30,
+            numeroDoc: 12345,
+            fechaPrestacion: '2026-08-10',
+            fechaDoc: '2026-08-15',
+            paciente: 'Perez Juan',
+            carnet: '123456/01',
+            plan: '210',
+            codigoPrestacion: '420101',
+            descripcionPrestacion: 'CONSULTA MEDICA',
+            especialidad: 'CLINICA',
+            cantidad: 1,
+            importeTotal: 10000,
+            medico: 'Dr. Lopez',
+            cobertura: 'OSDE',
+            tipoRegistro: 'Ambulatorios'
+          },
+          {
+            id: 2,
+            tipoDoc: 'FC',
+            letraDoc: 'A',
+            ptovtaDoc: 30,
+            numeroDoc: 12345,
+            fechaPrestacion: '2026-08-11',
+            fechaDoc: '2026-08-15',
+            paciente: 'Gomez Maria',
+            carnet: '654321/01',
+            plan: '310',
+            codigoPrestacion: '420102',
+            descripcionPrestacion: 'CONSULTA ESPECIALISTA',
+            especialidad: 'CARDIOLOGIA',
+            cantidad: 1,
+            importeTotal: 5000,
+            medico: 'Dr. Lopez',
+            cobertura: 'OSDE',
+            tipoRegistro: 'Internados'
+          }
+        ]
+      };
+
+      directorioServiceSpy.getPrestacionesFacturadas = vi.fn().mockReturnValue(of(mockPrestacionesRes));
+
+      component.cargarPrestaciones(1);
+
+      expect(component.cargandoPrestaciones).toBe(false);
+      expect(component.prestacionesDatos.length).toBe(2);
+      expect(component.prestacionesTotalRegistros).toBe(2);
+      expect(component.prestacionesTotalMonto).toBe(15000);
+      expect(component.prestacionesTotalMedicos).toBe(1);
+      expect(component.prestacionesTotalPacientes).toBe(2);
+    });
+
+    it('formatearComprobante debería formatear correctamente el comprobante con ceros a la izquierda', () => {
+      const item: any = {
+        tipoDoc: 'FC',
+        letraDoc: 'A',
+        ptovtaDoc: 30,
+        numeroDoc: 1234
+      };
+      expect(component.formatearComprobanteItem(item)).toBe('FC A 0030-00001234');
+    });
+
+    it('cambiarPaginaPrestaciones y cambiarTamanioPaginaPrestaciones deberían recargar las prestaciones', () => {
+      const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+      component.prestacionesTotalPaginas = 5;
+      component.prestacionesPaginaActual = 1;
+
+      component.cambiarPaginaPrestaciones(2);
+      expect(spyCargar).toHaveBeenCalledWith(2);
+
+      component.cambiarTamanioPaginaPrestaciones(100);
+      expect(component.prestacionesTamanioPagina).toBe(100);
+      expect(spyCargar).toHaveBeenCalledWith(1);
+    });
+
+    it('filtros locales y autocompletar deberían actualizar filtros y cargar prestaciones', () => {
+      const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+      component.seleccionarSugerenciaMedico('Dr. Test Autocomplete');
+      expect(component.filtroPrestacionMedico).toBe('Dr. Test Autocomplete');
+      expect(spyCargar).toHaveBeenCalledWith(1);
+
+      component.seleccionarSugerenciaPrestacion({ codigo: '420101', descripcion: 'Consulta' });
+      expect(component.filtroPrestacionCodigo).toBe('420101');
+      expect(spyCargar).toHaveBeenCalledWith(1);
+
+      component.limpiarTodosFiltrosPrestaciones();
+      expect(component.filtroPrestacionMedico).toBe('');
+      expect(component.filtroPrestacionCodigo).toBe('');
+      expect(component.filtroPrestacionTipoRegistro).toBe('TODOS');
+    });
+
+    describe('Filtros Médico y Prestación por selección', () => {
+      const eventoInput = (valor: string): Event => ({ target: { value: valor } } as unknown as Event);
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('escribir en Médico NO debe filtrar la tabla; solo muestra sugerencias', () => {
+        vi.useFakeTimers();
+        directorioServiceSpy.getSugerenciasMedicos = vi.fn().mockReturnValue(of(['Dr. Lopez', 'Dra. Lopez']));
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+        component.onInputPrestacionMedico(eventoInput('Lop'));
+        vi.advanceTimersByTime(350);
+
+        expect(spyCargar).not.toHaveBeenCalled();
+        expect(component.filtroPrestacionMedico).toBe('');
+        expect(component.textoMedicoInput).toBe('Lop');
+        expect(component.sugerenciasMedicosPrestaciones).toEqual(['Dr. Lopez', 'Dra. Lopez']);
+        expect(component.mostrarSugerenciasMedicos).toBe(true);
+      });
+
+      it('escribir en Prestación NO debe filtrar la tabla; solo muestra sugerencias', () => {
+        vi.useFakeTimers();
+        directorioServiceSpy.getSugerenciasPrestaciones = vi.fn()
+          .mockReturnValue(of([{ codigo: '420101', descripcion: 'Consulta' }]));
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+        component.onInputPrestacionCodigo(eventoInput('4201'));
+        vi.advanceTimersByTime(350);
+
+        expect(spyCargar).not.toHaveBeenCalled();
+        expect(component.filtroPrestacionCodigo).toBe('');
+        expect(component.sugerenciasCodigosPrestaciones.length).toBe(1);
+        expect(component.mostrarSugerenciasPrestaciones).toBe(true);
+      });
+
+      it('con menos de 2 caracteres no busca sugerencias ni filtra', () => {
+        vi.useFakeTimers();
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+        directorioServiceSpy.getSugerenciasMedicos.mockClear();
+
+        component.onInputPrestacionMedico(eventoInput('L'));
+        vi.advanceTimersByTime(350);
+
+        expect(directorioServiceSpy.getSugerenciasMedicos).not.toHaveBeenCalled();
+        expect(spyCargar).not.toHaveBeenCalled();
+        expect(component.mostrarSugerenciasMedicos).toBe(false);
+      });
+
+      it('al seleccionar una sugerencia se aplica el filtro y se recarga una sola vez', () => {
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+        component.seleccionarSugerenciaMedico('Dr. Lopez');
+        expect(component.filtroPrestacionMedico).toBe('Dr. Lopez');
+        expect(component.textoMedicoInput).toBe('Dr. Lopez');
+        expect(component.mostrarSugerenciasMedicos).toBe(false);
+        expect(spyCargar).toHaveBeenCalledTimes(1);
+        expect(spyCargar).toHaveBeenCalledWith(1);
+
+        component.seleccionarSugerenciaPrestacion({ codigo: '420101', descripcion: 'Consulta' });
+        expect(component.filtroPrestacionCodigo).toBe('420101');
+        expect(component.textoPrestacionInput).toBe('420101 - Consulta');
+        expect(component.mostrarSugerenciasPrestaciones).toBe(false);
+        expect(spyCargar).toHaveBeenCalledTimes(2);
+      });
+
+      it('editar el texto con un filtro aplicado mantiene el filtro hasta elegir otra opción', () => {
+        vi.useFakeTimers();
+        component.seleccionarSugerenciaMedico('Dr. Lopez');
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+        component.onInputPrestacionMedico(eventoInput('Dr. Lopezz'));
+        vi.advanceTimersByTime(350);
+
+        expect(component.filtroPrestacionMedico).toBe('Dr. Lopez');
+        expect(spyCargar).not.toHaveBeenCalled();
+      });
+
+      it('borrar todo el texto quita el filtro aplicado y recarga la tabla', () => {
+        component.seleccionarSugerenciaMedico('Dr. Lopez');
+        component.seleccionarSugerenciaPrestacion({ codigo: '420101', descripcion: 'Consulta' });
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+        component.onInputPrestacionMedico(eventoInput(''));
+        expect(component.filtroPrestacionMedico).toBe('');
+        expect(spyCargar).toHaveBeenCalledTimes(1);
+
+        component.onInputPrestacionCodigo(eventoInput('   '));
+        expect(component.filtroPrestacionCodigo).toBe('');
+        expect(component.textoPrestacionAplicado).toBe('');
+        expect(spyCargar).toHaveBeenCalledTimes(2);
+      });
+
+      it('borrar el texto sin filtro aplicado no recarga la tabla', () => {
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+        component.onInputPrestacionMedico(eventoInput(''));
+        component.onInputPrestacionCodigo(eventoInput(''));
+        expect(spyCargar).not.toHaveBeenCalled();
+      });
+
+      it('al salir del campo sin elegir (blur) el texto vuelve al último filtro aplicado', () => {
+        component.seleccionarSugerenciaMedico('Dr. Lopez');
+        component.seleccionarSugerenciaPrestacion({ codigo: '420101', descripcion: 'Consulta' });
+
+        component.onInputPrestacionMedico(eventoInput('otra cosa'));
+        component.onBlurMedico();
+        expect(component.textoMedicoInput).toBe('Dr. Lopez');
+
+        component.onInputPrestacionCodigo(eventoInput('xyz'));
+        component.onBlurPrestacion();
+        expect(component.textoPrestacionInput).toBe('420101 - Consulta');
+
+        component.limpiarTodosFiltrosPrestaciones();
+        component.onInputPrestacionMedico(eventoInput('sin elegir'));
+        component.onBlurMedico();
+        expect(component.textoMedicoInput).toBe('');
+      });
+
+      it('el botón ✕ limpia texto y filtro; recarga solo si había filtro aplicado', () => {
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+        component.limpiarFiltroPrestacionMedico();
+        expect(spyCargar).not.toHaveBeenCalled();
+
+        component.seleccionarSugerenciaMedico('Dr. Lopez');
+        spyCargar.mockClear();
+        component.limpiarFiltroPrestacionMedico();
+        expect(component.filtroPrestacionMedico).toBe('');
+        expect(component.textoMedicoInput).toBe('');
+        expect(spyCargar).toHaveBeenCalledTimes(1);
+
+        component.seleccionarSugerenciaPrestacion({ codigo: '420101', descripcion: 'Consulta' });
+        spyCargar.mockClear();
+        component.limpiarFiltroPrestacionCodigo();
+        expect(component.filtroPrestacionCodigo).toBe('');
+        expect(component.textoPrestacionInput).toBe('');
+        expect(spyCargar).toHaveBeenCalledTimes(1);
+      });
+
+      it('una respuesta de sugerencias vieja no pisa a la más reciente', () => {
+        vi.useFakeTimers();
+        const respuestaVieja = new Subject<string[]>();
+        const respuestaNueva = new Subject<string[]>();
+        directorioServiceSpy.getSugerenciasMedicos = vi.fn()
+          .mockReturnValueOnce(respuestaVieja.asObservable())
+          .mockReturnValueOnce(respuestaNueva.asObservable());
+
+        component.onInputPrestacionMedico(eventoInput('Lo'));
+        vi.advanceTimersByTime(350);
+        component.onInputPrestacionMedico(eventoInput('Lop'));
+        vi.advanceTimersByTime(350);
+
+        respuestaNueva.next(['Dr. Lopez']);
+        respuestaVieja.next(['Dr. Lopez', 'Dr. Lozano']);
+
+        expect(component.sugerenciasMedicosPrestaciones).toEqual(['Dr. Lopez']);
+      });
+
+      it('navegación por teclado: flechas, Enter selecciona y Escape cierra', () => {
+        const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+        component.sugerenciasMedicosPrestaciones = ['Dr. A', 'Dr. B'];
+        component.mostrarSugerenciasMedicos = true;
+        const tecla = (key: string) => ({ key, preventDefault: vi.fn() } as unknown as KeyboardEvent);
+
+        component.onKeydownMedico(tecla('ArrowDown'));
+        expect(component.sugerenciaMedicoActiva).toBe(0);
+        component.onKeydownMedico(tecla('ArrowDown'));
+        expect(component.sugerenciaMedicoActiva).toBe(1);
+        component.onKeydownMedico(tecla('ArrowUp'));
+        expect(component.sugerenciaMedicoActiva).toBe(0);
+
+        component.onKeydownMedico(tecla('Enter'));
+        expect(component.filtroPrestacionMedico).toBe('Dr. A');
+        expect(spyCargar).toHaveBeenCalledTimes(1);
+
+        component.sugerenciasCodigosPrestaciones = [{ codigo: '1', descripcion: 'X' }];
+        component.mostrarSugerenciasPrestaciones = true;
+        component.onKeydownPrestacion(tecla('Escape'));
+        expect(component.mostrarSugerenciasPrestaciones).toBe(false);
+      });
+
+      it('si el backend devuelve el tope de sugerencias se expone el límite para mostrar el aviso', () => {
+        expect(component.limiteSugerencias).toBe(15);
+      });
+
+      it('exportar usa el filtro aplicado y no el texto en edición', async () => {
+        component.seleccionarSugerenciaMedico('Dr. Lopez');
+        component.onInputPrestacionMedico(eventoInput('borrador'));
+        component.prestacionesTotalRegistros = 1;
+        component.prestacionesDatos = [{ id: 1 } as any];
+        const spyExcel = vi.spyOn(TestBed.inject(ExcelExportService), 'exportarPrestacionesFacturadas').mockResolvedValue();
+
+        await component.exportarExcelPrestaciones();
+
+        const contexto = JSON.stringify(spyExcel.mock.calls[0]);
+        expect(contexto).toContain('Dr. Lopez');
+        expect(contexto).not.toContain('borrador');
+      });
+    });
+
+    it('exportarExcelPrestaciones debería invocar excelExportService.exportarPrestacionesFacturadas', async () => {
+      component.filtroPrestacionTipoRegistro = 'Ambulatorios';
+      component.periodoMesDesde = '2026-08';
+      component.periodoMesHasta = '2026-08';
+      component.prestacionesDatos = [
+        {
+          id: 1,
+          tipoDoc: 'FC',
+          letraDoc: 'A',
+          ptovtaDoc: 30,
+          numeroDoc: 12345,
+          fechaPrestacion: '2026-08-10',
+          fechaDoc: '2026-08-15',
+          paciente: 'Perez Juan',
+          carnet: '123456/01',
+          plan: '210',
+          codigoPrestacion: '420101',
+          descripcionPrestacion: 'CONSULTA MEDICA',
+          especialidad: 'CLINICA',
+          cantidad: 1,
+          importeTotal: 10000,
+          medico: 'Dr. Lopez',
+          cobertura: 'OSDE',
+          tipoRegistro: 'Ambulatorios'
+        }
+      ];
+      component.prestacionesTotalRegistros = 1;
+
+      const excelExportSpy = TestBed.inject(ExcelExportService);
+      const spyExcel = vi.spyOn(excelExportSpy, 'exportarPrestacionesFacturadas').mockResolvedValue();
+
+      await component.exportarExcelPrestaciones();
+
+      expect(spyExcel).toHaveBeenCalled();
+    });
+
+    describe('Restricción y Modal de Exportación a Excel en Prestaciones (Regla de 3 meses y filtros requeridos)', () => {
+      it('tieneFiltroLocalPrestaciones debería retornar false si no hay filtros y true si hay médico, prestación o atención', () => {
+        component.filtroPrestacionMedico = '';
+        component.filtroPrestacionCodigo = '';
+        component.filtroPrestacionTipoRegistro = 'TODOS';
+        expect(component.tieneFiltroLocalPrestaciones).toBe(false);
+
+        component.filtroPrestacionMedico = 'Dr. House';
+        expect(component.tieneFiltroLocalPrestaciones).toBe(true);
+
+        component.filtroPrestacionMedico = '';
+        component.filtroPrestacionCodigo = '420101';
+        expect(component.tieneFiltroLocalPrestaciones).toBe(true);
+
+        component.filtroPrestacionCodigo = '';
+        component.filtroPrestacionTipoRegistro = 'Internados';
+        expect(component.tieneFiltroLocalPrestaciones).toBe(true);
+      });
+
+      it('exportarExcelPrestaciones no debería exportar si tieneFiltroLocalPrestaciones es false', async () => {
+        component.filtroPrestacionMedico = '';
+        component.filtroPrestacionCodigo = '';
+        component.filtroPrestacionTipoRegistro = 'TODOS';
+        component.prestacionesTotalRegistros = 5;
+        const spyExcel = vi.spyOn(TestBed.inject(ExcelExportService), 'exportarPrestacionesFacturadas').mockResolvedValue();
+
+        await component.exportarExcelPrestaciones();
+
+        expect(spyExcel).not.toHaveBeenCalled();
+        expect(component.modalExportPrestacionesVisible).toBe(false);
+      });
+
+      it('superaTresMesesPrestaciones debería detectar correctamente rangos mayores a 3 meses en período y fecha', () => {
+        component.criterioFechaCc = 'periodo';
+        component.periodoMesDesde = '2026-05';
+        component.periodoMesHasta = '2026-07'; // 3 meses exactos (Mayo, Junio, Julio)
+        expect(component.superaTresMesesPrestaciones()).toBe(false);
+
+        component.periodoMesHasta = '2026-08'; // 4 meses
+        expect(component.superaTresMesesPrestaciones()).toBe(true);
+
+        component.criterioFechaCc = 'fecha';
+        component.ccFechaDesde = '2026-05-01';
+        component.ccFechaHasta = '2026-07-31'; // <= 3 meses
+        expect(component.superaTresMesesPrestaciones()).toBe(false);
+
+        component.ccFechaHasta = '2026-09-01'; // > 3 meses
+        expect(component.superaTresMesesPrestaciones()).toBe(true);
+      });
+
+      it('exportarExcelPrestaciones debería abrir el modal si supera 3 meses y hay filtro aplicado', async () => {
+        component.filtroPrestacionMedico = 'Dr. Favaloro';
+        component.criterioFechaCc = 'periodo';
+        component.periodoMesDesde = '2025-05';
+        component.periodoMesHasta = '2026-10'; // 18 meses
+        component.prestacionesTotalRegistros = 10;
+        component.prestacionesDatos = [{ id: 1 } as any];
+
+        const spyExcel = vi.spyOn(TestBed.inject(ExcelExportService), 'exportarPrestacionesFacturadas').mockResolvedValue();
+
+        await component.exportarExcelPrestaciones();
+
+        expect(spyExcel).not.toHaveBeenCalled();
+        expect(component.modalExportPrestacionesVisible).toBe(true);
+        expect(component.modalExportCriterio).toBe('periodo');
+        expect(component.modalExportPeriodoDesde).toBe('2026-08');
+        expect(component.modalExportPeriodoHasta).toBe('2026-10');
+      });
+
+      it('onModalPeriodoDesdeChange debería limitar modalExportOpcionesHasta a máximo 3 meses posteriores', () => {
+        component.periodoMesDesde = '2025-01';
+        component.periodoMesHasta = '2026-12';
+        component.abrirModalExportarPrestaciones();
+
+        component.modalExportPeriodoDesde = '2026-01';
+        component.onModalPeriodoDesdeChange();
+
+        // Todas las opciones en modalExportOpcionesHasta deben ser >= 2026-01 y <= 2026-03
+        expect(component.modalExportOpcionesHasta.every(opt => opt.value >= '2026-01' && opt.value <= '2026-03')).toBe(true);
+      });
+
+      it('confirmarExportacionModalPrestaciones no debería cerrar el modal ni exportar si el rango seleccionado no tiene prestaciones', async () => {
+        component.filtroPrestacionMedico = 'Dra. Gomez';
+        component.criterioFechaCc = 'periodo';
+        component.periodoMesDesde = '2025-05';
+        component.periodoMesHasta = '2026-10';
+        component.abrirModalExportarPrestaciones();
+
+        component.modalExportPeriodoDesde = '2025-05';
+        component.modalExportPeriodoHasta = '2025-07';
+
+        const mockService = TestBed.inject(DirectorioService);
+        const spyGet = vi.spyOn(mockService, 'getPrestacionesFacturadas').mockReturnValue(of({
+          items: [],
+          totalRegistros: 0,
+          totalMontoFacturado: 0,
+          cantidadMedicos: 0,
+          cantidadPacientes: 0,
+          totalPaginas: 0
+        } as any));
+
+        const spyExcel = vi.spyOn(TestBed.inject(ExcelExportService), 'exportarPrestacionesFacturadas').mockResolvedValue();
+
+        await component.confirmarExportacionModalPrestaciones();
+
+        expect(spyGet).toHaveBeenCalled();
+        expect(spyExcel).not.toHaveBeenCalled();
+        expect(component.modalExportPrestacionesVisible).toBe(true);
+        expect(component.errorModalExport).toContain('No se encontraron prestaciones facturadas');
+      });
+
+      it('confirmarExportacionModalPrestaciones debería descargar el Excel acotado y cerrar modal sin alterar filtros de pantalla', async () => {
+        component.filtroPrestacionMedico = 'Dra. Gomez';
+        component.criterioFechaCc = 'periodo';
+        component.periodoMesDesde = '2025-05';
+        component.periodoMesHasta = '2026-10';
+        component.abrirModalExportarPrestaciones();
+
+        component.modalExportPeriodoDesde = '2026-08';
+        component.modalExportPeriodoHasta = '2026-10';
+
+        const mockService = TestBed.inject(DirectorioService);
+        const spyGet = vi.spyOn(mockService, 'getPrestacionesFacturadas').mockReturnValue(of({
+          items: [{ id: 99 } as any],
+          totalRegistros: 1,
+          totalMontoFacturado: 5000,
+          cantidadMedicos: 1,
+          cantidadPacientes: 1,
+          totalPaginas: 1
+        } as any));
+
+        const spyExcel = vi.spyOn(TestBed.inject(ExcelExportService), 'exportarPrestacionesFacturadas').mockResolvedValue();
+
+        await component.confirmarExportacionModalPrestaciones();
+
+        expect(spyGet).toHaveBeenCalled();
+        expect(spyExcel).toHaveBeenCalled();
+        expect(component.modalExportPrestacionesVisible).toBe(false);
+
+        // Los filtros de la pantalla principal no se modificaron (permanecen 2025-05 a 2026-10)
+        expect(component.periodoMesDesde).toBe('2025-05');
+        expect(component.periodoMesHasta).toBe('2026-10');
+      });
+    });
+
+    it('ordenarPrestaciones debería alternar entre desc, asc y restablecer el orden en 3 clics', () => {
+      const spyCargar = vi.spyOn(component, 'cargarPrestaciones');
+
+      // 1er click en columna numérica/monto -> desc por defecto
+      component.ordenarPrestaciones('importe');
+      expect(component.columnaOrdenPrestaciones).toBe('importe');
+      expect(component.direccionOrdenPrestaciones).toBe('desc');
+      expect(component.pasoOrdenPrestaciones).toBe(1);
+      expect(spyCargar).toHaveBeenCalledWith(1);
+
+      // 2do click -> invierte a asc
+      component.ordenarPrestaciones('importe');
+      expect(component.columnaOrdenPrestaciones).toBe('importe');
+      expect(component.direccionOrdenPrestaciones).toBe('asc');
+      expect(component.pasoOrdenPrestaciones).toBe(2);
+
+      // 3er click -> restablece orden por defecto
+      component.ordenarPrestaciones('importe');
+      expect(component.columnaOrdenPrestaciones).toBe('');
+      expect(component.pasoOrdenPrestaciones).toBe(0);
+
+      // 1er click en columna alfabética -> asc por defecto
+      component.ordenarPrestaciones('paciente');
+      expect(component.columnaOrdenPrestaciones).toBe('paciente');
+      expect(component.direccionOrdenPrestaciones).toBe('asc');
+      expect(component.pasoOrdenPrestaciones).toBe(1);
+
+      // 1er click en cobertura -> asc por defecto
+      component.ordenarPrestaciones('cobertura');
+      expect(component.columnaOrdenPrestaciones).toBe('cobertura');
+      expect(component.direccionOrdenPrestaciones).toBe('asc');
+      expect(component.pasoOrdenPrestaciones).toBe(1);
+
+      // limpiarTodosFiltrosPrestaciones restablece el ordenamiento
+      component.limpiarTodosFiltrosPrestaciones();
+      expect(component.columnaOrdenPrestaciones).toBe('');
+      expect(component.pasoOrdenPrestaciones).toBe(0);
     });
   });
 });

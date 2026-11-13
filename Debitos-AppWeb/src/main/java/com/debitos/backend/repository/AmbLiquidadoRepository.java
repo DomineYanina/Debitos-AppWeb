@@ -25,7 +25,10 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
 
     @Query("""
         SELECT new com.debitos.backend.dto.PrestacionLigeraDTO(
-            al.cabecera.id, al.medico, al.descripcion, al.operador
+            al.cabecera.id,
+            CASE WHEN al.medico IS NOT NULL AND TRIM(al.medico) <> '' THEN TRIM(al.medico) ELSE TRIM(al.efector) END,
+            al.descripcion,
+            al.operador
         )
         FROM AmbLiquidado al
         WHERE al.cabecera.id IN :idsCabecera
@@ -51,8 +54,14 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
         INNER JOIN cabecera c ON al.idcabecera = c.id
         LEFT JOIN notadecredito nc ON al.id = nc.id_prestacion AND nc.id_notadedebito IS NULL
         LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
+        LEFT JOIN cabecera c_dest ON nc.idcabecera_factura_destino = c_dest.id
+        LEFT JOIN cabecera c_nc_asoc ON c_nc.asociado = c_nc_asoc.id
         LEFT JOIN amb_liquidado_manual alm ON al.id = alm.id_amb_liquidado
-        WHERE c.tipo IN :tipos AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero
+        WHERE (
+            (c.tipo IN :tipos AND UPPER(c.letra) = UPPER(:letra) AND c.ptovta = :ptovta AND c.numero = :numero)
+            OR (c_dest.tipo IN :tipos AND UPPER(c_dest.letra) = UPPER(:letra) AND c_dest.ptovta = :ptovta AND c_dest.numero = :numero)
+            OR (c_nc_asoc.tipo IN :tipos AND UPPER(c_nc_asoc.letra) = UPPER(:letra) AND c_nc_asoc.ptovta = :ptovta AND c_nc_asoc.numero = :numero)
+        )
         """, nativeQuery = true)
     List<PrestacionAuditoriaDTO> findPrestacionesPorFactura(@Param("tipos") java.util.Collection<String> tipos, @Param("letra") String letra, @Param("ptovta") Integer ptovta, @Param("numero") Integer numero);
 

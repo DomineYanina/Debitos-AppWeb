@@ -198,4 +198,15 @@ describe('AuditoriaService', () => {
     expect(req2.request.params.get('forzarCierre')).toBe('false');
     req2.flush({ exito: true });
   });
+
+  it('buscarPrestacionesCatalogo debería enviar GET con filtro en params', () => {
+    service.buscarPrestacionesCatalogo('420').subscribe(res => {
+      expect(res.length).toBe(1);
+      expect(res[0].codigo).toBe('420101');
+    });
+    const req = httpMock.expectOne(r => r.url === `${environment.apiUrl}/api/auditoria/prestaciones-catalogo`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('filtro')).toBe('420');
+    req.flush([{ codigo: '420101', descripcion: 'CONSULTA' }]);
+  });
 });

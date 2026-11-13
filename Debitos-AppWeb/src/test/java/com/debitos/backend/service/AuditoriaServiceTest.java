@@ -2293,7 +2293,10 @@ class AuditoriaServiceTest {
         when(ambLiquidadoRepository.save(any(AmbLiquidado.class))).thenReturn(ambGuardado);
         when(ambLiquidadoRepository.findAllById(List.of(999))).thenReturn(List.of(ambGuardado));
 
-        auditoriaService.procesarGuardadoParcial(request);
+        com.debitos.backend.dto.GuardarParcialResponseDTO response = auditoriaService.procesarGuardadoParcial(request);
+        assertNotNull(response);
+        assertNotNull(response.getIdsMapeados());
+        assertEquals(999, response.getIdsMapeados().get(-99));
 
         // Verifica que se guardó la prestación en amb_liquidado con montos en 0
         ArgumentCaptor<AmbLiquidado> captorAmb = ArgumentCaptor.forClass(AmbLiquidado.class);
@@ -2406,6 +2409,51 @@ class AuditoriaServiceTest {
         verify(notaDeCreditoRepository).deleteAll(List.of(nc));
         verify(ambLiquidadoManualRepository).deleteAll(List.of(alm));
         verify(ambLiquidadoRepository).deleteAllById(List.of(888));
+    }
+
+    @Test
+    @DisplayName("Guardado Parcial - Prestación manual ya existente para misma factura se reutiliza (Idempotencia)")
+    void testProcesarGuardadoParcial_PrestacionManual_Idempotente() {
+        GuardarParcialRequest request = new GuardarParcialRequest();
+        request.setDocumentoOrigen("FC");
+        request.setLetra("A");
+        request.setPtovta(1);
+        request.setNumero(1000);
+        request.setUsuario("usuario.manual");
+
+        RegistroAuditoriaDTO regManual = new RegistroAuditoriaDTO();
+        regManual.setId(-1);
+        regManual.setEsManual(true);
+        regManual.setPaciente("PACIENTE EXTERNO PRUEBA");
+        regManual.setCodigo("420101");
+        regManual.setFecha("2026-05-10");
+        regManual.setCantidad(1);
+        regManual.setImporteDebitado(new BigDecimal("15000.00"));
+        regManual.setDebitoAceptado("NO");
+        regManual.setMotivoDebito("Prestación no realizada");
+
+        request.setRegistros(List.of(regManual));
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(1), eq(1000)))
+                .thenReturn(List.of(cabeceraFC));
+
+        AmbLiquidado ambExistente = new AmbLiquidado();
+        ambExistente.setId(777);
+        ambExistente.setCabecera(cabeceraFC);
+        ambExistente.setPaciente("PACIENTE EXTERNO PRUEBA");
+        ambExistente.setCodigo("420101");
+        ambExistente.setFecha(LocalDate.of(2026, 5, 10));
+
+        when(ambLiquidadoRepository.findByCabecera_Id(cabeceraFC.getId())).thenReturn(List.of(ambExistente));
+        when(ambLiquidadoManualRepository.existsByIdAmbLiquidado(777)).thenReturn(true);
+        when(ambLiquidadoRepository.findAllById(List.of(777))).thenReturn(List.of(ambExistente));
+
+        com.debitos.backend.dto.GuardarParcialResponseDTO response = auditoriaService.procesarGuardadoParcial(request);
+
+        assertNotNull(response);
+        assertEquals(777, response.getIdsMapeados().get(-1));
+        // No se debe volver a guardar en ambLiquidadoRepository porque ya existía
+        verify(ambLiquidadoRepository, never()).save(any(AmbLiquidado.class));
     }
 }
 

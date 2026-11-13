@@ -214,6 +214,41 @@
   font-size: 0.95rem;
 }
 
+/* Selector de Tema (Modo Oscuro / Claro / Auto) */
+.btn-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+  padding: 0.42rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.btn-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-theme-toggle .theme-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.btn-theme-toggle .theme-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Campana de Notificaciones */
 .notification-wrapper {
   position: relative;
@@ -712,6 +747,15 @@
 
   /* Compactar el botón Tour a solo ícono */
   .btn-navbar-tour {
+    padding: 0.42rem 0.6rem;
+    min-width: 36px;
+  }
+
+  .btn-theme-toggle .theme-label {
+    display: none;
+  }
+
+  .btn-theme-toggle {
     padding: 0.42rem 0.6rem;
     min-width: 36px;
   }

@@ -423,56 +423,49 @@
 
               <!-- PANTALLA 1: SELECCIÓN DESDE CABECERA -->
               <div *ngIf="!modoIngresoManual" class="vista-seleccion-cabecera">
-                <div class="form-grupo-modal full-width"
-                  style="margin-bottom: 14px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <label style="font-weight: 700; color: #1e293b; font-size: 0.9rem; margin: 0;">
+                <div class="form-grupo-modal full-width caja-seleccion-comprobante">
+                  <div class="header-seleccion-comprobante">
+                    <label class="label-comprobante">
                       Comprobante
                     </label>
-                    <button type="button" class="btn-link" (click)="alternarModoIngresoManual(true)"
-                      style="font-size: 0.8rem; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    <button type="button" class="btn-link btn-ingreso-manual" (click)="alternarModoIngresoManual(true)">
                       ¿No figura? Ingresar manualmente →
                     </button>
                   </div>
 
-                  <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
-                    [style.background]="cabecerasDisponibles.length === 0 ? '#f1f5f9' : ''"
-                    [style.cursor]="cabecerasDisponibles.length === 0 ? 'not-allowed' : ''"
+                  <select class="input-grilla select-comprobante"
                     [value]="cabeceraSeleccionadaId || ''" (change)="onSeleccionarCabecera($event)"
                     [disabled]="cargandoCabeceras || cabecerasDisponibles.length === 0">
                     <option value="">-- Seleccionar comprobante --</option>
                     <option *ngFor="let cab of cabecerasDisponibles" [value]="cab.id"
                       [selected]="cab.id === cabeceraSeleccionadaId"
-                      [style.background]="cab.tienePrestacionesImputadas ? '#f1f5f9' : ''"
-                      [style.color]="cab.tienePrestacionesImputadas ? '#dc2626' : ''">
+                      [class.opcion-imputada]="cab.tienePrestacionesImputadas">
                       {{ cab.label }}{{ cab.tienePrestacionesImputadas ? ' (Prestaciones ya imputadas)' : '' }}
                     </option>
                   </select>
 
-                  <div *ngIf="cargandoCabeceras" style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
+                  <div *ngIf="cargandoCabeceras" class="texto-buscando-comprobantes">
                     Buscando comprobantes...
                   </div>
 
                   <div *ngIf="!cargandoCabeceras && cabecerasDisponibles.length === 0"
-                    style="font-size: 0.83rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 6px; margin-top: 8px;">
-                    <div style="font-weight: 600; margin-bottom: 3px;">No hay comprobantes disponibles</div>
+                    class="tarjeta-alerta-sin-comprobantes">
+                    <div class="titulo-sin-comprobantes">No hay comprobantes disponibles</div>
                     <div>Todos los comprobantes vinculados a este documento ya fueron asociados previamente.</div>
                     <div style="margin-top: 6px;">
                       <a href="javascript:void(0)" (click)="alternarModoIngresoManual(true)"
-                        style="color: #2563eb; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                        class="link-ingreso-manual-alerta">
                         Ingresar manualmente la información del nuevo documento →
                       </a>
                     </div>
                   </div>
 
                   <!-- TARJETA INFORMATIVA DEL DOCUMENTO SELECCIONADO -->
-                  <div *ngIf="cabeceraSeleccionadaObjeto"
-                    style="margin-top: 12px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
-                    <div
-                      style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                  <div *ngIf="cabeceraSeleccionadaObjeto" class="tarjeta-doc-seleccionado">
+                    <div class="titulo-doc-seleccionado">
                       <span>✔</span> Comprobante Seleccionado:
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 5px; color: #1e3a8a;">
+                    <div class="cuerpo-doc-seleccionado">
                       <div><strong>Documento:</strong> {{ cabeceraSeleccionadaObjeto.tipo }} {{
                         cabeceraSeleccionadaObjeto.letra }}-{{ ('0000' + cabeceraSeleccionadaObjeto.ptovta).slice(-4)
                         }}-{{ ('00000000' + cabeceraSeleccionadaObjeto.numero).slice(-8) }}</div>
@@ -490,13 +483,12 @@
 
               <!-- PANTALLA 2: INGRESO MANUAL -->
               <div *ngIf="modoIngresoManual" class="vista-ingreso-manual">
-                <div
-                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
-                  <span style="font-weight: 700; color: #0369a1; font-size: 0.85rem;">
+                <div class="header-ingreso-manual">
+                  <span style="font-weight: 700; font-size: 0.85rem;">
                     Ingreso Manual de Comprobante
                   </span>
                   <button type="button" class="btn-link" (click)="alternarModoIngresoManual(false)"
-                    style="font-size: 0.8rem; color: #0284c7; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    style="font-size: 0.8rem; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
                     ← Volver a lista
                   </button>
                 </div>
@@ -539,13 +531,14 @@
               <!-- SECTOR EXCLUSIVO PARA NOTA DE CRÉDITO (NC) -->
               <ng-container *ngIf="tipoNuevaNota === 'NC'">
                 <div class="form-grupo-tipo-nd full-width" style="margin-top: 10px;">
-                  <label class="label-tipo-nd">Tipo de NC *</label>
+                  <label class="label-tipo-nd">Tipo de NC <span class="asterisco-requerido">*</span></label>
                   <div class="opciones-radio-tipo-nd">
-                    <label class="radio-option">
+                    <label class="radio-option" [class.radio-activo]="nuevaNotaForm.get('tipoNc')?.value === 'Refactura'">
                       <input type="radio" formControlName="tipoNc" value="Refactura" (change)="onTipoNcChange()">
                       <span>Por Prestaciones</span>
                     </label>
-                    <label class="radio-option" [style.opacity]="deshabilitarPorAjusteIva ? '0.5' : '1'"
+                    <label class="radio-option" [class.radio-activo]="nuevaNotaForm.get('tipoNc')?.value === 'Por ajuste de IVA'"
+                      [style.opacity]="deshabilitarPorAjusteIva ? '0.5' : '1'"
                       [style.cursor]="deshabilitarPorAjusteIva ? 'not-allowed' : 'pointer'"
                       (click)="onRadioOptionClick($event, 'Por ajuste de IVA')"
                       [title]="deshabilitarPorAjusteIva ? 'Ya existe una Nota de Crédito por Ajuste de IVA registrada para esta factura' : ''">
@@ -554,6 +547,7 @@
                       <span>Por ajuste de IVA</span>
                     </label>
                     <label class="radio-option" *ngIf="permitirNcConjunta"
+                      [class.radio-activo]="nuevaNotaForm.get('tipoNc')?.value === 'Prestacional y Ajuste de IVA'"
                       [style.opacity]="deshabilitarPorAjusteIva ? '0.5' : '1'"
                       [style.cursor]="deshabilitarPorAjusteIva ? 'not-allowed' : 'pointer'"
                       (click)="onRadioOptionClick($event, 'Prestacional y Ajuste de IVA')"
@@ -764,65 +758,58 @@
 
               <!-- PANTALLA 1: SELECCIÓN DESDE CABECERA (ND) -->
               <div *ngIf="!modoIngresoManualNdIva" class="vista-seleccion-cabecera">
-                <div class="form-grupo-modal full-width"
-                  style="margin-bottom: 14px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <label style="font-weight: 700; color: #1e293b; font-size: 0.9rem; margin: 0;">
+                <div class="form-grupo-modal full-width caja-seleccion-comprobante">
+                  <div class="header-seleccion-comprobante">
+                    <label class="label-comprobante">
                       Comprobante(ND)
                     </label>
-                    <button type="button" class="btn-link" (click)="alternarModoIngresoManualNdIva(true)"
-                      style="font-size: 0.8rem; color: #2563eb; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    <button type="button" class="btn-link btn-ingreso-manual" (click)="alternarModoIngresoManualNdIva(true)">
                       ¿No figura? Ingresar manualmente →
                     </button>
                   </div>
 
-                  <select class="input-grilla" style="width: 100%; height: 40px; border-radius: 6px; font-weight: 500;"
-                    [style.background]="cabecerasDisponiblesNdIva.length === 0 ? '#f1f5f9' : ''"
-                    [style.cursor]="cabecerasDisponiblesNdIva.length === 0 ? 'not-allowed' : ''"
+                  <select class="input-grilla select-comprobante"
                     [value]="cabeceraSeleccionadaIdNdIva || ''" (change)="onSeleccionarCabeceraNdIva($event)"
                     [disabled]="cargandoCabecerasNdIva || cabecerasDisponiblesNdIva.length === 0">
                     <option value="">-- Seleccionar comprobante --</option>
                     <option *ngFor="let cab of cabecerasDisponiblesNdIva" [value]="cab.id"
                       [selected]="cab.id === cabeceraSeleccionadaIdNdIva"
-                      [style.background]="cab.tienePrestacionesImputadas ? '#f1f5f9' : ''"
-                      [style.color]="cab.tienePrestacionesImputadas ? '#dc2626' : ''">
+                      [class.opcion-imputada]="cab.tienePrestacionesImputadas">
                       {{ cab.label }}{{ cab.tienePrestacionesImputadas ? ' (Prestaciones ya imputadas)' : '' }}
                     </option>
                   </select>
 
-                  <div *ngIf="cargandoCabecerasNdIva" style="font-size: 0.8rem; color: #64748b; margin-top: 6px;">
+                  <div *ngIf="cargandoCabecerasNdIva" class="texto-buscando-comprobantes">
                     Buscando comprobantes...
                   </div>
 
                   <div *ngIf="!cargandoCabecerasNdIva && cabecerasDisponiblesNdIva.length === 0"
-                    style="font-size: 0.83rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 6px; margin-top: 8px;">
-                    <div style="font-weight: 600; margin-bottom: 3px;">ℹ️ </div>
+                    class="tarjeta-alerta-sin-comprobantes">
+                    <div class="titulo-sin-comprobantes">ℹ️ No hay comprobantes disponibles</div>
                     <div>Todos los comprobantes vinculados a este documento ya fueron asociados previamente.</div>
                     <div style="margin-top: 6px;">
                       <a href="javascript:void(0)" (click)="alternarModoIngresoManualNdIva(true)"
-                        style="color: #2563eb; font-weight: 600; text-decoration: underline; cursor: pointer;">
+                        class="link-ingreso-manual-alerta">
                         Ingresar manualmente la información del nuevo documento →
                       </a>
                     </div>
                   </div>
 
                   <!-- TARJETA INFORMATIVA DEL DOCUMENTO SELECCIONADO -->
-                  <div *ngIf="cabeceraSeleccionadaNdIvaObjeto"
-                    style="margin-top: 12px; padding: 10px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.85rem;">
-                    <div
-                      style="font-weight: 700; color: #1e40af; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                  <div *ngIf="cabeceraSeleccionadaNdIvaObjeto" class="tarjeta-doc-seleccionado">
+                    <div class="titulo-doc-seleccionado">
                       <span>✔</span> Comprobante Seleccionado:
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 5px; color: #1e3a8a;">
+                    <div class="cuerpo-doc-seleccionado">
                       <div><strong>Documento:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.tipo }} {{
                         cabeceraSeleccionadaNdIvaObjeto.letra }}-{{ ('0000' +
                         cabeceraSeleccionadaNdIvaObjeto.ptovta).slice(-4) }}-{{ ('00000000' +
                         cabeceraSeleccionadaNdIvaObjeto.numero).slice(-8) }}</div>
                       <div><strong>Fecha:</strong> {{ cabeceraSeleccionadaNdIvaObjeto.fecha | date:'dd/MM/yyyy' }}</div>
-                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.debe"><strong>Monto Debe:</strong> {{
-                        cabeceraSeleccionadaNdIvaObjeto.debe | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
                       <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.haber"><strong>Monto Haber:</strong> {{
                         cabeceraSeleccionadaNdIvaObjeto.haber | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
+                      <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.debe"><strong>Monto Debe:</strong> {{
+                        cabeceraSeleccionadaNdIvaObjeto.debe | currency:'ARS':'symbol-narrow':'1.2-2' }}</div>
                       <div *ngIf="cabeceraSeleccionadaNdIvaObjeto.cobertura"><strong>Cobertura:</strong> {{
                         cabeceraSeleccionadaNdIvaObjeto.cobertura }}</div>
                     </div>
@@ -832,13 +819,12 @@
 
               <!-- PANTALLA 2: INGRESO MANUAL (ND) -->
               <div *ngIf="modoIngresoManualNdIva" class="vista-ingreso-manual">
-                <div
-                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #e0f2fe; padding: 8px 12px; border-radius: 6px;">
-                  <span style="font-weight: 700; color: #0369a1; font-size: 0.85rem;">
+                <div class="header-ingreso-manual">
+                  <span style="font-weight: 700; font-size: 0.85rem;">
                     Ingreso Manual de Comprobante (ND)
                   </span>
                   <button type="button" class="btn-link" (click)="alternarModoIngresoManualNdIva(false)"
-                    style="font-size: 0.8rem; color: #0284c7; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+                    style="font-size: 0.8rem; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
                     ← Volver a lista
                   </button>
                 </div>
@@ -1018,8 +1004,7 @@
   <div class="modal-overlay" *ngIf="modalHistorialVisible">
     <div class="modal-box historial-modal-box">
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; color: #1e293b; font-size: 1.1rem; font-weight: 600;">Historial de Comprobantes Asociados
-        </h3>
+        <h3 class="historial-modal-titulo">Historial de Comprobantes Asociados</h3>
         <div style="display: flex; align-items: center; gap: 10px;">
           <button type="button" class="btn-exportar-historial" (click)="exportarHistorialAExcel()"
             title="Exportar historial a Excel (.xlsx)">
@@ -1031,8 +1016,8 @@
             </svg>
             Exportar a Excel
           </button>
-          <button (click)="cerrarModalHistorialComprobantes()"
-            style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;"
+          <button type="button" (click)="cerrarModalHistorialComprobantes()"
+            class="btn-cerrar-historial"
             aria-label="Cerrar">✕</button>
         </div>
       </div>
@@ -1054,6 +1039,8 @@
             </thead>
             <tbody>
               <tr *ngFor="let fila of filasHistorialComprobantes"
+                [class.historial-fila-principal]="!fila.nivel || fila.nivel === 0"
+                [class.historial-fila-secundaria]="(fila.nivel || 0) > 0"
                 [class.historial-fila-buscado]="esDocumentoBuscado(fila)"
                 [class.historial-fila-iva]="fila.origenTipo === 'IVA' && !fila.placeholderNdAjusteIva"
                 [class.historial-fila-placeholder]="fila.placeholderNdAjusteIva">
@@ -1079,14 +1066,14 @@
                 <td>{{ fila.fechaDocumento }}</td>
                 <td>{{ fila.montoNeto != null ? (fila.montoNeto | currency:'ARS':'symbol-narrow':'1.2-2') : '' }}</td>
                 <!-- Columnas IVA: solo se muestran con valor para filas de ajuste IVA -->
-                <td style="text-align: center; color: #475569;">
+                <td class="historial-celda-iva-pct">
                   {{ fila.porcentajeIva != null ? (fila.porcentajeIva + '%') : '' }}
                 </td>
-                <td style="color: #475569;">
+                <td class="historial-celda-iva-monto">
                   {{ fila.montoIva != null ? (fila.montoIva | currency:'ARS':'symbol-narrow':'1.2-2') : '' }}
                 </td>
                 <!-- Columna Acciones -->
-                <td style="padding: 10px 12px; border: 1px solid #cbd5e1; text-align: center;">
+                <td class="historial-celda-acciones">
                   <!-- Placeholder ND de ajuste IVA: link para crear -->
                   <ng-container *ngIf="fila.placeholderNdAjusteIva">
                     <a href="javascript:void(0)" (click)="cargarDocumentoDesdeHistorial(fila)"
@@ -1103,11 +1090,11 @@
                   <ng-container *ngIf="!fila.origenTipo || fila.origenTipo !== 'IVA'">
                     <a *ngIf="fila.tienePrestaciones !== false" href="javascript:void(0)"
                       (click)="cargarDocumentoDesdeHistorial(fila)"
-                      style="color: #2563eb; text-decoration: underline; font-weight: 600; cursor: pointer; font-size: 0.88rem;">
+                      class="historial-link-ver-prestaciones">
                       Ver prestaciones
                     </a>
                     <span *ngIf="fila.tienePrestaciones === false"
-                      style="color: #64748b; font-style: italic; font-size: 0.85rem; cursor: not-allowed;"
+                      class="historial-sin-prestaciones"
                       title="Este documento no tiene prestaciones asociadas">
                       Sin prestaciones vinculadas
                     </span>
@@ -1127,10 +1114,10 @@
   <!-- MODAL: AGREGAR PRESTACION EXTERNA -->
   <div class="modal-overlay" *ngIf="modalPrestacionExternaVisible">
     <div class="modal-box modal-externa-box">
-      <div class="modal-header">
+      <div class="modal-header modal-header-externa">
         <div>
           <h3>Agregar Prestación Externa</h3>
-          <p class="subtitulo-modal" style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">
+          <p class="subtitulo-modal">
             Registrá una prestación debitada que no fue realizada ni liquidada en la clínica para incluir en la Nota de
             Crédito.
           </p>
@@ -1139,13 +1126,19 @@
           aria-label="Cerrar modal" title="Cerrar">✕</button>
       </div>
 
-      <div class="modal-body" style="max-height: 75vh; overflow-y: auto; padding: 16px 20px;">
+      <div class="modal-body modal-body-externa">
         <form [formGroup]="prestacionExternaForm" (ngSubmit)="confirmarPrestacionExterna()" class="form-modal">
 
           <!-- FILA 1: Paciente y Carnet -->
           <div class="form-grupo-fila">
             <div class="form-grupo-input" style="flex: 2;">
-              <label>Paciente <span style="color: #ef4444;">*</span></label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="margin: 0;">Paciente <span class="asterisco-obligatorio">*</span></label>
+                <label class="checkbox-paciente-no-especificado">
+                  <input type="checkbox" formControlName="pacienteNoEspecificado" (change)="onPacienteNoEspecificadoChange($event)">
+                  <span>Paciente no Especificado</span>
+                </label>
+              </div>
               <input type="text" formControlName="paciente" class="input-grilla"
                 placeholder="Nombre completo del paciente">
             </div>
@@ -1158,7 +1151,7 @@
           <!-- FILA 2: Cobertura y Plan -->
           <div class="form-grupo-fila">
             <div class="form-grupo-input" style="flex: 2;">
-              <label>Cobertura / Obra Social <span style="color: #ef4444;">*</span></label>
+              <label>Cobertura / Obra Social <span class="asterisco-obligatorio">*</span></label>
               <input type="text" formControlName="cobertura" class="input-grilla" placeholder="Ej: OSDE, PAMI, etc.">
             </div>
             <div class="form-grupo-input" style="flex: 1;">
@@ -1169,13 +1162,43 @@
 
           <!-- FILA 3: Codigo y Descripcion -->
           <div class="form-grupo-fila">
-            <div class="form-grupo-input" style="flex: 1;">
-              <label>Código Prestación <span style="color: #ef4444;">*</span></label>
-              <input type="text" formControlName="codigo" class="input-grilla" placeholder="Ej: 420101">
+            <div class="form-grupo-input autocomplete-codigo-wrapper" style="flex: 1; position: relative;">
+              <label>Código Prestación <span class="asterisco-obligatorio">*</span></label>
+              <input type="text" formControlName="codigo" class="input-grilla" placeholder="Ej: 420101"
+                autocomplete="off"
+                (input)="onCodigoPrestacionInput($event)"
+                (focus)="onCodigoPrestacionFocus()"
+                (keydown.escape)="cerrarDropdownCatalogo()">
+
+              <!-- Dropdown de autocompletado en tiempo real -->
+              <div class="autocomplete-catalogo-dropdown" *ngIf="mostrarDropdownCatalogo">
+                <div *ngIf="buscandoCatalogo" class="catalogo-dropdown-status">
+                  <span class="catalogo-spinner"></span> Buscando en catálogo...
+                </div>
+                <div *ngIf="!buscandoCatalogo && listaPrestacionesCatalogo.length === 0" class="catalogo-dropdown-empty">
+                  Sin coincidencias en catálogo. Podés cargarlo manualmente.
+                </div>
+                <div *ngIf="!buscandoCatalogo && listaPrestacionesCatalogo.length > 0" class="catalogo-dropdown-list">
+                  <button type="button" class="catalogo-dropdown-item" *ngFor="let p of listaPrestacionesCatalogo"
+                    (mousedown)="seleccionarPrestacionCatalogo(p)">
+                    <span class="catalogo-badge-codigo">{{ p.codigo }}</span>
+                    <span class="catalogo-desc-text" [title]="p.descripcion">{{ p.descripcion }}</span>
+                  </button>
+                </div>
+              </div>
             </div>
+
             <div class="form-grupo-input" style="flex: 2;">
-              <label>Descripción Prestación <span style="color: #ef4444;">*</span></label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="margin: 0;">Descripción Prestación <span class="asterisco-obligatorio">*</span></label>
+                <button type="button" *ngIf="descripcionPrestacionBloqueada" (click)="desbloquearDescripcion()"
+                  class="btn-desbloquear-desc" title="Haga clic para habilitar edición manual de la descripción">
+                  🔒 Bloqueada por catálogo · Desbloquear
+                </button>
+              </div>
               <input type="text" formControlName="descripcion" class="input-grilla"
+                [readonly]="descripcionPrestacionBloqueada"
+                [ngClass]="{'input-bloqueado-catalogo': descripcionPrestacionBloqueada}"
                 placeholder="Descripción de la prestación">
             </div>
           </div>
@@ -1183,28 +1206,17 @@
           <!-- FILA 4: Fecha, Cantidad e Importe Debitado -->
           <div class="form-grupo-fila">
             <div class="form-grupo-input">
-              <label>Fecha Prestación <span style="color: #ef4444;">*</span></label>
+              <label>Fecha Prestación <span class="asterisco-obligatorio">*</span></label>
               <input type="date" formControlName="fecha" class="input-grilla">
             </div>
             <div class="form-grupo-input" style="max-width: 90px;">
-              <label>Cantidad <span style="color: #ef4444;">*</span></label>
+              <label>Cantidad <span class="asterisco-obligatorio">*</span></label>
               <input type="number" formControlName="cantidad" class="input-grilla" min="1" step="1">
             </div>
             <div class="form-grupo-input">
-              <label>Importe Debitado <span style="color: #ef4444;">*</span></label>
+              <label>Importe Debitado <span class="asterisco-obligatorio">*</span></label>
               <input type="number" formControlName="importeDebitado" class="input-grilla" placeholder="0.00" step="0.01"
                 min="0.01">
-            </div>
-          </div>
-
-          <!-- FILA 5: Debito Aceptado -->
-          <div class="form-grupo-fila">
-            <div class="form-grupo-input" style="flex: 1;">
-              <label>Débito Aceptado <span style="color: #ef4444;">*</span></label>
-              <select formControlName="debitoAceptado" class="input-grilla">
-                <option value="NO">NO (Genera Refactura)</option>
-                <option value="SI">SI (Acepta el débito)</option>
-              </select>
             </div>
           </div>
 
@@ -1230,17 +1242,17 @@
             </div>
           </div>
 
-          <div
-            style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 14px; margin-top: 10px; font-size: 0.82rem; color: #1e40af;">
+          <!-- Caja de Información Inferior -->
+          <div class="alerta-prestacion-externa">
             ℹ️ El importe de refactura será igual al importe debitado. Al presionar <strong>"Agregar a la
               grilla"</strong> se incorporará como fila externa no clínica y podrás continuar editando sus valores antes
             de generar la Nota de Crédito.
           </div>
 
-          <div class="modal-footer" style="padding-top: 16px; margin-top: 16px; border-top: 1px solid #e2e8f0;">
+          <div class="modal-footer modal-footer-externa">
             <button type="button" class="btn-modal-cancelar" (click)="cerrarModalPrestacionExterna()">Cancelar</button>
-            <button type="submit" class="btn-modal-aceptar" [disabled]="prestacionExternaForm.invalid">
-              + Agregar a la grilla
+            <button type="submit" class="btn-modal-aceptar" [disabled]="prestacionExternaForm.invalid || agregandoPrestacionExterna">
+              {{ agregandoPrestacionExterna ? 'Agregando...' : '+ Agregar a la grilla' }}
             </button>
           </div>
         </form>
@@ -1322,73 +1334,67 @@
           <!-- FILTROS DINÁMICOS DEL MODAL -->
           <section class="filtros-dinamicos-section filtros-dinamicos-modal">
             <div class="filtros-grid">
-              <div class="filtro-columna">
-                <div class="filter-item">
-                  <div class="label-container">
-                    <label>Paciente</label>
-                    <button *ngIf="filtroModalPaciente" class="btn-undo"
-                      (click)="limpiarFiltroModal('paciente')">✕</button>
-                  </div>
-                  <select [(ngModel)]="filtroModalPaciente" (change)="aplicarFiltrosModal()">
-                    <option value="">Todos</option>
-                    <option *ngFor="let item of modalPacientesList" [value]="item">{{ item }}</option>
-                  </select>
+              <div class="filter-item">
+                <div class="label-container">
+                  <label>Paciente</label>
+                  <button *ngIf="filtroModalPaciente" class="btn-undo"
+                    (click)="limpiarFiltroModal('paciente')">✕</button>
                 </div>
-
-                <div class="filter-item">
-                  <div class="label-container">
-                    <label>Médico</label>
-                    <button *ngIf="filtroModalProfesional" class="btn-undo"
-                      (click)="limpiarFiltroModal('profesional')">✕</button>
-                  </div>
-                  <select [(ngModel)]="filtroModalProfesional" (change)="aplicarFiltrosModal()">
-                    <option value="">Todos</option>
-                    <option *ngFor="let item of modalProfesionalesList" [value]="item">{{ item }}</option>
-                  </select>
-                </div>
+                <select [(ngModel)]="filtroModalPaciente" (change)="aplicarFiltrosModal()">
+                  <option value="">Todos</option>
+                  <option *ngFor="let item of modalPacientesList" [value]="item">{{ item }}</option>
+                </select>
               </div>
 
-              <div class="filtro-columna">
-                <div class="filter-item">
-                  <div class="label-container">
-                    <label>Prestación</label>
-                    <button *ngIf="filtroModalPrestacion" class="btn-undo"
-                      (click)="limpiarFiltroModal('prestacion')">✕</button>
-                  </div>
-                  <select [(ngModel)]="filtroModalPrestacion" (change)="aplicarFiltrosModal()">
-                    <option value="">Todas</option>
-                    <option *ngFor="let item of modalPrestacionesList" [value]="item">{{ item }}</option>
-                  </select>
+              <div class="filter-item">
+                <div class="label-container">
+                  <label>Médico</label>
+                  <button *ngIf="filtroModalProfesional" class="btn-undo"
+                    (click)="limpiarFiltroModal('profesional')">✕</button>
                 </div>
-
-                <div class="filter-item">
-                  <div class="label-container">
-                    <label>Grupo</label>
-                    <button *ngIf="filtroModalGrupo" class="btn-undo" (click)="limpiarFiltroModal('grupo')">✕</button>
-                  </div>
-                  <select [(ngModel)]="filtroModalGrupo" (change)="aplicarFiltrosModal()">
-                    <option value="">Todos</option>
-                    <option *ngFor="let item of modalGruposList" [value]="item">{{ item }}</option>
-                  </select>
-                </div>
+                <select [(ngModel)]="filtroModalProfesional" (change)="aplicarFiltrosModal()">
+                  <option value="">Todos</option>
+                  <option *ngFor="let item of modalProfesionalesList" [value]="item">{{ item }}</option>
+                </select>
               </div>
 
-              <div class="filtro-columna">
-                <div class="filter-item">
-                  <div class="label-container">
-                    <label>Fecha</label>
-                    <button *ngIf="filtroModalFecha" class="btn-undo" (click)="limpiarFiltroModal('fecha')">✕</button>
-                  </div>
-                  <select [(ngModel)]="filtroModalFecha" (change)="aplicarFiltrosModal()">
-                    <option value="">Todas</option>
-                    <option *ngFor="let item of modalFechasList" [value]="item">{{ formatearFecha(item) }}</option>
-                  </select>
+              <div class="filter-item">
+                <div class="label-container">
+                  <label>Prestación</label>
+                  <button *ngIf="filtroModalPrestacion" class="btn-undo"
+                    (click)="limpiarFiltroModal('prestacion')">✕</button>
                 </div>
+                <select [(ngModel)]="filtroModalPrestacion" (change)="aplicarFiltrosModal()">
+                  <option value="">Todas</option>
+                  <option *ngFor="let item of modalPrestacionesList" [value]="item">{{ item }}</option>
+                </select>
+              </div>
 
-                <div class="botones-limpieza-stack">
-                  <button type="button" class="btn-clear" (click)="resetFiltrosModal()"
-                    [disabled]="!tieneFiltrosModalActivos()">Limpiar Filtros</button>
+              <div class="filter-item">
+                <div class="label-container">
+                  <label>Grupo</label>
+                  <button *ngIf="filtroModalGrupo" class="btn-undo" (click)="limpiarFiltroModal('grupo')">✕</button>
                 </div>
+                <select [(ngModel)]="filtroModalGrupo" (change)="aplicarFiltrosModal()">
+                  <option value="">Todos</option>
+                  <option *ngFor="let item of modalGruposList" [value]="item">{{ item }}</option>
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <div class="label-container">
+                  <label>Fecha</label>
+                  <button *ngIf="filtroModalFecha" class="btn-undo" (click)="limpiarFiltroModal('fecha')">✕</button>
+                </div>
+                <select [(ngModel)]="filtroModalFecha" (change)="aplicarFiltrosModal()">
+                  <option value="">Todas</option>
+                  <option *ngFor="let item of modalFechasList" [value]="item">{{ formatearFecha(item) }}</option>
+                </select>
+              </div>
+
+              <div class="botones-limpieza-stack">
+                <button type="button" class="btn-clear" (click)="resetFiltrosModal()"
+                  [disabled]="!tieneFiltrosModalActivos()">Limpiar Filtros</button>
               </div>
             </div>
           </section>
@@ -1398,12 +1404,38 @@
               <thead>
                 <tr>
                   <th style="width: 40px; text-align: center;">✓</th>
-                  <th>Paciente</th>
-                  <th>Código</th>
-                  <th>Descripción</th>
-                  <th>Fecha</th>
-                  <th style="text-align: right;">Total Neto</th>
-                  <th style="text-align: right;">Total</th>
+                  <th class="sortable-col text-left" [class.col-sorted]="columnaOrdenModal === 'paciente'"
+                    (click)="ordenarModal('paciente')" title="Ordenar por Paciente">
+                    Paciente <span class="sort-indicator" [class.active]="columnaOrdenModal === 'paciente'">{{ getIconoModal('paciente') }}</span>
+                  </th>
+                  <th class="sortable-col text-left" [class.col-sorted]="columnaOrdenModal === 'medico'"
+                    (click)="ordenarModal('medico')" title="Ordenar por Médico">
+                    Médico <span class="sort-indicator" [class.active]="columnaOrdenModal === 'medico'">{{ getIconoModal('medico') }}</span>
+                  </th>
+                  <th class="sortable-col text-left" [class.col-sorted]="columnaOrdenModal === 'codigo'"
+                    (click)="ordenarModal('codigo')" title="Ordenar por Código">
+                    Código <span class="sort-indicator" [class.active]="columnaOrdenModal === 'codigo'">{{ getIconoModal('codigo') }}</span>
+                  </th>
+                  <th class="sortable-col text-left" [class.col-sorted]="columnaOrdenModal === 'descripcion'"
+                    (click)="ordenarModal('descripcion')" title="Ordenar por Descripción">
+                    Descripción <span class="sort-indicator" [class.active]="columnaOrdenModal === 'descripcion'">{{ getIconoModal('descripcion') }}</span>
+                  </th>
+                  <th class="sortable-col" style="text-align: center;" [class.col-sorted]="columnaOrdenModal === 'cantidad'"
+                    (click)="ordenarModal('cantidad')" title="Ordenar por Cantidad">
+                    Cantidad <span class="sort-indicator" [class.active]="columnaOrdenModal === 'cantidad'">{{ getIconoModal('cantidad') }}</span>
+                  </th>
+                  <th class="sortable-col" style="text-align: center;" [class.col-sorted]="columnaOrdenModal === 'fecha'"
+                    (click)="ordenarModal('fecha')" title="Ordenar por Fecha">
+                    Fecha <span class="sort-indicator" [class.active]="columnaOrdenModal === 'fecha'">{{ getIconoModal('fecha') }}</span>
+                  </th>
+                  <th class="sortable-col" style="text-align: right;" [class.col-sorted]="columnaOrdenModal === 'totalNeto'"
+                    (click)="ordenarModal('totalNeto')" title="Ordenar por Total Neto">
+                    Total Neto <span class="sort-indicator" [class.active]="columnaOrdenModal === 'totalNeto'">{{ getIconoModal('totalNeto') }}</span>
+                  </th>
+                  <th class="sortable-col" style="text-align: right;" [class.col-sorted]="columnaOrdenModal === 'total'"
+                    (click)="ordenarModal('total')" title="Ordenar por Total">
+                    Total <span class="sort-indicator" [class.active]="columnaOrdenModal === 'total'">{{ getIconoModal('total') }}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1415,9 +1447,11 @@
                       (click)="$event.stopPropagation()" (change)="toggleSeleccionCandidata(p.id)">
                   </td>
                   <td><strong>{{ p.paciente }}</strong></td>
+                  <td>{{ p.medico || p.efector || '—' }}</td>
                   <td><code>{{ p.codigo }}</code></td>
                   <td>{{ p.descripcion }}</td>
-                  <td>{{ formatearFecha(p.fecha) }}</td>
+                  <td style="text-align: center;">{{ p.cantidad }}</td>
+                  <td style="text-align: center;">{{ formatearFecha(p.fecha) }}</td>
                   <td style="text-align: right;">${{ (p.totalNeto || 0) | number:'1.2-2' }}</td>
                   <td style="text-align: right; font-weight: 600;">${{ (p.total || 0) | number:'1.2-2' }}</td>
                 </tr>

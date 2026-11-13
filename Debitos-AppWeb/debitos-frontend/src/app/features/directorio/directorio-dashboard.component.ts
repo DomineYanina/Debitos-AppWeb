@@ -2,7 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef, AfterViewInit, HostListen
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, Subscription, takeUntil, firstValueFrom } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
 import {
   Chart,
@@ -12,6 +12,8 @@ import {
 } from 'chart.js';
 import { DirectorioService } from '../../core/services/directorio.service';
 import { AuthService } from '../../core/services/auth';
+import { ThemeService } from '../../core/services/theme.service';
+import { ExcelExportService, ContextoFiltroExportacion } from '../../core/services/excel-export';
 import {
   CcComprobanteDTO,
   CcFinanciadorDTO,
@@ -35,12 +37,22 @@ import {
   BalanceFinanciadorDTO,
   PuntoDonutDTO,
   TiemposCobranzaDTO,
-  ReciboSinImputarDTO
+  ReciboSinImputarDTO,
+  DirectorioPrestacionItem,
+  DirectorioPrestacionesResponse
 } from '../../core/models/directorio.model';
+import { LISTA_MOTIVOS_DEBITO, normalizarTextoMotivo, obtenerCategoriaDeMotivo } from '../../core/constants/motivos';
 
 // Registro global de todos los módulos y controladores de Chart.js necesarios (doughnut, line, bar, etc.)
 Chart.register(...registerables);
 
+
+export interface OpcionPeriodoItem {
+  value: string;
+  label: string;
+  primerDiaIso: string;
+  ultimoDiaIso: string;
+}
 
 interface SliceDonut {
   motivo: string;
@@ -62,10 +74,14 @@ interface SliceDonut {
 })
 export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private directorioService = inject(DirectorioService);
+  private excelExportService = inject(ExcelExportService);
   public authService = inject(AuthService);
+  private themeService = inject(ThemeService, { optional: true });
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
+
+  exportandoExcel: boolean = false;
 
   private readonly destroy$ = new Subject<void>();
   private readonly cancelarPeticionesEnVuelo$ = new Subject<void>();
@@ -80,7 +96,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     'bucles',
     'usuarios-carga',
     'medicos',
-    'trazabilidad'
+    'trazabilidad',
+    'prestaciones'
   ]);
 
   esSolapaValida(solapa: string): boolean {
@@ -96,12 +113,15 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   esSolapaPermitida(solapa: string): boolean {
+    if (solapa === 'prestaciones') {
+      return this.authService.isAdmin();
+    }
     if (this.esGerenteDebitos) {
-      const solapasExcluidas = ['tablero', 'cuenta-corriente', 'tiempos-cobranza', 'matriz-cobranzas'];
+      const solapasExcluidas = ['tablero', 'cuenta-corriente', 'tiempos-cobranza', 'matriz-cobranzas', 'trazabilidad'];
       return !solapasExcluidas.includes(solapa);
     }
     if (this.esTesoreria) {
-      const solapasPermitidas = ['tablero', 'cuenta-corriente', 'tiempos-cobranza', 'matriz-cobranzas'];
+      const solapasPermitidas = ['tablero', 'cuenta-corriente', 'tiempos-cobranza', 'matriz-cobranzas', 'trazabilidad'];
       return solapasPermitidas.includes(solapa);
     }
     return true;
@@ -120,7 +140,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     | 'bucles'
     | 'usuarios-carga'
     | 'medicos'
-    | 'trazabilidad' = 'tablero';
+    | 'trazabilidad'
+    | 'prestaciones' = 'tablero';
 
   solapasCargadas = new Set<string>();
   private debounceFiltroTimer: any = null;
@@ -168,6 +189,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       | 'usuarios-carga'
       | 'medicos'
       | 'trazabilidad'
+      | 'prestaciones'
   ): void {
     if (!this.esSolapaPermitida(solapa)) {
       if (this.esGerenteDebitos) {
@@ -220,6 +242,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargarDatosSolapa(solapa);
     this.actualizarAlturasSticky();
     if (solapa === 'tablero' || solapa === 'tiempos-cobranza' || solapa === 'motivos') {
+      if (solapa === 'motivos') {
+        const isDark = (this.themeService ? this.themeService.getResolvedTheme() : document.documentElement.getAttribute('data-theme')) === 'dark';
+        this.actualizarColoresMotivosChart(isDark);
+      }
       setTimeout(() => {
         window.dispatchEvent(new Event('resize'));
       }, 50);
@@ -270,6 +296,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       case 'trazabilidad':
         this.cargarTrazabilidad();
         break;
+      case 'prestaciones':
+        this.cargarPrestaciones(1);
+        break;
     }
   }
 
@@ -285,6 +314,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   fechaDesdeAplicada: string = '';
   fechaHastaAplicada: string = '';
   fechaMinimaPermitida: string = '2024-07-01';
+  opcionesPeriodos: OpcionPeriodoItem[] = [];
   errorFechaDesde: string | null = null;
   errorFechaHasta: string | null = null;
   errorRangoFechas: string | null = null;
@@ -411,6 +441,70 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   direccionOrdenMatriz: 'asc' | 'desc' = 'desc';
   pasoOrdenMatriz: number = 0;
 
+  // Solapa Prestaciones Facturadas
+  prestacionesDatos: DirectorioPrestacionItem[] = [];
+  cargandoPrestaciones: boolean = false;
+  errorCargaPrestaciones: string | null = null;
+  prestacionesTotalRegistros: number = 0;
+  prestacionesTotalMonto: number = 0;
+  prestacionesTotalMedicos: number = 0;
+  prestacionesTotalPacientes: number = 0;
+  prestacionesPaginaActual: number = 1;
+  prestacionesTamanioPagina: number = 50;
+  prestacionesTotalPaginas: number = 1;
+  columnaOrdenPrestaciones: string = '';
+  direccionOrdenPrestaciones: 'asc' | 'desc' = 'desc';
+  pasoOrdenPrestaciones: number = 0;
+
+  filtroPrestacionTipoRegistro: 'TODOS' | 'Ambulatorios' | 'Internados' = 'TODOS';
+  filtroPrestacionMedico: string = '';
+  filtroPrestacionCodigo: string = '';
+
+  sugerenciasMedicosPrestaciones: string[] = [];
+  cargandoSugerenciasMedicos: boolean = false;
+  mostrarSugerenciasMedicos: boolean = false;
+  private debounceSugerenciasMedicoTimer: any = null;
+  private sugerenciasMedicoSub?: Subscription;
+  /** Texto que el usuario está escribiendo en el input de Médico (borrador, no filtra la tabla). */
+  textoMedicoInput: string = '';
+  sugerenciaMedicoActiva: number = -1;
+
+  /** El backend devuelve como máximo esta cantidad de sugerencias (LIMIT 15). */
+  readonly limiteSugerencias: number = 15;
+
+  sugerenciasCodigosPrestaciones: { codigo: string; descripcion: string }[] = [];
+  cargandoSugerenciasPrestaciones: boolean = false;
+  mostrarSugerenciasPrestaciones: boolean = false;
+  private debounceSugerenciasPrestacionTimer: any = null;
+  private sugerenciasPrestacionSub?: Subscription;
+  /** Texto que el usuario está escribiendo en el input de Prestación (borrador, no filtra la tabla). */
+  textoPrestacionInput: string = '';
+  /** Texto visible de la opción de Prestación aplicada como filtro (ej. "420101 - Consulta"). */
+  textoPrestacionAplicado: string = '';
+  sugerenciaPrestacionActiva: number = -1;
+
+  /** Determina si existe al menos un filtro específico aplicado (Médico, Prestación o Atención). */
+  get tieneFiltroLocalPrestaciones(): boolean {
+    const tieneMedico = !!this.filtroPrestacionMedico && this.filtroPrestacionMedico.trim().length > 0;
+    const tienePrestacion = !!this.filtroPrestacionCodigo && this.filtroPrestacionCodigo.trim().length > 0;
+    const tieneAtencion = !!this.filtroPrestacionTipoRegistro && this.filtroPrestacionTipoRegistro !== 'TODOS';
+    return tieneMedico || tienePrestacion || tieneAtencion;
+  }
+
+  // Estado del Modal de Límite de Exportación (Máximo 3 meses)
+  modalExportPrestacionesVisible: boolean = false;
+  modalExportCriterio: 'periodo' | 'fecha' = 'periodo';
+  modalExportPeriodoDesde: string = '';
+  modalExportPeriodoHasta: string = '';
+  modalExportOpcionesDesde: OpcionPeriodoItem[] = [];
+  modalExportOpcionesHasta: OpcionPeriodoItem[] = [];
+  modalExportFechaDesde: string = '';
+  modalExportFechaHasta: string = '';
+  modalExportFechaHastaMin: string = '';
+  modalExportFechaHastaMax: string = '';
+  exportandoExcelModal: boolean = false;
+  errorModalExport: string | null = null;
+
   trazabilidadDatos: CadenaTrazabilidadDTO[] = [];
   trazabilidadPaginaActual: number = 1;
   trazabilidadItemsPorPagina: number = 25;
@@ -418,6 +512,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   columnaOrdenTrazabilidad: string = '';
   direccionOrdenTrazabilidad: 'asc' | 'desc' = 'desc';
   pasoOrdenTrazabilidad: number = 0;
+  filtroTrazabilidadLetra: string = '';
+  filtroTrazabilidadPtoVta: string = 'TODOS';
+  filtroTrazabilidadNumero: string = '';
+  trazabilidadBusquedaRemotaActiva: boolean = false;
+  private ultimoKeyRemotoTrazabilidad: string = '';
 
   buclesDatos: CadenaTrazabilidadDTO[] = [];
   columnaOrdenBucles: string = '';
@@ -444,6 +543,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   pasoOrdenMedico: number = 0;
 
   operadoresDatos: MetricaOperadorDTO[] = [];
+  tipoRegistroOperador: 'Ambulatorios' | 'Internados' = 'Ambulatorios';
   filtroOperadorSeleccionado: string = 'TODOS';
   busquedaTextoOperador: string = '';
   operadoresPaginaActual: number = 1;
@@ -485,6 +585,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   gruposFacturas: DirectorioGrupoFactura[] = [];
   motivosDebito: DirectorioMotivoDebito[] = [];
+  motivosDebitoOriginal: DirectorioMotivoDebito[] = [];
+  categoriasMotivoDisponibles: { categoria: string; cantidad: number }[] = [];
+  categoriaMotivoSeleccionada: string = 'TODAS';
+  rawDatasetsPareto: DatasetGraficoDTO[] = [];
+  totalElementsMotivos: number = 0;
   columnaOrdenMotivos: string = '';
   direccionOrdenMotivos: 'asc' | 'desc' = 'desc';
   pasoOrdenMotivos: number = 0;
@@ -700,21 +805,68 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     scales: {
       x: {
         ticks: {
-          color: '#475569',
+          color: '#94a3b8',
           font: { size: 10, weight: 500 }
         },
         grid: { display: false }
       },
       y: {
         ticks: {
-          color: '#475569',
+          color: '#94a3b8',
           font: { size: 9, weight: 500 },
           callback: v => '$' + Math.round(Number(v) / 1000) + 'k'
         },
-        grid: { color: 'rgba(226, 232, 240, 0.6)' }
+        grid: { color: '#334155' }
       }
     }
   };
+
+  actualizarColoresAgingChart(isDark: boolean): void {
+    const tickColor = isDark ? '#94a3b8' : '#475569';
+    const gridColor = isDark ? '#334155' : 'rgba(226, 232, 240, 0.6)';
+    if (this.agingChartOptions?.scales) {
+      if (this.agingChartOptions.scales['x']?.ticks) {
+        (this.agingChartOptions.scales['x'].ticks as any).color = tickColor;
+      }
+      if (this.agingChartOptions.scales['y']?.ticks) {
+        (this.agingChartOptions.scales['y'].ticks as any).color = tickColor;
+      }
+      if (this.agingChartOptions.scales['y']?.grid) {
+        (this.agingChartOptions.scales['y'].grid as any).color = gridColor;
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  actualizarColoresMotivosChart(isDark: boolean): void {
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+    const yTextColor = isDark ? '#cbd5e1' : '#0f172a';
+    const gridColor = isDark ? '#334155' : 'rgba(148,163,184,0.18)';
+    const legendColor = isDark ? '#cbd5e1' : '#1e293b';
+
+    if (this.motivosChartOptions?.scales) {
+      if (this.motivosChartOptions.scales['x']) {
+        if (this.motivosChartOptions.scales['x'].ticks) {
+          (this.motivosChartOptions.scales['x'].ticks as any).color = textColor;
+        }
+        if (this.motivosChartOptions.scales['x'].grid) {
+          (this.motivosChartOptions.scales['x'].grid as any).color = gridColor;
+        }
+      }
+      if (this.motivosChartOptions.scales['y']) {
+        if (this.motivosChartOptions.scales['y'].ticks) {
+          (this.motivosChartOptions.scales['y'].ticks as any).color = yTextColor;
+        }
+        if (this.motivosChartOptions.scales['y'].grid) {
+          (this.motivosChartOptions.scales['y'].grid as any).color = gridColor;
+        }
+      }
+    }
+    if (this.motivosChartOptions?.plugins?.legend?.labels) {
+      (this.motivosChartOptions.plugins.legend.labels as any).color = legendColor;
+    }
+    this.cdr.markForCheck();
+  }
 
   // ── Pareto de Motivos / Glosas (Bar apilada) ────────────────────────────────
 
@@ -722,7 +874,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     labels: [],
     datasets: [
       {
-        label: 'Refacturado',
+        label: 'Refacturado ($)',
         data: [],
         backgroundColor: '#2563eb',
         borderColor: '#1d4ed8',
@@ -730,10 +882,18 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         borderRadius: 4
       },
       {
-        label: 'Pérdida',
+        label: 'Pérdida ($)',
         data: [],
-        backgroundColor: '#dc2626',
-        borderColor: '#b91c1c',
+        backgroundColor: '#881337',
+        borderColor: '#881337',
+        borderWidth: 1,
+        borderRadius: 4
+      },
+      {
+        label: 'Diferencia ($)',
+        data: [],
+        backgroundColor: '#7c3aed',
+        borderColor: '#6d28d9',
         borderWidth: 1,
         borderRadius: 4
       }
@@ -797,6 +957,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           if (this.fechaDesde && this.fechaDesde < this.fechaMinimaPermitida) {
             this.fechaDesde = this.fechaMinimaPermitida;
           }
+          this.generarOpcionesPeriodos();
           this.validarFechas();
           this.cdr.markForCheck();
         }
@@ -804,11 +965,19 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       error: (err) => console.error('Error al obtener fecha mínima permitida:', err)
     });
 
+    if (this.themeService) {
+      this.themeService.resolvedTheme$.pipe(takeUntil(this.destroy$)).subscribe((theme) => {
+        const isDark = theme === 'dark';
+        this.actualizarColoresAgingChart(isDark);
+        this.actualizarColoresMotivosChart(isDark);
+      });
+    }
+
     this.authService.rolActual$.pipe(takeUntil(this.destroy$)).subscribe(() => {
       if (this.esGerenteDebitos && !this.esSolapaPermitida(this.solapaActiva)) {
         this.seleccionarSolapa('motivos');
         this.cdr.markForCheck();
-      } else if (this.esTesoreria && !this.esSolapaPermitida(this.solapaActiva)) {
+      } else if (!this.esSolapaPermitida(this.solapaActiva)) {
         this.seleccionarSolapa('tablero');
         this.cdr.markForCheck();
       }
@@ -820,7 +989,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         this.solapaActiva = solapaParam as any;
       } else if (this.esGerenteDebitos && !this.esSolapaPermitida(this.solapaActiva)) {
         this.solapaActiva = 'motivos';
-      } else if (this.esTesoreria && !this.esSolapaPermitida(this.solapaActiva)) {
+      } else if (!this.esSolapaPermitida(this.solapaActiva)) {
         this.solapaActiva = 'tablero';
       }
       const codCob = params.get('codigoCobertura');
@@ -872,6 +1041,14 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (this.precargaTimer) {
       clearTimeout(this.precargaTimer);
       this.precargaTimer = null;
+    }
+    if (this.debounceSugerenciasMedicoTimer) {
+      clearTimeout(this.debounceSugerenciasMedicoTimer);
+      this.debounceSugerenciasMedicoTimer = null;
+    }
+    if (this.debounceSugerenciasPrestacionTimer) {
+      clearTimeout(this.debounceSugerenciasPrestacionTimer);
+      this.debounceSugerenciasPrestacionTimer = null;
     }
   }
 
@@ -982,6 +1159,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this._ccAnalisisHasta = this.fechaHasta;
 
     this.validarFechas();
+    this.generarOpcionesPeriodos();
   }
 
   formatearFechaIso(fecha: Date): string {
@@ -1324,6 +1502,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.fechaHasta = fHastaIso;
     this.fechaDesdeAplicada = this.fechaDesde;
     this.fechaHastaAplicada = this.fechaHasta;
+    if (this.criterioFechaCc === 'periodo') {
+      this._ccPeriodoDesde = this.fechaDesde;
+      this._ccPeriodoHasta = this.fechaHasta;
+    }
     this.validarFechas();
 
     this.solapasCargadas.clear();
@@ -1354,6 +1536,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.fechaHasta = fHastaIso;
     this.fechaDesdeAplicada = this.fechaDesde;
     this.fechaHastaAplicada = this.fechaHasta;
+    if (this.criterioFechaCc === 'periodo') {
+      this._ccPeriodoDesde = this.fechaDesde;
+      this._ccPeriodoHasta = this.fechaHasta;
+    }
     this.validarFechas();
 
     this.solapasCargadas.clear();
@@ -1432,13 +1618,23 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   cargarMotivos(): void {
     this.cargandoMotivos = true;
-    this.directorioService.obtenerMotivos(this.codigoCoberturaSeleccionada, this.tipoDocSeleccionado, this.fechaDesde, this.fechaHasta)
+    this.directorioService.obtenerMotivos(
+      this.codigoCoberturaSeleccionada,
+      this.tipoDocSeleccionado,
+      this.fechaDesde,
+      this.fechaHasta,
+      0,
+      1000,
+      this.criterioFechaCc
+    )
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
         next: (data: any) => {
           const items: DirectorioMotivoDebito[] = Array.isArray(data) ? data : (data?.content || []);
-          this.motivosDebito = items.map((m, idx) => ({
+          this.totalElementsMotivos = (data && typeof data.totalElements === 'number') ? data.totalElements : items.length;
+          this.motivosDebitoOriginal = items.map((m, idx) => ({
             ...m,
+            categoria: this.obtenerCategoriaDeMotivo(m.motivo),
             montoAceptado: m.montoAceptado ?? 0,
             montoRefacturado: m.montoRefacturado ?? 0,
             porcentajeAceptados: m.porcentajeAceptados ?? 0,
@@ -1446,12 +1642,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             _originalIndex: idx,
             color: this.paletaColores[idx % this.paletaColores.length]
           }));
-          this.totalDebitadoGeneralCalculado = this.motivosDebito.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
-          if (this.columnaOrdenMotivos) {
-            this.aplicarOrdenMotivos();
-          } else {
-            this.calcularSlicesDonut();
+          this.totalDebitadoGeneralCalculado = this.motivosDebitoOriginal.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
+          this.calcularCategoriasMotivosDisponibles();
+          if (this.categoriaMotivoSeleccionada !== 'TODAS' && !this.categoriasMotivoDisponibles.some(c => c.categoria === this.categoriaMotivoSeleccionada)) {
+            this.categoriaMotivoSeleccionada = 'TODAS';
           }
+          this.aplicarFiltroCategoriaMotivos();
           this.cargandoMotivos = false;
           this.cdr.markForCheck();
         },
@@ -1547,6 +1743,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         tipoDoc: this.tipoDocSeleccionado,
         fechaDesde: this.fechaDesde,
         fechaHasta: this.fechaHasta,
+        criterioFecha: this.criterioFechaCc,
         solapa: this.solapaActiva
       }
     });
@@ -1584,6 +1781,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   // ---------------------------------------------------------------------------
 
   get totalDebitadoMotivos(): number {
+    if (this.categoriaMotivoSeleccionada !== 'TODAS') {
+      return (this.motivosDebito || []).reduce((acc, m) => acc + (m.montoTotal || 0), 0);
+    }
     return this.obtenerTotalDebitadoGeneral() || 0;
   }
 
@@ -1629,12 +1829,80 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   get motivosIdentificadosCount(): number {
-    return (this.motivosDebito || []).length;
+    if (this.categoriaMotivoSeleccionada !== 'TODAS') {
+      return (this.motivosDebito || []).length;
+    }
+    return this.totalElementsMotivos || (this.motivosDebito || []).length;
   }
 
   formatearMontoContador(monto?: number | null): string {
     if (!monto || monto <= 0 || isNaN(monto)) return '$0';
     return '$' + Math.round(monto).toLocaleString('es-AR');
+  }
+
+  // ── Clasificación por Categorías para Motivos de Débito ───────────────────
+  normalizarTextoMotivo(txt: string): string {
+    return normalizarTextoMotivo(txt);
+  }
+
+  obtenerCategoriaDeMotivo(motivo: string): string {
+    return obtenerCategoriaDeMotivo(motivo);
+  }
+
+  calcularCategoriasMotivosDisponibles(): void {
+    const countsMap = new Map<string, number>();
+    (this.motivosDebitoOriginal || []).forEach(m => {
+      const cat = this.obtenerCategoriaDeMotivo(m.motivo);
+      countsMap.set(cat, (countsMap.get(cat) || 0) + 1);
+    });
+
+    this.categoriasMotivoDisponibles = LISTA_MOTIVOS_DEBITO
+      .map(c => ({
+        categoria: c.categoria,
+        cantidad: countsMap.get(c.categoria) || 0
+      }))
+      .filter(c => c.cantidad > 0);
+  }
+
+  aplicarFiltroCategoriaMotivos(): void {
+    if (!this.motivosDebitoOriginal || this.motivosDebitoOriginal.length === 0) {
+      this.motivosDebito = [];
+      this.slicesDonut = [];
+      return;
+    }
+
+    let filtrados: DirectorioMotivoDebito[];
+    if (this.categoriaMotivoSeleccionada === 'TODAS') {
+      filtrados = [...this.motivosDebitoOriginal];
+    } else {
+      filtrados = this.motivosDebitoOriginal.filter(
+        m => this.obtenerCategoriaDeMotivo(m.motivo) === this.categoriaMotivoSeleccionada
+      );
+    }
+
+    const totalFiltrado = filtrados.reduce((acc, m) => acc + (m.montoTotal || 0), 0);
+    this.motivosDebito = filtrados.map((m, idx) => ({
+      ...m,
+      porcentaje: totalFiltrado > 0 ? Math.round(((m.montoTotal || 0) / totalFiltrado) * 1000) / 10 : 0,
+      color: this.paletaColores[idx % this.paletaColores.length]
+    }));
+
+    if (this.columnaOrdenMotivos) {
+      this.aplicarOrdenMotivos();
+    } else {
+      this.calcularSlicesDonut();
+    }
+  }
+
+  onCategoriaMotivoChange(): void {
+    this.aplicarFiltroCategoriaMotivos();
+    this.renderizarParetoMotivos();
+    this.cdr.markForCheck();
+  }
+
+  limpiarFiltroCategoriaMotivo(): void {
+    this.categoriaMotivoSeleccionada = 'TODAS';
+    this.onCategoriaMotivoChange();
   }
 
   // ---------------------------------------------------------------------------
@@ -1987,67 +2255,115 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     const codCob = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
     const tipoDoc = this.tipoDocSeleccionado !== 'TODOS' ? this.tipoDocSeleccionado : undefined;
 
-    this.directorioService.getParetoMotivos(codCob, tipoDoc, this.fechaDesde, this.fechaHasta)
+    this.directorioService.getParetoMotivos(codCob, tipoDoc, this.fechaDesde, this.fechaHasta, this.criterioFechaCc)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
         next: (datasets: DatasetGraficoDTO[]) => {
-          if (!datasets || datasets.length < 2 || !datasets[0]?.puntos?.length) {
-            this.motivosChartData = {
-              labels: [],
-              datasets: [
-                {
-                  label: 'Refacturado ($)',
-                  data: [],
-                  backgroundColor: '#2563eb',
-                  borderColor: '#1d4ed8',
-                  borderWidth: 1,
-                  borderRadius: 4
-                },
-                {
-                  label: 'Pérdida ($)',
-                  data: [],
-                  backgroundColor: '#dc2626',
-                  borderColor: '#b91c1c',
-                  borderWidth: 1,
-                  borderRadius: 4
-                }
-              ]
-            };
-            this.finalizarCargaGrafico();
-            return;
-          }
-
-          // [0] = Refacturado, [1] = Pérdida — comparten las mismas etiquetas (motivos)
-          const labels = datasets[0].puntos.map(p => p.etiqueta);
-          this.motivosChartData = {
-            labels,
-            datasets: [
-              {
-                label: 'Refacturado ($)',
-                data: datasets[0].puntos.map(p => Number(p.valor)),
-                backgroundColor: '#2563eb',
-                borderColor: '#1d4ed8',
-                borderWidth: 1,
-                borderRadius: 4
-              },
-              {
-                label: 'Pérdida ($)',
-                data: datasets[1].puntos.map(p => Number(p.valor)),
-                backgroundColor: '#dc2626',
-                borderColor: '#b91c1c',
-                borderWidth: 1,
-                borderRadius: 4
-              }
-            ]
-          };
+          this.rawDatasetsPareto = datasets || [];
+          this.renderizarParetoMotivos();
           this.finalizarCargaGrafico();
+          this.cdr.markForCheck();
         },
         error: (err) => {
           console.error('Error al cargar pareto de motivos:', err);
-          this.motivosChartData = { labels: [], datasets: [] };
+          this.rawDatasetsPareto = [];
+          this.renderizarParetoMotivos();
           this.finalizarCargaGrafico();
+          this.cdr.markForCheck();
         }
       });
+  }
+
+  renderizarParetoMotivos(): void {
+    if (this.categoriaMotivoSeleccionada !== 'TODAS') {
+      const topItems = (this.motivosDebito || []).slice(0, 10);
+      const labels = topItems.map(m => m.motivo);
+      const dataRef = topItems.map(m => m.montoRefacturado || 0);
+      const dataPer = topItems.map(m => m.montoAceptado || 0);
+      const dataDif = topItems.map(m =>
+        Math.max(0, Math.round((m.montoTotal || 0) - ((m.montoAceptado || 0) + (m.montoRefacturado || 0))))
+      );
+
+      this.motivosChartData = {
+        labels,
+        datasets: [
+          {
+            label: 'Refacturado ($)',
+            data: dataRef,
+            backgroundColor: '#2563eb',
+            borderColor: '#1d4ed8',
+            borderWidth: 1,
+            borderRadius: 4
+          },
+          {
+            label: 'Pérdida ($)',
+            data: dataPer,
+            backgroundColor: '#881337',
+            borderColor: '#881337',
+            borderWidth: 1,
+            borderRadius: 4
+          },
+          {
+            label: 'Diferencia ($)',
+            data: dataDif,
+            backgroundColor: '#7c3aed',
+            borderColor: '#6d28d9',
+            borderWidth: 1,
+            borderRadius: 4
+          }
+        ]
+      };
+      return;
+    }
+
+    const datasets = this.rawDatasetsPareto;
+    if (!datasets || datasets.length === 0 || !datasets[0]?.puntos?.length) {
+      this.motivosChartData = {
+        labels: [],
+        datasets: [
+          { label: 'Refacturado ($)', data: [], backgroundColor: '#2563eb', borderColor: '#1d4ed8', borderWidth: 1, borderRadius: 4 },
+          { label: 'Pérdida ($)', data: [], backgroundColor: '#881337', borderColor: '#881337', borderWidth: 1, borderRadius: 4 },
+          { label: 'Diferencia ($)', data: [], backgroundColor: '#7c3aed', borderColor: '#6d28d9', borderWidth: 1, borderRadius: 4 }
+        ]
+      };
+      return;
+    }
+
+    // [0] = Refacturado, [1] = Pérdida, [2] = Diferencia — comparten las mismas etiquetas (motivos)
+    const labels = datasets[0].puntos.map(p => p.etiqueta);
+    const datasetRef = datasets.find(d => d.tituloDataset?.toLowerCase().includes('refact')) || datasets[0];
+    const datasetPer = datasets.find(d => d.tituloDataset?.toLowerCase().includes('pérd') || d.tituloDataset?.toLowerCase().includes('perd')) || (datasets.length > 1 ? datasets[1] : null);
+    const datasetDif = datasets.find(d => d.tituloDataset?.toLowerCase().includes('dif')) || (datasets.length > 2 ? datasets[2] : null);
+
+    this.motivosChartData = {
+      labels,
+      datasets: [
+        {
+          label: 'Refacturado ($)',
+          data: datasetRef?.puntos ? datasetRef.puntos.map(p => Number(p.valor)) : [],
+          backgroundColor: '#2563eb',
+          borderColor: '#1d4ed8',
+          borderWidth: 1,
+          borderRadius: 4
+        },
+        {
+          label: 'Pérdida ($)',
+          data: datasetPer?.puntos ? datasetPer.puntos.map(p => Number(p.valor)) : [],
+          backgroundColor: '#881337',
+          borderColor: '#881337',
+          borderWidth: 1,
+          borderRadius: 4
+        },
+        {
+          label: 'Diferencia ($)',
+          data: datasetDif?.puntos ? datasetDif.puntos.map(p => Number(p.valor)) : [],
+          backgroundColor: '#7c3aed',
+          borderColor: '#6d28d9',
+          borderWidth: 1,
+          borderRadius: 4
+        }
+      ]
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -2082,6 +2398,110 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     if (this.criterioFechaCc === 'periodo') {
       this.fechaHasta = val;
     }
+  }
+
+  get periodoMesDesde(): string {
+    const f = this.criterioFechaCc === 'periodo' ? this.fechaDesde : this._ccPeriodoDesde;
+    return f ? f.substring(0, 7) : '';
+  }
+  set periodoMesDesde(mes: string) {
+    if (!mes) return;
+    const primerDia = mes + '-01';
+    this._ccPeriodoDesde = primerDia;
+    if (this.criterioFechaCc === 'periodo') {
+      this.fechaDesde = primerDia;
+    }
+  }
+
+  get periodoMesHasta(): string {
+    const f = this.criterioFechaCc === 'periodo' ? this.fechaHasta : this._ccPeriodoHasta;
+    return f ? f.substring(0, 7) : '';
+  }
+  set periodoMesHasta(mes: string) {
+    if (!mes) return;
+    const ultimoDia = this.calcularUltimoDiaMes(mes);
+    this._ccPeriodoHasta = ultimoDia;
+    if (this.criterioFechaCc === 'periodo') {
+      this.fechaHasta = ultimoDia;
+    }
+  }
+
+  calcularUltimoDiaMes(mes: string): string {
+    if (!mes) return '';
+    const parts = mes.split('-');
+    if (parts.length < 2) return '';
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(y) || isNaN(m)) return '';
+    const ultimoDia = new Date(y, m, 0);
+    return this.formatearFechaIso(ultimoDia);
+  }
+
+  onPeriodoDesdeChange(): void {
+    if (this.periodoMesDesde && this.periodoMesHasta && this.periodoMesDesde > this.periodoMesHasta) {
+      this.periodoMesHasta = this.periodoMesDesde;
+    }
+    this.validarFechas();
+    this.cdr.markForCheck();
+  }
+
+  onPeriodoHastaChange(): void {
+    if (this.periodoMesDesde && this.periodoMesHasta && this.periodoMesHasta < this.periodoMesDesde) {
+      this.periodoMesDesde = this.periodoMesHasta;
+    }
+    this.validarFechas();
+    this.cdr.markForCheck();
+  }
+
+  generarOpcionesPeriodos(): void {
+    const NOMBRES_MESES = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    let anioMin = 2024;
+    let mesMin = 7;
+    if (this.fechaMinimaPermitida) {
+      const parts = this.fechaMinimaPermitida.split('-');
+      if (parts.length >= 2) {
+        anioMin = parseInt(parts[0], 10) || 2024;
+        mesMin = parseInt(parts[1], 10) || 1;
+      }
+    }
+
+    const hoy = new Date();
+    let anioMax = hoy.getFullYear();
+    if (this.fechaHasta) {
+      const anioHasta = parseInt(this.fechaHasta.substring(0, 4), 10);
+      if (!isNaN(anioHasta) && anioHasta > anioMax) {
+        anioMax = anioHasta;
+      }
+    }
+    const mesMax = 12;
+
+    const items: OpcionPeriodoItem[] = [];
+
+    for (let y = anioMax; y >= anioMin; y--) {
+      const mInicio = (y === anioMax) ? mesMax : 12;
+      const mFin = (y === anioMin) ? mesMin : 1;
+
+      for (let m = mInicio; m >= mFin; m--) {
+        const mStr = String(m).padStart(2, '0');
+        const val = y + '-' + mStr;
+        const primerDiaIso = val + '-01';
+        const ultimoDiaDate = new Date(y, m, 0);
+        const ultimoDiaIso = this.formatearFechaIso(ultimoDiaDate);
+
+        items.push({
+          value: val,
+          label: NOMBRES_MESES[m - 1] + ' ' + y,
+          primerDiaIso,
+          ultimoDiaIso
+        });
+      }
+    }
+
+    this.opcionesPeriodos = items;
   }
 
   ccErrorPeriodoDesde: string | null = null;
@@ -2655,20 +3075,48 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   // Detalle y Trazabilidad (Árbol Encadenado)
   // ---------------------------------------------------------------------------
 
-  cargarTrazabilidad(): void {
+  cargarTrazabilidad(forzarConFiltrosFactura: boolean = false): void {
     if (!this.directorioService.getTrazabilidad) return;
     this.cargandoTrazabilidad = true;
     const financiador = this.codigoCoberturaSeleccionada !== 'TODAS' ? this.codigoCoberturaSeleccionada : undefined;
 
-    this.directorioService.getTrazabilidad(financiador, undefined, undefined, this.fechaDesde, this.fechaHasta)
+    const ptovtaParam = (forzarConFiltrosFactura && this.filtroTrazabilidadPtoVta && this.filtroTrazabilidadPtoVta !== 'TODOS')
+      ? Number(this.filtroTrazabilidadPtoVta)
+      : undefined;
+    const letraParam = (forzarConFiltrosFactura && this.filtroTrazabilidadLetra && this.filtroTrazabilidadLetra.trim() !== '')
+      ? this.filtroTrazabilidadLetra.trim().toUpperCase()
+      : undefined;
+    const numLimpio = (this.filtroTrazabilidadNumero || '').trim().replace(/^0+/, '');
+    const numeroParam = (forzarConFiltrosFactura && numLimpio !== '' && /^\d+$/.test(numLimpio))
+      ? Number(numLimpio)
+      : undefined;
+
+    const usaParametrosFactura = ptovtaParam !== undefined || letraParam !== undefined || numeroParam !== undefined;
+    this.trazabilidadBusquedaRemotaActiva = usaParametrosFactura;
+    if (!usaParametrosFactura) {
+      this.ultimoKeyRemotoTrazabilidad = '';
+    }
+
+    const request$ = usaParametrosFactura
+      ? this.directorioService.getTrazabilidad(
+          financiador, undefined, undefined, this.fechaDesde, this.fechaHasta,
+          ptovtaParam, letraParam, numeroParam
+        )
+      : this.directorioService.getTrazabilidad(financiador, undefined, undefined, this.fechaDesde, this.fechaHasta);
+
+    request$
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
         next: (data) => {
-          this.trazabilidadDatos = (data || []).map((c, idx) => ({
+          const lista = (data || []).map((c, idx) => ({
             ...c,
             _originalIndex: idx,
             expanded: false
           }));
+          if (lista.length === 1 && this.tieneFiltrosFacturaTrazabilidad) {
+            lista[0].expanded = true;
+          }
+          this.trazabilidadDatos = lista;
           this.trazabilidadPaginaActual = 1;
           if (this.columnaOrdenTrazabilidad) {
             this.aplicarOrdenTrazabilidad();
@@ -2685,15 +3133,137 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       });
   }
 
+  get tieneFiltrosFacturaTrazabilidad(): boolean {
+    return (this.filtroTrazabilidadLetra || '').trim() !== '' ||
+      (!!this.filtroTrazabilidadPtoVta && this.filtroTrazabilidadPtoVta !== 'TODOS') ||
+      (this.filtroTrazabilidadNumero || '').trim() !== '';
+  }
+
+  extraerDatosFacturaTrazabilidad(idPrestacion: string): { letra: string; ptovta: number | null; numeroStr: string } {
+    const raw = (idPrestacion || '').trim().toUpperCase();
+    // Formatos habituales: "FAC A0030-00005364", "FCE B0031-31052026", "FC A-0030-00005364"
+    const m = raw.match(/^(?:[A-Z]+\s+)?([A-Z])[- ]?0*(\d+)[- ]0*(\d+)$/);
+    if (m) {
+      const letra = m[1];
+      const ptovta = parseInt(m[2], 10);
+      const numeroStr = m[3].replace(/^0+/, '') || '0';
+      return {
+        letra,
+        ptovta: isNaN(ptovta) ? null : ptovta,
+        numeroStr
+      };
+    }
+    return { letra: '', ptovta: null, numeroStr: raw.replace(/^0+/, '') };
+  }
+
+  get trazabilidadFiltrada(): CadenaTrazabilidadDTO[] {
+    if (!this.trazabilidadDatos || this.trazabilidadDatos.length === 0) return [];
+    if (!this.tieneFiltrosFacturaTrazabilidad) {
+      return this.trazabilidadDatos;
+    }
+
+    const letraBuscada = (this.filtroTrazabilidadLetra || '').trim().toUpperCase();
+    const ptoVtaBuscado = (this.filtroTrazabilidadPtoVta && this.filtroTrazabilidadPtoVta !== 'TODOS')
+      ? parseInt(this.filtroTrazabilidadPtoVta, 10)
+      : null;
+    const numBuscadoRaw = (this.filtroTrazabilidadNumero || '').trim();
+    const numBuscadoSinCeros = numBuscadoRaw.replace(/^0+/, '') || (numBuscadoRaw ? '0' : '');
+
+    const filtrados = this.trazabilidadDatos.filter(cadena => {
+      const info = this.extraerDatosFacturaTrazabilidad(cadena.idPrestacion);
+      if (letraBuscada && info.letra !== letraBuscada) {
+        return false;
+      }
+      if (ptoVtaBuscado !== null && !isNaN(ptoVtaBuscado) && info.ptovta !== ptoVtaBuscado) {
+        return false;
+      }
+      if (numBuscadoSinCeros) {
+        if (info.numeroStr !== numBuscadoSinCeros && !info.numeroStr.includes(numBuscadoSinCeros)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (filtrados.length === 1) {
+      filtrados[0].expanded = true;
+    }
+    return filtrados;
+  }
+
+  onInputLetraTrazabilidad(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const limpio = (input.value || '').replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 1);
+    input.value = limpio;
+    this.filtroTrazabilidadLetra = limpio;
+    this.onFiltroTrazabilidadChange();
+  }
+
+  onInputNumeroTrazabilidad(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const limpio = (input.value || '').replace(/[^0-9]/g, '');
+    input.value = limpio;
+    this.filtroTrazabilidadNumero = limpio;
+    this.onFiltroTrazabilidadChange();
+  }
+
+  onFiltroTrazabilidadChange(): void {
+    this.trazabilidadPaginaActual = 1;
+    // Si todos los filtros se vaciaron y veníamos de una búsqueda remota puntual, restaurar el lote general
+    if (!this.tieneFiltrosFacturaTrazabilidad && this.trazabilidadBusquedaRemotaActiva) {
+      this.cargarTrazabilidad(false);
+      return;
+    }
+    // Opción C (Híbrida): si hay filtros activos y en memoria no hay coincidencias dentro de los 500 cargados,
+    // disparar automáticamente la consulta al backend para esa combinación.
+    if (this.tieneFiltrosFacturaTrazabilidad && this.trazabilidadFiltrada.length === 0 && !this.cargandoTrazabilidad) {
+      const key = `${(this.filtroTrazabilidadLetra || '').trim().toUpperCase()}|${this.filtroTrazabilidadPtoVta}|${(this.filtroTrazabilidadNumero || '').trim().replace(/^0+/, '')}`;
+      if (key !== this.ultimoKeyRemotoTrazabilidad) {
+        this.ultimoKeyRemotoTrazabilidad = key;
+        this.cargarTrazabilidad(true);
+        return;
+      }
+    }
+    this.cdr.markForCheck();
+    this.actualizarAlturasSticky();
+  }
+
+  buscarTrazabilidadFactura(): void {
+    if (!this.tieneFiltrosFacturaTrazabilidad) {
+      if (this.trazabilidadBusquedaRemotaActiva) {
+        this.cargarTrazabilidad(false);
+      }
+      return;
+    }
+    const key = `${(this.filtroTrazabilidadLetra || '').trim().toUpperCase()}|${this.filtroTrazabilidadPtoVta}|${(this.filtroTrazabilidadNumero || '').trim().replace(/^0+/, '')}`;
+    this.ultimoKeyRemotoTrazabilidad = key;
+    this.cargarTrazabilidad(true);
+  }
+
+  limpiarFiltrosTrazabilidad(): void {
+    this.filtroTrazabilidadLetra = '';
+    this.filtroTrazabilidadPtoVta = 'TODOS';
+    this.filtroTrazabilidadNumero = '';
+    this.trazabilidadPaginaActual = 1;
+    if (this.trazabilidadBusquedaRemotaActiva) {
+      this.cargarTrazabilidad(false);
+    } else {
+      this.cdr.markForCheck();
+      this.actualizarAlturasSticky();
+    }
+  }
+
   get totalPaginasTrazabilidad(): number {
-    if (!this.trazabilidadDatos || this.trazabilidadDatos.length === 0) return 1;
-    return Math.ceil(this.trazabilidadDatos.length / this.trazabilidadItemsPorPagina);
+    const lista = this.trazabilidadFiltrada;
+    if (!lista || lista.length === 0) return 1;
+    return Math.ceil(lista.length / this.trazabilidadItemsPorPagina);
   }
 
   get trazabilidadDatosPaginados(): CadenaTrazabilidadDTO[] {
-    if (!this.trazabilidadDatos || this.trazabilidadDatos.length === 0) return [];
+    const lista = this.trazabilidadFiltrada;
+    if (!lista || lista.length === 0) return [];
     const inicio = (this.trazabilidadPaginaActual - 1) * this.trazabilidadItemsPorPagina;
-    return this.trazabilidadDatos.slice(inicio, inicio + this.trazabilidadItemsPorPagina);
+    return lista.slice(inicio, inicio + this.trazabilidadItemsPorPagina);
   }
 
   cambiarPaginaTrazabilidad(pagina: number): void {
@@ -3016,6 +3586,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       });
   }
 
+  cambiarTipoRegistroOperador(tipo: 'Ambulatorios' | 'Internados'): void {
+    if (this.tipoRegistroOperador === tipo) return;
+    this.tipoRegistroOperador = tipo;
+    this.operadoresPaginaActual = 1;
+    this.cargarOperadores();
+  }
+
   cargarOperadores(): void {
     if (!this.directorioService.getDesempenoOperadores) {
       this.cargarDesempenoOperativo();
@@ -3024,7 +3601,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cargandoOperadores = true;
     const periodo = (this.fechaDesde && this.fechaDesde.length >= 7) ? this.fechaDesde.substring(0, 7) : undefined;
 
-    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta, this.criterioFechaCc)
+    this.directorioService.getDesempenoOperadores(periodo, this.fechaDesde, this.fechaHasta, this.criterioFechaCc, this.tipoRegistroOperador)
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
         next: (operadores) => {
@@ -3093,20 +3670,35 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       .pipe(takeUntil(this.cancelarPeticionesEnVuelo$), takeUntil(this.destroy$))
       .subscribe({
         next: (medicos) => {
-          this.medicosDatos = (medicos || []).map((med, idxMed) => ({
-            ...med,
-            _originalIndex: idxMed,
-            expanded: false,
-            motivos: (med.motivos || []).map((m, idxM) => ({
-              ...m,
-              _originalIndex: idxM,
+          this.medicosDatos = (medicos || []).map((med, idxMed) => {
+            const totalMontoMed = med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados) || 0;
+            const difMed = Math.max(0, totalMontoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
+            return {
+              ...med,
+              _originalIndex: idxMed,
               expanded: false,
-              financiadores: (m.financiadores || []).map((f, idxF) => ({
-                ...f,
-                _originalIndex: idxF
-              }))
-            }))
-          }));
+              diferencia: difMed,
+              motivos: (med.motivos || []).map((m, idxM) => {
+                const montoM = m.montoDebitado || 0;
+                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                return {
+                  ...m,
+                  _originalIndex: idxM,
+                  expanded: false,
+                  diferencia: difM,
+                  financiadores: (m.financiadores || []).map((f, idxF) => {
+                    const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
+                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    return {
+                      ...f,
+                      _originalIndex: idxF,
+                      diferencia: difF
+                    };
+                  })
+                };
+              })
+            };
+          });
 
           if (this.columnaOrdenMedico) {
             this.aplicarOrdenMedicos();
@@ -3174,20 +3766,35 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             this.aplicarOrdenMotivosAnalistas();
           }
 
-          this.medicosDatos = (data?.medicos || []).map((med, idxMed) => ({
-            ...med,
-            _originalIndex: idxMed,
-            expanded: false,
-            motivos: (med.motivos || []).map((m, idxM) => ({
-              ...m,
-              _originalIndex: idxM,
+          this.medicosDatos = (data?.medicos || []).map((med, idxMed) => {
+            const totalMontoMed = med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados) || 0;
+            const difMed = Math.max(0, totalMontoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
+            return {
+              ...med,
+              _originalIndex: idxMed,
               expanded: false,
-              financiadores: (m.financiadores || []).map((f, idxF) => ({
-                ...f,
-                _originalIndex: idxF
-              }))
-            }))
-          }));
+              diferencia: difMed,
+              motivos: (med.motivos || []).map((m, idxM) => {
+                const montoM = m.montoDebitado || 0;
+                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                return {
+                  ...m,
+                  _originalIndex: idxM,
+                  expanded: false,
+                  diferencia: difM,
+                  financiadores: (m.financiadores || []).map((f, idxF) => {
+                    const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
+                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    return {
+                      ...f,
+                      _originalIndex: idxF,
+                      diferencia: difF
+                    };
+                  })
+                };
+              })
+            };
+          });
 
           if (this.columnaOrdenMedico) {
             this.aplicarOrdenMedicos();
@@ -3198,20 +3805,35 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             this.filtroMedicoSeleccionado = 'TODOS';
           }
 
-          this.operadoresDatos = (data?.operadores || []).map((op, idxOp) => ({
-            ...op,
-            _originalIndex: idxOp,
-            expanded: false,
-            motivos: (op.motivos || []).map((m, idxM) => ({
-              ...m,
-              _originalIndex: idxM,
+          this.operadoresDatos = (data?.operadores || []).map((op, idxOp) => {
+            const totalMontoOp = op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados) || 0;
+            const difOp = Math.max(0, totalMontoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
+            return {
+              ...op,
+              _originalIndex: idxOp,
               expanded: false,
-              financiadores: (m.financiadores || []).map((f, idxF) => ({
-                ...f,
-                _originalIndex: idxF
-              }))
-            }))
-          }));
+              diferencia: difOp,
+              motivos: (op.motivos || []).map((m, idxM) => {
+                const montoM = m.montoDebitado || 0;
+                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                return {
+                  ...m,
+                  _originalIndex: idxM,
+                  expanded: false,
+                  diferencia: difM,
+                  financiadores: (m.financiadores || []).map((f, idxF) => {
+                    const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
+                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    return {
+                      ...f,
+                      _originalIndex: idxF,
+                      diferencia: difF
+                    };
+                  })
+                };
+              })
+            };
+          });
 
           if (this.columnaOrdenOperador) {
             this.aplicarOrdenOperadores();
@@ -3758,6 +4380,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           return (obtenerAceptadoMotivo(m1) - obtenerAceptadoMotivo(m2)) * factor;
         case 'refacturados':
           return (obtenerRefacturadoMotivo(m1) - obtenerRefacturadoMotivo(m2)) * factor;
+        case 'diferencia':
+          return (((m1 as any).diferencia || 0) - ((m2 as any).diferencia || 0)) * factor;
         case 'ticket': {
           const c1 = obtenerCasosMotivo(m1);
           const c2 = obtenerCasosMotivo(m2);
@@ -3796,6 +4420,8 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           return ((f1.aceptado || 0) - (f2.aceptado || 0)) * factor;
         case 'refacturados':
           return ((f1.refacturado || 0) - (f2.refacturado || 0)) * factor;
+        case 'diferencia':
+          return (((f1 as any).diferencia || 0) - ((f2 as any).diferencia || 0)) * factor;
         case 'ticket': {
           const mFin1 = f1.montoDebitado != null ? f1.montoDebitado : f1.monto;
           const mFin2 = f2.montoDebitado != null ? f2.montoDebitado : f2.monto;
@@ -4089,6 +4715,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.actualizarAlturasSticky();
   }
 
+  get tieneFiltroMedicoActivo(): boolean {
+    const tieneTexto = !!(this.busquedaTextoMedico && this.busquedaTextoMedico.trim() !== '');
+    const tieneCob = !!(this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS');
+    const tieneDropdown = !!(this.filtroMedicoSeleccionado && this.filtroMedicoSeleccionado !== 'TODOS');
+    return tieneTexto || tieneCob || tieneDropdown;
+  }
+
   // ── Totales Consolidados Fila Superior Médicos (Prestadores) ─────────────
   get totalMotivosMedicos(): number {
     return (this.medicosFiltrados || []).reduce((acc, med) => acc + (med.motivos?.length || 0), 0);
@@ -4109,6 +4742,10 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
   get totalRefacturadosMedicos(): number {
     return (this.medicosFiltrados || []).reduce((acc, med) => acc + (med.debitosRefacturados || 0), 0);
+  }
+
+  get totalDiferenciaMedicos(): number {
+    return Math.max(0, this.totalMontoDebitadoMedicos - (this.totalAceptadosMedicos + this.totalRefacturadosMedicos));
   }
 
   get ticketPromedioGlobalMedicos(): number {
@@ -4781,6 +5418,13 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.actualizarAlturasSticky();
   }
 
+  get tieneFiltroOperadorActivo(): boolean {
+    const tieneTexto = !!(this.busquedaTextoOperador && this.busquedaTextoOperador.trim() !== '');
+    const tieneCob = !!(this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS');
+    const tieneDropdown = !!(this.filtroOperadorSeleccionado && this.filtroOperadorSeleccionado !== 'TODOS');
+    return tieneTexto || tieneCob || tieneDropdown;
+  }
+
   // ── Totales Consolidados Fila Superior Operadores (Usuario de Carga) ───────
   get totalCasosOperadores(): number {
     return (this.operadoresFiltrados || []).reduce((acc, op) => acc + (op.cantidadRegistros || 0), 0);
@@ -5058,5 +5702,1058 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.motivosDebito = [...this.motivosDebito];
     this.calcularSlicesDonut();
     this.cdr.markForCheck();
+  }
+
+  // ===========================================================================
+  // EXPORTACIÓN A EXCEL POR SOLAPA (10 SOLAPAS DEL TABLERO)
+  // ===========================================================================
+
+  private formatearFechaLegibleExport(fechaIso?: string): string {
+    if (!fechaIso) return '';
+    const partes = fechaIso.split('T')[0].split('-');
+    return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : fechaIso;
+  }
+
+  obtenerContextoFiltrosExportacion(solapaTitulo: string, filtrosLocalesTexto?: string): ContextoFiltroExportacion {
+    let coberturaTexto = 'Todas las Instituciones';
+    if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+      const listaCob = this.solapaActiva === 'bucles' && this.coberturasBucles.length > 0
+        ? this.coberturasBucles
+        : this.coberturas;
+      const cobObj = listaCob.find(c => c.codigo === this.codigoCoberturaSeleccionada);
+      coberturaTexto = cobObj
+        ? `${cobObj.codigo} - ${cobObj.nombre}`
+        : this.codigoCoberturaSeleccionada;
+    }
+
+    const tipoComprobanteTexto = !this.esFiltroTipoDocDeshabilitado
+      ? (this.tipoDocSeleccionado === 'TODOS' ? 'Todos los Tipos' : this.tipoDocSeleccionado)
+      : undefined;
+
+    let criterioFechaTexto = 'Período de Factura Madre';
+    if (this.criterioFechaCc === 'fecha') {
+      criterioFechaTexto = 'Fecha de Factura Madre';
+    } else if (this.criterioFechaCc === 'analisis') {
+      criterioFechaTexto = 'Fecha de Análisis de Débito';
+    }
+
+    const rangoFechasTexto = !this.esFiltroFechaDeshabilitado && (this.fechaDesde || this.fechaHasta)
+      ? `${this.formatearFechaLegibleExport(this.fechaDesde)} al ${this.formatearFechaLegibleExport(this.fechaHasta)}`
+      : undefined;
+
+    return {
+      solapaTitulo,
+      coberturaTexto,
+      tipoComprobanteTexto,
+      criterioFechaTexto,
+      rangoFechasTexto,
+      filtrosLocalesTexto
+    };
+  }
+
+  async exportarExcelTablero(): Promise<void> {
+    if (this.exportandoExcel || (!this.balanceFinanciadores?.length && !this.totales)) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const ctx = this.obtenerContextoFiltrosExportacion('Tablero de Control y Balance Financiero');
+      await this.excelExportService.exportarTableroControl(
+        this.totales,
+        this.balanceFinanciadores,
+        this.totalesBalance,
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelCuentaCorriente(): Promise<void> {
+    if (this.subSolapaCc === 'no-imputados') {
+      await this.exportarExcelNoImputados();
+    } else {
+      await this.exportarExcelCuentaCorrienteImputados();
+    }
+  }
+
+  async exportarExcelCuentaCorrienteImputados(): Promise<void> {
+    if (this.exportandoExcel || !this.cuentaCorrienteDatos?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const ctx = this.obtenerContextoFiltrosExportacion('Cuenta Corriente — Imputados');
+      await this.excelExportService.exportarCuentaCorrienteImputados(
+        this.cuentaCorrienteDatos,
+        {
+          facturacion: this.totalFacturacionCc,
+          incrementos: this.totalIncrementosCc,
+          debitos: this.totalDebitosCc,
+          refacturacion: this.totalRefacturacionCc,
+          cobranzas: this.totalCobranzasCc,
+          saldo: this.totalSaldoCc
+        },
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelNoImputados(): Promise<void> {
+    const lista = this.recibosNoImputadosFiltrados;
+    if (this.exportandoExcel || !lista?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const extras: string[] = [];
+      extras.push(this.filtrarFechasNoImputados ? 'Acotado al rango de fechas' : 'Histórico completo');
+      if (this.busquedaTextoNoImputados?.trim()) {
+        extras.push(`Búsqueda: "${this.busquedaTextoNoImputados.trim()}"`);
+      }
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Cuenta Corriente — Recibos No Imputados',
+        extras.join(' | ')
+      );
+      await this.excelExportService.exportarCuentaCorrienteNoImputados(
+        lista,
+        this.totalMontoNoImputados,
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelTiemposCobranza(): Promise<void> {
+    if (this.exportandoExcel || !this.tiemposCobranzaDatos?.detalles?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const ctx = this.obtenerContextoFiltrosExportacion('Tiempos de Cobranza (Aging de Deuda)');
+      await this.excelExportService.exportarTiemposCobranza(this.tiemposCobranzaDatos, ctx);
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelMatriz(): Promise<void> {
+    if (this.exportandoExcel || !this.matrizRecaudacion?.filas?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Matriz Anual de Recaudación por Fecha Real de Recibo (RC)'
+      );
+      await this.excelExportService.exportarMatrizCobranzas(this.matrizRecaudacion, ctx);
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelMotivos(): Promise<void> {
+    if (this.exportandoExcel || !this.motivosDebito?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const filtroLocal = this.categoriaMotivoSeleccionada !== 'TODAS'
+        ? `Categoría: ${this.categoriaMotivoSeleccionada}`
+        : undefined;
+      const ctx = this.obtenerContextoFiltrosExportacion('Motivos de Débito y Refacturación', filtroLocal);
+      await this.excelExportService.exportarMotivosDebito(
+        this.motivosDebito,
+        {
+          totalDebitado: this.totalDebitadoMotivos,
+          totalCasos: this.totalCasosAfectadosMotivos,
+          debitoAceptado: this.debitoAceptadoPerdidaMotivos,
+          tasaPerdida: this.tasaPerdidaMotivos,
+          totalRefacturado: this.totalRefacturadoMotivos,
+          tasaRecupero: this.tasaRecuperoMotivos,
+          diferencia: this.diferenciaDebitadoVsRefacturado,
+          tasaDiferencia: this.tasaDiferenciaMotivos,
+          motivosIdentificados: this.motivosIdentificadosCount
+        },
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelAnalistas(): Promise<void> {
+    const lista = this.analistasFiltrados;
+    if (this.exportandoExcel || !lista?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const filtroLocal = this.filtroAnalistaSeleccionado !== 'TODOS'
+        ? `Analista: ${this.filtroAnalistaSeleccionado}`
+        : undefined;
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Desempeño y Gestión por Analista de Débito',
+        filtroLocal
+      );
+      await this.excelExportService.exportarAnalistasDebito(
+        lista,
+        {
+          financiadores: this.totalFinanciadoresAnalistas,
+          casos: this.totalCasosAnalistas,
+          montoDebitado: this.totalMontoDebitadoAnalistas,
+          aceptados: this.totalAceptadosAnalistas,
+          refacturados: this.totalRefacturadosAnalistas,
+          diferencia: this.totalDiferenciaAnalistas
+        },
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelBucles(): Promise<void> {
+    if (this.exportandoExcel || !this.buclesDatos?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const ctx = this.obtenerContextoFiltrosExportacion('Auditoría de Bucles de Insistencia');
+      await this.excelExportService.exportarBuclesInsistencia(this.buclesDatos, ctx);
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelOperadores(): Promise<void> {
+    const lista = this.operadoresFiltrados;
+    if (this.exportandoExcel || !lista?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const extras: string[] = [
+        `Atención: ${this.tipoRegistroOperador} (${this.tipoRegistroOperador === 'Internados' ? 'Operador Liquidación' : 'Operador Carga'})`
+      ];
+      if (this.filtroOperadorSeleccionado !== 'TODOS') {
+        extras.push(`Operador: ${this.filtroOperadorSeleccionado}`);
+      }
+      if (this.busquedaTextoOperador?.trim()) {
+        extras.push(`Búsqueda: "${this.busquedaTextoOperador.trim()}"`);
+      }
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        `Desempeño por Usuarios de Carga (${this.tipoRegistroOperador})`,
+        extras.length > 0 ? extras.join(' | ') : undefined
+      );
+      await this.excelExportService.exportarUsuariosCarga(
+        lista,
+        {
+          casos: this.totalCasosOperadores,
+          montoDebitado: this.totalMontoDebitadoOperadores,
+          aceptados: this.totalAceptadosOperadores,
+          refacturados: this.totalRefacturadosOperadores,
+          diferencia: this.totalDiferenciaOperadores
+        },
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelMedicos(): Promise<void> {
+    const lista = this.medicosFiltrados;
+    if (this.exportandoExcel || !lista?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const extras: string[] = [];
+      if (this.filtroMedicoSeleccionado !== 'TODOS') {
+        extras.push(`Médico: ${this.filtroMedicoSeleccionado}`);
+      }
+      if (this.busquedaTextoMedico?.trim()) {
+        extras.push(`Búsqueda: "${this.busquedaTextoMedico.trim()}"`);
+      }
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Desempeño por Prestadores / Médicos',
+        extras.length > 0 ? extras.join(' | ') : undefined
+      );
+      await this.excelExportService.exportarPrestadoresMedicos(
+        lista,
+        {
+          motivos: this.totalMotivosMedicos,
+          casos: this.totalCasosMedicos,
+          montoDebitado: this.totalMontoDebitadoMedicos,
+          aceptados: this.totalAceptadosMedicos,
+          refacturados: this.totalRefacturadosMedicos,
+          diferencia: this.totalDiferenciaMedicos
+        },
+        ctx
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  cargarPrestaciones(pagina: number = 1): void {
+    this.cargandoPrestaciones = true;
+    this.errorCargaPrestaciones = null;
+    this.prestacionesPaginaActual = Math.max(1, pagina);
+
+    const fDesde = this.criterioFechaCc === 'fecha'
+      ? (this.ccFechaDesde || this.fechaDesde || undefined)
+      : (this.ccPeriodoDesde || this.fechaDesde || undefined);
+    const fHasta = this.criterioFechaCc === 'fecha'
+      ? (this.ccFechaHasta || this.fechaHasta || undefined)
+      : (this.ccPeriodoHasta || this.fechaHasta || undefined);
+
+    const codCob = this.codigoCoberturaSeleccionada === 'TODAS' ? undefined : this.codigoCoberturaSeleccionada;
+    const tipoDoc = this.tipoDocSeleccionado === 'TODOS' ? undefined : this.tipoDocSeleccionado;
+
+    this.directorioService.getPrestacionesFacturadas(
+      codCob,
+      tipoDoc,
+      fDesde,
+      fHasta,
+      this.criterioFechaCc,
+      this.filtroPrestacionTipoRegistro,
+      this.filtroPrestacionMedico,
+      this.filtroPrestacionCodigo,
+      this.prestacionesPaginaActual - 1,
+      this.prestacionesTamanioPagina,
+      this.columnaOrdenPrestaciones || undefined,
+      this.direccionOrdenPrestaciones
+    ).pipe(takeUntil(this.destroy$), takeUntil(this.cancelarPeticionesEnVuelo$)).subscribe({
+      next: (res) => {
+        this.cargandoPrestaciones = false;
+        if (res) {
+          this.prestacionesDatos = res.items || [];
+          this.prestacionesTotalRegistros = res.totalRegistros || 0;
+          this.prestacionesTotalMonto = res.totalMontoFacturado || 0;
+          this.prestacionesTotalMedicos = res.cantidadMedicos || 0;
+          this.prestacionesTotalPacientes = res.cantidadPacientes || 0;
+          this.prestacionesTotalPaginas = res.totalPaginas || 1;
+        } else {
+          this.prestacionesDatos = [];
+          this.prestacionesTotalRegistros = 0;
+          this.prestacionesTotalMonto = 0;
+          this.prestacionesTotalMedicos = 0;
+          this.prestacionesTotalPacientes = 0;
+          this.prestacionesTotalPaginas = 1;
+        }
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.cargandoPrestaciones = false;
+        this.errorCargaPrestaciones = 'Error al cargar las prestaciones facturadas. Reintente más tarde.';
+        console.error('Error al cargar prestaciones:', err);
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  cambiarPaginaPrestaciones(pagina: number): void {
+    if (pagina < 1 || pagina > this.prestacionesTotalPaginas || pagina === this.prestacionesPaginaActual) return;
+    this.cargarPrestaciones(pagina);
+  }
+
+  cambiarTamanioPaginaPrestaciones(tamanio: number): void {
+    if (this.prestacionesTamanioPagina === tamanio) return;
+    this.prestacionesTamanioPagina = tamanio;
+    this.cargarPrestaciones(1);
+  }
+
+  onFiltroPrestacionTipoRegistroChange(): void {
+    this.cargarPrestaciones(1);
+  }
+
+  ordenarPrestaciones(columna: string): void {
+    if (this.columnaOrdenPrestaciones === columna) {
+      if (this.pasoOrdenPrestaciones === 1) {
+        this.pasoOrdenPrestaciones = 2;
+        this.direccionOrdenPrestaciones = this.direccionOrdenPrestaciones === 'asc' ? 'desc' : 'asc';
+      } else {
+        // 3er click: deshacer ordenamiento y volver al orden natural
+        this.columnaOrdenPrestaciones = '';
+        this.pasoOrdenPrestaciones = 0;
+      }
+    } else {
+      this.columnaOrdenPrestaciones = columna;
+      this.pasoOrdenPrestaciones = 1;
+      // Alfabéticas: asc por defecto; fechas, importes y cantidades: desc por defecto
+      const esDescPorDefecto = (columna === 'fecha' || columna === 'importe' || columna === 'cantidad');
+      this.direccionOrdenPrestaciones = esDescPorDefecto ? 'desc' : 'asc';
+    }
+    this.cargarPrestaciones(1);
+  }
+
+  // ── Filtro Médico: se aplica SOLO al seleccionar una sugerencia ─────────────
+  // `textoMedicoInput` es el borrador que escribe el usuario; `filtroPrestacionMedico` es el filtro aplicado.
+  onInputPrestacionMedico(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.textoMedicoInput = input ? input.value : '';
+    this.cancelarBusquedaSugerenciasMedicos();
+    this.sugerenciaMedicoActiva = -1;
+
+    const q = this.textoMedicoInput.trim();
+    if (q.length === 0) {
+      // Campo vacío = quitar el filtro aplicado (si lo había)
+      this.sugerenciasMedicosPrestaciones = [];
+      this.mostrarSugerenciasMedicos = false;
+      if (this.filtroPrestacionMedico) {
+        this.filtroPrestacionMedico = '';
+        this.cargarPrestaciones(1);
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    if (q.length < 2) {
+      this.sugerenciasMedicosPrestaciones = [];
+      this.mostrarSugerenciasMedicos = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.debounceSugerenciasMedicoTimer = setTimeout(() => this.buscarSugerenciasMedicos(q), 300);
+  }
+
+  private buscarSugerenciasMedicos(q: string): void {
+    this.cargandoSugerenciasMedicos = true;
+    this.sugerenciasMedicosPrestaciones = [];
+    this.mostrarSugerenciasMedicos = true;
+    this.cdr.markForCheck();
+    const fDesde = this.criterioFechaCc === 'fecha' ? this.fechaDesde : this.ccPeriodoDesde;
+    const fHasta = this.criterioFechaCc === 'fecha' ? this.fechaHasta : this.ccPeriodoHasta;
+    this.sugerenciasMedicoSub = this.directorioService
+      .getSugerenciasMedicos(q, this.codigoCoberturaSeleccionada, fDesde, fHasta, this.criterioFechaCc)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (sugs) => {
+          this.cargandoSugerenciasMedicos = false;
+          this.sugerenciasMedicosPrestaciones = sugs || [];
+          this.mostrarSugerenciasMedicos = true;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cargandoSugerenciasMedicos = false;
+          this.sugerenciasMedicosPrestaciones = [];
+          this.mostrarSugerenciasMedicos = false;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private cancelarBusquedaSugerenciasMedicos(): void {
+    if (this.debounceSugerenciasMedicoTimer) {
+      clearTimeout(this.debounceSugerenciasMedicoTimer);
+      this.debounceSugerenciasMedicoTimer = null;
+    }
+    if (this.sugerenciasMedicoSub) {
+      this.sugerenciasMedicoSub.unsubscribe();
+      this.sugerenciasMedicoSub = undefined;
+    }
+    this.cargandoSugerenciasMedicos = false;
+  }
+
+  onFocusMedico(): void {
+    this.mostrarSugerenciasMedicos = this.sugerenciasMedicosPrestaciones.length > 0;
+  }
+
+  /** Al salir del campo sin elegir una opción, el texto vuelve al último filtro aplicado. */
+  onBlurMedico(): void {
+    this.cancelarBusquedaSugerenciasMedicos();
+    this.mostrarSugerenciasMedicos = false;
+    this.sugerenciasMedicosPrestaciones = [];
+    this.sugerenciaMedicoActiva = -1;
+    this.textoMedicoInput = this.filtroPrestacionMedico;
+  }
+
+  onKeydownMedico(event: KeyboardEvent): void {
+    const n = this.sugerenciasMedicosPrestaciones.length;
+    switch (event.key) {
+      case 'ArrowDown':
+        if (!this.mostrarSugerenciasMedicos || n === 0) return;
+        event.preventDefault();
+        this.sugerenciaMedicoActiva = (this.sugerenciaMedicoActiva + 1) % n;
+        break;
+      case 'ArrowUp':
+        if (!this.mostrarSugerenciasMedicos || n === 0) return;
+        event.preventDefault();
+        this.sugerenciaMedicoActiva = this.sugerenciaMedicoActiva <= 0 ? n - 1 : this.sugerenciaMedicoActiva - 1;
+        break;
+      case 'Enter':
+        if (this.mostrarSugerenciasMedicos && this.sugerenciaMedicoActiva >= 0 && this.sugerenciaMedicoActiva < n) {
+          event.preventDefault();
+          this.seleccionarSugerenciaMedico(this.sugerenciasMedicosPrestaciones[this.sugerenciaMedicoActiva]);
+        }
+        break;
+      case 'Escape':
+        if (this.mostrarSugerenciasMedicos) {
+          event.preventDefault();
+          this.mostrarSugerenciasMedicos = false;
+          this.sugerenciaMedicoActiva = -1;
+        }
+        break;
+    }
+    this.cdr.markForCheck();
+  }
+
+  seleccionarSugerenciaMedico(med: string): void {
+    this.cancelarBusquedaSugerenciasMedicos();
+    this.filtroPrestacionMedico = med;
+    this.textoMedicoInput = med;
+    this.mostrarSugerenciasMedicos = false;
+    this.sugerenciasMedicosPrestaciones = [];
+    this.sugerenciaMedicoActiva = -1;
+    this.cargarPrestaciones(1);
+  }
+
+  private reiniciarFiltroMedico(): void {
+    this.cancelarBusquedaSugerenciasMedicos();
+    this.filtroPrestacionMedico = '';
+    this.textoMedicoInput = '';
+    this.mostrarSugerenciasMedicos = false;
+    this.sugerenciasMedicosPrestaciones = [];
+    this.sugerenciaMedicoActiva = -1;
+  }
+
+  limpiarFiltroPrestacionMedico(): void {
+    const habiaFiltro = !!this.filtroPrestacionMedico;
+    this.reiniciarFiltroMedico();
+    if (habiaFiltro) {
+      this.cargarPrestaciones(1);
+    }
+  }
+
+  // ── Filtro Prestación: se aplica SOLO al seleccionar una sugerencia ─────────
+  // `textoPrestacionInput` es el borrador; `filtroPrestacionCodigo` es el filtro aplicado.
+  onInputPrestacionCodigo(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.textoPrestacionInput = input ? input.value : '';
+    this.cancelarBusquedaSugerenciasPrestaciones();
+    this.sugerenciaPrestacionActiva = -1;
+
+    const q = this.textoPrestacionInput.trim();
+    if (q.length === 0) {
+      // Campo vacío = quitar el filtro aplicado (si lo había)
+      this.sugerenciasCodigosPrestaciones = [];
+      this.mostrarSugerenciasPrestaciones = false;
+      if (this.filtroPrestacionCodigo) {
+        this.filtroPrestacionCodigo = '';
+        this.textoPrestacionAplicado = '';
+        this.cargarPrestaciones(1);
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    if (q.length < 2) {
+      this.sugerenciasCodigosPrestaciones = [];
+      this.mostrarSugerenciasPrestaciones = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.debounceSugerenciasPrestacionTimer = setTimeout(() => this.buscarSugerenciasPrestaciones(q), 300);
+  }
+
+  private buscarSugerenciasPrestaciones(q: string): void {
+    this.cargandoSugerenciasPrestaciones = true;
+    this.sugerenciasCodigosPrestaciones = [];
+    this.mostrarSugerenciasPrestaciones = true;
+    this.cdr.markForCheck();
+    const fDesde = this.criterioFechaCc === 'fecha' ? this.fechaDesde : this.ccPeriodoDesde;
+    const fHasta = this.criterioFechaCc === 'fecha' ? this.fechaHasta : this.ccPeriodoHasta;
+    this.sugerenciasPrestacionSub = this.directorioService
+      .getSugerenciasPrestaciones(q, this.codigoCoberturaSeleccionada, fDesde, fHasta, this.criterioFechaCc)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (sugs) => {
+          this.cargandoSugerenciasPrestaciones = false;
+          this.sugerenciasCodigosPrestaciones = sugs || [];
+          this.mostrarSugerenciasPrestaciones = true;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cargandoSugerenciasPrestaciones = false;
+          this.sugerenciasCodigosPrestaciones = [];
+          this.mostrarSugerenciasPrestaciones = false;
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private cancelarBusquedaSugerenciasPrestaciones(): void {
+    if (this.debounceSugerenciasPrestacionTimer) {
+      clearTimeout(this.debounceSugerenciasPrestacionTimer);
+      this.debounceSugerenciasPrestacionTimer = null;
+    }
+    if (this.sugerenciasPrestacionSub) {
+      this.sugerenciasPrestacionSub.unsubscribe();
+      this.sugerenciasPrestacionSub = undefined;
+    }
+    this.cargandoSugerenciasPrestaciones = false;
+  }
+
+  onFocusPrestacion(): void {
+    this.mostrarSugerenciasPrestaciones = this.sugerenciasCodigosPrestaciones.length > 0;
+  }
+
+  /** Al salir del campo sin elegir una opción, el texto vuelve al último filtro aplicado. */
+  onBlurPrestacion(): void {
+    this.cancelarBusquedaSugerenciasPrestaciones();
+    this.mostrarSugerenciasPrestaciones = false;
+    this.sugerenciasCodigosPrestaciones = [];
+    this.sugerenciaPrestacionActiva = -1;
+    this.textoPrestacionInput = this.textoPrestacionAplicado;
+  }
+
+  onKeydownPrestacion(event: KeyboardEvent): void {
+    const n = this.sugerenciasCodigosPrestaciones.length;
+    switch (event.key) {
+      case 'ArrowDown':
+        if (!this.mostrarSugerenciasPrestaciones || n === 0) return;
+        event.preventDefault();
+        this.sugerenciaPrestacionActiva = (this.sugerenciaPrestacionActiva + 1) % n;
+        break;
+      case 'ArrowUp':
+        if (!this.mostrarSugerenciasPrestaciones || n === 0) return;
+        event.preventDefault();
+        this.sugerenciaPrestacionActiva = this.sugerenciaPrestacionActiva <= 0 ? n - 1 : this.sugerenciaPrestacionActiva - 1;
+        break;
+      case 'Enter':
+        if (this.mostrarSugerenciasPrestaciones && this.sugerenciaPrestacionActiva >= 0 && this.sugerenciaPrestacionActiva < n) {
+          event.preventDefault();
+          this.seleccionarSugerenciaPrestacion(this.sugerenciasCodigosPrestaciones[this.sugerenciaPrestacionActiva]);
+        }
+        break;
+      case 'Escape':
+        if (this.mostrarSugerenciasPrestaciones) {
+          event.preventDefault();
+          this.mostrarSugerenciasPrestaciones = false;
+          this.sugerenciaPrestacionActiva = -1;
+        }
+        break;
+    }
+    this.cdr.markForCheck();
+  }
+
+  seleccionarSugerenciaPrestacion(item: { codigo: string; descripcion: string }): void {
+    this.cancelarBusquedaSugerenciasPrestaciones();
+    const codigo = (item.codigo || '').trim();
+    const descripcion = (item.descripcion || '').trim();
+    this.filtroPrestacionCodigo = codigo || descripcion;
+    this.textoPrestacionAplicado = [codigo, descripcion].filter(t => !!t).join(' - ');
+    this.textoPrestacionInput = this.textoPrestacionAplicado;
+    this.mostrarSugerenciasPrestaciones = false;
+    this.sugerenciasCodigosPrestaciones = [];
+    this.sugerenciaPrestacionActiva = -1;
+    this.cargarPrestaciones(1);
+  }
+
+  private reiniciarFiltroPrestacion(): void {
+    this.cancelarBusquedaSugerenciasPrestaciones();
+    this.filtroPrestacionCodigo = '';
+    this.textoPrestacionAplicado = '';
+    this.textoPrestacionInput = '';
+    this.mostrarSugerenciasPrestaciones = false;
+    this.sugerenciasCodigosPrestaciones = [];
+    this.sugerenciaPrestacionActiva = -1;
+  }
+
+  limpiarFiltroPrestacionCodigo(): void {
+    const habiaFiltro = !!this.filtroPrestacionCodigo;
+    this.reiniciarFiltroPrestacion();
+    if (habiaFiltro) {
+      this.cargarPrestaciones(1);
+    }
+  }
+
+  formatearComprobanteItem(item: DirectorioPrestacionItem): string {
+    if (!item) return '-';
+    const tipo = item.tipoDoc || 'FC';
+    const letra = item.letraDoc || 'A';
+    const ptovta = String(item.ptovtaDoc || 0).padStart(4, '0');
+    const num = String(item.numeroDoc || 0).padStart(8, '0');
+    return `${tipo} ${letra} ${ptovta}-${num}`;
+  }
+
+  limpiarTodosFiltrosPrestaciones(): void {
+    this.filtroPrestacionTipoRegistro = 'TODOS';
+    this.columnaOrdenPrestaciones = '';
+    this.pasoOrdenPrestaciones = 0;
+    this.reiniciarFiltroMedico();
+    this.reiniciarFiltroPrestacion();
+    this.cargarPrestaciones(1);
+  }
+
+  /** Calcula un período (YYYY-MM) sumando una cantidad determinada de meses. */
+  calcularPeriodoMasMeses(periodoIso: string, mesesASumar: number): string {
+    if (!periodoIso) return '';
+    const parts = periodoIso.split('-');
+    if (parts.length < 2) return '';
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(y) || isNaN(m)) return '';
+    let targetYear = y;
+    let targetMonth = m + mesesASumar;
+    while (targetMonth > 12) {
+      targetYear++;
+      targetMonth -= 12;
+    }
+    while (targetMonth < 1) {
+      targetYear--;
+      targetMonth += 12;
+    }
+    return `${targetYear}-${String(targetMonth).padStart(2, '0')}`;
+  }
+
+  /** Calcula la fecha límite (máximo 3 meses) a partir de una fecha ISO (YYYY-MM-DD). */
+  calcularFechaMasTresMeses(fechaIso: string): string {
+    if (!fechaIso) return '';
+    const parts = fechaIso.split('-');
+    if (parts.length < 3) return '';
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+    let targetYear = y;
+    let targetMonth = m + 3;
+    while (targetMonth > 12) {
+      targetYear++;
+      targetMonth -= 12;
+    }
+    const ultimoDiaMes = new Date(targetYear, targetMonth, 0).getDate();
+    const targetDay = Math.min(d, ultimoDiaMes);
+    return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+  }
+
+  /** Calcula la fecha 3 meses anterior a partir de una fecha ISO (YYYY-MM-DD). */
+  calcularFechaMenosTresMeses(fechaIso: string): string {
+    if (!fechaIso) return '';
+    const parts = fechaIso.split('-');
+    if (parts.length < 3) return '';
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+    let targetYear = y;
+    let targetMonth = m - 2; // Ventana de 3 meses inclusiva (ej: Octubre -> Agosto)
+    while (targetMonth < 1) {
+      targetYear--;
+      targetMonth += 12;
+    }
+    const primerDia = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
+    return primerDia;
+  }
+
+  /** Evalúa si el rango de fechas actualmente filtrado en la pantalla supera los 3 meses. */
+  superaTresMesesPrestaciones(): boolean {
+    if (this.criterioFechaCc === 'fecha') {
+      const fD = this.ccFechaDesde || this.fechaDesde;
+      const fH = this.ccFechaHasta || this.fechaHasta;
+      if (!fD || !fH) return false;
+      const maxFecha = this.calcularFechaMasTresMeses(fD);
+      return fH > maxFecha;
+    } else {
+      const pD = this.periodoMesDesde;
+      const pH = this.periodoMesHasta;
+      if (!pD || !pH) return false;
+      const partsD = pD.split('-');
+      const partsH = pH.split('-');
+      if (partsD.length < 2 || partsH.length < 2) return false;
+      const yD = parseInt(partsD[0], 10);
+      const mD = parseInt(partsD[1], 10);
+      const yH = parseInt(partsH[0], 10);
+      const mH = parseInt(partsH[1], 10);
+      if (isNaN(yD) || isNaN(mD) || isNaN(yH) || isNaN(mH)) return false;
+      const cantMeses = (yH - yD) * 12 + (mH - mD) + 1;
+      return cantMeses > 3;
+    }
+  }
+
+  /** Abre la ventana modal para acotar el rango de exportación a un máximo de 3 meses. */
+  abrirModalExportarPrestaciones(): void {
+    this.modalExportCriterio = this.criterioFechaCc === 'fecha' ? 'fecha' : 'periodo';
+    this.errorModalExport = null;
+
+    if (this.modalExportCriterio === 'periodo') {
+      const pDesde = this.periodoMesDesde;
+      const pHasta = this.periodoMesHasta;
+      this.modalExportOpcionesDesde = this.opcionesPeriodos
+        .filter(opt => (!pDesde || opt.value >= pDesde) && (!pHasta || opt.value <= pHasta))
+        .slice()
+        .sort((a, b) => a.value.localeCompare(b.value));
+
+      // Por defecto, sugerir la ventana de 3 meses más reciente que incluya los datos actuales
+      const desdeIdeal = pHasta ? this.calcularPeriodoMasMeses(pHasta, -2) : pDesde;
+      const desdeFinal = (desdeIdeal && (!pDesde || desdeIdeal >= pDesde)) ? desdeIdeal : pDesde;
+
+      this.modalExportPeriodoDesde = desdeFinal || (this.modalExportOpcionesDesde[0]?.value || '');
+      this.modalExportPeriodoHasta = pHasta || this.modalExportPeriodoDesde;
+      this.actualizarOpcionesModalPeriodoHasta();
+    } else {
+      const fHasta = this.ccFechaHasta || this.fechaHasta;
+      const fDesde = this.ccFechaDesde || this.fechaDesde;
+      const fDesdeIdeal = fHasta ? this.calcularFechaMenosTresMeses(fHasta) : fDesde;
+      this.modalExportFechaDesde = (fDesdeIdeal && (!fDesde || fDesdeIdeal >= fDesde)) ? fDesdeIdeal : fDesde;
+      this.modalExportFechaHasta = fHasta;
+      this.actualizarLimitesModalFechaHasta();
+    }
+
+    this.modalExportPrestacionesVisible = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Actualiza las opciones del selector 'Hasta' en el modal según el 'Desde' elegido (máximo 3 meses). */
+  actualizarOpcionesModalPeriodoHasta(): void {
+    if (!this.modalExportPeriodoDesde) return;
+    const maxPeriodo3Meses = this.calcularPeriodoMasMeses(this.modalExportPeriodoDesde, 2);
+    const topeGlobal = this.periodoMesHasta;
+    const topeReal = (!topeGlobal || maxPeriodo3Meses < topeGlobal) ? maxPeriodo3Meses : topeGlobal;
+
+    this.modalExportOpcionesHasta = this.opcionesPeriodos
+      .filter(opt => opt.value >= this.modalExportPeriodoDesde && opt.value <= topeReal)
+      .slice()
+      .sort((a, b) => a.value.localeCompare(b.value));
+
+    const existe = this.modalExportOpcionesHasta.some(opt => opt.value === this.modalExportPeriodoHasta);
+    if (!existe || !this.modalExportPeriodoHasta) {
+      const ultimo = this.modalExportOpcionesHasta[this.modalExportOpcionesHasta.length - 1];
+      this.modalExportPeriodoHasta = ultimo ? ultimo.value : this.modalExportPeriodoDesde;
+    }
+  }
+
+  onModalPeriodoDesdeChange(nuevoDesde?: string): void {
+    if (nuevoDesde) {
+      this.modalExportPeriodoDesde = nuevoDesde;
+    }
+    this.errorModalExport = null;
+    this.actualizarOpcionesModalPeriodoHasta();
+    this.cdr.markForCheck();
+  }
+
+  onModalPeriodoHastaChange(): void {
+    this.errorModalExport = null;
+    this.cdr.markForCheck();
+  }
+
+  /** Actualiza los límites del selector fecha 'Hasta' en el modal (máximo 3 meses). */
+  actualizarLimitesModalFechaHasta(): void {
+    if (!this.modalExportFechaDesde) return;
+    this.modalExportFechaHastaMin = this.modalExportFechaDesde;
+    const max3Meses = this.calcularFechaMasTresMeses(this.modalExportFechaDesde);
+    const topeGlobal = this.ccFechaHasta || this.fechaHasta;
+    this.modalExportFechaHastaMax = (topeGlobal && topeGlobal < max3Meses) ? topeGlobal : max3Meses;
+
+    if (!this.modalExportFechaHasta ||
+        this.modalExportFechaHasta < this.modalExportFechaHastaMin ||
+        this.modalExportFechaHasta > this.modalExportFechaHastaMax) {
+      this.modalExportFechaHasta = this.modalExportFechaHastaMax;
+    }
+  }
+
+  onModalFechaDesdeChange(nuevaFecha?: string): void {
+    if (nuevaFecha) {
+      this.modalExportFechaDesde = nuevaFecha;
+    }
+    this.errorModalExport = null;
+    this.actualizarLimitesModalFechaHasta();
+    this.cdr.markForCheck();
+  }
+
+  onModalFechaHastaChange(): void {
+    this.errorModalExport = null;
+    if (this.modalExportFechaHastaMax && this.modalExportFechaHasta > this.modalExportFechaHastaMax) {
+      this.modalExportFechaHasta = this.modalExportFechaHastaMax;
+    } else if (this.modalExportFechaHastaMin && this.modalExportFechaHasta < this.modalExportFechaHastaMin) {
+      this.modalExportFechaHasta = this.modalExportFechaHastaMin;
+    }
+    this.cdr.markForCheck();
+  }
+
+  cerrarModalExportarPrestaciones(): void {
+    if (this.exportandoExcelModal) return;
+    this.modalExportPrestacionesVisible = false;
+    this.errorModalExport = null;
+    this.cdr.markForCheck();
+  }
+
+  /** Confirma la exportación con el rango acotado de 3 meses sin alterar los filtros de la pantalla principal. */
+  async confirmarExportacionModalPrestaciones(): Promise<void> {
+    if (this.exportandoExcelModal) return;
+    this.exportandoExcelModal = true;
+    this.errorModalExport = null;
+    this.cdr.markForCheck();
+
+    try {
+      let fDesde: string | undefined;
+      let fHasta: string | undefined;
+      let rangoFechasTexto: string = '';
+
+      if (this.modalExportCriterio === 'periodo') {
+        const optD = this.opcionesPeriodos.find(o => o.value === this.modalExportPeriodoDesde);
+        const optH = this.opcionesPeriodos.find(o => o.value === this.modalExportPeriodoHasta);
+        fDesde = optD ? optD.primerDiaIso : `${this.modalExportPeriodoDesde}-01`;
+        fHasta = optH ? optH.ultimoDiaIso : this.calcularUltimoDiaMes(this.modalExportPeriodoHasta);
+        rangoFechasTexto = `${optD ? optD.label : this.modalExportPeriodoDesde} al ${optH ? optH.label : this.modalExportPeriodoHasta}`;
+      } else {
+        fDesde = this.modalExportFechaDesde;
+        fHasta = this.modalExportFechaHasta;
+        rangoFechasTexto = `${this.formatearFechaLegibleExport(fDesde)} al ${this.formatearFechaLegibleExport(fHasta)}`;
+      }
+
+      const codCob = this.codigoCoberturaSeleccionada === 'TODAS' ? undefined : this.codigoCoberturaSeleccionada;
+      const tipoDoc = this.tipoDocSeleccionado === 'TODOS' ? undefined : this.tipoDocSeleccionado;
+
+      const res = await firstValueFrom(
+        this.directorioService.getPrestacionesFacturadas(
+          codCob,
+          tipoDoc,
+          fDesde,
+          fHasta,
+          this.modalExportCriterio,
+          this.filtroPrestacionTipoRegistro,
+          this.filtroPrestacionMedico,
+          this.filtroPrestacionCodigo,
+          0,
+          10000,
+          this.columnaOrdenPrestaciones || undefined,
+          this.direccionOrdenPrestaciones
+        )
+      );
+
+      const itemsParaExportar = res?.items || [];
+      if (itemsParaExportar.length === 0) {
+        this.errorModalExport = `No se encontraron prestaciones facturadas en el rango seleccionado (${rangoFechasTexto}). Por favor, seleccioná otro período.`;
+        this.exportandoExcelModal = false;
+        this.cdr.markForCheck();
+        return;
+      }
+
+      const filtrosLocales: string[] = [];
+      if (this.filtroPrestacionTipoRegistro !== 'TODOS') filtrosLocales.push(`Atención: ${this.filtroPrestacionTipoRegistro}`);
+      if (this.filtroPrestacionMedico?.trim()) filtrosLocales.push(`Médico: "${this.filtroPrestacionMedico.trim()}"`);
+      if (this.filtroPrestacionCodigo?.trim()) filtrosLocales.push(`Prestación: "${this.filtroPrestacionCodigo.trim()}"`);
+
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Prestaciones Facturadas en Factura Madre',
+        filtrosLocales.length > 0 ? filtrosLocales.join(' | ') : undefined
+      );
+      ctx.rangoFechasTexto = rangoFechasTexto;
+
+      await this.excelExportService.exportarPrestacionesFacturadas(
+        itemsParaExportar,
+        {
+          totalRegistros: res?.totalRegistros || itemsParaExportar.length,
+          totalMonto: res?.totalMontoFacturado || 0,
+          cantidadMedicos: res?.cantidadMedicos || 0,
+          cantidadPacientes: res?.cantidadPacientes || 0
+        },
+        ctx
+      );
+
+      this.modalExportPrestacionesVisible = false;
+    } catch (e) {
+      console.error('Error al exportar prestaciones desde el modal:', e);
+      this.errorModalExport = 'Ocurrió un error al generar el archivo Excel. Por favor, reintentá.';
+    } finally {
+      this.exportandoExcelModal = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelPrestaciones(): Promise<void> {
+    if (this.exportandoExcel || this.prestacionesTotalRegistros === 0) return;
+    if (!this.tieneFiltroLocalPrestaciones) return;
+
+    if (this.superaTresMesesPrestaciones()) {
+      this.abrirModalExportarPrestaciones();
+      return;
+    }
+
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const fDesde = this.criterioFechaCc === 'fecha'
+        ? (this.ccFechaDesde || this.fechaDesde || undefined)
+        : (this.ccPeriodoDesde || this.fechaDesde || undefined);
+      const fHasta = this.criterioFechaCc === 'fecha'
+        ? (this.ccFechaHasta || this.fechaHasta || undefined)
+        : (this.ccPeriodoHasta || this.fechaHasta || undefined);
+      const codCob = this.codigoCoberturaSeleccionada === 'TODAS' ? undefined : this.codigoCoberturaSeleccionada;
+      const tipoDoc = this.tipoDocSeleccionado === 'TODOS' ? undefined : this.tipoDocSeleccionado;
+
+      let itemsParaExportar = this.prestacionesDatos;
+      if (this.prestacionesTotalRegistros > this.prestacionesDatos.length) {
+        const resFull = await firstValueFrom(
+          this.directorioService.getPrestacionesFacturadas(
+            codCob, tipoDoc, fDesde, fHasta, this.criterioFechaCc,
+            this.filtroPrestacionTipoRegistro, this.filtroPrestacionMedico, this.filtroPrestacionCodigo,
+            0, Math.min(10000, this.prestacionesTotalRegistros),
+            this.columnaOrdenPrestaciones || undefined,
+            this.direccionOrdenPrestaciones
+          )
+        );
+        if (resFull && resFull.items && resFull.items.length > 0) {
+          itemsParaExportar = resFull.items;
+        }
+      }
+
+      const filtrosLocales: string[] = [];
+      if (this.filtroPrestacionTipoRegistro !== 'TODOS') filtrosLocales.push(`Atención: ${this.filtroPrestacionTipoRegistro}`);
+      if (this.filtroPrestacionMedico?.trim()) filtrosLocales.push(`Médico: "${this.filtroPrestacionMedico.trim()}"`);
+      if (this.filtroPrestacionCodigo?.trim()) filtrosLocales.push(`Prestación: "${this.filtroPrestacionCodigo.trim()}"`);
+
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Prestaciones Facturadas en Factura Madre',
+        filtrosLocales.length > 0 ? filtrosLocales.join(' | ') : undefined
+      );
+
+      await this.excelExportService.exportarPrestacionesFacturadas(
+        itemsParaExportar,
+        {
+          totalRegistros: this.prestacionesTotalRegistros,
+          totalMonto: this.prestacionesTotalMonto,
+          cantidadMedicos: this.prestacionesTotalMedicos,
+          cantidadPacientes: this.prestacionesTotalPacientes
+        },
+        ctx
+      );
+    } catch (e) {
+      console.error('Error al exportar prestaciones a Excel:', e);
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async exportarExcelTrazabilidad(): Promise<void> {
+    const lista = this.trazabilidadFiltrada;
+    if (this.exportandoExcel || !lista?.length) return;
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+    try {
+      const extras: string[] = [];
+      if (this.filtroTrazabilidadLetra?.trim()) {
+        extras.push(`Letra: ${this.filtroTrazabilidadLetra.trim().toUpperCase()}`);
+      }
+      if (this.filtroTrazabilidadPtoVta && this.filtroTrazabilidadPtoVta !== 'TODOS') {
+        extras.push(`Pto. Venta: ${String(this.filtroTrazabilidadPtoVta).padStart(4, '0')}`);
+      }
+      if (this.filtroTrazabilidadNumero?.trim()) {
+        extras.push(`Número: ${this.filtroTrazabilidadNumero.trim()}`);
+      }
+      const ctx = this.obtenerContextoFiltrosExportacion(
+        'Detalle y Trazabilidad (Árbol Encadenado)',
+        extras.length > 0 ? extras.join(' | ') : undefined
+      );
+      await this.excelExportService.exportarTrazabilidad(lista, ctx);
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
   }
 }

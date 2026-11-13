@@ -7,10 +7,12 @@ import com.debitos.backend.dto.DocumentoAsociadoDTO;
 import com.debitos.backend.dto.FilaAjusteIvaResumenDTO;
 import com.debitos.backend.dto.FilaHistorialDTO;
 import com.debitos.backend.dto.GuardarParcialRequest;
+import com.debitos.backend.dto.GuardarParcialResponseDTO;
 import com.debitos.backend.dto.NuevaNotaCreditoRequest;
 import com.debitos.backend.dto.NuevaNotaDebitoAjusteIvaRequest;
 import com.debitos.backend.dto.NuevaNotaDebitoRequest;
 import com.debitos.backend.dto.PrestacionAuditoriaDTO;
+import com.debitos.backend.dto.PrestacionCatalogoDTO;
 import com.debitos.backend.dto.RegistroAuditoriaDTO;
 import com.debitos.backend.dto.ResultadoBusquedaDTO;
 import com.debitos.backend.model.AmbLiquidado;
@@ -94,6 +96,10 @@ public class AuditoriaService {
     private AmbLiquidadoManualRepository ambLiquidadoManualRepository;
 
     @Autowired(required = false)
+    @org.springframework.beans.factory.annotation.Qualifier("gestionJdbcTemplate")
+    private org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate gestionJdbcTemplate;
+
+    @Autowired(required = false)
     private com.debitos.backend.config.CacheConfig cacheConfig;
 
     private LocalDate parsearFecha(Object valor) {
@@ -112,6 +118,28 @@ public class AuditoriaService {
     }
 
     private AmbLiquidado persistirPrestacionManual(RegistroAuditoriaDTO reg, Cabecera cabeceraOrigen, String usuario) {
+        if (cabeceraOrigen != null && cabeceraOrigen.getId() != null) {
+            LocalDate fechaParsed = parsearFecha(reg.getFecha());
+            String codigoReg = reg.getCodigo() != null ? reg.getCodigo().trim() : "";
+            String pacienteReg = reg.getPaciente() != null ? reg.getPaciente().trim() : "";
+
+            List<AmbLiquidado> existentes = ambLiquidadoRepository.findByCabecera_Id(cabeceraOrigen.getId());
+            for (AmbLiquidado alExistente : existentes) {
+                if (alExistente.getId() != null && ambLiquidadoManualRepository.existsByIdAmbLiquidado(alExistente.getId())) {
+                    String codEx = alExistente.getCodigo() != null ? alExistente.getCodigo().trim() : "";
+                    String pacEx = alExistente.getPaciente() != null ? alExistente.getPaciente().trim() : "";
+                    LocalDate fecEx = alExistente.getFecha();
+
+                    if (codEx.equalsIgnoreCase(codigoReg) && pacEx.equalsIgnoreCase(pacienteReg)
+                            && Objects.equals(fecEx, fechaParsed)) {
+                        log.info("Prestación manual existente encontrada para cabecera {} y paciente {}. Reutilizando ID {}",
+                                cabeceraOrigen.getId(), pacEx, alExistente.getId());
+                        return alExistente;
+                    }
+                }
+            }
+        }
+
         AmbLiquidado alManual = new AmbLiquidado();
         alManual.setCabecera(cabeceraOrigen);
         alManual.setPaciente(reg.getPaciente());
@@ -1002,8 +1030,8 @@ public class AuditoriaService {
     }
 
     @Transactional
-    public void procesarGuardadoParcial(GuardarParcialRequest request) {
-        if (request == null) return;
+    public GuardarParcialResponseDTO procesarGuardadoParcial(GuardarParcialRequest request) {
+        if (request == null) return new GuardarParcialResponseDTO();
         String documentoOrigen = request.getDocumentoOrigen();
         String letra = request.getLetra();
         Integer ptovta = request.getPtovta() != null ? Integer.valueOf(request.getPtovta().toString()) : 0;
@@ -1012,7 +1040,7 @@ public class AuditoriaService {
 
         List<RegistroAuditoriaDTO> registros = request.getRegistros() != null ? request.getRegistros() : Collections.emptyList();
         List<Integer> idsParaBorrar = request.getIdsParaBorrar() != null ? request.getIdsParaBorrar() : Collections.emptyList();
-        if (registros.isEmpty() && idsParaBorrar.isEmpty()) return;
+        if (registros.isEmpty() && idsParaBorrar.isEmpty()) return new GuardarParcialResponseDTO();
 
         Optional<Cabecera> cabeceraOrigenOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(
                 resolverTiposEquivalentes(documentoOrigen), letra, ptovta, numero)
@@ -1055,11 +1083,17 @@ public class AuditoriaService {
             }
         }
 
+        Map<Integer, Integer> idsMapeados = new HashMap<>();
+
         // Crear/persistir prestaciones manuales que vengan sin ID persistido aún (id == null || id < 0)
         for (RegistroAuditoriaDTO reg : registros) {
             if (reg != null && Boolean.TRUE.equals(reg.getEsManual()) && (reg.getId() == null || reg.getId() < 0)) {
+                Integer idProvisorio = reg.getId();
                 AmbLiquidado alManual = persistirPrestacionManual(reg, cabeceraOrigenOpt.orElse(null), usuario);
                 reg.setId(alManual.getId());
+                if (idProvisorio != null) {
+                    idsMapeados.put(idProvisorio, alManual.getId());
+                }
             }
         }
 
@@ -1072,7 +1106,7 @@ public class AuditoriaService {
                 registrosUnicos.put(reg.getId(), reg);
             }
         }
-        if (registrosUnicos.isEmpty()) return;
+        if (registrosUnicos.isEmpty()) return new GuardarParcialResponseDTO(idsMapeados, "Guardado parcial procesado correctamente");
 
         List<Integer> idsPrestaciones = new ArrayList<>(registrosUnicos.keySet());
 
@@ -1118,6 +1152,7 @@ public class AuditoriaService {
                 }
 
                 nc.setPrestacion(prestacion);
+                nc.setCabeceraFacturaDestino(cabeceraOrigenOpt.orElse(null));
                 nc.setMotivoDebito(p.getMotivoDebito());
                 nc.setImporteDebitado(importeDebitado);
                 nc.setDebitoaceptado(debitoAceptadoBool);
@@ -1199,6 +1234,8 @@ public class AuditoriaService {
         for (Cabecera cabDestino : cabecerasImputadasModificadas) {
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabDestino, "Modificación de prestaciones ya imputadas");
         }
+
+        return new GuardarParcialResponseDTO(idsMapeados, "Guardado parcial procesado correctamente");
     }
 
     @Transactional
@@ -1419,14 +1456,14 @@ public class AuditoriaService {
     }
 
     @Transactional
-    public void procesarNuevaNotaCredito(NuevaNotaCreditoRequest request) {
-        if (request == null) return;
+    public Map<Integer, Integer> procesarNuevaNotaCredito(NuevaNotaCreditoRequest request) {
+        if (request == null) return Collections.emptyMap();
         String origen = request.getOrigen();
         String usuario = request.getUsuario();
         DatosNotaDTO datosNota = request.getDatosNota();
         List<RegistroAuditoriaDTO> registros = request.getRegistros();
 
-        if (datosNota == null) return;
+        if (datosNota == null) return Collections.emptyMap();
 
         String tipoRegistro = obtenerTipoRegistro(origen, request.getLetraOriginal(),
                 Integer.valueOf(request.getPtovtaOriginal().toString()),
@@ -1450,12 +1487,18 @@ public class AuditoriaService {
         boolean esConjunta = "Prestacional y Ajuste de IVA".equalsIgnoreCase(datosNota.getTipoNc())
                 || "Mixta".equalsIgnoreCase(datosNota.getTipoNc());
 
+        Map<Integer, Integer> idsMapeados = new HashMap<>();
+
         // Crear/persistir prestaciones manuales que vengan sin ID persistido aún (id == null || id < 0)
         if (registros != null) {
             for (RegistroAuditoriaDTO reg : registros) {
                 if (reg != null && Boolean.TRUE.equals(reg.getEsManual()) && (reg.getId() == null || reg.getId() < 0)) {
+                    Integer idProvisorio = reg.getId();
                     AmbLiquidado alManual = persistirPrestacionManual(reg, cabeceraOrigenOpt.orElse(null), usuario);
                     reg.setId(alManual.getId());
+                    if (idProvisorio != null) {
+                        idsMapeados.put(idProvisorio, alManual.getId());
+                    }
                 }
             }
         }
@@ -1554,7 +1597,7 @@ public class AuditoriaService {
             ncAjusteDeIvaRepository.save(ncIva);
             String tipoImp = yaTeniaPrestaciones ? "Agregado de prestaciones a imputación" : "NC_AJUSTE_IVA";
             registrarImputacion(usuario, cabeceraOrigenOpt.orElse(null), cabecera, tipoImp);
-            return;
+            return idsMapeados;
         }
 
         if (esConjunta) {
@@ -1586,7 +1629,7 @@ public class AuditoriaService {
         }
 
         if (registros == null || registros.isEmpty())
-            return;
+            return idsMapeados;
 
         List<Integer> idsPrestaciones = registros.stream().filter(p -> p.getId() != null).map(RegistroAuditoriaDTO::getId).toList();
         Map<Integer, AmbLiquidado> prestacionesMap = ambLiquidadoRepository.findAllById(idsPrestaciones)
@@ -1613,6 +1656,7 @@ public class AuditoriaService {
 
                 nc.setCabecera(cabecera);
                 nc.setPrestacion(prestacion);
+                nc.setCabeceraFacturaDestino(cabeceraOrigenOpt.orElse(null));
                 nc.setMotivoDebito(p.getMotivoDebito());
                 nc.setImporteDebitado(importeDebitado);
                 nc.setDebitoaceptado(debitoAceptadoBool);
@@ -1685,6 +1729,7 @@ public class AuditoriaService {
             }
         }
         invalidarCacheTablero();
+        return idsMapeados;
     }
 
     @Transactional
@@ -2217,6 +2262,37 @@ public class AuditoriaService {
             return new CambioEstadoResponse(false, null, true);
         } else {
             throw new IllegalArgumentException("Estado no reconocido: " + nuevoEstado);
+        }
+    }
+
+    public List<PrestacionCatalogoDTO> buscarPrestacionesCatalogo(String filtro) {
+        if (filtro == null || filtro.trim().length() < 2) {
+            return Collections.emptyList();
+        }
+        if (gestionJdbcTemplate == null) {
+            log.warn("gestionJdbcTemplate no está disponible para buscar prestaciones de catálogo.");
+            return Collections.emptyList();
+        }
+        try {
+            String sql = """
+                SELECT DISTINCT TRIM(codigo) AS codigo, TRIM(descripcion) AS descripcion
+                FROM cob_prestaciones
+                WHERE activa = 'S'
+                  AND TRIM(codigo) ILIKE :filtro
+                ORDER BY 1 ASC
+                LIMIT 25
+            """;
+            org.springframework.jdbc.core.namedparam.MapSqlParameterSource params =
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("filtro", "%" + filtro.trim() + "%");
+            return gestionJdbcTemplate.query(sql, params, (rs, rowNum) ->
+                new PrestacionCatalogoDTO(
+                    rs.getString("codigo"),
+                    rs.getString("descripcion")
+                )
+            );
+        } catch (Exception e) {
+            log.warn("Error al consultar cob_prestaciones en base gestión: {}", e.getMessage());
+            return Collections.emptyList();
         }
     }
 }

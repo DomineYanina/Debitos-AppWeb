@@ -148,7 +148,7 @@ class AuditoriaControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/auditoria/guardar-parcialmente - Retorna 202 Accepted")
+    @DisplayName("POST /api/auditoria/guardar-parcialmente - Retorna 200 OK")
     void testGuardarParcialmente() throws Exception {
         GuardarParcialRequest request = new GuardarParcialRequest();
         request.setDocumentoOrigen("FC");
@@ -159,9 +159,9 @@ class AuditoriaControllerTest {
         mockMvc.perform(post("/api/auditoria/guardar-parcialmente")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isOk());
 
-        verify(auditoriaService, times(1)).procesarGuardadoParcialAsincrono(any(GuardarParcialRequest.class));
+        verify(auditoriaService, times(1)).procesarGuardadoParcial(any(GuardarParcialRequest.class));
     }
 
     @Test
@@ -283,5 +283,18 @@ class AuditoriaControllerTest {
         mockMvc.perform(get("/api/auditoria/configuracion"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.permitirNcConjunta").isBoolean());
+    }
+
+    @Test
+    @DisplayName("GET /api/auditoria/prestaciones-catalogo - Retorna 200 OK con lista")
+    void testBuscarPrestacionesCatalogo() throws Exception {
+        when(auditoriaService.buscarPrestacionesCatalogo("420"))
+                .thenReturn(List.of(new PrestacionCatalogoDTO("420101", "CONSULTA")));
+
+        mockMvc.perform(get("/api/auditoria/prestaciones-catalogo")
+                        .param("filtro", "420"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigo").value("420101"))
+                .andExpect(jsonPath("$[0].descripcion").value("CONSULTA"));
     }
 }

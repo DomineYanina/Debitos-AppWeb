@@ -21,7 +21,9 @@ import {
   TiemposCobranzaDTO,
   RangoAntiguedadDTO,
   PaginatedResponse,
-  ReciboSinImputarDTO
+  ReciboSinImputarDTO,
+  DirectorioPrestacionItem,
+  DirectorioPrestacionesResponse
 } from '../models/directorio.model';
 
 @Injectable({
@@ -94,7 +96,7 @@ export class DirectorioService {
     return this.http.get<PaginatedResponse<DirectorioGrupoFactura>>(`${this.apiUrl}/grupos`, { params });
   }
 
-  obtenerMotivos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 50): Observable<PaginatedResponse<DirectorioMotivoDebito>> {
+  obtenerMotivos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 1000, criterioFecha?: string): Observable<PaginatedResponse<DirectorioMotivoDebito>> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());
@@ -102,11 +104,12 @@ export class DirectorioService {
     if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<PaginatedResponse<DirectorioMotivoDebito>>(`${this.apiUrl}/motivos`, { params });
   }
 
-  obtenerMotivoDetalle(motivo: string, codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 1000): Observable<PaginatedResponse<DirectorioPrestacionDetalle>> {
+  obtenerMotivoDetalle(motivo: string, codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, page: number = 0, size: number = 1000, criterioFecha?: string): Observable<PaginatedResponse<DirectorioPrestacionDetalle>> {
     let params = new HttpParams()
       .set('motivo', motivo)
       .set('page', page.toString())
@@ -115,6 +118,7 @@ export class DirectorioService {
     if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<PaginatedResponse<DirectorioPrestacionDetalle>>(`${this.apiUrl}/motivo-detalle`, { params });
   }
@@ -193,12 +197,13 @@ export class DirectorioService {
    * Retorna 2 datasets ("Refacturado" y "Pérdida") con top 10 de glosas.
    * Pensado para un gráfico de barras apiladas (Pareto de motivos de débito).
    */
-  getParetoMotivos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string): Observable<DatasetGraficoDTO[]> {
+  getParetoMotivos(codigoCobertura?: string, tipoDoc?: string, fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<DatasetGraficoDTO[]> {
     let params = new HttpParams();
     if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
     if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<DatasetGraficoDTO[]>(`${this.apiGraficosUrl}/motivos`, { params });
   }
@@ -264,13 +269,31 @@ export class DirectorioService {
    * @param medico      filtro opcional por profesional / médico
    * @param periodo     filtro opcional por período YYYY-MM
    */
-  getTrazabilidad(financiador?: string, medico?: string, periodo?: string, fechaDesde?: string, fechaHasta?: string): Observable<CadenaTrazabilidadDTO[]> {
+  getTrazabilidad(
+    financiador?: string,
+    medico?: string,
+    periodo?: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    ptovta?: number | string,
+    letra?: string,
+    numero?: number | string
+  ): Observable<CadenaTrazabilidadDTO[]> {
     let params = new HttpParams();
     if (financiador) params = params.set('financiador', financiador);
     if (medico) params = params.set('medico', medico);
     if (periodo) params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (ptovta !== undefined && ptovta !== null && String(ptovta).trim() !== '' && String(ptovta).toUpperCase() !== 'TODOS') {
+      params = params.set('ptovta', String(ptovta).trim());
+    }
+    if (letra && letra.trim() !== '' && letra.trim().toUpperCase() !== 'TODAS') {
+      params = params.set('letra', letra.trim().toUpperCase());
+    }
+    if (numero !== undefined && numero !== null && String(numero).trim() !== '') {
+      params = params.set('numero', String(numero).trim());
+    }
 
     return this.http.get<CadenaTrazabilidadDTO[]>(`${this.apiGraficosUrl}/trazabilidad`, { params });
   }
@@ -333,12 +356,19 @@ export class DirectorioService {
    * Retorna únicamente las métricas de desempeño por Usuarios de Carga / Operadores
    * de forma directa y optimizada.
    */
-  getDesempenoOperadores(periodo?: string, fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<MetricaOperadorDTO[]> {
+  getDesempenoOperadores(
+    periodo?: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    criterioFecha?: string,
+    tipoRegistro: 'Ambulatorios' | 'Internados' = 'Ambulatorios'
+  ): Observable<MetricaOperadorDTO[]> {
     let params = new HttpParams();
     if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);
     if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
     if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
     if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
+    if (tipoRegistro) params = params.set('tipoRegistro', tipoRegistro);
 
     return this.http.get<MetricaOperadorDTO[]>(`${this.apiGraficosUrl}/desempeno/operadores`, { params });
   }
@@ -356,6 +386,70 @@ export class DirectorioService {
     if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
 
     return this.http.get<MetricaMedicoDTO[]>(`${this.apiGraficosUrl}/desempeno/medicos`, { params });
+  }
+
+  getPrestacionesFacturadas(
+    codigoCobertura?: string,
+    tipoDoc?: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    criterioFecha?: string,
+    tipoRegistro?: string,
+    medico?: string,
+    prestacion?: string,
+    page: number = 0,
+    size: number = 50,
+    sortBy?: string,
+    sortDir?: string
+  ): Observable<DirectorioPrestacionesResponse> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (tipoDoc && tipoDoc !== 'TODOS') params = params.set('tipoDoc', tipoDoc);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
+    if (tipoRegistro && tipoRegistro !== 'TODOS') params = params.set('tipoRegistro', tipoRegistro);
+    if (medico && medico.trim()) params = params.set('medico', medico.trim());
+    if (prestacion && prestacion.trim()) params = params.set('prestacion', prestacion.trim());
+    if (sortBy && sortBy.trim()) params = params.set('sortBy', sortBy.trim());
+    if (sortDir && sortDir.trim()) params = params.set('sortDir', sortDir.trim());
+
+    return this.http.get<DirectorioPrestacionesResponse>(`${this.apiUrl}/prestaciones`, { params });
+  }
+
+  getSugerenciasMedicos(
+    q: string,
+    codigoCobertura?: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    criterioFecha?: string
+  ): Observable<string[]> {
+    let params = new HttpParams().set('q', q);
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
+
+    return this.http.get<string[]>(`${this.apiUrl}/prestaciones/sugerencias-medicos`, { params });
+  }
+
+  getSugerenciasPrestaciones(
+    q: string,
+    codigoCobertura?: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    criterioFecha?: string
+  ): Observable<{ codigo: string; descripcion: string }[]> {
+    let params = new HttpParams().set('q', q);
+    if (codigoCobertura && codigoCobertura !== 'TODAS') params = params.set('codigoCobertura', codigoCobertura);
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
+
+    return this.http.get<{ codigo: string; descripcion: string }[]>(`${this.apiUrl}/prestaciones/sugerencias-prestaciones`, { params });
   }
 }
 

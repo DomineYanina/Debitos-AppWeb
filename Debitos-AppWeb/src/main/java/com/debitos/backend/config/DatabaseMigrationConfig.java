@@ -651,6 +651,8 @@ public class DatabaseMigrationConfig {
                     "CREATE INDEX IF NOT EXISTS idx_notadecredito_motivo ON notadecredito (motivodedebito)",
                     "CREATE INDEX IF NOT EXISTS idx_notadecredito_debitoaceptado ON notadecredito (debitoaceptado)",
                     "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_medico ON amb_liquidado (medico)",
+                    "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_efector ON amb_liquidado (efector)",
+                    "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_grupo ON amb_liquidado (grupo)",
                     "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_operador ON amb_liquidado (operador)",
                     "CREATE UNIQUE INDEX IF NOT EXISTS uq_amb_liquidado_idreg_tipo ON amb_liquidado (idregistro, tiporegistro)",
                     "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_tiporegistro ON amb_liquidado (tiporegistro)",
@@ -670,7 +672,12 @@ public class DatabaseMigrationConfig {
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_anulados_fc ON cabecera (fecha, debe, id, asociado, asociadogrupo, grupo) WHERE tipo IN ('FC','FAC','FCE','FCA') AND fecha >= DATE '2024-01-01'",
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_anulados_nc ON cabecera (fecha, COALESCE(NULLIF(haber, 0), debe, 0), id, asociado, asociadogrupo, grupo) WHERE tipo IN ('NC','NCE','NCA','NCB') AND fecha >= DATE '2024-01-01'",
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_anul_fc_exp ON cabecera (fecha, debe, id, asociado, asociadogrupo, grupo) WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA') AND fecha >= DATE '2024-01-01'",
-                    "CREATE INDEX IF NOT EXISTS idx_cabecera_anul_nc_exp ON cabecera (fecha, COALESCE(NULLIF(haber, 0), debe, 0), id, asociado, asociadogrupo, grupo) WHERE UPPER(TRIM(tipo)) IN ('NC','NCE','NCA','NCB') AND fecha >= DATE '2024-01-01'"
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_anul_nc_exp ON cabecera (fecha, COALESCE(NULLIF(haber, 0), debe, 0), id, asociado, asociadogrupo, grupo) WHERE UPPER(TRIM(tipo)) IN ('NC','NCE','NCA','NCB') AND fecha >= DATE '2024-01-01'",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_trazabilidad_busqueda ON cabecera (numero, ptovta, (UPPER(TRIM(letra))), fecha DESC) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 53)",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_periodo ON cabecera ((COALESCE(periodo, fecha)), codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 53)",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_fecha ON cabecera (fecha, codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 53)",
+                    "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idcabecera_fecha ON amb_liquidado (idcabecera, fecha DESC, id DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_codigo ON amb_liquidado (codigo)"
             };
 
             for (String sqlIndex : indices) {
@@ -748,6 +755,49 @@ public class DatabaseMigrationConfig {
                         "Migración automática aplicada: tabla amb_liquidado_manual verificada/creada.");
             } catch (Exception e) {
                 log.error("Error al verificar/crear tabla amb_liquidado_manual: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("""
+                            DO $$
+                            BEGIN
+                                IF EXISTS (
+                                    SELECT 1 FROM information_schema.columns 
+                                    WHERE table_name = 'amb_liquidado' 
+                                      AND column_name = 'grupomodulo' 
+                                      AND data_type = 'character varying'
+                                ) THEN
+                                    UPDATE amb_liquidado SET modulo = NULL WHERE modulo IS NOT NULL AND modulo !~ '^[0-9]+$';
+                                    UPDATE amb_liquidado SET grupomodulo = NULL WHERE grupomodulo IS NOT NULL AND grupomodulo !~ '^[0-9]+$';
+
+                                    ALTER TABLE amb_liquidado 
+                                      ALTER COLUMN modulo TYPE bigint USING NULLIF(TRIM(modulo), '')::bigint,
+                                      ALTER COLUMN grupomodulo TYPE bigint USING NULLIF(TRIM(grupomodulo), '')::bigint;
+                                END IF;
+                            END $$;
+                        """);
+                log.info("Migración automática aplicada: columnas modulo y grupomodulo verificadas/convertidas a BIGINT en amb_liquidado.");
+            } catch (Exception e) {
+                log.warn("Aviso migración modulo/grupomodulo en amb_liquidado: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute(
+                        "ALTER TABLE notadecredito ADD COLUMN IF NOT EXISTS idcabecera_factura_destino BIGINT");
+                jdbcTemplate.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_notadecredito_fac_destino ON notadecredito (idcabecera_factura_destino)");
+                jdbcTemplate.update("""
+                            UPDATE notadecredito nc
+                            SET idcabecera_factura_destino = c_nc.asociado
+                            FROM cabecera c_nc
+                            WHERE nc.idcabecera = c_nc.id
+                              AND nc.idcabecera_factura_destino IS NULL
+                              AND c_nc.asociado IS NOT NULL
+                              AND c_nc.asociado > 0
+                        """);
+                log.info("Migración automática aplicada: columna idcabecera_factura_destino verificada/creada en notadecredito.");
+            } catch (Exception e) {
+                log.debug("Aviso migración notadecredito.idcabecera_factura_destino: {}", e.getMessage());
             }
         };
     }

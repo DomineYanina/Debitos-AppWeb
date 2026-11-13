@@ -262,4 +262,19 @@ describe('DirectorioService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ dsoGlobal: 120, cobroRealPromedio: 0, saldoTotalMora: 50000, detalles: [] });
   });
+
+  it('getDesempenoOperadores debería enviar tipoRegistro en los parámetros HTTP', () => {
+    service.getDesempenoOperadores('2026-08', '2026-08-01', '2026-08-31', 'periodo', 'Internados').subscribe();
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/api/graficos/desempeno/operadores') &&
+      r.params.get('periodo') === '2026-08' &&
+      r.params.get('fechaDesde') === '2026-08-01' &&
+      r.params.get('fechaHasta') === '2026-08-31' &&
+      r.params.get('criterioFecha') === 'periodo' &&
+      r.params.get('tipoRegistro') === 'Internados'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 });

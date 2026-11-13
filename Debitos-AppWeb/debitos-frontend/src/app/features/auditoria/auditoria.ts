@@ -1,16 +1,16 @@
 import { Component, inject, ChangeDetectorRef, ChangeDetectionStrategy, HostListener, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subject, Subscription } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+import { Subject, Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
-import { AuditoriaService } from '../../core/services/auditoria';
+import { AuditoriaService, PrestacionCatalogo } from '../../core/services/auditoria';
 import { DocumentoAsociado } from '../../core/models/documento-asociado';
 import { ExcelExportService } from '../../core/services/excel-export';
 import { AgGridModule } from 'ag-grid-angular';
-import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
+import { ColDef, GridReadyEvent, ModuleRegistry, AllCommunityModule, themeQuartz, colorSchemeDark, GridApi, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
 import { GroupedSelectEditor } from '../../core/components/grouped-select-editor/grouped-select-editor';
 import { LISTA_MOTIVOS_DEBITO, LISTA_MOTIVOS_REFACTURA } from '../../core/constants/motivos';
 
@@ -23,6 +23,7 @@ import { InactividadService } from '../../core/services/InactividadService';
 import { TourService } from '../../core/services/tour.service';
 import { HelpDrawerComponent } from '../../core/components/help-drawer/help-drawer.component';
 import { NotificacionService } from '../../core/services/notificacion.service';
+import { ThemeService } from '../../core/services/theme.service';
 
 @Component({
   selector: 'app-auditoria',
@@ -79,6 +80,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnInit() {
+    this.themeSub = this.themeService.resolvedTheme$.subscribe(resolved => {
+      this.theme = resolved === 'dark' ? themeQuartz.withPart(colorSchemeDark) : themeQuartz;
+      this.cdr.markForCheck();
+    });
+
     this.autoguardadoSub = this.autoguardado$.pipe(debounceTime(10000)).subscribe(() => {
       if (!this.puedeEditarPrestaciones) return;
       if (this.modificadosSinGuardar.size > 0 || this.prestacionesParaBorrar.size > 0) {
@@ -100,6 +106,34 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         });
       }
     }
+    // Suscripción al autocompletado en tiempo real de código de prestación
+    this.catalogoSub = this.busquedaCodigo$.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap(term => {
+        const limpio = (term || '').trim();
+        if (limpio.length < 2) {
+          this.buscandoCatalogo = false;
+          this.listaPrestacionesCatalogo = [];
+          this.mostrarDropdownCatalogo = false;
+          return of([]);
+        }
+        this.buscandoCatalogo = true;
+        this.mostrarDropdownCatalogo = true;
+        return this.auditoriaService.buscarPrestacionesCatalogo(limpio).pipe(
+          catchError(err => {
+            console.warn('Error al buscar en catálogo de prestaciones:', err);
+            return of([]);
+          })
+        );
+      })
+    ).subscribe(items => {
+      this.buscandoCatalogo = false;
+      this.listaPrestacionesCatalogo = items || [];
+      this.mostrarDropdownCatalogo = true;
+      this.cdr.detectChanges();
+    });
+
     this.inactividadService.iniciarSeguimiento();
 
     this.auditoriaService.obtenerConfiguracion().subscribe({
@@ -216,13 +250,17 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy() {
     if (this.autoguardadoSub) this.autoguardadoSub.unsubscribe();
     if (this.notifSub) this.notifSub.unsubscribe();
+    if (this.catalogoSub) this.catalogoSub.unsubscribe();
+    if (this.themeSub) this.themeSub.unsubscribe();
     this.inactividadService.pararSeguimiento();
   }
   debitoAceptadoMasivoSeleccionado: string = '';
   listaDebitoAceptado: string[] = ['Borrar', 'SI', 'NO'];
   private excelService = inject(ExcelExportService);
   private notificacionService = inject(NotificacionService);
+  public themeService = inject(ThemeService);
   private notifSub?: Subscription;
+  private themeSub?: Subscription;
 
 
   listaMotivosAgrupados = LISTA_MOTIVOS_DEBITO;
@@ -570,9 +608,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   });
 
   modalPrestacionExternaVisible: boolean = false;
+  agregandoPrestacionExterna: boolean = false;
   contadorTemporalManual: number = 1;
   prestacionExternaForm = this.fb.group({
     paciente: ['', [Validators.required, Validators.maxLength(150)]],
+    pacienteNoEspecificado: [false],
     cobertura: ['', [Validators.required, Validators.maxLength(100)]],
     plan: [''],
     carnet: [''],
@@ -581,10 +621,18 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     fecha: [this.obtenerFechaHoy(), Validators.required],
     cantidad: [1, [Validators.required, Validators.min(1)]],
     importeDebitado: ['', [Validators.required, Validators.min(0.01)]],
-    debitoAceptado: ['NO', Validators.required],
+    debitoAceptado: ['NO'],
     motivoDebito: [''],
     motivoRefactura: ['']
   });
+  // Autocompletado de Código de Prestación en Modal Externa
+  busquedaCodigo$ = new Subject<string>();
+  listaPrestacionesCatalogo: PrestacionCatalogo[] = [];
+  buscandoCatalogo: boolean = false;
+  mostrarDropdownCatalogo: boolean = false;
+  descripcionPrestacionBloqueada: boolean = false;
+  private catalogoSub?: Subscription;
+
   modalImportarPrestacionesVisible: boolean = false;
   cargandoImportacion: boolean = false;
   prestacionesCandidatasImportar: Prestacion[] = [];
@@ -593,6 +641,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   facturaCandidataInfo: string = '';
   todasCandidatasSeleccionadas: boolean = false;
   errorBusquedaImportacion: string = '';
+  columnaOrdenModal: string = '';
+  direccionOrdenModal: 'asc' | 'desc' = 'asc';
 
   // Filtros dinámicos en el modal de importación
   filtroModalPaciente: string = '';
@@ -933,6 +983,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.facturaCandidataInfo = '';
     this.todasCandidatasSeleccionadas = false;
     this.errorBusquedaImportacion = '';
+    this.columnaOrdenModal = '';
+    this.direccionOrdenModal = 'asc';
     this.resetFiltrosModal();
     this.modalImportarPrestacionesVisible = true;
     this.cdr.detectChanges();
@@ -943,6 +995,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.prestacionesCandidatasImportar = [];
     this.prestacionesCandidatasFiltradas = [];
     this.prestacionesSeleccionadasParaImportar.clear();
+    this.columnaOrdenModal = '';
+    this.direccionOrdenModal = 'asc';
     this.resetFiltrosModal();
     this.cdr.detectChanges();
   }
@@ -964,6 +1018,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       const coincideFecha = !this.filtroModalFecha || p.fecha === this.filtroModalFecha;
       return coincidePaciente && coincideProfesional && coincidePrestacion && coincideGrupo && coincideFecha;
     });
+
+    if (this.columnaOrdenModal) {
+      this.aplicarOrdenamientoModal();
+    }
 
     this.todasCandidatasSeleccionadas = this.prestacionesCandidatasFiltradas.length > 0 &&
       this.prestacionesCandidatasFiltradas.every(p => p.id != null && this.prestacionesSeleccionadasParaImportar.has(p.id));
@@ -992,6 +1050,72 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   tieneFiltrosModalActivos(): boolean {
     return !!(this.filtroModalPaciente || this.filtroModalProfesional || this.filtroModalPrestacion || this.filtroModalGrupo || this.filtroModalFecha);
+  }
+
+  ordenarModal(columna: string): void {
+    if (this.columnaOrdenModal === columna) {
+      this.direccionOrdenModal = this.direccionOrdenModal === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.columnaOrdenModal = columna;
+      this.direccionOrdenModal = 'asc';
+    }
+    this.aplicarOrdenamientoModal();
+    this.cdr.detectChanges();
+  }
+
+  aplicarOrdenamientoModal(): void {
+    if (!this.columnaOrdenModal) return;
+    const col = this.columnaOrdenModal;
+    const dir = this.direccionOrdenModal === 'asc' ? 1 : -1;
+
+    this.prestacionesCandidatasFiltradas.sort((a, b) => {
+      let valA: any;
+      let valB: any;
+
+      switch (col) {
+        case 'paciente':
+          valA = a.paciente ?? '';
+          valB = b.paciente ?? '';
+          return valA.localeCompare(valB, 'es', { sensitivity: 'base' }) * dir;
+        case 'medico':
+          valA = a.medico || a.efector || '';
+          valB = b.medico || b.efector || '';
+          return valA.localeCompare(valB, 'es', { sensitivity: 'base' }) * dir;
+        case 'codigo':
+          valA = a.codigo ?? '';
+          valB = b.codigo ?? '';
+          return valA.localeCompare(valB, 'es', { numeric: true, sensitivity: 'base' }) * dir;
+        case 'descripcion':
+          valA = a.descripcion ?? '';
+          valB = b.descripcion ?? '';
+          return valA.localeCompare(valB, 'es', { sensitivity: 'base' }) * dir;
+        case 'cantidad':
+          valA = a.cantidad ?? 0;
+          valB = b.cantidad ?? 0;
+          return (valA - valB) * dir;
+        case 'fecha':
+          valA = a.fecha ? new Date(a.fecha).getTime() : 0;
+          valB = b.fecha ? new Date(b.fecha).getTime() : 0;
+          return (valA - valB) * dir;
+        case 'totalNeto':
+          valA = a.totalNeto ?? 0;
+          valB = b.totalNeto ?? 0;
+          return (valA - valB) * dir;
+        case 'total':
+          valA = a.total ?? 0;
+          valB = b.total ?? 0;
+          return (valA - valB) * dir;
+        default:
+          return 0;
+      }
+    });
+  }
+
+  getIconoModal(col: string): string {
+    if (this.columnaOrdenModal === col) {
+      return this.direccionOrdenModal === 'asc' ? '▲' : '▼';
+    }
+    return '↕';
   }
 
   buscarFacturaParaImportar(): void {
@@ -1061,6 +1185,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
           this.errorBusquedaImportacion = 'Todas las prestaciones de esta factura ya fueron incorporadas a la grilla.';
         }
 
+        this.columnaOrdenModal = '';
+        this.direccionOrdenModal = 'asc';
         this.prepararFiltrosModal(this.prestacionesCandidatasImportar);
         this.resetFiltrosModal();
         this.cdr.detectChanges();
@@ -1124,8 +1250,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     paraImportar.forEach(p => {
       if (p.id != null) {
         this.modificadosSinGuardar.add(p.id);
+        this.prestacionesParaBorrar.delete(p.id);
       }
     });
+    this.autoguardado$.next();
 
     this.prestaciones = [...this.prestaciones, ...paraImportar];
     this.prestacionesFiltradas = [...this.prestacionesFiltradas, ...paraImportar];
@@ -1150,9 +1278,13 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   quitarPrestacionImportada(prestacion: Prestacion): void {
     if (!prestacion || !prestacion.id) return;
-    this.prestaciones = this.prestaciones.filter(p => p.id !== prestacion.id);
-    this.prestacionesFiltradas = this.prestacionesFiltradas.filter(p => p.id !== prestacion.id);
-    this.modificadosSinGuardar.delete(prestacion.id);
+    const id = prestacion.id;
+    this.prestaciones = this.prestaciones.filter(p => p.id !== id);
+    this.prestacionesFiltradas = this.prestacionesFiltradas.filter(p => p.id !== id);
+    this.modificadosSinGuardar.delete(id);
+    if (id > 0) {
+      this.prestacionesParaBorrar.add(id);
+    }
 
     this.prepararFiltros(this.prestaciones);
     this.calcularTotales();
@@ -1161,6 +1293,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.gridApi) {
       this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
     }
+
+    if (id > 0) {
+      this.guardarParcialmente(true);
+    }
+
     this.cdr.detectChanges();
   }
 
@@ -1177,8 +1314,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       ? this.prestaciones[0].cobertura
       : '';
 
+    this.descripcionPrestacionBloqueada = false;
+    this.listaPrestacionesCatalogo = [];
+    this.mostrarDropdownCatalogo = false;
+    this.buscandoCatalogo = false;
+    this.prestacionExternaForm.get('paciente')?.enable();
     this.prestacionExternaForm.reset({
       paciente: '',
+      pacienteNoEspecificado: false,
       cobertura: coberturaActual,
       plan: '',
       carnet: '',
@@ -1196,12 +1339,65 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.cdr.detectChanges();
   }
 
+  onPacienteNoEspecificadoChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const ctrlPaciente = this.prestacionExternaForm.get('paciente');
+    if (checked) {
+      ctrlPaciente?.setValue('Paciente no Especificado');
+      ctrlPaciente?.disable();
+    } else {
+      ctrlPaciente?.enable();
+      ctrlPaciente?.setValue('');
+    }
+  }
+
+  onCodigoPrestacionInput(event: Event): void {
+    const val = (event.target as HTMLInputElement).value || '';
+    if (this.descripcionPrestacionBloqueada) {
+      this.descripcionPrestacionBloqueada = false;
+    }
+    this.busquedaCodigo$.next(val);
+  }
+
+  onCodigoPrestacionFocus(): void {
+    const val = (this.prestacionExternaForm.get('codigo')?.value || '').trim();
+    if (val.length >= 2 && this.listaPrestacionesCatalogo.length > 0) {
+      this.mostrarDropdownCatalogo = true;
+    }
+  }
+
+  seleccionarPrestacionCatalogo(p: PrestacionCatalogo): void {
+    this.prestacionExternaForm.patchValue({
+      codigo: p.codigo,
+      descripcion: p.descripcion
+    });
+    this.descripcionPrestacionBloqueada = true;
+    this.mostrarDropdownCatalogo = false;
+    this.cdr.detectChanges();
+  }
+
+  desbloquearDescripcion(): void {
+    this.descripcionPrestacionBloqueada = false;
+    this.cdr.detectChanges();
+  }
+
+  cerrarDropdownCatalogo(): void {
+    this.mostrarDropdownCatalogo = false;
+    this.cdr.detectChanges();
+  }
+
   cerrarModalPrestacionExterna(): void {
+    this.mostrarDropdownCatalogo = false;
+    this.descripcionPrestacionBloqueada = false;
     this.modalPrestacionExternaVisible = false;
+    this.agregandoPrestacionExterna = false;
     this.cdr.detectChanges();
   }
 
   confirmarPrestacionExterna(): void {
+    if (this.agregandoPrestacionExterna) {
+      return;
+    }
     if (this.prestacionExternaForm.invalid) {
       this.prestacionExternaForm.markAllAsTouched();
       this.mostrarAlerta('Por favor, complete los campos obligatorios del formulario.', undefined, 'error');
@@ -1216,56 +1412,61 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const idProvisorio = -1 * (this.contadorTemporalManual++);
-    const busq = this.busquedaForm.getRawValue();
-    const ptoVta = String(busq.puntoVenta || '').padStart(4, '0');
-    const num = String(busq.numero || '').padStart(8, '0');
-    const compOrigen = `${(busq.tipo || 'FC').toUpperCase()} ${(busq.letra || '').toUpperCase()}-${ptoVta}-${num}`;
+    this.agregandoPrestacionExterna = true;
+    try {
+      const idProvisorio = -1 * (this.contadorTemporalManual++);
+      const busq = this.busquedaForm.getRawValue();
+      const ptoVta = String(busq.puntoVenta || '').padStart(4, '0');
+      const num = String(busq.numero || '').padStart(8, '0');
+      const compOrigen = `${(busq.tipo || 'FC').toUpperCase()} ${(busq.letra || '').toUpperCase()}-${ptoVta}-${num}`;
 
-    const nuevaPrestacion: Prestacion = {
-      id: idProvisorio,
-      esManual: true,
-      paciente: (val.paciente || '').trim(),
-      cobertura: (val.cobertura || '').trim(),
-      plan: (val.plan || '').trim(),
-      carnet: (val.carnet || '').trim(),
-      codigo: (val.codigo || '').trim(),
-      descripcion: (val.descripcion || '').trim(),
-      fecha: val.fecha || this.obtenerFechaHoy(),
-      cantidad: Number(val.cantidad) || 1,
-      totalNeto: 0,
-      coseguro: 0,
-      total: 0,
-      importeDebitado: importeNum,
-      importeRefactura: importeNum,
-      debitoAceptado: val.debitoAceptado || 'NO',
-      motivoDebito: (val.motivoDebito || '').trim(),
-      motivoRefactura: (val.motivoRefactura || '').trim(),
-      efector: '',
-      medico: 'NO APLICA / EXTERNA',
-      modulo: '',
-      facturaOrigenTipo: (busq.tipo || 'FC').toUpperCase(),
-      facturaOrigenLetra: (busq.letra || '').toUpperCase(),
-      facturaOrigenPtovta: Number(busq.puntoVenta) || 0,
-      facturaOrigenNumero: Number(busq.numero) || 0,
-      facturaOrigenComprobante: compOrigen
-    };
+      const nuevaPrestacion: Prestacion = {
+        id: idProvisorio,
+        esManual: true,
+        paciente: (val.paciente || '').trim(),
+        cobertura: (val.cobertura || '').trim(),
+        plan: (val.plan || '').trim(),
+        carnet: (val.carnet || '').trim(),
+        codigo: (val.codigo || '').trim(),
+        descripcion: (val.descripcion || '').trim(),
+        fecha: val.fecha || this.obtenerFechaHoy(),
+        cantidad: Number(val.cantidad) || 1,
+        totalNeto: 0,
+        coseguro: 0,
+        total: 0,
+        importeDebitado: importeNum,
+        importeRefactura: importeNum,
+        debitoAceptado: val.debitoAceptado || 'NO',
+        motivoDebito: (val.motivoDebito || '').trim(),
+        motivoRefactura: (val.motivoRefactura || '').trim(),
+        efector: '',
+        medico: 'NO APLICA / EXTERNA',
+        modulo: '',
+        facturaOrigenTipo: (busq.tipo || 'FC').toUpperCase(),
+        facturaOrigenLetra: (busq.letra || '').toUpperCase(),
+        facturaOrigenPtovta: Number(busq.puntoVenta) || 0,
+        facturaOrigenNumero: Number(busq.numero) || 0,
+        facturaOrigenComprobante: compOrigen
+      };
 
-    this.modificadosSinGuardar.add(idProvisorio);
-    this.prestaciones = [...this.prestaciones, nuevaPrestacion];
-    this.prestacionesFiltradas = [...this.prestacionesFiltradas, nuevaPrestacion];
+      this.modificadosSinGuardar.add(idProvisorio);
+      this.prestaciones = [...this.prestaciones, nuevaPrestacion];
+      this.prestacionesFiltradas = [...this.prestacionesFiltradas, nuevaPrestacion];
 
-    this.prepararFiltros(this.prestaciones);
-    this.calcularTotales();
-    this.configurarColumnas();
+      this.prepararFiltros(this.prestaciones);
+      this.calcularTotales();
+      this.configurarColumnas();
 
-    if (this.gridApi) {
-      this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
+      if (this.gridApi) {
+        this.gridApi.setGridOption('rowData', this.prestacionesFiltradas);
+      }
+
+      this.cerrarModalPrestacionExterna();
+      this.mostrarAlerta('¡Prestación externa agregada con éxito! Podés editar sus valores en la grilla antes de guardar.', undefined, 'exito');
+    } finally {
+      this.agregandoPrestacionExterna = false;
+      this.cdr.detectChanges();
     }
-
-    this.cerrarModalPrestacionExterna();
-    this.mostrarAlerta('¡Prestación externa agregada con éxito! Podés editar sus valores en la grilla antes de guardar.', undefined, 'exito');
-    this.cdr.detectChanges();
   }
 
   quitarPrestacionManual(prestacion: Prestacion): void {
@@ -1417,7 +1618,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       const tieneDebito = p.motivoDebito && p.motivoDebito.trim() !== '';
       const tieneRefactura = p.motivoRefactura && p.motivoRefactura.trim() !== '';
 
-      if (tieneDebito || tieneRefactura) {
+      if (tieneDebito || tieneRefactura || p.esImportada) {
         this.modificadosSinGuardar.add(p.id); // Lo marcamos como pendiente
       } else {
         this.modificadosSinGuardar.delete(p.id); // Lo sacamos de la lista si quedó vacío
@@ -1445,8 +1646,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }).subscribe({ error: () => { } });
 
       this.registrosSeleccionados.forEach(p => {
-        // Si la prestación ya estaba en base de datos o trabajada, la marcamos para borrar en el backend
-        if (p.id != null) {
+        // Si la prestación ya estaba en base de datos o trabajada (y no es importada), la marcamos para borrar en el backend
+        if (p.id != null && !p.esImportada) {
           this.prestacionesParaBorrar.add(p.id);
         }
         p.debitoAceptado = '';
@@ -1464,8 +1665,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.cerrarModal();
       this.gridApi?.refreshCells();
 
-      // Sincronizamos de inmediato la eliminación en la base de datos (notadecredito o notadedebito)
-      if (this.prestacionesParaBorrar.size > 0) {
+      // Sincronizamos de inmediato la eliminación o limpieza en la base de datos (notadecredito o notadedebito)
+      if (this.prestacionesParaBorrar.size > 0 || this.modificadosSinGuardar.size > 0) {
         this.guardarParcialmente(true);
       }
     };
@@ -1841,6 +2042,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const data = (res && res.prestaciones) ? res.prestaciones : (Array.isArray(res) ? res : []);
         const fcPrincipal = this.facturasAsociadasInfo && this.facturasAsociadasInfo.length > 0 ? this.facturasAsociadasInfo[0] : null;
+        const esBusquedaFc = this.esTipoFactura(this.tipoBusquedaRealizada);
+        const letraBuscada = (rawVal.letra || '').trim().toUpperCase();
+        const ptoVtaBuscado = Number(rawVal.puntoVenta) || 0;
+        const numBuscado = Number(rawVal.numero) || 0;
 
         this.prestaciones = data.map((p: any) => {
           p.debitoAceptado = p.debitoAceptado || '';
@@ -1852,9 +2057,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
             p.facturaOrigenComprobante = `${tipoFc} ${p.facturaOrigenLetra}-${ptoVta}-${num}`;
 
             if (fcPrincipal && (
-              p.facturaOrigenNumero !== fcPrincipal.numero ||
-              p.facturaOrigenPtovta !== fcPrincipal.ptovta ||
-              p.facturaOrigenLetra !== fcPrincipal.letra
+              Number(p.facturaOrigenNumero) !== Number(fcPrincipal.numero) ||
+              Number(p.facturaOrigenPtovta) !== Number(fcPrincipal.ptovta) ||
+              (p.facturaOrigenLetra || '').toUpperCase() !== (fcPrincipal.letra || '').toUpperCase()
+            )) {
+              p.esImportada = true;
+            } else if (esBusquedaFc && (
+              Number(p.facturaOrigenNumero) !== numBuscado ||
+              Number(p.facturaOrigenPtovta) !== ptoVtaBuscado ||
+              (p.facturaOrigenLetra || '').toUpperCase() !== letraBuscada
             )) {
               p.esImportada = true;
             }
@@ -2418,6 +2629,31 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
+  private actualizarIdsMapeados(idsMapeados: Record<string, number>): void {
+    if (!idsMapeados) return;
+    let huboCambios = false;
+    Object.entries(idsMapeados).forEach(([idProvStr, idRealNum]) => {
+      const idProv = Number(idProvStr);
+      const idReal = Number(idRealNum);
+      if (isNaN(idProv) || isNaN(idReal)) return;
+
+      const fila = this.prestaciones.find(p => p.id === idProv);
+      if (fila) {
+        fila.id = idReal;
+        huboCambios = true;
+      }
+      const filaFilt = this.prestacionesFiltradas.find(p => p.id === idProv);
+      if (filaFilt) {
+        filaFilt.id = idReal;
+        huboCambios = true;
+      }
+    });
+
+    if (huboCambios && this.gridApi) {
+      this.gridApi.refreshCells();
+    }
+  }
+
   guardarParcialmente(silencioso: boolean = false) {
     if (!this.puedeEditarPrestaciones) {
       return;
@@ -2437,7 +2673,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     const registrosParaGuardar = this.prestaciones.filter(p => {
       if (p.id == null || !this.modificadosSinGuardar.has(p.id)) return false;
       if (this.esTipoNotaCredito()) return p.motivoRefactura && p.motivoRefactura.trim() !== '';
-      return p.motivoDebito && p.motivoDebito.trim() !== '';
+      return (p.motivoDebito && p.motivoDebito.trim() !== '') || !!p.esImportada;
     });
 
     const idsParaBorrar = Array.from(this.prestacionesParaBorrar);
@@ -2476,7 +2712,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     this.auditoriaService.guardarParcialmente(payload, silencioso).subscribe({
-      next: () => {
+      next: (resp: any) => {
+        if (resp?.idsMapeados) {
+          this.actualizarIdsMapeados(resp.idsMapeados);
+        }
         this.modificadosSinGuardar.clear(); // <-- ÉXITO: Limpiamos el contador tras respuesta 200/202
         this.prestacionesParaBorrar.clear();  // <-- ÉXITO: Limpiamos los pendientes de borrado
 
@@ -3480,7 +3719,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       : this.auditoriaService.guardarNuevaNotaDebito(payload);
 
     request$.subscribe({
-      next: () => {
+      next: (resp: any) => {
+        if (resp?.idsMapeados) {
+          this.actualizarIdsMapeados(resp.idsMapeados);
+        }
         this.modificadosSinGuardar.clear(); // <-- Limpiamos PRIMERO la lista de pendientes sin guardar
         this.cargando = false;
 

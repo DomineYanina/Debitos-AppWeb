@@ -318,10 +318,8 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
           SUM(COALESCE(nc.importederefactura, 0)) AS refacturado,
           SUM(
             CASE 
-              WHEN nc.debitoaceptado = true THEN COALESCE(nc.importedebitado, 0)
-              WHEN COALESCE(nc.importederefactura, 0) > 0 
-                   AND COALESCE(nc.importedebitado, 0) > COALESCE(nc.importederefactura, 0)
-                THEN (COALESCE(nc.importedebitado, 0) - COALESCE(nc.importederefactura, 0))
+              WHEN nc.debitoaceptado = true THEN
+                GREATEST(0, COALESCE(nc.importedebitado, 0) - COALESCE(nc.importederefactura, 0))
               ELSE 0 
             END
           ) AS perdida

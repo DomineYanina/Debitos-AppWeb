@@ -162,8 +162,9 @@ public class GraficosController {
             @RequestParam(required = false) String codigoCobertura,
             @RequestParam(required = false) String tipoDoc,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<DatasetGraficoDTO> datasets = directorioService.getParetoMotivos(codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha) {
+        List<DatasetGraficoDTO> datasets = directorioService.getParetoMotivos(codigoCobertura, tipoDoc, fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(datasets);
     }
 
@@ -248,8 +249,16 @@ public class GraficosController {
             @RequestParam(required = false) String medico,
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) String fechaDesde,
-            @RequestParam(required = false) String fechaHasta) {
-        List<CadenaTrazabilidadDTO> resultado = directorioService.getTrazabilidad(financiador, medico, periodo, fechaDesde, fechaHasta);
+            @RequestParam(required = false) String fechaHasta,
+            @RequestParam(required = false) Integer ptovta,
+            @RequestParam(required = false) String letra,
+            @RequestParam(required = false) Long numero) {
+        boolean tieneFiltrosFactura = ptovta != null
+                || (letra != null && !letra.trim().isEmpty())
+                || numero != null;
+        List<CadenaTrazabilidadDTO> resultado = tieneFiltrosFactura
+                ? directorioService.getTrazabilidad(financiador, medico, periodo, fechaDesde, fechaHasta, ptovta, letra, numero)
+                : directorioService.getTrazabilidad(financiador, medico, periodo, fechaDesde, fechaHasta);
         return ResponseEntity.ok(resultado);
     }
 
@@ -337,8 +346,9 @@ public class GraficosController {
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
-            @RequestParam(defaultValue = "analisis") String criterioFecha) {
-        List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta, criterioFecha);
+            @RequestParam(defaultValue = "analisis") String criterioFecha,
+            @RequestParam(defaultValue = "Ambulatorios") String tipoRegistro) {
+        List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta, criterioFecha, tipoRegistro);
         return ResponseEntity.ok(resultado);
     }
 

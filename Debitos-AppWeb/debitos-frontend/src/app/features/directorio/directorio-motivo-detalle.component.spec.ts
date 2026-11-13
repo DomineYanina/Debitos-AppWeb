@@ -3,6 +3,7 @@ import { Router, provideRouter, ActivatedRoute, convertToParamMap } from '@angul
 import { of, throwError } from 'rxjs';
 import { DirectorioMotivoDetalleComponent } from './directorio-motivo-detalle.component';
 import { DirectorioService } from '../../core/services/directorio.service';
+import { ExcelExportService } from '../../core/services/excel-export';
 import { vi } from 'vitest';
 
 describe('DirectorioMotivoDetalleComponent', () => {
@@ -92,7 +93,7 @@ describe('DirectorioMotivoDetalleComponent', () => {
     expect(component.motivo).toBe('Falta de autorización/Token');
     expect(component.codigoCobertura).toBe('OSDE');
     expect(component.tipoDoc).toBe('FCE');
-    expect(directorioServiceSpy.obtenerMotivoDetalle).toHaveBeenCalledWith('Falta de autorización/Token', 'OSDE', 'FCE', '2026-08-01', '2026-08-31');
+    expect(directorioServiceSpy.obtenerMotivoDetalle).toHaveBeenCalledWith('Falta de autorización/Token', 'OSDE', 'FCE', '2026-08-01', '2026-08-31', 0, 1000, 'periodo');
     expect(component.prestaciones.length).toBe(2);
     expect(component.totalMontoDebitado).toBe(12500);
     expect(component.totalCasos).toBe(2);
@@ -334,5 +335,36 @@ describe('DirectorioMotivoDetalleComponent', () => {
     directorioServiceSpy.obtenerMotivoDetalle.mockReturnValue(throwError(() => new Error('err')));
     component.cargarDetalle();
     expect(component.cargando).toBe(false);
+  });
+
+  it('debería renderizar el botón Exportar a Excel y llamar a excelExportService.exportarDetalleMotivo al hacer click', async () => {
+    const excelService = TestBed.inject(ExcelExportService);
+    const exportSpy = vi.spyOn(excelService, 'exportarDetalleMotivo').mockResolvedValue();
+
+    const exportBtn = fixture.nativeElement.querySelector('#btn-export-motivo-detalle');
+    expect(exportBtn).toBeTruthy();
+    expect(exportBtn.textContent).toContain('Exportar a Excel');
+
+    await component.exportarExcel();
+
+    expect(exportSpy).toHaveBeenCalled();
+    const args = exportSpy.mock.calls[0];
+    expect(args[0].length).toBe(2);
+    expect(args[1].motivo).toBe('Falta de autorización/Token');
+    expect(args[2].solapaTitulo).toContain('Falta de autorización/Token');
+  });
+
+  it('exportarExcel no debería llamar al servicio si ya está exportando o si no hay prestaciones', async () => {
+    const excelService = TestBed.inject(ExcelExportService);
+    const exportSpy = vi.spyOn(excelService, 'exportarDetalleMotivo').mockResolvedValue();
+
+    component.exportandoExcel = true;
+    await component.exportarExcel();
+    expect(exportSpy).not.toHaveBeenCalled();
+
+    component.exportandoExcel = false;
+    component.prestaciones = [];
+    await component.exportarExcel();
+    expect(exportSpy).not.toHaveBeenCalled();
   });
 });

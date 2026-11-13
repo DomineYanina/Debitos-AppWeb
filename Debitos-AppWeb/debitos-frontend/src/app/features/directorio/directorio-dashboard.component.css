@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DIRECTORIO DASHBOARD - ESTILOS FINANCIEROS Y ANALÍTICOS
+   DIRECTORIO DASHBOARD - ESTILOS FINANCIEROS Y ANALÃTICOS
    ========================================================================== */
 
 .directorio-container {
@@ -59,7 +59,7 @@
 }
 
 /* ==========================================================================
-   BARRA DE SOLAPAS INDIVIDUALES - PROFUNDIDAD PROFUNDA Y FUSIÓN PROFESIONAL
+   BARRA DE SOLAPAS INDIVIDUALES - PROFUNDIDAD PROFUNDA Y FUSIÃ“N PROFESIONAL
    ========================================================================== */
 
 .directorio-tab-strip {
@@ -154,7 +154,7 @@
 
 
 /* ==========================================================================
-   SUB-FILTROS Y SELECTOR RÁPIDO (PILLS)
+   SUB-FILTROS Y SELECTOR RÃPIDO (PILLS)
    ========================================================================== */
 
 .sub-filter-card {
@@ -217,7 +217,7 @@
   font-size: 0.95rem;
 }
 
-/* Panel de solapa con animación suave */
+/* Panel de solapa con animaciÃ³n suave */
 .dashboard-tab-pane {
   animation: fadeInPane 0.22s ease-out;
 }
@@ -268,7 +268,7 @@
   min-width: 140px;
 }
 
-/* Filtros proporcionales para Institución y Tipo de Comprobante */
+/* Filtros proporcionales para InstituciÃ³n y Tipo de Comprobante */
 .filter-group--cobertura {
   flex: 1.1 1 200px;
   min-width: 175px;
@@ -395,7 +395,7 @@ select.form-control:disabled {
   letter-spacing: normal;
 }
 
-/* Tooltip e ícono explicativo en filtros de fecha */
+/* Tooltip e Ã­cono explicativo en filtros de fecha */
 .filtro-info-wrapper {
   position: relative;
   display: inline-flex;
@@ -553,8 +553,8 @@ select.form-control:disabled {
   font-weight: 700;
 }
 
-/* Tooltips en encabezados de tarjetas de sección (inmediatamente debajo de la barra de solapas)
-   Se despliegan hacia abajo por defecto para no colisionar con la barra de navegación */
+/* Tooltips en encabezados de tarjetas de secciÃ³n (inmediatamente debajo de la barra de solapas)
+   Se despliegan hacia abajo por defecto para no colisionar con la barra de navegaciÃ³n */
 .section-card-header .filtro-tooltip-popup,
 .section-header .filtro-tooltip-popup {
   bottom: auto;
@@ -769,7 +769,7 @@ select.form-control:disabled {
   z-index: 20;
 }
 
-/* Bordes coloreados específicos para las 6 tarjetas (según captura de referencia) */
+/* Bordes coloreados especÃ­ficos para las 6 tarjetas (segÃºn captura de referencia) */
 .card-facturacion-fc {
   border: 2.5px solid #2563eb !important;
 }
@@ -821,7 +821,7 @@ select.form-control:disabled {
   transition: font-size 0.15s ease;
 }
 
-/* Escalamiento dinámico para montos que exceden el ancho estándar */
+/* Escalamiento dinÃ¡mico para montos que exceden el ancho estÃ¡ndar */
 .kpi-value.kpi-value--md {
   font-size: 1.25rem;
   letter-spacing: -0.03em;
@@ -914,7 +914,7 @@ select.form-control:disabled {
   z-index: 1;
 }
 
-/* Fusión con el panel de pestañas superior en las solapas de tablas */
+/* FusiÃ³n con el panel de pestaÃ±as superior en las solapas de tablas */
 .dashboard-tab-pane > .grid-section > .section-card:first-child {
   margin-top: 0;
   border-top-left-radius: 0;
@@ -1246,7 +1246,7 @@ select.form-control:disabled {
 }
 
 /* ==========================================================================
-   TABLA EXPANDIBLE DE FACTURAS Y CADENA DE COMPROBANTES (OPCIÓN A)
+   TABLA EXPANDIBLE DE FACTURAS Y CADENA DE COMPROBANTES (OPCIÃ“N A)
    ========================================================================== */
 .table-responsive {
   overflow-x: auto;
@@ -1255,8 +1255,8 @@ select.form-control:disabled {
 }
 
 /* ==========================================================================
-   SELECTOR DE CRITERIO DE FECHA — Cuenta Corriente
-   Dos paneles lado a lado con radio buttons para filtrar por Período o Fecha
+   SELECTOR DE CRITERIO DE FECHA â€” Cuenta Corriente
+   Dos paneles lado a lado con radio buttons para filtrar por PerÃ­odo o Fecha
    ========================================================================== */
 
 .cc-filtro-selector-row {
@@ -1386,14 +1386,25 @@ select.form-control:disabled {
   white-space: nowrap;
 }
 
-.cc-date-input {
+.cc-date-input,
+.cc-select-periodo {
   font-size: 0.84rem;
   padding: 0.35rem 0.55rem;
   height: 32px;
   width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
 }
 
-.cc-filtro-panel--inactive .cc-date-input {
+.cc-select-periodo {
+  background-color: #ffffff;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.cc-filtro-panel--inactive .cc-date-input,
+.cc-filtro-panel--inactive .cc-select-periodo,
+.cc-filtro-panel.filter-group-disabled .cc-select-periodo {
   background-color: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;
@@ -1639,7 +1650,7 @@ select.form-control:disabled {
 }
 
 /* ==========================================================================
-   JERARQUÍA CUENTA CORRIENTE (PALETA DE COLORES PERSONALIZADA)
+   JERARQUÃA CUENTA CORRIENTE (PALETA DE COLORES PERSONALIZADA)
    ========================================================================== */
 
 /* --- NIVEL 1: Financiador (Entidad) --- */
@@ -1649,7 +1660,7 @@ select.form-control:disabled {
   cursor: pointer;
 }
 .tr-financiador > td {
-  /* Fondo sólido gris #d0d5db para mayor contraste y opacidad */
+  /* Fondo sÃ³lido gris #d0d5db para mayor contraste y opacidad */
   background-color: #d0d5db !important; 
   border-bottom: 1px solid #b8bec5;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -1661,10 +1672,10 @@ select.form-control:disabled {
 /* Estado Desplegado: Azul Marino de la Paleta (#004C94) con texto blanco */
 .tr-financiador.is-expanded > td {
   position: sticky;
-  /* Solapamiento de 1px con el borde inferior de thead para eliminar cualquier gap por subpíxel */
+  /* Solapamiento de 1px con el borde inferior de thead para eliminar cualquier gap por subpÃ­xel */
   top: calc(var(--sticky-header-top, 38px) - 1px);
   z-index: 25;
-  /* Fondo con el Azul Marino Sólido #004C94 */
+  /* Fondo con el Azul Marino SÃ³lido #004C94 */
   background-color: #004C94 !important;
   color: #ffffff !important;
   border-bottom: 1px solid #002d5c;
@@ -1705,7 +1716,7 @@ select.form-control:disabled {
   color: #0f172a;
 }
 
-/* --- NIVEL 2: Período --- */
+/* --- NIVEL 2: PerÃ­odo --- */
 /* Fondo Celeste Suave 100% Opaco (evita que las filas que scrollean se trasluzcan) */
 .tr-periodo {
   font-weight: 600;
@@ -1724,7 +1735,7 @@ select.form-control:disabled {
   /* Encaja perfectamente debajo de la fila del financiador sin fisuras */
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-l1-height, 40px) - 2px);
   z-index: 24;
-  /* Color sólido opaco 100% idéntico al tono celeste para tapar las filas que pasan por debajo */
+  /* Color sÃ³lido opaco 100% idÃ©ntico al tono celeste para tapar las filas que pasan por debajo */
   background-color: #d9ebfa !important;
   border-bottom: 1px solid #99c6f2;
   box-shadow: 0 2px 4px rgba(0, 110, 207, 0.10);
@@ -1763,7 +1774,7 @@ select.form-control:disabled {
   position: sticky;
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-l1-height, 40px) + var(--sticky-l2-height, 38px) - 3px);
   z-index: 23;
-  /* Color sólido verde esmeralda suave 100% opaco */
+  /* Color sÃ³lido verde esmeralda suave 100% opaco */
   background-color: #dcf2e2 !important;
   border-bottom: 1px solid #b5e4c2;
   box-shadow: 0 2px 4px rgba(29, 189, 142, 0.08);
@@ -1780,7 +1791,7 @@ select.form-control:disabled {
 }
 
 /* --- NIVEL 4: Comprobantes Hijos --- */
-/* Fondo Blanco Puro para máximo contraste */
+/* Fondo Blanco Puro para mÃ¡ximo contraste */
 .tr-comprobante-hijo {
   font-size: 0.82rem;
 }
@@ -1866,7 +1877,7 @@ select.form-control:disabled {
   color: #1e293b;
 }
 
-/* Badges de origen semánticos para el árbol */
+/* Badges de origen semÃ¡nticos para el Ã¡rbol */
 .badge-origen {
   display: inline-block;
   padding: 1px 5px;
@@ -1935,7 +1946,7 @@ select.form-control:disabled {
   border: 1px solid #93c5fd !important;
 }
 
-/* Cascada Sticky para niveles jerárquicos de Cuenta Corriente cuando la Fila de Totales está activa */
+/* Cascada Sticky para niveles jerÃ¡rquicos de Cuenta Corriente cuando la Fila de Totales estÃ¡ activa */
 .table-cuenta-corriente .tr-financiador.is-expanded > td {
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-total-height, 38px) - 2px) !important;
   z-index: 25;
@@ -2175,7 +2186,7 @@ td.text-center .badge-count {
 .text-center { text-align: center; }
 .font-weight-bold { font-weight: 700; }
 
-/* Acordeón de Comprobantes Derivados */
+/* AcordeÃ³n de Comprobantes Derivados */
 .row-accordion-detail {
   background: #f8fafc;
 }
@@ -2318,7 +2329,7 @@ td.text-center .badge-count {
 }
 
 /* ==========================================================================
-   SECCIÓN GRÁFICOS FINANCIEROS
+   SECCIÃ“N GRÃFICOS FINANCIEROS
    ========================================================================== */
 
 .graficos-section {
@@ -2343,7 +2354,7 @@ td.text-center .badge-count {
   margin: 0;
 }
 
-/* Grid de dos columnas: línea (1.6fr) + dona (1fr) */
+/* Grid de dos columnas: lÃ­nea (1.6fr) + dona (1fr) */
 .graficos-grid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -2363,7 +2374,7 @@ td.text-center .badge-count {
 }
 
 .grafico-card--wide {
-  /* ocupa la 1ª columna ancha */
+  /* ocupa la 1Âª columna ancha */
 }
 
 /* Cabecera de la card */
@@ -2429,7 +2440,7 @@ td.text-center .badge-count {
   color: #10b981;
 }
 
-/* Sección y Tabla de Balance Financiero */
+/* SecciÃ³n y Tabla de Balance Financiero */
 .balance-financiero-section {
   margin-top: 1.5rem;
 }
@@ -2498,7 +2509,7 @@ td.text-center .badge-count {
   font-weight: 800;
 }
 
-/* Área del canvas */
+/* Ãrea del canvas */
 .grafico-body {
   position: relative;
   height: 300px;
@@ -2531,7 +2542,7 @@ td.text-center .badge-count {
   to { transform: rotate(360deg); }
 }
 
-/* Estado vacío */
+/* Estado vacÃ­o */
 .grafico-empty {
   font-size: 0.85rem;
   color: #475569;
@@ -2539,12 +2550,12 @@ td.text-center .badge-count {
   text-align: center;
 }
 
-/* Modificador: canvas más alto para gráficos con muchas etiquetas (ej. Pareto) */
+/* Modificador: canvas mÃ¡s alto para grÃ¡ficos con muchas etiquetas (ej. Pareto) */
 .grafico-body--tall {
   height: 380px;
 }
 
-/* Modificador específico Pareto: ocupa el ancho completo igual que Distribución de Débitos */
+/* Modificador especÃ­fico Pareto: ocupa el ancho completo igual que DistribuciÃ³n de DÃ©bitos */
 .grafico-card--pareto {
   width: 100%;
 }
@@ -2554,7 +2565,7 @@ td.text-center .badge-count {
   width: 100%;
 }
 
-/* Responsivo: apila columnas en pantallas pequeñas */
+/* Responsivo: apila columnas en pantallas pequeÃ±as */
 @media (max-width: 900px) {
   .graficos-grid {
     grid-template-columns: 1fr;
@@ -2562,7 +2573,7 @@ td.text-center .badge-count {
 }
 
 /* ==========================================================================
-   TABLA MATRIZ ANUAL DE RECAUDACIÓN
+   TABLA MATRIZ ANUAL DE RECAUDACIÃ“N
    ========================================================================== */
 .table-bordered {
   border: 1px solid #cbd5e1;
@@ -2835,7 +2846,7 @@ td.text-center .badge-count {
 }
 
 /* ==========================================================================
-   MÓDULO DE DETALLE Y TRAZABILIDAD (ÁRBOL ENCADENADO)
+   MÃ“DULO DE DETALLE Y TRAZABILIDAD (ÃRBOL ENCADENADO)
    ========================================================================== */
 .tr-parent-nivel1 {
   background-color: #ffffff;
@@ -2892,7 +2903,7 @@ td.text-center .badge-count {
   border-bottom: 2px solid #cbd5e1 !important;
 }
 
-/* ── Bucles Desglosados por Prestación ── */
+/* â”€â”€ Bucles Desglosados por PrestaciÃ³n â”€â”€ */
 .bucle-factura-container {
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -3244,7 +3255,7 @@ td.text-center .badge-count {
   font-size: 0.7rem;
 }
 
-/* Paginación Trazabilidad */
+/* PaginaciÃ³n Trazabilidad */
 .trazabilidad-pagination-bar {
   display: flex;
   justify-content: space-between;
@@ -3325,7 +3336,7 @@ td.text-center .badge-count {
 }
 
 /* ==========================================================================
-   TABLA: DESEMPEÑO POR ANALISTAS DE DÉBITO (3 NIVELES)
+   TABLA: DESEMPEÃ‘O POR ANALISTAS DE DÃ‰BITO (3 NIVELES)
    ========================================================================== */
 .table-analistas {
   width: 100%;
@@ -3381,7 +3392,7 @@ td.text-center .badge-count {
   width: 110px;
 }
 
-/* Cabecera y Fila Fija de Totales Consolidados (Analistas de Débito) */
+/* Cabecera y Fila Fija de Totales Consolidados (Analistas de DÃ©bito) */
 .table-analistas thead tr.tr-header-cols th {
   position: sticky;
   top: 0;
@@ -3583,12 +3594,221 @@ td.text-center .badge-count {
   padding: 0.15rem 0.5rem;
 }
 
+/* Badges de % Recupero */
+.badge-recupero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.badge-recupero-sm {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.badge-recupero.recupero-alto {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-recupero.recupero-medio {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-recupero.recupero-cero {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* ==========================================================================
+   TRAZABILIDAD - CONTROLES Y FILTROS DE FACTURA MADRE
+   ========================================================================== */
+
+.trazabilidad-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.filtro-trazabilidad-item {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 2px 3px 2px 10px;
+  height: 38px;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.filtro-trazabilidad-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 0;
+  padding-right: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.input-trazabilidad-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.input-wrapper-letra {
+  width: 65px;
+}
+
+.input-wrapper-ptovta {
+  min-width: 120px;
+}
+
+.input-wrapper-numero {
+  width: 140px;
+}
+
+.input-trazabilidad-field,
+.select-trazabilidad-field {
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  padding: 0 0.5rem !important;
+  width: 100% !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.input-wrapper-letra .input-trazabilidad-field {
+  text-align: center !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  padding: 0 !important;
+}
+
+.select-trazabilidad-field {
+  cursor: pointer !important;
+  padding-right: 1.75rem !important;
+}
+
+.input-trazabilidad-field:focus,
+.select-trazabilidad-field:focus {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2) !important;
+}
+
+.btn-clear-search {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background-color: #94a3b8;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.btn-clear-search:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.btn-buscar-trazabilidad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 38px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border: 1px solid #0284c7;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-buscar-trazabilidad:hover:not([disabled]) {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-buscar-trazabilidad[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-limpiar-trazabilidad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 14px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-limpiar-trazabilidad:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
 .analistas-header-controls,
-.medicos-header-controls {
+.medicos-header-controls,
+.motivos-header-controls {
   display: flex;
   align-items: center;
   gap: 0.85rem;
   flex-wrap: wrap;
+}
+
+.motivos-header-controls {
+  margin-top: 0.75rem;
+  margin-bottom: 1.25rem;
+  justify-content: space-between;
 }
 
 .filtro-analista-container,
@@ -3757,26 +3977,26 @@ td.text-center .badge-count {
   border: 1px solid #93c5fd !important;
 }
 
-/* En la tabla de operadores, cuando un Operador (Nivel 1) está desplegado, se ancla debajo de Cabecera + Totales */
+/* En la tabla de operadores, cuando un Operador (Nivel 1) estÃ¡ desplegado, se ancla debajo de Cabecera + Totales */
 .table-operadores .tr-operador.is-expanded > td {
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-total-height, 38px) - 2px) !important;
   z-index: 25;
 }
 
-/* Cuando un Motivo (Nivel 2) está desplegado en operadores, se ancla debajo de Cabecera + Totales + Operador */
+/* Cuando un Motivo (Nivel 2) estÃ¡ desplegado en operadores, se ancla debajo de Cabecera + Totales + Operador */
 .table-operadores .tr-motivo.is-expanded > td {
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-total-height, 38px) + var(--sticky-l1-height, 40px) - 3px) !important;
   z-index: 24;
 }
 
 /* ==========================================================================
-   SOLAPA PRESTADORES / MÉDICOS: FILA SUPERIOR DE TOTALES Y STICKY
+   SOLAPA PRESTADORES / MÃ‰DICOS: FILA SUPERIOR DE TOTALES Y STICKY
    ========================================================================== */
 .table-medicos {
   --sticky-total-height: 38px;
 }
 
-/* Fila Superior de Totales en Solapa Médicos (Sticky Fija) */
+/* Fila Superior de Totales en Solapa MÃ©dicos (Sticky Fija) */
 .tbody-totales-medico {
   border-bottom: 2px solid #93c5fd;
 }
@@ -3826,23 +4046,23 @@ td.text-center .badge-count {
   border: 1px solid #93c5fd !important;
 }
 
-/* En la tabla de médicos, cuando un Médico (Nivel 1) está desplegado, se ancla debajo de Cabecera + Totales */
+/* En la tabla de mÃ©dicos, cuando un MÃ©dico (Nivel 1) estÃ¡ desplegado, se ancla debajo de Cabecera + Totales */
 .table-medicos .tr-medico.is-expanded > td {
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-total-height, 38px) - 2px) !important;
   z-index: 25;
 }
 
-/* Cuando un Motivo (Nivel 2) está desplegado en médicos, se ancla debajo de Cabecera + Totales + Médico */
+/* Cuando un Motivo (Nivel 2) estÃ¡ desplegado en mÃ©dicos, se ancla debajo de Cabecera + Totales + MÃ©dico */
 .table-medicos .tr-motivo.is-expanded > td {
   top: calc(var(--sticky-header-top, 38px) + var(--sticky-total-height, 38px) + var(--sticky-l1-height, 40px) - 3px) !important;
   z-index: 24;
 }
 
 /* ==========================================================================
-   JERARQUÍA ANALISTAS, OPERADORES Y MÉDICOS (MISMA PALETA QUE CUENTA CORRIENTE)
+   JERARQUÃA ANALISTAS, OPERADORES Y MÃ‰DICOS (MISMA PALETA QUE CUENTA CORRIENTE)
    ========================================================================== */
 
-/* --- NIVEL 1: Analista / Operador / Médico --- */
+/* --- NIVEL 1: Analista / Operador / MÃ©dico --- */
 /* Estado Colapsado: Gris #d0d5db (100% opaco, mayor contraste) */
 .tr-analista {
   font-weight: 700;
@@ -3875,7 +4095,7 @@ td.text-center .badge-count {
   background-color: #2D3F54 !important;
 }
 
-/* Forzar textos y montos en blanco cuando el Nivel 1 está desplegado */
+/* Forzar textos y montos en blanco cuando el Nivel 1 estÃ¡ desplegado */
 .tr-analista.is-expanded .analista-nombre,
 .tr-analista.is-expanded .badge-docs-analista,
 .tr-analista.is-expanded .color-facturado,
@@ -3907,8 +4127,8 @@ td.text-center .badge-count {
   font-weight: 700;
 }
 
-/* --- NIVEL 2: Motivo de Débito --- */
-/* Estado Colapsado: Celeste Suave Sólido Opaco #edf5fd */
+/* --- NIVEL 2: Motivo de DÃ©bito --- */
+/* Estado Colapsado: Celeste Suave SÃ³lido Opaco #edf5fd */
 .tr-motivo {
   font-weight: 600;
   cursor: pointer;
@@ -3945,7 +4165,7 @@ td.text-center .badge-count {
 }
 
 /* --- NIVEL 3: Financiador Afectado --- */
-/* Fondo Blanco Puro con sangría de árbol */
+/* Fondo Blanco Puro con sangrÃ­a de Ã¡rbol */
 .tr-financiador-sub {
   font-size: 0.83rem;
 }
@@ -3968,7 +4188,7 @@ td.text-center .badge-count {
 
 
 /* ==========================================================================
-   SOLAPA TIEMPOS DE COBRANZA - DISEÑO ORIGINAL EXACTO
+   SOLAPA TIEMPOS DE COBRANZA - DISEÃ‘O ORIGINAL EXACTO
    ========================================================================== */
 
 .tiempos-cobranza-section {
@@ -4079,7 +4299,7 @@ td.text-center .badge-count {
   color: #dc2626;
 }
 
-/* Tarjeta Gráfico */
+/* Tarjeta GrÃ¡fico */
 .grafico-aging-box {
   display: flex;
   flex-direction: column;
@@ -4192,6 +4412,16 @@ td.text-center .badge-count {
 
 .td-aging-saldo.text-red {
   color: #dc2626;
+  font-weight: 700;
+}
+
+.tr-aun-no-cobrado td,
+.tr-aun-no-cobrado .td-aging-rango,
+.tr-aun-no-cobrado .td-aging-comprobantes,
+.tr-aun-no-cobrado .td-aging-saldo,
+.tr-aun-no-cobrado .td-aging-saldo.text-red,
+.tr-aun-no-cobrado .td-aging-porcentaje {
+  color: #6b0f1a !important;
   font-weight: 700;
 }
 
@@ -4352,8 +4582,8 @@ td.text-center .badge-count {
 
 
 /* ==========================================================================
-   RESPONSIVE GENERAL — TABLERO DE CONTROL
-   Agrega cobertura progresiva para tablet, mobile y mobile pequeño.
+   RESPONSIVE GENERAL â€” TABLERO DE CONTROL
+   Agrega cobertura progresiva para tablet, mobile y mobile pequeÃ±o.
    ========================================================================== */
 
 /* Tablets apaisadas / Laptops < 1024px */
@@ -4366,7 +4596,7 @@ td.text-center .badge-count {
     font-size: 1.45rem;
   }
 
-  /* Reducir tamaño de solapas para que entren mejor antes del scroll */
+  /* Reducir tamaÃ±o de solapas para que entren mejor antes del scroll */
   .tab-strip-item {
     padding: 0.5rem 0.6rem;
     font-size: 0.75rem;
@@ -4387,18 +4617,18 @@ td.text-center .badge-count {
     width: 100%;
   }
 
-  /* Filtros: reducir mínimo para que entren más en fila */
+  /* Filtros: reducir mÃ­nimo para que entren mÃ¡s en fila */
   .filter-group {
     min-width: 160px;
   }
 
-  /* Cards de sección con menos padding */
+  /* Cards de secciÃ³n con menos padding */
   .section-card {
     padding: 1.15rem;
   }
 }
 
-/* Tablets verticales / Mobile grande (≤ 768px) */
+/* Tablets verticales / Mobile grande (â‰¤ 768px) */
 @media (max-width: 768px) {
   .directorio-container {
     padding: 0.75rem;
@@ -4412,7 +4642,7 @@ td.text-center .badge-count {
     font-size: 0.85rem;
   }
 
-  /* Filtros: padding reducido y grupos más compactos */
+  /* Filtros: padding reducido y grupos mÃ¡s compactos */
   .filter-card {
     padding: 0.85rem 1rem;
     gap: 0.75rem;
@@ -4440,7 +4670,7 @@ td.text-center .badge-count {
     padding: 1rem;
   }
 
-  /* Header de sección: apilar en columna */
+  /* Header de secciÃ³n: apilar en columna */
   .section-card-header {
     flex-direction: column;
     gap: 0.75rem;
@@ -4452,7 +4682,7 @@ td.text-center .badge-count {
     margin-bottom: 1.25rem;
   }
 
-  /* Solapas: tamaño mínimo para ser tocables */
+  /* Solapas: tamaÃ±o mÃ­nimo para ser tocables */
   .tab-strip-item {
     padding: 0.5rem 0.55rem;
     font-size: 0.73rem;
@@ -4466,7 +4696,7 @@ td.text-center .badge-count {
   }
 }
 
-/* Mobile pequeño (≤ 576px) */
+/* Mobile pequeÃ±o (â‰¤ 576px) */
 @media (max-width: 576px) {
   .directorio-container {
     padding: 0.5rem;
@@ -4476,7 +4706,7 @@ td.text-center .badge-count {
     font-size: 1.1rem;
   }
 
-  /* Solapas: compresión máxima */
+  /* Solapas: compresiÃ³n mÃ¡xima */
   .tab-strip-item {
     padding: 0.45rem 0.5rem;
     font-size: 0.68rem;
@@ -4488,7 +4718,7 @@ td.text-center .badge-count {
     min-width: 0;
   }
 
-  /* Botones de acción en columna full-width */
+  /* Botones de acciÃ³n en columna full-width */
   .filter-actions {
     width: 100%;
     flex-direction: column;
@@ -4499,7 +4729,7 @@ td.text-center .badge-count {
     justify-content: center;
   }
 
-  /* KPI: fuente aún más pequeña */
+  /* KPI: fuente aÃºn mÃ¡s pequeÃ±a */
   .kpi-value {
     font-size: 1.1rem;
   }
@@ -4513,13 +4743,13 @@ td.text-center .badge-count {
     font-size: 0.86rem;
   }
 
-  /* Cards de sección: padding mínimo */
+  /* Cards de secciÃ³n: padding mÃ­nimo */
   .section-card {
     padding: 0.75rem;
     border-radius: 10px;
   }
 
-  /* Contadores de motivos: un poco más compactos */
+  /* Contadores de motivos: un poco mÃ¡s compactos */
   .card-contador-motivo {
     padding: 0.9rem 1rem;
     min-height: 90px;
@@ -4528,4 +4758,3833 @@ td.text-center .badge-count {
   .card-contador-motivo .contador-value {
     font-size: 1.5rem;
   }
+}
+
+/* ==========================================================================
+   BOTÃ“N EXPORTAR A EXCEL (ESTILO CORPORATIVO EN LAS 10 SOLAPAS)
+   ========================================================================== */
+.btn-export-excel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  background-color: #107c41;
+  color: #ffffff;
+  border: 1px solid #0e6b38;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(16, 124, 65, 0.22);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.btn-export-excel:hover:not(:disabled) {
+  background-color: #0c5e31;
+  border-color: #094a26;
+  box-shadow: 0 2px 6px rgba(16, 124, 65, 0.3);
+}
+
+.btn-export-excel:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-export-excel:disabled {
+  background-color: #94a3b8;
+  border-color: #94a3b8;
+  color: #f8fafc;
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+}
+
+.btn-export-excel svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   SOLAPA PRESTACIONES FACTURADAS
+   ========================================================================= */
+.kpi-grid--four {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .kpi-grid--four {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .kpi-grid--four {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpi-val-medicos {
+  color: #0284c7;
+}
+
+.badge-ambulatorios {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+
+.badge-internados {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+
+.autocomplete-dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1050;
+  margin: 4px 0 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.autocomplete-dropdown-list li {
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  color: #1e293b;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+}
+
+.autocomplete-dropdown-list li:hover {
+  background-color: #f1f5f9;
+  color: #0284c7;
+}
+
+/* =========================================================================
+   MODO OSCURO - TABLERO DE CONTROL (SLATE CORPORATIVO Y ALTO CONTRASTE)
+   Esquema de color institucional:
+   1. Fondos: Pantalla (#0f172a - bg-slate-900), Tarjetas/Tablas (#1e293b - bg-slate-800), Filas hover (#334155 - hover:bg-slate-700)
+   2. Textos: Principal (#f1f5f9 - text-slate-100), Secundario (#94a3b8 - text-slate-400), Positivos (#34d399 - text-emerald-400)
+   3. Bordes: Separadores y bordes (#334155 - border-slate-700)
+   4. Acciones: Solapa activa y Filtrar (#0284c7 - bg-sky-600), Solapas inactivas (#334155 / text #cbd5e1), 
+               Filtro seleccionado (#3b82f6 ring/border), Exportar Excel (#059669 / hover #10b981)
+   ========================================================================= */
+
+:host {
+  display: block;
+}
+
+:host-context([data-theme="dark"]),
+:host-context([data-theme="dark"]) .directorio-container,
+[data-theme="dark"] .directorio-container {
+  background-color: #0f172a !important;
+  color: #f1f5f9;
+}
+
+/* 1. TÃ­tulos y Encabezado */
+:host-context([data-theme="dark"]) .main-title {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .subtitle {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .last-updated {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .badge-readonly {
+  background: #334155 !important;
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .badge-disabled-hint {
+  color: #94a3b8 !important;
+}
+
+/* 2. Tarjetas, Paneles de Filtros y Contenedores (bg-slate-800: #1e293b / border-slate-700: #334155) */
+:host-context([data-theme="dark"]) .filter-card,
+:host-context([data-theme="dark"]) .kpi-card,
+:host-context([data-theme="dark"]) .grafico-card,
+:host-context([data-theme="dark"]) .section-card,
+:host-context([data-theme="dark"]) .sub-filter-card,
+:host-context([data-theme="dark"]) .grid-header,
+:host-context([data-theme="dark"]) .bucle-card,
+:host-context([data-theme="dark"]) .chain-card,
+:host-context([data-theme="dark"]) .card-recibos-container,
+:host-context([data-theme="dark"]) .filtro-prestaciones-card,
+:host-context([data-theme="dark"]) .filtro-trazabilidad-item,
+:host-context([data-theme="dark"]) .filtro-analista-container,
+:host-context([data-theme="dark"]) .filtro-medico-container,
+:host-context([data-theme="dark"]) .trazabilidad-filtros-card {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+:host-context([data-theme="dark"]) .filter-card-header h2,
+:host-context([data-theme="dark"]) .section-title,
+:host-context([data-theme="dark"]) .grid-title,
+:host-context([data-theme="dark"]) .sub-filter-title,
+:host-context([data-theme="dark"]) .grafico-title {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .section-subtitle,
+:host-context([data-theme="dark"]) .grid-subtitle,
+:host-context([data-theme="dark"]) .sub-filter-subtitle,
+:host-context([data-theme="dark"]) .grafico-subtitle {
+  color: #94a3b8 !important;
+}
+
+/* Labels de filtros: Gris medio (#94a3b8 - text-slate-400) */
+:host-context([data-theme="dark"]) .filter-group label,
+:host-context([data-theme="dark"]) .cc-field-label,
+:host-context([data-theme="dark"]) .filtro-trazabilidad-label,
+:host-context([data-theme="dark"]) .filtro-analista-label,
+:host-context([data-theme="dark"]) .filtro-medico-label {
+  color: #94a3b8 !important;
+}
+
+/* Inputs y Selects */
+:host-context([data-theme="dark"]) select.form-control,
+:host-context([data-theme="dark"]) input.form-control,
+:host-context([data-theme="dark"]) .cc-select-periodo,
+:host-context([data-theme="dark"]) .cc-date-input,
+:host-context([data-theme="dark"]) .input-search-medico,
+:host-context([data-theme="dark"]) .input-search-operador,
+:host-context([data-theme="dark"]) .input-trazabilidad-field,
+:host-context([data-theme="dark"]) .select-trazabilidad-field,
+:host-context([data-theme="dark"]) .select-filtro-analista,
+:host-context([data-theme="dark"]) .select-filtro-medico,
+:host-context([data-theme="dark"]) .page-size-select {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) select.form-control:focus,
+:host-context([data-theme="dark"]) input.form-control:focus,
+:host-context([data-theme="dark"]) .cc-select-periodo:focus,
+:host-context([data-theme="dark"]) .cc-date-input:focus,
+:host-context([data-theme="dark"]) .input-search-medico:focus,
+:host-context([data-theme="dark"]) .input-search-operador:focus,
+:host-context([data-theme="dark"]) .input-trazabilidad-field:focus,
+:host-context([data-theme="dark"]) .select-trazabilidad-field:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* 3. Selector de Criterio de Fecha (Filtro Activo vs Inactivo) */
+/* Activo: Borde azul brillante para indicar selecciÃ³n (#3b82f6 / ring-1 ring-blue-500) */
+:host-context([data-theme="dark"]) .cc-filtro-panel--active {
+  background: #1e293b !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel--active .cc-radio-label,
+:host-context([data-theme="dark"]) .cc-filtro-panel--active .cc-radio-text {
+  color: #f1f5f9 !important;
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel--active .cc-field-label {
+  color: #38bdf8 !important;
+  font-weight: 700;
+}
+
+/* Inactivo: Fondo y bordes slate sutiles (#334155) */
+:host-context([data-theme="dark"]) .cc-filtro-panel--inactive {
+  background: #151e2e !important;
+  border: 1px solid #334155 !important;
+  opacity: 0.85;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel--inactive .cc-radio-label,
+:host-context([data-theme="dark"]) .cc-filtro-panel--inactive .cc-radio-text {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel--inactive .cc-field-label {
+  color: #64748b !important;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel--inactive .cc-date-input,
+:host-context([data-theme="dark"]) .cc-filtro-panel--inactive .cc-select-periodo {
+  background-color: #0f172a !important;
+  color: #64748b !important;
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel-hint {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-filtro-panel-hint code {
+  background: #334155 !important;
+  color: #38bdf8 !important;
+}
+
+/* 4. Elementos de AcciÃ³n: PestaÃ±as de NavegaciÃ³n y Botones */
+:host-context([data-theme="dark"]) .directorio-tab-strip,
+:host-context([data-theme="dark"]) .tab-strip {
+  background: transparent;
+  border-bottom: 2px solid #0284c7;
+}
+
+/* PestaÃ±as inactivas: Fondo gris oscuro (bg-slate-700 / #334155) con texto secundario (text-slate-300 / #cbd5e1) */
+:host-context([data-theme="dark"]) .tab-strip-item {
+  background-color: #334155 !important;
+  color: #cbd5e1 !important;
+  font-weight: 600;
+  border: 1px solid #475569 !important;
+  border-bottom: none !important;
+}
+
+:host-context([data-theme="dark"]) .tab-strip-item .tab-strip-text,
+:host-context([data-theme="dark"]) .tab-strip-item .tab-strip-icon {
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .tab-strip-item:hover:not(.active) {
+  background-color: #475569 !important;
+  color: #ffffff !important;
+  border-color: #64748b !important;
+}
+
+:host-context([data-theme="dark"]) .tab-strip-item:hover:not(.active) .tab-strip-text {
+  color: #ffffff !important;
+}
+
+/* PestaÃ±a activa: Azul vibrante pero legible (bg-sky-600 / #0284c7) con texto blanco (#ffffff) */
+:host-context([data-theme="dark"]) .tab-strip-item.active {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+  border-bottom: none !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+}
+
+:host-context([data-theme="dark"]) .tab-strip-item.active .tab-strip-text,
+:host-context([data-theme="dark"]) .tab-strip-item.active .tab-strip-icon {
+  color: #ffffff !important;
+}
+
+/* BotÃ³n "Filtrar": Azul vibrante pero legible (#0284c7) con texto blanco */
+:host-context([data-theme="dark"]) .btn-primary,
+:host-context([data-theme="dark"]) .btn-filtrar {
+  background: #0284c7 !important;
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  border: 1px solid #0284c7 !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .btn-primary:hover:not([disabled]),
+:host-context([data-theme="dark"]) .btn-filtrar:hover:not([disabled]) {
+  background: #0369a1 !important;
+  background-color: #0369a1 !important;
+  border-color: #0369a1 !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5) !important;
+}
+
+/* BotÃ³n "Exportar a Excel": Verde esmeralda (#059669 / hover #10b981) con texto blanco */
+:host-context([data-theme="dark"]) .btn-export-excel {
+  background: #059669 !important;
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .btn-export-excel:hover:not([disabled]) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+/* Botones secundarios (Mes Anterior, Mes Siguiente, Limpiar, PaginaciÃ³n) */
+:host-context([data-theme="dark"]) .btn-secondary,
+:host-context([data-theme="dark"]) .btn-mes-anterior,
+:host-context([data-theme="dark"]) .btn-mes-siguiente,
+:host-context([data-theme="dark"]) .btn-page-nav,
+:host-context([data-theme="dark"]) .btn-outline-sm,
+:host-context([data-theme="dark"]) .btn-limpiar-trazabilidad {
+  background-color: #0f172a !important;
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-secondary:hover:not([disabled]),
+:host-context([data-theme="dark"]) .btn-mes-anterior:hover:not([disabled]),
+:host-context([data-theme="dark"]) .btn-mes-siguiente:hover:not([disabled]),
+:host-context([data-theme="dark"]) .btn-page-nav:hover:not([disabled]),
+:host-context([data-theme="dark"]) .btn-outline-sm:hover:not([disabled]),
+:host-context([data-theme="dark"]) .btn-limpiar-trazabilidad:hover {
+  background-color: #334155 !important;
+  background: #334155 !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-page-nav[disabled],
+:host-context([data-theme="dark"]) .btn-secondary[disabled] {
+  opacity: 0.4 !important;
+  border-color: #334155 !important;
+  color: #64748b !important;
+  cursor: not-allowed;
+}
+
+:host-context([data-theme="dark"]) .btn-buscar-trazabilidad {
+  background: #0284c7 !important;
+  border-color: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .btn-buscar-trazabilidad:hover:not([disabled]) {
+  background: #0369a1 !important;
+  border-color: #0369a1 !important;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .btn-clear-filtro-analista,
+:host-context([data-theme="dark"]) .btn-clear-filtro-medico,
+:host-context([data-theme="dark"]) .btn-clear-search {
+  background-color: #334155 !important;
+  border: 1px solid #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-clear-filtro-analista:hover,
+:host-context([data-theme="dark"]) .btn-clear-filtro-medico:hover,
+:host-context([data-theme="dark"]) .btn-clear-search:hover {
+  background-color: #475569 !important;
+  color: #f87171 !important;
+  border-color: #f87171 !important;
+}
+
+/* 5. TABLAS DE DATOS: EliminaciÃ³n absoluta de fondos claros heredados y Alto Contraste */
+:host-context([data-theme="dark"]) .table-container,
+:host-context([data-theme="dark"]) .table-responsive {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial,
+:host-context([data-theme="dark"]) .table-cuenta-corriente,
+:host-context([data-theme="dark"]) .table-balance,
+:host-context([data-theme="dark"]) .table-matriz,
+:host-context([data-theme="dark"]) .tabla-aging-exact,
+:host-context([data-theme="dark"]) .table-facturas,
+:host-context([data-theme="dark"]) .table-analistas,
+:host-context([data-theme="dark"]) .table-operadores,
+:host-context([data-theme="dark"]) .table-medicos,
+:host-context([data-theme="dark"]) .table-bordered {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+/* Encabezados de tabla: Labels en Gris medio (#94a3b8) */
+:host-context([data-theme="dark"]) .table-sanatorial thead th,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead th,
+:host-context([data-theme="dark"]) .table-facturas thead th,
+:host-context([data-theme="dark"]) .table-matriz thead th,
+:host-context([data-theme="dark"]) .tabla-aging-exact thead th,
+:host-context([data-theme="dark"]) .table-analistas thead th,
+:host-context([data-theme="dark"]) .table-sanatorial th,
+:host-context([data-theme="dark"]) .table-bordered th {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+  border-bottom: 2px solid #334155 !important;
+  border-color: #334155 !important;
+  font-weight: 700;
+}
+
+/* Fila Superior Fija de Totales Consolidados de Cuenta Corriente */
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th,
+:host-context([data-theme="dark"]) .tr-totales-cc th,
+:host-context([data-theme="dark"]) .tr-totales-fijos th {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-top: 1px solid #334155 !important;
+  border-bottom: 2px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc .total-label-text {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc .badge-total-count {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc .badge-total-icon {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* Celdas de tabla por defecto: Fondo del contenedor (#1e293b) y texto blanco/claro (#f1f5f9) */
+:host-context([data-theme="dark"]) .table-sanatorial td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente td,
+:host-context([data-theme="dark"]) .table-facturas td,
+:host-context([data-theme="dark"]) .table-matriz td,
+:host-context([data-theme="dark"]) .tabla-aging-exact td,
+:host-context([data-theme="dark"]) .table-analistas td,
+:host-context([data-theme="dark"]) .table-bordered td {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+  border-color: #334155 !important;
+}
+
+/* Desactivar cualquier herencia clara en todas las capas de jerarquÃ­a */
+:host-context([data-theme="dark"]) .tr-financiador > td,
+:host-context([data-theme="dark"]) .tr-periodo > td,
+:host-context([data-theme="dark"]) .tr-factura > td,
+:host-context([data-theme="dark"]) .tr-comprobante-hijo > td,
+:host-context([data-theme="dark"]) .tr-analista > td,
+:host-context([data-theme="dark"]) .tr-motivo > td,
+:host-context([data-theme="dark"]) .tr-motivo-sub > td,
+:host-context([data-theme="dark"]) .tr-financiador-sub > td,
+:host-context([data-theme="dark"]) .tr-prestacion-detalle > td,
+:host-context([data-theme="dark"]) .row-factura-raiz > td,
+:host-context([data-theme="dark"]) .row-factura-raiz.row-expanded > td,
+:host-context([data-theme="dark"]) .row-accordion-detail,
+:host-context([data-theme="dark"]) .td-accordion-container {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+/* Filas alternadas oscuras y sutiles (nunca blancas) */
+:host-context([data-theme="dark"]) .table-sanatorial tbody tr:nth-child(even) td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr:nth-child(even) td,
+:host-context([data-theme="dark"]) .table-facturas tbody tr:nth-child(even) td {
+  background-color: #182234 !important;
+}
+
+/* Hover de filas de tabla: hover:bg-slate-700 (#334155) */
+:host-context([data-theme="dark"]) .table-sanatorial tbody tr:hover td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr:hover td,
+:host-context([data-theme="dark"]) .table-facturas tbody tr:hover td,
+:host-context([data-theme="dark"]) .tr-financiador:hover > td,
+:host-context([data-theme="dark"]) .tr-periodo:hover > td,
+:host-context([data-theme="dark"]) .tr-factura:hover > td,
+:host-context([data-theme="dark"]) .tr-comprobante-hijo:hover > td,
+:host-context([data-theme="dark"]) .tr-analista:hover > td,
+:host-context([data-theme="dark"]) .tr-motivo:hover > td,
+:host-context([data-theme="dark"]) .tr-motivo-sub:hover > td,
+:host-context([data-theme="dark"]) .tr-financiador-sub:hover > td,
+:host-context([data-theme="dark"]) .tr-prestacion-detalle:hover > td,
+:host-context([data-theme="dark"]) .row-factura-raiz:hover > td {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* Filas Expandidas en JerarquÃ­as (Nivel 1 Financiador / Analista) */
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded > td,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded > td {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #0369a1 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded:hover > td {
+  background-color: #0369a1 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .financiador-nombre,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-facturado,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-incremento,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-aceptado,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-refacturado,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-cobranza,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-saldo-positivo,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-saldo-negativo,
+:host-context([data-theme="dark"]) .tr-financiador.is-expanded .color-saldo-cero,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .analista-nombre,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-facturado,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-aceptado,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-refacturado,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-diferencia,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-ticket,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-ticket-promedio {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .tr-periodo.is-expanded > td,
+:host-context([data-theme="dark"]) .tr-factura.is-expanded > td {
+  background-color: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+/* Nombres de Entidades y TÃ­tulos en Tablas: Blanco / Gris muy claro (#f1f5f9) */
+:host-context([data-theme="dark"]) .financiador-nombre,
+:host-context([data-theme="dark"]) .analista-nombre,
+:host-context([data-theme="dark"]) .comprobante-numero,
+:host-context([data-theme="dark"]) .font-weight-bold,
+:host-context([data-theme="dark"]) .table-sanatorial td strong,
+:host-context([data-theme="dark"]) .table-cuenta-corriente td strong {
+  color: #f1f5f9 !important;
+}
+
+/* Colores SemÃ¡nticos de Montos sobre Fondo Oscuro */
+:host-context([data-theme="dark"]) .color-facturado {
+  color: #93c5fd !important; /* Azul claro / celeste legible */
+}
+
+:host-context([data-theme="dark"]) .color-cobranza,
+:host-context([data-theme="dark"]) .color-saldo-positivo {
+  color: #34d399 !important; /* Verde esmeralda sutil para destacar: text-emerald-400 */
+}
+
+:host-context([data-theme="dark"]) .color-saldo-negativo,
+:host-context([data-theme="dark"]) .color-aceptado {
+  color: #f87171 !important; /* Rojo suave legible */
+}
+
+:host-context([data-theme="dark"]) .color-incremento,
+:host-context([data-theme="dark"]) .color-no-aceptado {
+  color: #fbbf24 !important; /* Ãmbar suave */
+}
+
+:host-context([data-theme="dark"]) .color-refacturado {
+  color: #c084fc !important; /* Violeta suave */
+}
+
+:host-context([data-theme="dark"]) .color-saldo-cero {
+  color: #94a3b8 !important; /* Gris medio: text-slate-400 */
+}
+
+/* Filas de totales generales en tablas */
+:host-context([data-theme="dark"]) .row-total td,
+:host-context([data-theme="dark"]) .table-total-row td,
+:host-context([data-theme="dark"]) .tr-total td,
+:host-context([data-theme="dark"]) .tr-total-analista th,
+:host-context([data-theme="dark"]) .tr-total-analista td {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-top: 2px solid #38bdf8 !important;
+  border-bottom: 2px solid #38bdf8 !important;
+}
+
+/* Ordenamiento en Columnas */
+:host-context([data-theme="dark"]) .sortable-col:hover {
+  background-color: #334155 !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .sortable-col.col-sorted {
+  background-color: #1e3a5f !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .sort-indicator.active {
+  color: #38bdf8;
+}
+
+/* 6. Tarjetas KPI y GrÃ¡ficos */
+:host-context([data-theme="dark"]) .kpi-title {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-value {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-desc {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-footer-simple,
+:host-context([data-theme="dark"]) .kpi-footer {
+  border-top-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-val-medicos {
+  color: #38bdf8 !important;
+}
+
+/* REQUISITO: Color de fondo de los gráficos #e5edfd (excepto Pareto en Motivos) */
+:host-context([data-theme="dark"]) .grafico-body,
+:host-context([data-theme="dark"]) .grafico-body--tall {
+  background-color: #e5edfd !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+:host-context([data-theme="dark"]) .grafico-loading,
+:host-context([data-theme="dark"]) .grafico-empty {
+  color: #1e293b !important;
+}
+
+/* 7. Badges y Tags en Modo Oscuro */
+:host-context([data-theme="dark"]) .badge-count {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .badge-ambulatorios {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-internados {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-cabeceras {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-fc {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(147, 197, 253, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-deb,
+:host-context([data-theme="dark"]) .badge-nc {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(252, 165, 165, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-ref,
+:host-context([data-theme="dark"]) .badge-nd {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fcd34d !important;
+  border: 1px solid rgba(253, 230, 138, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-cob,
+:host-context([data-theme="dark"]) .badge-rc {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+  border: 1px solid rgba(110, 231, 183, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-grupo {
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-hijo-fc-origen {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(147, 197, 253, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-asoc-hint,
+:host-context([data-theme="dark"]) .refactura-badge,
+:host-context([data-theme="dark"]) .badge-derivados-count {
+  background: #334155 !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .refactura-badge.has-refactura {
+  background: rgba(192, 132, 252, 0.2) !important;
+  color: #c084fc !important;
+  border-color: rgba(192, 132, 252, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .cobertura-tag {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .periodo-tag {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* 8. PaginaciÃ³n y Estados VacÃ­os */
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar,
+:host-context([data-theme="dark"]) .pagination-controls {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .page-current-indicator,
+:host-context([data-theme="dark"]) .trazabilidad-count,
+:host-context([data-theme="dark"]) .cc-pagination-info,
+:host-context([data-theme="dark"]) .pagination-page-size label {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .empty-state {
+  background-color: #1e293b !important;
+  border: 1px dashed #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .empty-state p {
+  color: #94a3b8 !important;
+}
+
+/* 9. Autocompletado y Controles Flotantes */
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list li {
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list li:hover {
+  background-color: #0f172a !important;
+  color: #38bdf8 !important;
+}
+
+/* 10. Sub-solapas Internas (Imputados / No Imputados) */
+:host-context([data-theme="dark"]) .cc-subtabs-nav {
+  border-bottom: 2px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-link {
+  color: #cbd5e1 !important;
+  border-bottom-color: transparent !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-link:hover {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-link.active {
+  color: #38bdf8 !important;
+  border-bottom: 2px solid #38bdf8 !important;
+  font-weight: 700 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-badge {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-link.active .cc-subtab-badge {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-badge.badge-amber {
+  background-color: rgba(245, 158, 11, 0.25) !important;
+  color: #fbbf24 !important;
+}
+
+:host-context([data-theme="dark"]) .cc-subtab-link.active .cc-subtab-badge.badge-amber {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 1px #f59e0b;
+}
+
+/* 11. Botones de ExpansiÃ³n y Drilldown */
+:host-context([data-theme="dark"]) .btn-toggle-expand {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-toggle-expand:hover {
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-toggle-expand.is-expanded {
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-drilldown {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  color: #38bdf8 !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .btn-drilldown:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+/* 12. Enlaces */
+:host-context([data-theme="dark"]) a {
+  color: #38bdf8;
+}
+
+:host-context([data-theme="dark"]) a:hover {
+  color: #7dd3fc;
+}
+
+/* =========================================================================
+   13. TIEMPOS DE COBRANZA EN MODO OSCURO
+   ========================================================================= */
+
+/* Contenedores y Tarjetas (Backgrounds) */
+:host-context([data-theme="dark"]) .tiempos-cobranza-section,
+:host-context([data-theme="dark"]) .tiempos-top-grid {
+  background-color: transparent !important;
+}
+
+:host-context([data-theme="dark"]) .tiempos-box {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+:host-context([data-theme="dark"]) .tiempos-box:hover {
+  border-color: #475569 !important;
+}
+
+/* Tipografia y Textos */
+:host-context([data-theme="dark"]) .tiempos-box-title {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-title {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-val {
+  color: #60a5fa !important; /* Azul vibrante text-blue-400 */
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-sub {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-divider {
+  border-top: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-col-lbl {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-col-val.text-green {
+  color: #34d399 !important; /* text-emerald-400 */
+}
+
+:host-context([data-theme="dark"]) .kpi-dso-col-val.text-red {
+  color: #f87171 !important; /* text-red-400 */
+}
+
+:host-context([data-theme="dark"]) .grafico-loading,
+:host-context([data-theme="dark"]) .grafico-empty {
+  color: #94a3b8 !important;
+}
+
+/* Tabla de Detalle ('Detalle de Cobranzas por Rango...') */
+:host-context([data-theme="dark"]) .tabla-aging-exact th {
+  color: #94a3b8 !important;
+  border-bottom: 2px solid #334155 !important;
+  background: transparent !important;
+  font-weight: 700 !important;
+}
+
+:host-context([data-theme="dark"]) .tabla-aging-exact td {
+  background-color: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .tabla-aging-exact tr:hover td {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .td-aging-rango {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .td-aging-comprobantes {
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .td-aging-saldo.text-slate {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .td-aging-porcentaje {
+  color: #cbd5e1 !important;
+}
+
+/* Fila resaltada 'Aun no cobrados': Fondo rojo oscuro con baja opacidad y texto en rojo claro */
+:host-context([data-theme="dark"]) .tabla-aging-exact tr.tr-aun-no-cobrado td,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado td {
+  background-color: rgba(127, 29, 29, 0.25) !important;
+  border-bottom: 1px solid rgba(127, 29, 29, 0.4) !important;
+  color: #6b0f1a !important;
+  font-weight: 700 !important;
+}
+
+:host-context([data-theme="dark"]) .tabla-aging-exact tr.tr-aun-no-cobrado:hover td,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado:hover td {
+  background-color: rgba(127, 29, 29, 0.35) !important;
+  color: #4c0519 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado .td-aging-rango,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado .td-aging-comprobantes,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado .td-aging-saldo,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado .td-aging-saldo.text-red,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado .td-aging-porcentaje {
+  color: #6b0f1a !important;
+  font-weight: 700 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado:hover .td-aging-rango,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado:hover .td-aging-comprobantes,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado:hover .td-aging-saldo,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado:hover .td-aging-saldo.text-red,
+:host-context([data-theme="dark"]) .tr-aun-no-cobrado:hover .td-aging-porcentaje {
+  color: #4c0519 !important;
+}
+
+/* Boton 'Exportar a Excel' */
+:host-context([data-theme="dark"]) #btn-export-tiempos.btn-export-excel,
+:host-context([data-theme="dark"]) #btn-export-prestaciones.btn-export-excel {
+  background: #059669 !important;
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) #btn-export-tiempos.btn-export-excel:hover:not(:disabled),
+:host-context([data-theme="dark"]) #btn-export-prestaciones.btn-export-excel:hover:not(:disabled) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+/* Badges y Textos de Solapa Prestaciones en Modo Oscuro */
+:host-context([data-theme="dark"]) .badge-ambulatorios {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+  color: #4ade80 !important;
+  border-color: rgba(74, 222, 128, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-internados {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-val-medicos {
+  color: #38bdf8 !important;
+}
+
+/* =========================================================================
+   14. MATRIZ DE COBRANZAS EN MODO OSCURO
+   ========================================================================= */
+
+/* Contenedor y Card Principal */
+:host-context([data-theme="dark"]) .dashboard-tab-pane--matriz,
+:host-context([data-theme="dark"]) .section-card--matriz {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Controles Superiores: Selector Ano Calendario y Label */
+:host-context([data-theme="dark"]) .matriz-select-label {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) #select-anio-matriz.select-anio,
+:host-context([data-theme="dark"]) .select-anio {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) #select-anio-matriz.select-anio:focus,
+:host-context([data-theme="dark"]) .select-anio:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+  outline: none;
+}
+
+/* Boton Exportar a Excel de Matriz */
+:host-context([data-theme="dark"]) #btn-export-matriz.btn-export-excel {
+  background: #059669 !important;
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) #btn-export-matriz.btn-export-excel:hover:not(:disabled) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+/* Grilla general y Bordes de la Tabla */
+:host-context([data-theme="dark"]) .table-matriz {
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-matriz th {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-matriz td {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-matriz .th-financiador {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .table-matriz .th-financiador.sortable-col:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .table-matriz .th-mes {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-matriz-fila:hover td {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .td-matriz-financiador {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .td-mes-valor {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .td-mes-valor.valor-cero {
+  color: #64748b !important;
+}
+
+/* 1. Columna 'TOTAL ANUAL' (Correccion Critica) */
+/* Eliminar el fondo blanco/claro heredado y aplicar bg-slate-800 (#1e293b) con bordes suaves */
+:host-context([data-theme="dark"]) .th-total-anual {
+  background-color: #1e293b !important;
+  color: #34d399 !important; /* Verde esmeralda brillante/neon sutil text-emerald-400 */
+  border-left: 2px solid #334155 !important;
+  border-top: 1px solid #334155 !important;
+  border-right: 1px solid #334155 !important;
+  border-bottom: 2px solid #334155 !important;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .th-total-anual.sortable-col:hover {
+  background-color: #334155 !important;
+  color: #6ee7b7 !important;
+}
+
+:host-context([data-theme="dark"]) .th-total-anual.sortable-col.col-sorted {
+  background-color: #334155 !important;
+  color: #34d399 !important;
+  border-left-color: #34d399 !important;
+}
+
+:host-context([data-theme="dark"]) .th-total-anual .sort-indicator.active {
+  color: #34d399 !important;
+}
+
+:host-context([data-theme="dark"]) .td-total-anual {
+  background-color: #1e293b !important;
+  color: #34d399 !important; /* Verde esmeralda text-emerald-400 */
+  border-left: 2px solid #334155 !important;
+  border-color: #334155 !important;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .tr-matriz-fila:hover .td-total-anual {
+  background-color: #334155 !important;
+  color: #6ee7b7 !important;
+}
+
+/* 2. Fila 'TOTAL GENERAL' (Correccion Critica) */
+/* Reemplazar el fondo celeste brillante por un azul oscuro profundo con baja opacidad (bg-blue-900/30) */
+/* y texto en azul claro/celeste suave (text-sky-300 / text-blue-300) */
+:host-context([data-theme="dark"]) .tr-matriz-total-superior {
+  background-color: rgba(30, 58, 138, 0.30) !important;
+  border-bottom: 2px solid #0284c7 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-matriz-total-superior td {
+  background-color: rgba(30, 58, 138, 0.30) !important;
+  color: #7dd3fc !important; /* text-sky-300 */
+  border-top: 1px solid #334155 !important;
+  border-bottom: 2px solid #0284c7 !important;
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-matriz-total-superior:hover td {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  color: #bae6fd !important;
+}
+
+:host-context([data-theme="dark"]) .td-total-superior-financiador {
+  color: #7dd3fc !important;
+}
+
+:host-context([data-theme="dark"]) .td-mes-total-superior {
+  color: #7dd3fc !important;
+}
+
+:host-context([data-theme="dark"]) .td-mes-total-superior.valor-cero {
+  color: #64748b !important;
+}
+
+/* Celda Interseccion Fila Total Superior con Columna Total Anual */
+:host-context([data-theme="dark"]) .td-gran-total-superior {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  color: #34d399 !important; /* Destacar el monto con verde esmeralda */
+  border-left: 2px solid #334155 !important;
+  border-bottom: 2px solid #0284c7 !important;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .tr-matriz-total-superior:hover .td-gran-total-superior {
+  background-color: rgba(30, 58, 138, 0.60) !important;
+  color: #6ee7b7 !important;
+}
+
+/* Fila de Totales Inferior (tfoot) */
+:host-context([data-theme="dark"]) .tr-matriz-total {
+  background-color: rgba(30, 58, 138, 0.30) !important;
+  border-top: 2px solid #0284c7 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-matriz-total td {
+  background-color: rgba(30, 58, 138, 0.30) !important;
+  color: #7dd3fc !important;
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .td-mes-total {
+  color: #7dd3fc !important;
+  background-color: rgba(30, 58, 138, 0.30) !important;
+}
+
+:host-context([data-theme="dark"]) .td-mes-total.valor-cero {
+  color: #64748b !important;
+}
+
+:host-context([data-theme="dark"]) .td-gran-total {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  color: #34d399 !important;
+  border-left: 2px solid #334155 !important;
+  box-shadow: -3px 0 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 5. Barra de desplazamiento (Scrollbar) en Modo Oscuro */
+:host-context([data-theme="dark"]) .matriz-table-responsive,
+:host-context([data-theme="dark"]) .table-responsive,
+:host-context([data-theme="dark"]) .tabla-aging-wrap {
+  scrollbar-color: #475569 #0f172a;
+  scrollbar-width: thin;
+}
+
+:host-context([data-theme="dark"]) .matriz-table-responsive::-webkit-scrollbar,
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar,
+:host-context([data-theme="dark"]) .tabla-aging-wrap::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+:host-context([data-theme="dark"]) .matriz-table-responsive::-webkit-scrollbar-track,
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar-track,
+:host-context([data-theme="dark"]) .tabla-aging-wrap::-webkit-scrollbar-track {
+  background: #0f172a !important;
+}
+
+:host-context([data-theme="dark"]) .matriz-table-responsive::-webkit-scrollbar-thumb,
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar-thumb,
+:host-context([data-theme="dark"]) .tabla-aging-wrap::-webkit-scrollbar-thumb {
+  background-color: #475569 !important;
+  border-radius: 4px;
+  border: 2px solid #0f172a !important;
+}
+
+:host-context([data-theme="dark"]) .matriz-table-responsive::-webkit-scrollbar-thumb:hover,
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar-thumb:hover,
+:host-context([data-theme="dark"]) .tabla-aging-wrap::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b !important;
+}
+
+/* ==========================================================================
+   SOLAPA MOTIVOS DE DÉBITO Y REFACTURACIÓN - MODO OSCURO COMPLETO Y COHERENTE
+   ========================================================================== */
+
+/* 1. Banner superior informativo y Controles de Categoría */
+:host-context([data-theme="dark"]) .motivos-info-alert {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border-left: 4px solid #38bdf8 !important;
+  color: #cbd5e1 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .motivos-info-text strong {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .badge-analistas-activos {
+  background-color: rgba(30, 58, 138, 0.5) !important;
+  color: #93c5fd !important;
+  border: 1px solid #1d4ed8 !important;
+}
+
+:host-context([data-theme="dark"]) .badge-analistas-activos.badge-analistas-filtrados {
+  background-color: rgba(67, 56, 202, 0.5) !important;
+  color: #c7d2fe !important;
+  border: 1px solid #4338ca !important;
+}
+
+/* 2. Tarjetas de Métricas (5 KPIs superiores) */
+:host-context([data-theme="dark"]) .card-contador-motivo {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo .contador-title {
+  color: #e2e8f0 !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo .contador-footer {
+  color: #94a3b8 !important;
+}
+
+/* Bordes identitarios sutiles y contraste de valores ($) */
+/* 2.1 TOTAL DEBITADO EN NC (Rojo suave) */
+:host-context([data-theme="dark"]) .card-contador-motivo.card-debitado-nc {
+  border: 1px solid rgba(239, 68, 68, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo.card-debitado-nc .contador-value {
+  color: #f87171 !important;
+}
+
+/* 2.2 DÉBITO ACEPTADO (PÉRDIDA) (Rosa/Rojo vino suave) */
+:host-context([data-theme="dark"]) .card-contador-motivo.card-debito-aceptado {
+  border: 1px solid rgba(244, 63, 94, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo.card-debito-aceptado .contador-value {
+  color: #fb7185 !important;
+}
+
+/* 2.3 TOTAL REFACTURADO (Azul luminoso) */
+:host-context([data-theme="dark"]) .card-contador-motivo.card-total-refacturado {
+  border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo.card-total-refacturado .contador-value {
+  color: #60a5fa !important;
+}
+
+/* 2.4 DIFERENCIA DEBITADO VS REFACTURADO (Púrpura/Violeta luminoso) */
+:host-context([data-theme="dark"]) .card-contador-motivo.card-diferencia-debitado-refacturado {
+  border: 1px solid rgba(168, 85, 247, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo.card-diferencia-debitado-refacturado .contador-value {
+  color: #c084fc !important;
+}
+
+/* 2.5 MOTIVOS IDENTIFICADOS (Cian luminoso) */
+:host-context([data-theme="dark"]) .card-contador-motivo.card-motivos-identificados {
+  border: 1px solid rgba(6, 182, 212, 0.5) !important;
+}
+
+:host-context([data-theme="dark"]) .card-contador-motivo.card-motivos-identificados .contador-value {
+  color: #22d3ee !important;
+}
+
+/* 3. Sección Gráfico de Pareto */
+:host-context([data-theme="dark"]) .grafico-card--pareto {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .grafico-card--pareto .grafico-body--pareto {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  box-shadow: none !important;
+}
+
+:host-context([data-theme="dark"]) .grafico-card--pareto .grafico-title {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .grafico-card--pareto .grafico-subtitle {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .grafico-card--pareto .grafico-loading,
+:host-context([data-theme="dark"]) .grafico-card--pareto .grafico-empty {
+  color: #cbd5e1 !important;
+}
+
+/* 4. Sección Inferior (Gráfico de Anillo y Tabla de Distribución) */
+:host-context([data-theme="dark"]) .donut-center-circle {
+  fill: #1e293b !important;
+  stroke: #334155;
+  stroke-width: 1px;
+}
+
+:host-context([data-theme="dark"]) .donut-center-title {
+  fill: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .donut-center-subtitle {
+  fill: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .donut-hint {
+  color: #94a3b8 !important;
+}
+
+/* Etiqueta 'Total Debitado' (arriba de la tabla) */
+:host-context([data-theme="dark"]) .total-debitado-badge {
+  background-color: #0f172a !important;
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .total-debitado-badge strong {
+  color: #f87171 !important;
+}
+
+/* Tabla de Distribución y Ranking */
+:host-context([data-theme="dark"]) .legend-container {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .legend-header {
+  background-color: #0f172a !important;
+  background: #0f172a !important;
+  border-bottom: 1px solid #334155 !important;
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .legend-header span.sortable-col:hover {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .legend-header span.sortable-col.col-sorted {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .legend-item {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .legend-item:hover,
+:host-context([data-theme="dark"]) .legend-item.legend-hover {
+  background-color: #334155 !important;
+  background: #334155 !important;
+  box-shadow: inset 3px 0 0 #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .motivo-nombre {
+  color: #e2e8f0 !important;
+}
+
+:host-context([data-theme="dark"]) .legend-col-monto {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .casos-badge {
+  background-color: #0f172a !important;
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .porc-text {
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .porc-aceptados {
+  color: #f87171 !important;
+}
+
+:host-context([data-theme="dark"]) .porc-refacturados {
+  color: #60a5fa !important;
+}
+
+/* Botón 'Ver Detalle' */
+:host-context([data-theme="dark"]) .btn-drilldown {
+  background-color: rgba(30, 58, 138, 0.35) !important;
+  background: rgba(30, 58, 138, 0.35) !important;
+  border: 1px solid #1d4ed8 !important;
+  color: #93c5fd !important;
+}
+
+:host-context([data-theme="dark"]) .btn-drilldown:hover {
+  background-color: #1d4ed8 !important;
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+/* Botón 'Exportar a Excel' en Motivos */
+:host-context([data-theme="dark"]) #btn-export-motivos.btn-export-excel {
+  background: #059669 !important;
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) #btn-export-motivos.btn-export-excel:hover:not(:disabled) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+
+/* ==========================================================================
+   15. SOLAPA ANALISTA DE DÉBITO - MODO OSCURO COMPLETO Y COHERENTE
+   ========================================================================== */
+
+/* Contenedor y Tabla General */
+:host-context([data-theme="dark"]) .table-analistas {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* 1. Fondo de la Tabla y Filas (Corrección Crítica) */
+/* Nivel 1: Analista */
+:host-context([data-theme="dark"]) .tr-analista > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-analista > td {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-analista:hover > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-analista:hover > td {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .tr-analista.is-expanded > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-analista.is-expanded > td {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #0369a1 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .tr-analista.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-analista.is-expanded:hover > td {
+  background-color: #0369a1 !important;
+  color: #ffffff !important;
+}
+
+/* Nivel 2: Motivos de Débito */
+:host-context([data-theme="dark"]) .tr-motivo > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-motivo > td {
+  background-color: #182234 !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #334155 !important;
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-motivo:hover > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-motivo:hover > td {
+  background-color: #243247 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-motivo.is-expanded > td {
+  background-color: #0f766e !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #0d5f58 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-motivo.is-expanded:hover > td {
+  background-color: #115e59 !important;
+  color: #ffffff !important;
+}
+
+/* Nivel 3: Financiadores Afectados */
+:host-context([data-theme="dark"]) .tr-financiador-sub > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-financiador-sub > td {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #1e293b !important;
+  border-color: #1e293b !important;
+}
+
+:host-context([data-theme="dark"]) .tr-financiador-sub:hover > td,
+:host-context([data-theme="dark"]) .table-analistas tbody tr.tr-financiador-sub:hover > td {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+/* 2. Visibilidad de Textos y Montos */
+:host-context([data-theme="dark"]) .analista-nombre {
+  color: #f1f5f9 !important;
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .motivo-tag {
+  color: #f1f5f9 !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .financiador-nombre-sub {
+  color: #e2e8f0 !important;
+}
+
+:host-context([data-theme="dark"]) .tree-branch {
+  color: #64748b !important;
+}
+
+:host-context([data-theme="dark"]) .color-facturado {
+  color: #f1f5f9 !important;
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .color-aceptado {
+  color: #34d399 !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .table-analistas .color-refacturado,
+:host-context([data-theme="dark"]) .color-refacturado {
+  color: #60a5fa !important;
+  font-weight: 600;
+}
+
+/* Columna 'DIFERENCIA ($)': Luminosidad Púrpura/Violeta para fondo oscuro */
+:host-context([data-theme="dark"]) .color-diferencia {
+  color: #c084fc !important; /* text-purple-400 */
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .color-ticket,
+:host-context([data-theme="dark"]) .color-ticket-promedio {
+  color: #cbd5e1 !important;
+}
+
+/* Contraste forzado en filas expandidas Nivel 1 */
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .analista-nombre,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-facturado,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-aceptado,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-refacturado,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-diferencia,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-ticket,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-ticket-promedio {
+  color: #ffffff !important;
+}
+
+/* Contraste forzado en filas expandidas Nivel 2 */
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .motivo-tag,
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .color-facturado,
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .color-aceptado,
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .color-refacturado,
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .color-diferencia,
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .color-ticket-promedio {
+  color: #ffffff !important;
+}
+
+/* 3. Fila 'TOTAL GENERAL' (Fila Fija / Sticky) */
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th,
+:host-context([data-theme="dark"]) tr.tr-totales-fijos th {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  color: #ffffff !important;
+  border-top: 1px solid #334155 !important;
+  border-bottom: 2px solid #0284c7 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.th-total-label,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.th-total-label {
+  color: #ffffff !important;
+  font-weight: 800;
+}
+
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-facturado {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-aceptado {
+  color: #34d399 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-refacturado {
+  color: #60a5fa !important;
+}
+
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-diferencia {
+  color: #c084fc !important;
+}
+
+/* 4. Píldoras (Badges) de Contadores y Distribución */
+:host-context([data-theme="dark"]) .badge-docs-analista,
+:host-context([data-theme="dark"]) .badge-fin-analista,
+:host-context([data-theme="dark"]) .badge-count,
+:host-context([data-theme="dark"]) .badge-motivos-medico {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .badge-docs-analista,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .badge-fin-analista,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .badge-count {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Píldoras de ATENCIÓN (AMB / INT) */
+:host-context([data-theme="dark"]) .badge-atencion {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .badge-atencion-sm {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .badge-atencion {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Píldoras de % RECUPERO */
+:host-context([data-theme="dark"]) .badge-recupero.recupero-alto {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(74, 222, 128, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-recupero.recupero-medio {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .badge-recupero.recupero-cero {
+  background-color: rgba(148, 163, 184, 0.15) !important;
+  color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
+}
+
+/* 5. Controles y Botones de la Solapa Analistas */
+:host-context([data-theme="dark"]) .filtro-analista-label {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) #select-filtro-analista.select-filtro-analista,
+:host-context([data-theme="dark"]) .select-filtro-analista {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) #select-filtro-analista.select-filtro-analista:focus,
+:host-context([data-theme="dark"]) .select-filtro-analista:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+  outline: none;
+}
+
+:host-context([data-theme="dark"]) .btn-clear-filtro-analista {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-clear-filtro-analista:hover {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) #btn-export-analistas.btn-export-excel {
+  background: #059669 !important;
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) #btn-export-analistas.btn-export-excel:hover:not(:disabled) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .btn-toggle-expand {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-toggle-expand:hover {
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-toggle-expand.is-expanded {
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .btn-toggle-expand {
+  color: #ffffff !important;
+}
+/* ==========================================================================
+   PÍLDORAS DE % RECUPERO (BASE PARA MODO CLARO Y OSCURO)
+   ========================================================================== */
+.badge-recupero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.badge-recupero.badge-recupero-sm {
+  padding: 0.15rem 0.45rem;
+  font-size: 0.74rem;
+}
+
+.badge-recupero.recupero-alto {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-recupero.recupero-medio {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-recupero.recupero-cero {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+/* ==========================================================================
+   16. SOLAPA USUARIO DE CARGA (OPERADORES) - MODO OSCURO COMPLETO Y COHERENTE
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. CONTROLES UI SUPERIORES
+   -------------------------------------------------------------------------- */
+/* Contenedores de filtros superiores */
+:host-context([data-theme="dark"]) .pane-operadores .filtro-analista-container,
+:host-context([data-theme="dark"]) #pane-operadores .filtro-analista-container {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores .filtro-analista-label,
+:host-context([data-theme="dark"]) #pane-operadores .filtro-analista-label {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+/* Selector 'Tipo de Atención': fondo muy oscuro bg-slate-900 (#0f172a), texto claro text-slate-200 (#e2e8f0), borde border-slate-700 (#334155) */
+:host-context([data-theme="dark"]) .pane-operadores #select-tipo-registro-operador,
+:host-context([data-theme="dark"]) #pane-operadores #select-tipo-registro-operador,
+:host-context([data-theme="dark"]) .pane-operadores .select-filtro-analista,
+:host-context([data-theme="dark"]) #pane-operadores .select-filtro-analista {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #select-tipo-registro-operador:focus,
+:host-context([data-theme="dark"]) #pane-operadores #select-tipo-registro-operador:focus,
+:host-context([data-theme="dark"]) .pane-operadores .select-filtro-analista:focus,
+:host-context([data-theme="dark"]) #pane-operadores .select-filtro-analista:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+  outline: none;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #select-tipo-registro-operador option,
+:host-context([data-theme="dark"]) #pane-operadores #select-tipo-registro-operador option {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+/* Input 'Buscar Operador': fondo muy oscuro bg-slate-900 (#0f172a), texto claro text-slate-200 (#e2e8f0), borde border-slate-700 (#334155) */
+:host-context([data-theme="dark"]) .pane-operadores #input-busqueda-operador,
+:host-context([data-theme="dark"]) #pane-operadores #input-busqueda-operador,
+:host-context([data-theme="dark"]) .pane-operadores .input-search-operador,
+:host-context([data-theme="dark"]) #pane-operadores .input-search-operador,
+:host-context([data-theme="dark"]) .pane-operadores .input-search-medico,
+:host-context([data-theme="dark"]) #pane-operadores .input-search-medico {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #input-busqueda-operador::placeholder,
+:host-context([data-theme="dark"]) #pane-operadores #input-busqueda-operador::placeholder,
+:host-context([data-theme="dark"]) .pane-operadores .input-search-operador::placeholder,
+:host-context([data-theme="dark"]) #pane-operadores .input-search-operador::placeholder {
+  color: #64748b !important; /* text-slate-500 */
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #input-busqueda-operador:focus,
+:host-context([data-theme="dark"]) #pane-operadores #input-busqueda-operador:focus,
+:host-context([data-theme="dark"]) .pane-operadores .input-search-operador:focus,
+:host-context([data-theme="dark"]) #pane-operadores .input-search-operador:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+  outline: none;
+}
+
+/* Botón limpiar búsqueda en input operador */
+:host-context([data-theme="dark"]) .pane-operadores .btn-clear-search,
+:host-context([data-theme="dark"]) #pane-operadores .btn-clear-search {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores .btn-clear-search:hover,
+:host-context([data-theme="dark"]) #pane-operadores .btn-clear-search:hover {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Contador de Operadores: mantener azul vibrante y texto blanco */
+:host-context([data-theme="dark"]) .pane-operadores .badge-analistas-activos,
+:host-context([data-theme="dark"]) #pane-operadores .badge-analistas-activos,
+:host-context([data-theme="dark"]) .pane-operadores .badge-operadores-activos,
+:host-context([data-theme="dark"]) #pane-operadores .badge-operadores-activos {
+  background-color: #0d6efd !important; /* azul vibrante */
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 1px 4px rgba(13, 110, 253, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores .badge-analistas-activos span,
+:host-context([data-theme="dark"]) #pane-operadores .badge-analistas-activos span,
+:host-context([data-theme="dark"]) .pane-operadores .badge-operadores-activos span,
+:host-context([data-theme="dark"]) #pane-operadores .badge-operadores-activos span {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores .badge-analistas-activos.badge-analistas-filtrados,
+:host-context([data-theme="dark"]) #pane-operadores .badge-analistas-activos.badge-analistas-filtrados {
+  background-color: #4f46e5 !important; /* indigo vibrante */
+  color: #ffffff !important;
+}
+
+/* Botón 'Exportar a Excel': verde esmeralda con texto blanco */
+:host-context([data-theme="dark"]) .pane-operadores #btn-export-operadores,
+:host-context([data-theme="dark"]) #pane-operadores #btn-export-operadores,
+:host-context([data-theme="dark"]) .pane-operadores .btn-export-excel,
+:host-context([data-theme="dark"]) #pane-operadores .btn-export-excel {
+  background: #059669 !important; /* verde esmeralda */
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #btn-export-operadores:hover:not(:disabled),
+:host-context([data-theme="dark"]) #pane-operadores #btn-export-operadores:hover:not(:disabled),
+:host-context([data-theme="dark"]) .pane-operadores .btn-export-excel:hover:not(:disabled),
+:host-context([data-theme="dark"]) #pane-operadores .btn-export-excel:hover:not(:disabled) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #btn-export-operadores svg,
+:host-context([data-theme="dark"]) #pane-operadores #btn-export-operadores svg,
+:host-context([data-theme="dark"]) .pane-operadores .btn-export-excel svg,
+:host-context([data-theme="dark"]) #pane-operadores .btn-export-excel svg {
+  stroke: #ffffff !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .pane-operadores #btn-export-operadores span,
+:host-context([data-theme="dark"]) #pane-operadores #btn-export-operadores span,
+:host-context([data-theme="dark"]) .pane-operadores .btn-export-excel span,
+:host-context([data-theme="dark"]) #pane-operadores .btn-export-excel span {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. FONDO DE LA TABLA Y FILAS (CORRECCIÓN CRÍTICA DE FONDOS CLAROS HEREDADOS)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-operadores,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  border-color: #334155 !important; /* border-slate-700 */
+}
+
+/* Fila de títulos de columnas */
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-header-cols th,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-header-cols th {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #94a3b8 !important; /* text-slate-400 */
+  border-bottom: 2px solid #334155 !important; /* border-slate-700 */
+  border-top: none !important;
+}
+
+/* Todas las celdas de datos: eliminar cualquier fondo claro heredado, aplicar bg-slate-800 (#1e293b) */
+:host-context([data-theme="dark"]) .table-operadores td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores td {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border-bottom: 1px solid #334155 !important; /* border-slate-700 */
+  border-top: none !important;
+}
+
+/* NIVEL 1: Fila del Operador (Colapsada) */
+:host-context([data-theme="dark"]) .table-operadores .tr-operador > td,
+:host-context([data-theme="dark"]) .table-operadores .tr-analista.tr-operador > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-operador > td {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border-bottom: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+/* NIVEL 1: Hover */
+:host-context([data-theme="dark"]) .table-operadores .tr-operador:hover > td,
+:host-context([data-theme="dark"]) .table-operadores .tr-analista.tr-operador:hover > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-operador:hover > td {
+  background-color: #334155 !important; /* bg-slate-700 hover */
+  color: #ffffff !important;
+}
+
+/* NIVEL 1: Desplegado (Sticky activo) */
+:host-context([data-theme="dark"]) .table-operadores .tr-operador.is-expanded > td,
+:host-context([data-theme="dark"]) .table-operadores .tr-analista.tr-operador.is-expanded > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-operador.is-expanded > td {
+  background-color: #0369a1 !important; /* azul profundo activo */
+  color: #ffffff !important;
+  border-bottom: 1px solid #0284c7 !important;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tr-operador.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-operadores .tr-analista.tr-operador.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-operador.is-expanded:hover > td {
+  background-color: #0284c7 !important;
+}
+
+/* NIVEL 2: Fila de Motivos (Colapsada) */
+:host-context([data-theme="dark"]) .table-operadores .tr-motivo > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-motivo > td {
+  background-color: #151f30 !important; /* slate intermedio oscuro */
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+/* NIVEL 2: Hover */
+:host-context([data-theme="dark"]) .table-operadores .tr-motivo:hover > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-motivo:hover > td {
+  background-color: #243044 !important;
+  color: #ffffff !important;
+}
+
+/* NIVEL 2: Desplegado */
+:host-context([data-theme="dark"]) .table-operadores .tr-motivo.is-expanded > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-motivo.is-expanded > td {
+  background-color: #0e3b43 !important; /* teal profundo oscuro */
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #0d9488 !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tr-motivo.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-motivo.is-expanded:hover > td {
+  background-color: #115e59 !important;
+}
+
+/* NIVEL 3: Fila de Financiadores Afectados */
+:host-context([data-theme="dark"]) .table-operadores .tr-financiador-sub > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-financiador-sub > td {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #cbd5e1 !important; /* text-slate-300 */
+  border-bottom: 1px solid #1e293b !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tr-financiador-sub:hover > td,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-financiador-sub:hover > td {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. VISIBILIDAD DE TEXTOS Y MONTOS DE ALTO CONTRASTE
+   -------------------------------------------------------------------------- */
+/* Nombre del Operador */
+:host-context([data-theme="dark"]) .table-operadores .analista-nombre {
+  color: #f1f5f9 !important; /* text-slate-100 / blanco */
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tr-operador.is-expanded .analista-nombre {
+  color: #ffffff !important;
+}
+
+/* Motivo de Débito */
+:host-context([data-theme="dark"]) .table-operadores .motivo-tag {
+  color: #e2e8f0 !important; /* text-slate-200 */
+  font-weight: 600;
+}
+
+/* Financiador Afectado */
+:host-context([data-theme="dark"]) .table-operadores .financiador-nombre-sub {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tree-branch {
+  color: #64748b !important; /* text-slate-500 */
+}
+
+/* Casos y Documentos */
+:host-context([data-theme="dark"]) .table-operadores td.text-right.font-weight-bold {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores td.text-muted {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+/* Montos Debitados ($) */
+:host-context([data-theme="dark"]) .table-operadores .color-facturado {
+  color: #93c5fd !important; /* text-blue-300 de alto contraste */
+}
+
+/* Débitos Aceptados ($) (Pérdida) */
+:host-context([data-theme="dark"]) .table-operadores .color-aceptado {
+  color: #f87171 !important; /* text-red-400 legible */
+}
+
+/* Refacturados ($) */
+:host-context([data-theme="dark"]) .table-operadores .color-refacturado {
+  color: #60a5fa !important; /* text-blue-400 de alto contraste */
+}
+
+/* DIFERENCIA ($): Ajuste de luminosidad para destacar sobre fondo oscuro (text-purple-400) */
+:host-context([data-theme="dark"]) .table-operadores .color-diferencia {
+  color: #c084fc !important; /* text-purple-400 luminoso */
+}
+
+/* Ticket Promedio */
+:host-context([data-theme="dark"]) .table-operadores .color-ticket-promedio {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Botón expandir fila */
+:host-context([data-theme="dark"]) .table-operadores .btn-toggle-expand {
+  color: #38bdf8 !important; /* sky-400 */
+  background: transparent !important;
+  border-color: #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tr-operador.is-expanded .btn-toggle-expand {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Porcentajes de Recupero */
+:host-context([data-theme="dark"]) .table-operadores .badge-recupero.recupero-alto {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  color: #34d399 !important; /* text-emerald-400 */
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .badge-recupero.recupero-medio {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important; /* text-amber-400 */
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores .badge-recupero.recupero-cero {
+  background-color: rgba(100, 116, 139, 0.2) !important;
+  color: #94a3b8 !important; /* text-slate-400 */
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. FILA 'TOTAL GENERAL' (FONDO AZUL OSCURO ELEGANTE Y TEXTO BLANCO PURO)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th {
+  background-color: #172554 !important; /* base sólida bg-blue-950 para sticky scroll */
+  background: linear-gradient(180deg, #1e3a8a 0%, #172554 100%) !important; /* fondo azul oscuro y elegante */
+  color: #ffffff !important;
+  border-top: 1px solid #2563eb !important;
+  border-bottom: 2px solid #3b82f6 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Etiqueta 'TOTAL GENERAL' */
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.th-total-label,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.th-total-label,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.th-total-label,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.th-total-label {
+  color: #ffffff !important;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+/* Valores y montos de la fila TOTAL GENERAL forzados a blanco puro o celeste/rojo/violeta de máxima luminosidad */
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.font-weight-bold {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.color-facturado,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.color-facturado,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.color-facturado,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-facturado {
+  color: #bfdbfe !important; /* text-blue-200 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.color-aceptado,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.color-aceptado,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.color-aceptado,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-aceptado {
+  color: #fca5a5 !important; /* text-red-300 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.color-refacturado,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.color-refacturado,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.color-refacturado,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-refacturado {
+  color: #93c5fd !important; /* text-blue-300 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.color-diferencia,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia {
+  color: #e9d5ff !important; /* text-purple-200 claro y visible */
+}
+
+/* --------------------------------------------------------------------------
+   5. PÍLDORAS (BADGES) DE 'MOTIVOS' (BG-SLATE-700 Y TEXT-SLATE-300)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-operadores .badge-count,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .badge-count {
+  background-color: #334155 !important; /* bg-slate-700 */
+  color: #cbd5e1 !important; /* text-slate-300 */
+  border: 1px solid #475569 !important; /* border-slate-600 */
+}
+
+:host-context([data-theme="dark"]) .table-operadores .tr-operador.is-expanded .badge-count,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores .tr-operador.is-expanded .badge-count {
+  background-color: #334155 !important; /* bg-slate-700 no brillante */
+  color: #cbd5e1 !important; /* text-slate-300 */
+  border: 1px solid #475569 !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. CONTROLES DE PAGINACIÓN OPERADORES EN MODO OSCURO
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .pane-operadores .pagination-info,
+:host-context([data-theme="dark"]) #pane-operadores .pagination-info,
+:host-context([data-theme="dark"]) .pane-operadores .page-current-indicator,
+:host-context([data-theme="dark"]) #pane-operadores .page-current-indicator,
+:host-context([data-theme="dark"]) .pane-operadores .pagination-page-size label,
+:host-context([data-theme="dark"]) #pane-operadores .pagination-page-size label {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+:host-context([data-theme="dark"]) .pane-operadores .page-size-select,
+:host-context([data-theme="dark"]) #pane-operadores .page-size-select {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+/* ==========================================================================
+   17. SOLAPA PRESTADORES / MÉDICOS - MODO OSCURO COMPLETO Y COHERENTE
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. CONTROLES UI SUPERIORES
+   -------------------------------------------------------------------------- */
+/* Input 'Buscar Médico': fondo muy oscuro bg-slate-900 (#0f172a), texto claro text-slate-200 (#e2e8f0), borde sutil border-slate-700 (#334155) */
+:host-context([data-theme="dark"]) #input-busqueda-medico,
+:host-context([data-theme="dark"]) .select-wrapper-analista #input-busqueda-medico {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  background: #0f172a !important;
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+:host-context([data-theme="dark"]) #input-busqueda-medico::placeholder {
+  color: #64748b !important; /* text-slate-500 */
+}
+
+:host-context([data-theme="dark"]) #input-busqueda-medico:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+  outline: none;
+}
+
+/* Botón limpiar búsqueda en input médico */
+:host-context([data-theme="dark"]) .select-wrapper-analista .btn-clear-filtro-analista {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .select-wrapper-analista .btn-clear-filtro-analista:hover {
+  background-color: #334155 !important;
+  color: #f87171 !important;
+  border-color: #f87171 !important;
+}
+
+/* Botón 'Exportar a Excel' en Médicos */
+:host-context([data-theme="dark"]) #btn-export-medicos.btn-export-excel {
+  background: #059669 !important; /* verde esmeralda */
+  background-color: #059669 !important;
+  border: 1px solid #047857 !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) #btn-export-medicos.btn-export-excel:hover:not(:disabled) {
+  background: #10b981 !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) #btn-export-medicos.btn-export-excel svg {
+  stroke: #ffffff !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) #btn-export-medicos.btn-export-excel span {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. FONDO DE LA TABLA Y FILAS (CORRECCIÓN CRÍTICA DE CONTRASTE)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-medicos {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  border-color: #334155 !important; /* border-slate-700 */
+}
+
+/* Encabezados de columna de la tabla de médicos */
+:host-context([data-theme="dark"]) .table-medicos thead th {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #94a3b8 !important; /* text-slate-400 */
+  border-bottom: 2px solid #334155 !important; /* border-slate-700 */
+  border-top: none !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos thead th.sortable-col:hover {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos thead th.sortable-col.col-sorted {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+}
+
+/* Eliminación total de fondos claros heredados en celdas de datos: bg-slate-800 (#1e293b) */
+:host-context([data-theme="dark"]) .table-medicos td,
+:host-context([data-theme="dark"]) .table-medicos tbody td {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border-bottom: 1px solid #334155 !important; /* border-slate-700 suavizado */
+  border-top: none !important;
+}
+
+/* NIVEL 1: Fila del Médico (Colapsada / Por Defecto) */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico > td,
+:host-context([data-theme="dark"]) .table-medicos tr.tr-analista.tr-medico > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-medico > td {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border-bottom: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+/* NIVEL 1: Hover de Fila de Médico */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tr.tr-analista.tr-medico:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-medico:hover > td {
+  background-color: #334155 !important; /* bg-slate-700 hover */
+  color: #ffffff !important;
+}
+
+/* NIVEL 1: Fila de Médico Desplegada / Expandida (Sticky activo) */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded > td,
+:host-context([data-theme="dark"]) .table-medicos tr.tr-analista.tr-medico.is-expanded > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-medico.is-expanded > td {
+  background-color: #0369a1 !important; /* azul profundo activo */
+  color: #ffffff !important;
+  border-bottom: 1px solid #0284c7 !important;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tr.tr-analista.tr-medico.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-medico.is-expanded:hover > td {
+  background-color: #0284c7 !important;
+}
+
+/* NIVEL 2: Fila de Motivos de Débito (Colapsada) */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-motivo > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-motivo > td {
+  background-color: #151f30 !important; /* slate intermedio oscuro */
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border-bottom: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+/* NIVEL 2: Hover */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-motivo:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-motivo:hover > td {
+  background-color: #243044 !important;
+  color: #ffffff !important;
+}
+
+/* NIVEL 2: Fila de Motivo Desplegada (Sticky activo) */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-motivo.is-expanded > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-motivo.is-expanded > td {
+  background-color: #0e3b43 !important; /* teal profundo oscuro */
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #0d9488 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos tr.tr-motivo.is-expanded:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-motivo.is-expanded:hover > td {
+  background-color: #115e59 !important;
+}
+
+/* NIVEL 3: Fila de Financiadores Afectados */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-financiador-sub > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-financiador-sub > td {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #cbd5e1 !important; /* text-slate-300 */
+  border-bottom: 1px solid #1e293b !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos tr.tr-financiador-sub:hover > td,
+:host-context([data-theme="dark"]) .table-medicos tbody tr.tr-financiador-sub:hover > td {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. VISIBILIDAD DE TEXTOS Y MONTOS DE ALTO CONTRASTE
+   -------------------------------------------------------------------------- */
+/* Nombre del Médico */
+:host-context([data-theme="dark"]) .table-medicos .analista-nombre {
+  color: #f1f5f9 !important; /* text-slate-100 / blanco */
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded .analista-nombre {
+  color: #ffffff !important;
+}
+
+/* Motivo de Débito */
+:host-context([data-theme="dark"]) .table-medicos .motivo-tag {
+  color: #e2e8f0 !important; /* text-slate-200 */
+  font-weight: 600;
+}
+
+/* Financiador Afectado */
+:host-context([data-theme="dark"]) .table-medicos .financiador-nombre-sub {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+:host-context([data-theme="dark"]) .table-medicos .tree-branch {
+  color: #64748b !important; /* text-slate-500 */
+}
+
+/* Casos y Documentos */
+:host-context([data-theme="dark"]) .table-medicos td.text-right.font-weight-bold {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos td.text-muted {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+/* Monto Debitado ($): Blanco puro de alto contraste */
+:host-context([data-theme="dark"]) .table-medicos .color-facturado {
+  color: #ffffff !important; /* blanco puro de alto impacto */
+  font-weight: 700;
+}
+
+/* Débitos Aceptados (Pérdida) ($): Verde esmeralda claro de alta visibilidad */
+:host-context([data-theme="dark"]) .table-medicos .color-aceptado {
+  color: #34d399 !important; /* verde esmeralda claro */
+  font-weight: 600;
+}
+
+/* Refacturados ($): Azul claro luminoso */
+:host-context([data-theme="dark"]) .table-medicos .color-refacturado {
+  color: #60a5fa !important; /* text-blue-400 */
+  font-weight: 600;
+}
+
+/* DIFERENCIA ($): Tono morado/índigo con alta luminosidad (text-purple-400) */
+:host-context([data-theme="dark"]) .table-medicos .color-diferencia {
+  color: #c084fc !important; /* text-purple-400 */
+  font-weight: 700;
+}
+
+/* Ticket Promedio */
+:host-context([data-theme="dark"]) .table-medicos .color-ticket,
+:host-context([data-theme="dark"]) .table-medicos .color-ticket-promedio {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Botón expandir fila */
+:host-context([data-theme="dark"]) .table-medicos .btn-toggle-expand {
+  color: #38bdf8 !important; /* sky-400 */
+  background: transparent !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded .btn-toggle-expand {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. FILA 'TOTAL GENERAL' (FONDO AZUL OSCURO ELEGANTE Y TEXTO BLANCO PURO)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .tbody-totales-medico {
+  border-bottom: 2px solid #0284c7 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td,
+:host-context([data-theme="dark"]) .table-medicos tbody.tbody-totales-medico tr.tr-total-superior-medicos td {
+  background-color: #172554 !important; /* base sólida bg-blue-950 para sticky scroll */
+  background: linear-gradient(180deg, #1e3a8a 0%, #172554 100%) !important; /* fondo azul oscuro y elegante */
+  color: #ffffff !important;
+  border-top: 1px solid #2563eb !important;
+  border-bottom: 2px solid #3b82f6 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+:host-context([data-theme="dark"]) .tr-total-superior-medicos:hover td,
+:host-context([data-theme="dark"]) .table-medicos tbody.tbody-totales-medico tr.tr-total-superior-medicos:hover td {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e3a8a 100%) !important;
+}
+
+/* Etiqueta 'TOTAL GENERAL' */
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .total-label-text,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .total-label-text {
+  color: #ffffff !important;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+/* Todos los valores numéricos y montos forzados a blanco puro */
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos strong,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-facturado,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-aceptado,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-refacturado,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-diferencia,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .text-muted {
+  color: #ffffff !important;
+}
+
+/* Badge del contador de médicos en TOTAL GENERAL */
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .badge-total-count {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. PÍLDORAS (BADGES) DE CANTIDAD (BG-SLATE-700 Y TEXT-SLATE-200)
+   -------------------------------------------------------------------------- */
+/* En la columna 'CANT. MOTIVOS / FIN.', oscurecer el fondo blanco de las píldoras redondas */
+:host-context([data-theme="dark"]) .table-medicos .badge-motivos-medico,
+:host-context([data-theme="dark"]) .table-medicos .badge-count,
+:host-context([data-theme="dark"]) .table-medicos .badge-fin-analista {
+  background-color: #334155 !important; /* bg-slate-700 */
+  background: #334155 !important;
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border: 1px solid #475569 !important; /* border-slate-600 */
+  box-shadow: none !important;
+}
+
+:host-context([data-theme="dark"]) .table-medicos .badge-motivos-medico.badge-col-financiadores {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
+}
+
+/* Píldoras cuando la fila de médico está expandida */
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded .badge-motivos-medico,
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded .badge-fin-analista,
+:host-context([data-theme="dark"]) .table-medicos tr.tr-medico.is-expanded .badge-count {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. BARRA DE DESPLAZAMIENTO (SCROLLBAR) EN MODO OSCURO
+   -------------------------------------------------------------------------- */
+/* Aplicar scrollbar-thumb-slate-600 (#475569) y scrollbar-track-slate-900 (#0f172a) */
+:host-context([data-theme="dark"]) .table-medicos-responsive,
+:host-context([data-theme="dark"]) .dashboard-tab-pane:has(.table-medicos) .table-responsive,
+:host-context([data-theme="dark"]) .table-responsive:has(.table-medicos) {
+  scrollbar-color: #475569 #0f172a; /* thumb-slate-600 / track-slate-900 */
+  scrollbar-width: thin;
+}
+
+:host-context([data-theme="dark"]) .table-responsive:has(.table-medicos)::-webkit-scrollbar-track,
+:host-context([data-theme="dark"]) .dashboard-tab-pane:has(.table-medicos) .table-responsive::-webkit-scrollbar-track {
+  background: #0f172a !important; /* track-slate-900 */
+}
+
+:host-context([data-theme="dark"]) .table-responsive:has(.table-medicos)::-webkit-scrollbar-thumb,
+:host-context([data-theme="dark"]) .dashboard-tab-pane:has(.table-medicos) .table-responsive::-webkit-scrollbar-thumb {
+  background-color: #475569 !important; /* thumb-slate-600 */
+  border-radius: 4px;
+  border: 2px solid #0f172a !important;
+}
+
+:host-context([data-theme="dark"]) .table-responsive:has(.table-medicos)::-webkit-scrollbar-thumb:hover,
+:host-context([data-theme="dark"]) .dashboard-tab-pane:has(.table-medicos) .table-responsive::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b !important;
+}
+
+
+/* ==========================================================================
+   16. SOLAPA PRESTACIONES - MODO OSCURO COMPLETO Y ACCESIBLE
+   ========================================================================== */
+
+/* 1. Legibilidad del Texto en la Tabla (Corrección Crítica) */
+:host-context([data-theme="dark"]) .table-prestaciones {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-prestaciones th {
+  background-color: #1e293b !important;
+  color: #94a3b8 !important; /* text-slate-400 para encabezados */
+  border: 1px solid #334155 !important;
+  border-bottom: 2px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-prestaciones td {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important; /* text-slate-200 para texto principal */
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-prestaciones tbody tr:hover td {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* Columna 'COMPROBANTE FC' */
+:host-context([data-theme="dark"]) .td-prestacion-comprobante,
+:host-context([data-theme="dark"]) .td-prestacion-comprobante .comprobante-numero {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Columna 'FECHA PRESTACIÓN' */
+:host-context([data-theme="dark"]) .td-prestacion-fecha {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Columna 'PACIENTE' */
+:host-context([data-theme="dark"]) .td-prestacion-paciente,
+:host-context([data-theme="dark"]) .prestacion-paciente-nombre {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+:host-context([data-theme="dark"]) .prestacion-paciente-carnet,
+:host-context([data-theme="dark"]) .td-prestacion-paciente small,
+:host-context([data-theme="dark"]) .td-prestacion-paciente .text-muted {
+  color: #94a3b8 !important; /* text-slate-400 para número de afiliado / secundario */
+}
+
+/* Columna 'PLAN' */
+:host-context([data-theme="dark"]) .td-prestacion-plan {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Columna 'PRESTACIÓN' */
+:host-context([data-theme="dark"]) .td-prestacion-codigo,
+:host-context([data-theme="dark"]) .prestacion-codigo-valor,
+:host-context([data-theme="dark"]) .td-prestacion-codigo strong {
+  color: #f1f5f9 !important; /* text-slate-100 para código de prestación */
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .prestacion-descripcion-valor,
+:host-context([data-theme="dark"]) .td-prestacion-codigo .text-muted,
+:host-context([data-theme="dark"]) .table-prestaciones .text-muted {
+  color: #94a3b8 !important; /* text-slate-400 para descripción secundaria */
+}
+
+/* Columna 'ESPECIALIDAD' */
+:host-context([data-theme="dark"]) .td-prestacion-especialidad {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Columna 'CANT.' */
+:host-context([data-theme="dark"]) .td-prestacion-cantidad {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Columna 'IMPORTE TOTAL' (Blanco puro para conservar la jerarquía visual de los montos) */
+:host-context([data-theme="dark"]) .td-prestacion-importe,
+:host-context([data-theme="dark"]) .table-prestaciones td.td-prestacion-importe,
+:host-context([data-theme="dark"]) .table-prestaciones td.font-weight-bold {
+  color: #ffffff !important; /* Blanco puro */
+  font-weight: 700;
+}
+
+/* Columna 'MÉDICO / PRESTADOR' */
+:host-context([data-theme="dark"]) .td-prestacion-medico {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+/* Columna 'INSTITUCIÓN / COBERTURA' */
+:host-context([data-theme="dark"]) .td-prestacion-cobertura {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+/* 2. Píldoras de Estado (Badges) */
+/* Ambulatorios: fondo translúcido (bg-emerald-900/30) y texto brillante (text-emerald-400) */
+:host-context([data-theme="dark"]) .badge-ambulatorios,
+:host-context([data-theme="dark"]) .table-prestaciones .badge-ambulatorios {
+  background-color: rgba(6, 78, 59, 0.35) !important; /* bg-emerald-900/35 translúcido */
+  color: #34d399 !important; /* text-emerald-400 brillante */
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  font-weight: 600;
+}
+
+/* Internados */
+:host-context([data-theme="dark"]) .badge-internados,
+:host-context([data-theme="dark"]) .table-prestaciones .badge-internados {
+  background-color: rgba(30, 58, 138, 0.35) !important; /* bg-blue-900/35 */
+  color: #60a5fa !important; /* text-blue-400 brillante */
+  border: 1px solid rgba(96, 165, 250, 0.35) !important;
+  font-weight: 600;
+}
+
+/* 3. Paginación y Textos Inferiores ('Mostrando 1 - 50 de 2.356.922 prestaciones') */
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar,
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .pagination-info,
+:host-context([data-theme="dark"]) .pagination-info {
+  color: #cbd5e1 !important; /* text-slate-300 para todo el bloque */
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .pagination-info strong,
+:host-context([data-theme="dark"]) .pagination-info strong {
+  color: #f1f5f9 !important; /* text-slate-100 para números clave */
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .page-current-indicator {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .pagination-page-size label {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .page-size-select {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .btn-page-nav {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+  border-color: #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .btn-page-nav:hover:not(:disabled) {
+  background: #475569 !important;
+  color: #ffffff !important;
+  border-color: #64748b !important;
+}
+
+:host-context([data-theme="dark"]) .trazabilidad-pagination-bar .btn-page-nav:disabled {
+  background: #1e293b !important;
+  color: #64748b !important;
+  border-color: #334155 !important;
+  opacity: 0.45;
+}
+
+/* 4. Barra de Desplazamiento Vertical (Scrollbar) en Modo Oscuro */
+:host-context([data-theme="dark"]) .table-responsive {
+  scrollbar-color: #334155 #0f172a !important; /* thumb gris #334155, track oscuro #0f172a */
+  scrollbar-width: thin;
+}
+
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar-track {
+  background: #0f172a !important; /* track oscuro #0f172a */
+}
+
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar-thumb {
+  background-color: #334155 !important; /* thumb gris #334155 */
+  border-radius: 4px;
+  border: 2px solid #0f172a !important;
+}
+
+:host-context([data-theme="dark"]) .table-responsive::-webkit-scrollbar-thumb:hover {
+  background-color: #475569 !important;
+}
+
+
+/* ==========================================================================
+   18. SOLAPA DETALLE Y TRAZABILIDAD - MODO OSCURO COMPLETO Y ACCESIBLE
+   ========================================================================== */
+
+.badge-medico {
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+/* 1. Legibilidad del Texto en la Tabla (Corrección Crítica) */
+/* Datos generales en las filas de Detalle y Trazabilidad (FINANCIADOR, etc.) */
+:host-context([data-theme="dark"]) .tr-parent-nivel1 td,
+:host-context([data-theme="dark"]) .tr-parent-nivel1 td span,
+:host-context([data-theme="dark"]) .pane-trazabilidad .table-sanatorial td,
+:host-context([data-theme="dark"]) .pane-trazabilidad .tr-parent-nivel1 td span {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+/* Columna 'PRESTACIÓN / DETALLE' - Título principal más brillante (text-slate-200) */
+:host-context([data-theme="dark"]) .tr-parent-nivel1 .comprobante-numero,
+:host-context([data-theme="dark"]) .tr-parent-nivel1 td strong.comprobante-numero,
+:host-context([data-theme="dark"]) .pane-trazabilidad .comprobante-numero {
+  color: #e2e8f0 !important; /* text-slate-200 */
+  font-weight: 700;
+}
+
+/* Columna 'PRESTACIÓN / DETALLE' - Texto secundario ligeramente más tenue pero legible (text-slate-400) */
+:host-context([data-theme="dark"]) .tr-parent-nivel1 .text-muted,
+:host-context([data-theme="dark"]) .tr-parent-nivel1 td div.text-muted,
+:host-context([data-theme="dark"]) .pane-trazabilidad .text-muted {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+/* Columna 'MÉDICO' - Texto en gris claro de alto contraste (text-slate-300) */
+:host-context([data-theme="dark"]) .badge-medico,
+:host-context([data-theme="dark"]) .tr-parent-nivel1 .badge-medico,
+:host-context([data-theme="dark"]) .pane-trazabilidad .badge-medico {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+/* Columna 'FACTURADO' - Blanco puro para los montos */
+:host-context([data-theme="dark"]) .tr-parent-nivel1 td.color-facturado,
+:host-context([data-theme="dark"]) .tr-parent-nivel1 .color-facturado,
+:host-context([data-theme="dark"]) .pane-trazabilidad td.color-facturado,
+:host-context([data-theme="dark"]) .pane-trazabilidad .color-facturado {
+  color: #ffffff !important; /* Blanco puro */
+  font-weight: 700;
+}
+
+/* Columna 'DÉBITOS' - Mantener contraste en montos debitados */
+:host-context([data-theme="dark"]) .tr-parent-nivel1 td.color-aceptado,
+:host-context([data-theme="dark"]) .pane-trazabilidad td.color-aceptado {
+  color: #f87171 !important;
+  font-weight: 700;
+}
+
+/* Estado Hover y Expandido de la fila principal en Trazabilidad */
+:host-context([data-theme="dark"]) .tr-parent-nivel1:hover > td,
+:host-context([data-theme="dark"]) .tr-parent-nivel1:hover > td span:not(.badge-medico) {
+  color: #f1f5f9 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-parent-nivel1:hover .comprobante-numero {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .tr-parent-nivel1:hover .badge-medico {
+  color: #e2e8f0 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-parent-nivel1:hover .text-muted {
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .tr-parent-nivel1.is-expanded > td {
+  background-color: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+/* Nivel 2 Desplegable (Árbol Encadenado de Eventos) en Modo Oscuro */
+:host-context([data-theme="dark"]) .tr-child-nivel2,
+:host-context([data-theme="dark"]) .td-child-container {
+  background-color: #0f172a !important;
+  border-bottom: 2px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-wrapper {
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-header-info {
+  border-bottom: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-badge-expediente {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #93c5fd !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+:host-context([data-theme="dark"]) .chain-badge-medico {
+  background: #334155 !important;
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-total-eventos {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-connector {
+  background: #475569 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-comprobante {
+  color: #e2e8f0 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-fecha {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-desc {
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .chain-card-footer {
+  border-top: 1px dashed #334155 !important;
+  color: #94a3b8 !important;
+}
+
+/* 2. Paginación y Textos Inferiores ('Mostrando 1 - 25 de 488 expedientes') */
+:host-context([data-theme="dark"]) .pane-trazabilidad .trazabilidad-pagination-bar,
+:host-context([data-theme="dark"]) .pane-trazabilidad .trazabilidad-pagination-bar .pagination-info {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+:host-context([data-theme="dark"]) .pane-trazabilidad .trazabilidad-pagination-bar .pagination-info strong {
+  color: #e2e8f0 !important; /* text-slate-200 */
+  font-weight: 700;
+}
+
+/* 3. Barra de Desplazamiento (Scrollbar) en Modo Oscuro para Detalle y Trazabilidad */
+:host-context([data-theme="dark"]) .pane-trazabilidad .table-responsive {
+  scrollbar-color: #334155 #0f172a !important; /* thumb gris #334155, track oscuro #0f172a */
+  scrollbar-width: thin;
+}
+
+:host-context([data-theme="dark"]) .pane-trazabilidad .table-responsive::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:host-context([data-theme="dark"]) .pane-trazabilidad .table-responsive::-webkit-scrollbar-track {
+  background: #0f172a !important; /* track oscuro #0f172a */
+}
+
+:host-context([data-theme="dark"]) .pane-trazabilidad .table-responsive::-webkit-scrollbar-thumb {
+  background-color: #334155 !important; /* thumb gris #334155 */
+  border-radius: 4px;
+  border: 2px solid #0f172a !important;
+}
+
+:host-context([data-theme="dark"]) .pane-trazabilidad .table-responsive::-webkit-scrollbar-thumb:hover {
+  background-color: #475569 !important;
+}
+
+
+/* ==========================================================================
+   19. REDISEÑO DE JERARQUÍA Y PALETA POR NIVELES EN MODO OSCURO
+       (VISTA 'CUENTA CORRIENTE' - TABLA DESPLEGABLE DE 4 NIVELES)
+   ========================================================================== */
+
+/* Encabezados de columnas de la tabla de Cuenta Corriente */
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr:first-child th {
+  background-color: #0b1120 !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+/* --------------------------------------------------------------------------
+   1. NIVEL SUPERIOR / FILA DE TOTAL ('TOTAL GENERAL')
+   - Fondo: El color más oscuro de la tabla (#020617 / bg-slate-950)
+   - Texto: Blanco o gris muy claro de alto contraste (#ffffff / #f1f5f9)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-fijos.tr-totales-cc th {
+  background-color: #020617 !important; /* bg-slate-950 */
+  background: #020617 !important;
+  color: #f8fafc !important; /* text-slate-50 / text-white */
+  border-top: 1px solid #334155 !important;
+  border-bottom: 2px solid #334155 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45) !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc .total-label-text,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-facturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-incremento,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-aceptado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-refacturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-cobranza,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-saldo-positivo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-saldo-negativo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc th.color-saldo-cero {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente thead tr.tr-totales-cc .badge-total-count {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #334155 !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. NIVEL 1 - ENTIDAD / FINANCIADOR (Ej. '446 - O.S.SERVICIO PENITENCIARIO...')
+   - Fondo: Azul marino profundo desaturado (bg-blue-900/60 sobre base oscura)
+   - Texto y números: Blanco (#ffffff / text-white)
+   - Iconos (flechas): Blanco (#ffffff / text-white)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador:nth-child(even) > td {
+  background-color: #172b54 !important;
+  background: linear-gradient(0deg, rgba(30, 58, 138, 0.58), rgba(30, 58, 138, 0.58)), #0f172a !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #1e3a8a !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador:hover > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador.is-expanded > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador.is-expanded:hover > td {
+  background-color: #1b3468 !important;
+  background: linear-gradient(0deg, rgba(30, 58, 138, 0.72), rgba(30, 58, 138, 0.72)), #0f172a !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #2563eb !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .financiador-nombre,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-facturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-incremento,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-aceptado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-refacturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-cobranza,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-saldo-positivo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-saldo-negativo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .color-saldo-cero {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .btn-toggle-expand,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .btn-toggle-expand.is-expanded {
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-financiador .text-muted {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. NIVEL 2 - PERÍODO (Ej. '2026-10')
+   - Fondo: Cian / sky oscuro de baja luminosidad y desaturado (bg-sky-900/40 - bg-cyan-950/50)
+   - Texto y números: Blanco o gris muy claro (#f1f5f9 / text-slate-100)
+   - Píldora del año: Azul o celeste de bajo brillo
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo:nth-child(even) > td {
+  background-color: #0b293b !important;
+  background: linear-gradient(0deg, rgba(12, 74, 110, 0.45), rgba(12, 74, 110, 0.45)), #0f172a !important;
+  color: #f1f5f9 !important; /* text-slate-100 */
+  border-bottom: 1px solid #164e63 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo:hover > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo.is-expanded > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo.is-expanded:hover > td {
+  background-color: #0d3349 !important;
+  background: linear-gradient(0deg, rgba(12, 74, 110, 0.62), rgba(12, 74, 110, 0.62)), #0f172a !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #0e7490 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-facturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-incremento,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-aceptado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-refacturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-cobranza,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-saldo-positivo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-saldo-negativo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .color-saldo-cero {
+  color: #f1f5f9 !important; /* text-slate-100 */
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .periodo-tag {
+  background-color: rgba(3, 105, 161, 0.4) !important;
+  color: #bae6fd !important; /* text-sky-200 */
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .text-muted {
+  color: #94a3b8 !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. NIVEL 3 - GRUPO (Ej. 'Grupo B0030-00004476')
+   - Fondo: Verde / esmeralda oscuro, desaturado y de baja opacidad (bg-emerald-950/40)
+   - Texto y números: Blanco o gris claro (#e2e8f0 / text-slate-200)
+   - Etiqueta 'Grupo': Fondo verde oscuro (bg-emerald-900/50) y texto verde claro (text-emerald-400)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura:nth-child(even) > td {
+  background-color: #0d2722 !important;
+  background: linear-gradient(0deg, rgba(6, 78, 59, 0.42), rgba(6, 78, 59, 0.42)), #0f172a !important;
+  color: #e2e8f0 !important; /* text-slate-200 */
+  border-bottom: 1px solid rgba(6, 95, 70, 0.65) !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura:hover > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura.is-expanded > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura.is-expanded:hover > td {
+  background-color: #0f3029 !important;
+  background: linear-gradient(0deg, rgba(6, 78, 59, 0.58), rgba(6, 78, 59, 0.58)), #0f172a !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #047857 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .comprobante-numero,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .text-fecha,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-facturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-incremento,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-aceptado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-refacturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-cobranza,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-saldo-positivo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-saldo-negativo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .color-saldo-cero {
+  color: #e2e8f0 !important; /* text-slate-200 */
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .badge-grupo {
+  background-color: rgba(6, 78, 59, 0.55) !important; /* bg-emerald-900/50 */
+  color: #34d399 !important; /* text-emerald-400 */
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. NIVEL 4 - DETALLE / DOCUMENTOS (Ej. 'FAC FAC B0030-00004476')
+   - Fondo: Fondo base oscuro de la tabla (#1e293b / bg-slate-800-900)
+   - Texto principal y números: Gris claro legible (#cbd5e1 / text-slate-300)
+   - Datos secundarios: Gris medio (#94a3b8 / text-slate-400)
+   - Píldora 'FAC': Azul desaturado (bg-blue-950 con borde/texto text-blue-400)
+   - Píldora 'ORIGEN': Azul oscuro con texto claro
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo:nth-child(even) > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-hijo-fc-origen > td {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  color: #cbd5e1 !important; /* text-slate-300 */
+  border-bottom: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo:hover > td,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-hijo-fc-origen:hover > td {
+  background-color: #263449 !important;
+  background: #263449 !important;
+  color: #e2e8f0 !important;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .comprobante-numero,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-facturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-incremento,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-aceptado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-refacturado,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-cobranza,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-saldo-positivo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-saldo-negativo,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .color-saldo-cero {
+  color: #cbd5e1 !important; /* text-slate-300 */
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .text-fecha,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .text-muted {
+  color: #94a3b8 !important; /* text-slate-400 */
+}
+
+/* Píldora 'FAC': Azul desaturado (bg-blue-950 con borde/texto text-blue-400) */
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .badge-fc {
+  background-color: #172554 !important; /* bg-blue-950 */
+  color: #60a5fa !important; /* text-blue-400 */
+  border: 1px solid rgba(96, 165, 250, 0.4) !important;
+}
+
+/* Píldora 'ORIGEN': Azul oscuro con texto claro */
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-comprobante-hijo .badge-hijo-fc-origen {
+  background-color: rgba(30, 58, 138, 0.55) !important;
+  color: #bfdbfe !important; /* text-blue-200 */
+  border: 1px solid rgba(147, 197, 253, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. LÍNEAS, FLECHAS DE SUBNIVELES Y GUÍAS JERÁRQUICAS
+   - Guías de sangría (└─, •) y flechas de subniveles en gris sutil (text-slate-500 / #64748b)
+   -------------------------------------------------------------------------- */
+:host-context([data-theme="dark"]) .table-cuenta-corriente .tree-branch,
+:host-context([data-theme="dark"]) .table-cuenta-corriente .tree-bullet {
+  color: #64748b !important; /* text-slate-500 */
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .btn-toggle-expand,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .btn-toggle-expand {
+  color: #94a3b8 !important; /* text-slate-400 sutil */
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-periodo .btn-toggle-expand:hover,
+:host-context([data-theme="dark"]) .table-cuenta-corriente tbody tr.tr-factura .btn-toggle-expand:hover {
+  color: #e2e8f0 !important;
+}
+
+
+/* ==========================================================================
+   20. REFACTORIZACIÓN DE LA COLUMNA 'TOTAL ANUAL' EN MODO OSCURO
+       (TABLA 'MATRIZ ANUAL DE RECAUDACIÓN POR FECHA REAL DE RECIBO')
+   ========================================================================== */
+
+/* 3. Consistencia de la Tabla: Filas de financiadores y columnas mensuales (ENE a DIC)
+   en bg-slate-800 (#1e293b), texto claro (#f1f5f9) y bordes border-slate-700 (#334155) */
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila > td,
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila:nth-child(even) > td {
+  background-color: #1e293b !important; /* bg-slate-800 */
+  background: #1e293b !important;
+  color: #f1f5f9 !important; /* text-slate-100 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila > td.td-mes-valor.valor-cero {
+  color: #64748b !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila:hover > td {
+  background-color: #263449 !important;
+  background: #263449 !important;
+  color: #ffffff !important;
+}
+
+/* 1. Columna de Totales ('TOTAL ANUAL' - Corrección Crítica) */
+/* Encabezado de la Columna 'TOTAL ANUAL': fondo verde-gris oscuro a tono (#142d25 / bg-emerald-900/40) */
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz thead th.th-total-anual,
+:host-context([data-theme="dark"]) .table-matriz th.th-total-anual {
+  background-color: #142d25 !important;
+  background: #142d25 !important;
+  color: #34d399 !important; /* text-emerald-400 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+  border-bottom: 2px solid #334155 !important;
+  font-weight: 700 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz thead th.th-total-anual.sortable-col:hover,
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz thead th.th-total-anual.sortable-col.col-sorted {
+  background-color: #19382e !important;
+  background: #19382e !important;
+  color: #6ee7b7 !important; /* text-emerald-300 */
+  border-color: #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz thead th.th-total-anual .sort-indicator,
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz thead th.th-total-anual .sort-indicator.active {
+  color: #34d399 !important;
+}
+
+/* Fondo y Texto de la Columna 'TOTAL ANUAL':
+   Verde bosque / esmeralda muy oscuro de baja opacidad (#062f1d / bg-emerald-950/40 sobre base oscura)
+   y montos en verde esmeralda brillante (#34d399 / text-emerald-400) */
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila > td.td-total-anual,
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila:nth-child(even) > td.td-total-anual,
+:host-context([data-theme="dark"]) .table-matriz td.td-total-anual {
+  background-color: #0d2820 !important;
+  background: linear-gradient(0deg, rgba(6, 78, 59, 0.42), rgba(6, 78, 59, 0.42)), #0f172a !important;
+  color: #34d399 !important; /* text-emerald-400 */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+  font-weight: 700 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-fila:hover > td.td-total-anual {
+  background-color: #12352b !important;
+  background: linear-gradient(0deg, rgba(6, 78, 59, 0.58), rgba(6, 78, 59, 0.58)), #0f172a !important;
+  color: #6ee7b7 !important; /* text-emerald-300 */
+}
+
+/* 2. Celda de Intersección (TOTAL GENERAL / TOTAL ANUAL):
+   Fondo que mantiene el verde oscuro de la columna de totales combinado con la fila de totales,
+   y texto en tono celeste / azul-verde brillante (#38bdf8 text-sky-400 / #2dd4bf text-teal-400) */
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-total-superior > td.td-gran-total-superior,
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tfoot tr.tr-matriz-total > td.td-gran-total,
+:host-context([data-theme="dark"]) .table-matriz .td-gran-total-superior,
+:host-context([data-theme="dark"]) .table-matriz .td-gran-total {
+  background-color: #0f3028 !important;
+  background: linear-gradient(0deg, rgba(6, 78, 59, 0.55), rgba(6, 78, 59, 0.55)), #0f172a !important;
+  color: #38bdf8 !important; /* text-sky-400 brillante para el total de totales */
+  border: 1px solid #334155 !important; /* border-slate-700 */
+  font-weight: 800 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tbody tr.tr-matriz-total-superior:hover > td.td-gran-total-superior,
+:host-context([data-theme="dark"]) .table-sanatorial.table-matriz tfoot tr.tr-matriz-total:hover > td.td-gran-total {
+  background-color: #143d33 !important;
+  background: linear-gradient(0deg, rgba(6, 78, 59, 0.68), rgba(6, 78, 59, 0.68)), #0f172a !important;
+  color: #7dd3fc !important; /* text-sky-300 */
+}
+
+
+/* ==========================================================================
+   21. LISTA DE SUGERENCIAS DE FILTROS (MÉDICO / PRESTACIÓN): ESTADOS Y TECLADO
+   ========================================================================== */
+.autocomplete-dropdown-list li.activa {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.autocomplete-dropdown-list li.autocomplete-status {
+  cursor: default;
+  color: #64748b;
+  font-style: italic;
+  background-color: transparent;
+}
+
+.autocomplete-dropdown-list li.autocomplete-status:hover {
+  background-color: transparent;
+  color: #64748b;
+}
+
+.autocomplete-dropdown-list li.autocomplete-hint {
+  font-size: 0.76rem;
+  border-bottom: none;
+  border-top: 1px dashed #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list li.activa {
+  background-color: #0f172a !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list li.autocomplete-status,
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list li.autocomplete-status:hover {
+  background-color: transparent !important;
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .autocomplete-dropdown-list li.autocomplete-hint {
+  border-top: 1px dashed #334155 !important;
+}
+
+
+/* ==========================================================================
+   22. TABLA 'RESUMEN DE CARTERA Y BALANCE FINANCIERO' (TABLERO DE CONTROL):
+       fila de títulos de columnas con el mismo color que la de 'Cuenta Corriente'
+   ========================================================================== */
+:host-context([data-theme="dark"]) .table-sanatorial.table-balance thead tr th,
+:host-context([data-theme="dark"]) .table-sanatorial.table-balance thead tr th.th-financiador,
+:host-context([data-theme="dark"]) .table-sanatorial.table-balance thead tr th.th-saldo,
+:host-context([data-theme="dark"]) .table-balance thead tr th,
+:host-context([data-theme="dark"]) .table-balance thead th {
+  background-color: #0b1120 !important;
+  background: #0b1120 !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-balance thead tr th.sortable-col:hover,
+:host-context([data-theme="dark"]) .table-balance thead tr th.sortable-col:hover {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .table-sanatorial.table-balance thead tr th.sortable-col.col-sorted,
+:host-context([data-theme="dark"]) .table-balance thead tr th.sortable-col.col-sorted {
+  background-color: #1e3a5f !important;
+  background: #1e3a5f !important;
+  color: #38bdf8 !important;
+}
+
+/* ==========================================================================
+   23. TABLA 'PRESTACIONES FACTURADAS': ENCABEZADOS ORDENABLES Y MODO OSCURO
+   ========================================================================== */
+.table-prestaciones th.sortable-col {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.table-prestaciones th.sortable-col:hover {
+  background-color: #f1f5f9;
+  color: #1e40af;
+}
+
+.table-prestaciones th.sortable-col.col-sorted {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+:host-context([data-theme="dark"]) .table-prestaciones thead th.sortable-col:hover {
+  background-color: #334155 !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .table-prestaciones thead th.sortable-col.col-sorted {
+  background-color: #1e3a5f !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .table-prestaciones thead th.sortable-col.col-sorted .sort-indicator {
+  color: #38bdf8 !important;
+}
+
+/* ==========================================================================
+   24. MODAL: LÍMITE DE EXPORTACIÓN A EXCEL (SOLAPA PRESTACIONES - MÁX 3 MESES)
+   ========================================================================== */
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpModal {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-export-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeInModal 0.2s ease-out;
+}
+
+.modal-export-card {
+  background-color: #ffffff;
+  color: #1e293b;
+  border-radius: 12px;
+  width: 520px;
+  max-width: 95vw;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUpModal 0.25s ease-out;
+}
+
+.modal-export-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+}
+
+.modal-export-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.modal-export-icon {
+  font-size: 1.35rem;
+}
+
+.modal-export-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.modal-export-header .btn-close-modal {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.modal-export-header .btn-close-modal:hover:not(:disabled) {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.modal-export-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.modal-export-alert-box {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #1e3a8a;
+}
+
+.modal-export-alert-box p {
+  margin: 0;
+}
+
+.modal-export-filtros-activos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.83rem;
+  padding: 0.65rem 0.85rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.label-filtros-activos {
+  font-weight: 600;
+  color: #475569;
+  margin-right: 0.25rem;
+}
+
+.tag-filtro {
+  background: #e2e8f0;
+  color: #334155;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.modal-export-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.modal-export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.modal-export-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.modal-select-custom,
+.modal-date-input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modal-select-custom:focus,
+.modal-date-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+.modal-export-error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+
+.modal-export-error-box p {
+  margin: 0;
+  font-weight: 500;
+}
+
+.modal-export-hint {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.modal-export-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-modal-cancelar {
+  padding: 0.55rem 1.15rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-modal-cancelar:hover:not(:disabled) {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.btn-modal-exportar {
+  padding: 0.55rem 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* Modo Oscuro para el Modal de Exportación */
+:host-context([data-theme="dark"]) .modal-export-card {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #334155;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+:host-context([data-theme="dark"]) .modal-export-header {
+  background-color: #1e293b;
+  border-bottom-color: #334155;
+}
+
+:host-context([data-theme="dark"]) .modal-export-header h3 {
+  color: #ffffff;
+}
+
+:host-context([data-theme="dark"]) .modal-export-header .btn-close-modal {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .modal-export-header .btn-close-modal:hover:not(:disabled) {
+  background-color: #334155;
+  color: #ffffff;
+}
+
+:host-context([data-theme="dark"]) .modal-export-alert-box {
+  background-color: rgba(30, 58, 138, 0.35);
+  border-color: #1e40af;
+  color: #bfdbfe;
+}
+
+:host-context([data-theme="dark"]) .modal-export-alert-box strong {
+  color: #93c5fd;
+}
+
+:host-context([data-theme="dark"]) .modal-export-filtros-activos {
+  background-color: #0f172a;
+  border-color: #334155;
+}
+
+:host-context([data-theme="dark"]) .label-filtros-activos {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .tag-filtro {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #334155;
+}
+
+:host-context([data-theme="dark"]) .modal-export-field label {
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .modal-select-custom,
+:host-context([data-theme="dark"]) .modal-date-input {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+:host-context([data-theme="dark"]) .modal-select-custom:focus,
+:host-context([data-theme="dark"]) .modal-date-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+:host-context([data-theme="dark"]) .modal-export-error-box {
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+:host-context([data-theme="dark"]) .modal-export-hint {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .modal-export-footer {
+  background-color: #1e293b;
+  border-top-color: #334155;
+}
+
+:host-context([data-theme="dark"]) .btn-modal-cancelar {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .btn-modal-cancelar:hover:not(:disabled) {
+  background-color: #334155;
+  color: #ffffff;
+}
+
+:host-context([data-theme="dark"]) #btn-export-prestaciones.btn-export-excel:disabled {
+  background: #334155 !important;
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+  color: #94a3b8 !important;
+  opacity: 0.65 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
 }

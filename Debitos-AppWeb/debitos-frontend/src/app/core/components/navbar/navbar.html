@@ -50,6 +50,13 @@
         <span class="tour-label">Ver Tour Guiado</span>
       </button>
 
+      <!-- Selector de Modo Oscuro / Claro / Auto -->
+      <button type="button" class="btn-theme-toggle" (click)="themeService.toggleTheme()"
+        [title]="'Tema: ' + themeService.getLabel() + ' (Clic para alternar)'">
+        <span class="theme-icon">{{ themeService.getIcon() }}</span>
+        <span class="theme-label">{{ themeService.getLabel() }}</span>
+      </button>
+
       <!-- Campana de Notificaciones (para Admin) -->
       <div class="notification-wrapper" *ngIf="esAdminReal || rolActual === 'ADMIN'">
         <button class="btn-icon-bell" (click)="toggleNotificaciones($event)"

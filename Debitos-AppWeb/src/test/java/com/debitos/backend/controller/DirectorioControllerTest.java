@@ -132,7 +132,7 @@ class DirectorioControllerTest {
         @Test
         @DisplayName("GET /api/directorio/motivos debe retornar lista paginada de motivos agrupados")
         void testObtenerMotivos() throws Exception {
-                when(directorioService.obtenerDistribucionMotivosPaginado(any(), any(), any(), any(), anyInt(),
+                when(directorioService.obtenerDistribucionMotivosPaginado(any(), any(), any(), any(), any(), anyInt(),
                                 anyInt()))
                                 .thenReturn(new PaginatedResponseDTO<>(List.of(
                                                 new DirectorioMotivoDebitoDTO("Falta de autorización/Token",
@@ -141,7 +141,7 @@ class DirectorioControllerTest {
                                                 new DirectorioMotivoDebitoDTO("Falta firma profesional",
                                                                 new BigDecimal("30000.00"), new BigDecimal("40.00"),
                                                                 8)),
-                                                2, 0, 50));
+                                                2, 0, 1000));
 
                 mockMvc.perform(get("/api/directorio/motivos")
                                 .contentType(MediaType.APPLICATION_JSON))
@@ -163,7 +163,7 @@ class DirectorioControllerTest {
                                 new BigDecimal("4500.00"), true);
 
                 when(directorioService.obtenerPrestacionesPorMotivoPaginado(eq("Falta de autorización/Token"), any(), any(),
-                                any(), any(), anyInt(), anyInt()))
+                                any(), any(), any(), anyInt(), anyInt()))
                                 .thenReturn(new PaginatedResponseDTO<>(List.of(prestacion), 1, 0, 50));
 
                 mockMvc.perform(get("/api/directorio/motivo-detalle")
@@ -176,5 +176,36 @@ class DirectorioControllerTest {
                                 .andExpect(jsonPath("$.content[0].motivoDebito").value("Falta de autorización/Token"))
                                 .andExpect(jsonPath("$.content[0].comentariosDebito")
                                                 .value("No adjunta autorización previa"));
+        }
+
+        @Test
+        @DisplayName("GET /api/directorio/prestaciones debe recibir sortBy y sortDir y retornar prestaciones facturadas paginadas")
+        void testObtenerPrestacionesFacturadasConOrdenamiento() throws Exception {
+                DirectorioPrestacionItemDTO item = new DirectorioPrestacionItemDTO(
+                                101, "FC", "A", 30, 4476,
+                                LocalDate.of(2026, 9, 12), LocalDate.of(2026, 9, 15),
+                                "QUISBERT EMILY", "123456", "PLAN GLOBAL", "420101",
+                                "CONSULTA EN CONSULTORIO", "CLINICA", 1,
+                                new BigDecimal("15000.00"), "DR LOPEZ", "OSDE", "Ambulatorios");
+
+                DirectorioPrestacionesResponseDTO responseDTO = new DirectorioPrestacionesResponseDTO(
+                                1L, new BigDecimal("15000.00"), 1L, 1L,
+                                1, 1, 50, List.of(item));
+
+                when(directorioService.obtenerPrestacionesFacturadasPaginado(
+                                any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(),
+                                eq("importe"), eq("desc")))
+                                .thenReturn(responseDTO);
+
+                mockMvc.perform(get("/api/directorio/prestaciones")
+                                .param("sortBy", "importe")
+                                .param("sortDir", "desc")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.totalRegistros").value(1))
+                                .andExpect(jsonPath("$.items.length()").value(1))
+                                .andExpect(jsonPath("$.items[0].paciente").value("QUISBERT EMILY"))
+                                .andExpect(jsonPath("$.items[0].cobertura").value("OSDE"))
+                                .andExpect(jsonPath("$.items[0].importeTotal").value(15000.00));
         }
 }

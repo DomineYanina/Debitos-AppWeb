@@ -6,6 +6,11 @@ import { DocumentoAsociado } from '../models/documento-asociado';
 import { CambioEstadoResponse } from '../models/cambio-estado-response';
 import { environment } from '../../../environments/environment';
 
+export interface PrestacionCatalogo {
+  codigo: string;
+  descripcion: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -17,15 +22,15 @@ export class AuditoriaService {
     return this.http.get<Prestacion[]>(`${this.apiUrl}/buscar`, { params: filtros });
   }
 
-  guardarParcialmente(payload: any, silencioso: boolean = false) {
+  guardarParcialmente(payload: any, silencioso: boolean = false): Observable<any> {
     const options = silencioso
       ? { headers: new HttpHeaders({ 'X-Skip-Loading': 'true' }) }
       : {};
-    return this.http.post(`${this.apiUrl}/guardar-parcialmente`, payload, options);
+    return this.http.post<any>(`${this.apiUrl}/guardar-parcialmente`, payload, options);
   }
 
-  guardarNuevaNotaCredito(payload: any) {
-    return this.http.post(`${this.apiUrl}/nueva-nota-credito`, payload);
+  guardarNuevaNotaCredito(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/nueva-nota-credito`, payload);
   }
 
   editarNcAjusteIva(payload: any) {
@@ -110,5 +115,11 @@ export class AuditoriaService {
 
   obtenerConfiguracion(): Observable<{ permitirNcConjunta: boolean }> {
     return this.http.get<{ permitirNcConjunta: boolean }>(`${this.apiUrl}/configuracion`);
+  }
+
+  buscarPrestacionesCatalogo(filtro: string): Observable<PrestacionCatalogo[]> {
+    return this.http.get<PrestacionCatalogo[]>(`${this.apiUrl}/prestaciones-catalogo`, {
+      params: { filtro: (filtro || '').trim() }
+    });
   }
 }

@@ -669,6 +669,53 @@
   margin-bottom: 0.5rem;
 }
 
+/* ==========================================================================
+   BOTÓN EXPORTAR A EXCEL (ESTILO CORPORATIVO)
+   ========================================================================== */
+.btn-export-excel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  background-color: #107c41;
+  color: #ffffff;
+  border: 1px solid #0e6b38;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(16, 124, 65, 0.22);
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.btn-export-excel:hover:not(:disabled) {
+  background-color: #0c5e31;
+  border-color: #094a26;
+  box-shadow: 0 2px 6px rgba(16, 124, 65, 0.3);
+}
+
+.btn-export-excel:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-export-excel:disabled {
+  background-color: #94a3b8;
+  border-color: #94a3b8;
+  color: #f8fafc;
+  cursor: not-allowed;
+  opacity: 0.65;
+  box-shadow: none;
+}
+
+.btn-export-excel svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .drilldown-container {
     padding: 1rem;
@@ -681,3 +728,362 @@
     flex-direction: column;
   }
 }
+
+/* =========================================================================
+   MODO OSCURO - DRILLDOWN DE MOTIVOS (SLATE CORPORATIVO)
+   ========================================================================= */
+
+:host-context([data-theme="dark"]) .drilldown-container {
+  background-color: #0b0f19;
+  color: #f8fafc;
+}
+
+/* Header Main Card */
+:host-context([data-theme="dark"]) .header-main-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+:host-context([data-theme="dark"]) .motivo-title {
+  color: #f8fafc;
+}
+
+:host-context([data-theme="dark"]) .motivo-meta {
+  color: #94a3b8;
+}
+
+/* Píldoras de contexto superior izquierda */
+:host-context([data-theme="dark"]) .filter-pill {
+  background: rgba(51, 65, 85, 0.35);
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .filter-pill strong {
+  color: #e2e8f0;
+}
+
+/* Header Stats */
+:host-context([data-theme="dark"]) .stat-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+:host-context([data-theme="dark"]) .stat-label {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .stat-value {
+  color: #f8fafc;
+}
+
+:host-context([data-theme="dark"]) .stat-value.text-danger {
+  color: #f87171 !important;
+}
+
+/* 1. Bloque Central de Filtros y Búsqueda */
+:host-context([data-theme="dark"]) .filters-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+:host-context([data-theme="dark"]) .filters-dropdowns-row {
+  border-top-color: #334155;
+}
+
+:host-context([data-theme="dark"]) .search-icon {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .form-control-search {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+:host-context([data-theme="dark"]) .form-control-search::placeholder {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .form-control-search:focus {
+  background-color: #0f172a;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+:host-context([data-theme="dark"]) .results-count {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .results-count strong {
+  color: #f8fafc;
+}
+
+:host-context([data-theme="dark"]) .filtered-amount-pill {
+  background: rgba(6, 78, 59, 0.35);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+:host-context([data-theme="dark"]) .btn-clear-filters {
+  background: rgba(127, 29, 29, 0.25);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+:host-context([data-theme="dark"]) .btn-clear-filters:hover {
+  background: rgba(127, 29, 29, 0.45);
+  border-color: #ef4444;
+  color: #fee2e2;
+}
+
+:host-context([data-theme="dark"]) .filter-item label {
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .form-control-select,
+:host-context([data-theme="dark"]) .form-control-date,
+:host-context([data-theme="dark"]) .form-control-money {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+  color-scheme: dark;
+}
+
+:host-context([data-theme="dark"]) .form-control-select:hover,
+:host-context([data-theme="dark"]) .form-control-date:hover,
+:host-context([data-theme="dark"]) .form-control-money:hover {
+  border-color: #475569;
+  background-color: #111827;
+}
+
+:host-context([data-theme="dark"]) .form-control-select:focus,
+:host-context([data-theme="dark"]) .form-control-date:focus,
+:host-context([data-theme="dark"]) .form-control-money:focus {
+  background-color: #0f172a;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+:host-context([data-theme="dark"]) .form-control-select option {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+:host-context([data-theme="dark"]) .form-control-money::placeholder {
+  color: #64748b;
+}
+
+:host-context([data-theme="dark"]) .currency-prefix {
+  color: #94a3b8;
+}
+
+/* 2. Tabla de Datos e Importes */
+:host-context([data-theme="dark"]) .table-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+:host-context([data-theme="dark"]) .table-drilldown {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .table-drilldown th {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-bottom: 2px solid #334155 !important;
+}
+
+:host-context([data-theme="dark"]) .table-drilldown td {
+  background-color: #1e293b;
+  color: #cbd5e1;
+  border-bottom: 1px solid #334155;
+}
+
+:host-context([data-theme="dark"]) .table-drilldown tbody tr:hover td {
+  background-color: #273549 !important;
+  color: #f8fafc !important;
+}
+
+:host-context([data-theme="dark"]) .sortable-col:hover {
+  background-color: #273549 !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .sortable-col.col-sorted {
+  background-color: #1e3a5f !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .sort-indicator {
+  color: #64748b;
+}
+
+:host-context([data-theme="dark"]) .sort-indicator.active {
+  color: #38bdf8;
+}
+
+/* Legibilidad de datos críticos */
+:host-context([data-theme="dark"]) .patient-name {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .patient-carnet {
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .medico-name {
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .desc-text {
+  color: #cbd5e1;
+}
+
+:host-context([data-theme="dark"]) .color-debito {
+  color: #f87171 !important;
+  font-weight: 700;
+}
+
+:host-context([data-theme="dark"]) .doc-badge-wrapper strong {
+  color: #f8fafc;
+}
+
+/* Etiquetas e identificadores pequeños: '5000', 'S1000B', 'AQUA MAS', etc. */
+:host-context([data-theme="dark"]) .code-pill {
+  background: #334155;
+  color: #f8fafc;
+  border: 1px solid #475569;
+}
+
+:host-context([data-theme="dark"]) .plan-badge {
+  background: #334155;
+  color: #f8fafc;
+  border: 1px solid #475569;
+}
+
+/* 3. Badges de Comprobantes y Estado */
+:host-context([data-theme="dark"]) .badge-nc {
+  background: rgba(127, 29, 29, 0.4);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+:host-context([data-theme="dark"]) .motivo-highlight {
+  background: rgba(113, 63, 18, 0.4);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+:host-context([data-theme="dark"]) .badge-aceptado {
+  background: rgba(127, 29, 29, 0.35);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+:host-context([data-theme="dark"]) .badge-rechazado {
+  background: rgba(88, 28, 135, 0.35);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+:host-context([data-theme="dark"]) .badge-pendiente {
+  background: #334155;
+  color: #cbd5e1;
+  border: 1px solid #475569;
+}
+
+/* 4. Comentarios del Operador (Texto Libre) */
+:host-context([data-theme="dark"]) .operator-comment-box {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-left: 3px solid #38bdf8;
+  color: #e2e8f0;
+}
+
+:host-context([data-theme="dark"]) .operator-comment-box.no-comment {
+  border-left-color: #475569;
+  color: #64748b;
+}
+
+:host-context([data-theme="dark"]) .comment-text {
+  color: #e2e8f0;
+}
+
+:host-context([data-theme="dark"]) .operator-comment-box.no-comment .comment-text {
+  color: #64748b;
+}
+
+/* Navegación y utilidades */
+:host-context([data-theme="dark"]) .btn-back {
+  background: #0f172a !important;
+  border: 1px solid #64748b !important;
+  color: #f8fafc !important;
+}
+
+:host-context([data-theme="dark"]) .btn-back:hover {
+  background: #334155 !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .breadcrumb-sep,
+:host-context([data-theme="dark"]) .breadcrumb-current {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .badge-readonly {
+  background: #334155;
+  color: #cbd5e1;
+  border-color: #475569;
+}
+
+:host-context([data-theme="dark"]) .btn-export-excel {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+:host-context([data-theme="dark"]) .btn-export-excel:hover:not(:disabled) {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+}
+
+:host-context([data-theme="dark"]) .loading-state,
+:host-context([data-theme="dark"]) .empty-state {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="dark"]) .spinner {
+  border-color: #334155;
+  border-top-color: #38bdf8;
+}
+
+:host-context([data-theme="dark"]) .pagination-info,
+:host-context([data-theme="dark"]) .page-indicator {
+  color: #cbd5e1 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-page {
+  background: #0f172a !important;
+  border: 1px solid #64748b !important;
+  color: #f8fafc !important;
+}
+
+:host-context([data-theme="dark"]) .btn-page:hover:not(:disabled) {
+  background: #334155 !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+:host-context([data-theme="dark"]) .btn-page:disabled {
+  opacity: 0.4 !important;
+  border-color: #334155 !important;
+  color: #64748b !important;
+}
+

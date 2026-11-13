@@ -1300,6 +1300,29 @@ class DirectorioServiceTest {
     }
 
     @Test
+    @DisplayName("getTrazabilidad filtra correctamente por Punto de Venta, Letra y Número de Factura Madre")
+    void testGetTrazabilidad_filtradaPorPtovtaLetraYNumero() {
+        when(cabeceraRepository.findIdsGruposFacturasTrazabilidadFiltrada(
+                any(), any(), eq("OSDE"), eq(30), eq("A"), eq(1001L), eq(500)))
+                .thenReturn(List.of(10L, 20L));
+        when(cabeceraRepository.findLigeraByGrupoOrAsociadogrupoOrIdIn(any()))
+                .thenReturn(List.of(
+                        new CabeceraLigeraDTO(10L, "FC", "A", 30, 1001, LocalDate.of(2026, 9, 15),
+                                LocalDate.of(2026, 9, 1), "AMB", "OSDE", "OSDE BINARIO", "SISTEMA", 10L, null, null,
+                                new BigDecimal("50000.00"), BigDecimal.ZERO, 1, "FAC A0030-00001001"),
+                        new CabeceraLigeraDTO(20L, "FC", "B", 31, 9999, LocalDate.of(2026, 9, 16),
+                                LocalDate.of(2026, 9, 1), "AMB", "OSDE", "OSDE BINARIO", "SISTEMA", 20L, null, null,
+                                new BigDecimal("80000.00"), BigDecimal.ZERO, 1, "FAC B0031-00009999")));
+
+        List<CadenaTrazabilidadDTO> resultado = directorioService.getTrazabilidad(
+                "OSDE", null, null, "2026-09-01", "2026-09-30", 30, "a", 1001L);
+
+        assertNotNull(resultado);
+        assertEquals(1, resultado.size());
+        assertEquals("FAC A0030-00001001", resultado.get(0).getIdPrestacion());
+    }
+
+    @Test
     @DisplayName("getCuentaCorrienteTresNiveles - Documento suelto con distinto asociadogrupo pero asociado a NC de la familia se vincula correctamente")
     void testGetCuentaCorrienteTresNiveles_documentoSueltoSeVinculaPorAsociado() {
         when(cabeceraRepository.findIdsGruposFacturasPorRangoPeriodos(any(), any()))
@@ -1633,5 +1656,58 @@ class DirectorioServiceTest {
         boolean tieneNcAjena = cadenaFac.getHistorialEventos().stream()
                 .anyMatch(n -> "NC".equalsIgnoreCase(n.getTipo()) && n.getComprobante().contains("4541"));
         assertFalse(tieneNcAjena, "La cadena de trazabilidad de FAC 9508 no debe incluir la NC B0032-00004541 que pertenece al asociadogrupo 210784");
+    }
+
+    @Test
+    @DisplayName("getMetricasOperadores en Ambulatorios agrupa por al.operador y filtra NOT LIKE INTERN%")
+    void testGetMetricasOperadores_ambulatoriosUsaColumnaOperador() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] { "OJEDAD", "Falta de autorización/Token", "OSDE",
+                new BigDecimal("188355.39"), BigDecimal.ZERO, new BigDecimal("188355.39"), "Ambulatorios" });
+
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        when(entityManager.createNativeQuery(sqlCaptor.capture())).thenReturn(mockQuery);
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<MetricaOperadorDTO> result = directorioService.getMetricasOperadores(
+                "2026-08", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), "periodo", "Ambulatorios");
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("OJEDAD", result.get(0).getOperador());
+        assertEquals(1, result.get(0).getCantidadRegistros());
+        assertEquals(new BigDecimal("188355.39"), result.get(0).getTotalTramitado());
+
+        String sqlEjecutado = sqlCaptor.getValue();
+        assertTrue(sqlEjecutado.contains("al.operador)"), "En Ambulatorios debe agrupar por al.operador");
+        assertTrue(sqlEjecutado.contains("NOT LIKE 'INTERN%'"), "En Ambulatorios debe excluir Internados");
+    }
+
+    @Test
+    @DisplayName("getMetricasOperadores en Internados agrupa por al.operador_liquida y filtra LIKE INTERN%")
+    void testGetMetricasOperadores_internadosUsaColumnaOperadorLiquida() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] { "NAGYP", "Sin motivo especificado", "OSDE",
+                new BigDecimal("27507240.36"), new BigDecimal("182995.00"), new BigDecimal("27324245.36"), "Internados" });
+
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        when(entityManager.createNativeQuery(sqlCaptor.capture())).thenReturn(mockQuery);
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<MetricaOperadorDTO> result = directorioService.getMetricasOperadores(
+                "2026-08", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), "periodo", "Internados");
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("NAGYP", result.get(0).getOperador());
+        assertEquals(1, result.get(0).getCantidadRegistros());
+        assertEquals(new BigDecimal("27507240.36"), result.get(0).getTotalTramitado());
+        assertEquals(new BigDecimal("182995.00"), result.get(0).getDebitosAceptados());
+        assertEquals(new BigDecimal("27324245.36"), result.get(0).getDebitosRefacturados());
+
+        String sqlEjecutado = sqlCaptor.getValue();
+        assertTrue(sqlEjecutado.contains("al.operador_liquida)"), "En Internados debe agrupar por al.operador_liquida");
+        assertTrue(sqlEjecutado.contains("LIKE 'INTERN%'"), "En Internados debe filtrar registros LIKE 'INTERN%'");
+        assertFalse(sqlEjecutado.contains("NOT LIKE 'INTERN%'"), "En Internados no debe usar NOT LIKE 'INTERN%'");
     }
 }

@@ -68,10 +68,11 @@ public class DirectorioController {
             @RequestParam(required = false) String tipoDoc,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "1000") int size) {
         PaginatedResponseDTO<DirectorioMotivoDebitoDTO> motivos = directorioService.obtenerDistribucionMotivosPaginado(
-                codigoCobertura, tipoDoc, fechaDesde, fechaHasta, page, size);
+                codigoCobertura, tipoDoc, fechaDesde, fechaHasta, criterioFecha, page, size);
         return ResponseEntity.ok(motivos);
     }
 
@@ -82,10 +83,52 @@ public class DirectorioController {
             @RequestParam(required = false) String tipoDoc,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         PaginatedResponseDTO<DirectorioPrestacionDetalleDTO> lista = directorioService.obtenerPrestacionesPorMotivoPaginado(
-                motivo, codigoCobertura, tipoDoc, fechaDesde, fechaHasta, page, size);
+                motivo, codigoCobertura, tipoDoc, fechaDesde, fechaHasta, criterioFecha, page, size);
+        return ResponseEntity.ok(lista);
+    }
+
+    @GetMapping("/prestaciones")
+    public ResponseEntity<DirectorioPrestacionesResponseDTO> obtenerPrestacionesFacturadas(
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) String tipoDoc,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha,
+            @RequestParam(required = false, defaultValue = "TODOS") String tipoRegistro,
+            @RequestParam(required = false) String medico,
+            @RequestParam(required = false) String prestacion,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir) {
+        DirectorioPrestacionesResponseDTO res = directorioService.obtenerPrestacionesFacturadasPaginado(
+                codigoCobertura, tipoDoc, fechaDesde, fechaHasta, criterioFecha, tipoRegistro, medico, prestacion, page, size, sortBy, sortDir);
+        return ResponseEntity.ok(res);
+    }
+
+    @GetMapping("/prestaciones/sugerencias-medicos")
+    public ResponseEntity<List<String>> obtenerSugerenciasMedicos(
+            @RequestParam String q,
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha) {
+        List<String> lista = directorioService.obtenerSugerenciasMedicosPrestaciones(q, codigoCobertura, fechaDesde, fechaHasta, criterioFecha);
+        return ResponseEntity.ok(lista);
+    }
+
+    @GetMapping("/prestaciones/sugerencias-prestaciones")
+    public ResponseEntity<List<Map<String, String>>> obtenerSugerenciasPrestaciones(
+            @RequestParam String q,
+            @RequestParam(required = false) String codigoCobertura,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha) {
+        List<Map<String, String>> lista = directorioService.obtenerSugerenciasCodigosPrestaciones(q, codigoCobertura, fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(lista);
     }
 }

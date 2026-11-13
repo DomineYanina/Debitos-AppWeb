@@ -2749,6 +2749,188 @@ describe('AuditoriaComponent', () => {
       component.modalAceptarCb();
       component.modalCancelarCb();
     });
+
+    it('debería manejar correctamente el modal Agregar Prestación Externa y Paciente no Especificado', () => {
+      component.prestaciones = [{ id: 1, cobertura: 'OSDE' } as any];
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+
+      component.abrirModalPrestacionExterna();
+      expect(component.modalPrestacionExternaVisible).toBe(true);
+      expect(component.prestacionExternaForm.get('pacienteNoEspecificado')?.value).toBe(false);
+      expect(component.prestacionExternaForm.get('paciente')?.enabled).toBe(true);
+      expect(component.prestacionExternaForm.get('debitoAceptado')?.value).toBe('NO');
+
+      // Tildar Paciente no Especificado
+      component.onPacienteNoEspecificadoChange({ target: { checked: true } } as any);
+      expect(component.prestacionExternaForm.get('paciente')?.value).toBe('Paciente no Especificado');
+      expect(component.prestacionExternaForm.get('paciente')?.disabled).toBe(true);
+
+      // Destildar Paciente no Especificado
+      component.onPacienteNoEspecificadoChange({ target: { checked: false } } as any);
+      expect(component.prestacionExternaForm.get('paciente')?.value).toBe('');
+      expect(component.prestacionExternaForm.get('paciente')?.enabled).toBe(true);
+
+      // Volver a tildar y confirmar agregado
+      component.onPacienteNoEspecificadoChange({ target: { checked: true } } as any);
+      component.prestacionExternaForm.patchValue({
+        cobertura: 'OSDE',
+        codigo: '420101',
+        descripcion: 'Consulta',
+        fecha: '2026-11-06',
+        cantidad: 1,
+        importeDebitado: '5000'
+      });
+
+      component.confirmarPrestacionExterna();
+      expect(component.modalPrestacionExternaVisible).toBe(false);
+      const agregada = component.prestaciones.find(p => p.esManual);
+      expect(agregada).toBeDefined();
+      expect(agregada?.paciente).toBe('Paciente no Especificado');
+      expect(agregada?.debitoAceptado).toBe('NO');
+      expect(agregada?.importeDebitado).toBe(5000);
+      expect(agregada?.importeRefactura).toBe(5000);
+
+      // Cerrar modal
+      component.cerrarModalPrestacionExterna();
+      expect(component.modalPrestacionExternaVisible).toBe(false);
+    });
+
+    it('debería manejar el autocompletado en tiempo real de códigos de prestación', () => {
+      component.abrirModalPrestacionExterna();
+      expect(component.descripcionPrestacionBloqueada).toBe(false);
+      expect(component.mostrarDropdownCatalogo).toBe(false);
+
+      // Input de código
+      component.onCodigoPrestacionInput({ target: { value: '42' } } as any);
+
+      // Selección de prestación del catálogo
+      const itemCatalogo = { codigo: '420101', descripcion: 'CONSULTA EN CONSULTORIO' };
+      component.seleccionarPrestacionCatalogo(itemCatalogo);
+
+      expect(component.prestacionExternaForm.get('codigo')?.value).toBe('420101');
+      expect(component.prestacionExternaForm.get('descripcion')?.value).toBe('CONSULTA EN CONSULTORIO');
+      expect(component.descripcionPrestacionBloqueada).toBe(true);
+      expect(component.mostrarDropdownCatalogo).toBe(false);
+
+      // Desbloqueo de descripción
+      component.desbloquearDescripcion();
+      expect(component.descripcionPrestacionBloqueada).toBe(false);
+
+      // Focus en código con resultados
+      component.listaPrestacionesCatalogo = [itemCatalogo];
+      component.onCodigoPrestacionFocus();
+      expect(component.mostrarDropdownCatalogo).toBe(true);
+
+      // Cerrar dropdown
+      component.cerrarDropdownCatalogo();
+      expect(component.mostrarDropdownCatalogo).toBe(false);
+    });
+
+    it('debería permitir guardar parcialmente prestaciones importadas aunque aún no tengan motivo de débito y marcarlas como esImportada al buscar FC', () => {
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '30', numero: '100' });
+
+      // 1. Importar prestación sin motivo de débito
+      component.prestaciones = [{ id: 1, paciente: 'Nativo', motivoDebito: '' } as any];
+      component.prestacionesFiltradas = [...component.prestaciones];
+      component.prestacionesCandidatasImportar = [
+        {
+          id: 55,
+          paciente: 'Importado',
+          motivoDebito: '',
+          facturaOrigenTipo: 'FC',
+          facturaOrigenLetra: 'A',
+          facturaOrigenPtovta: 30,
+          facturaOrigenNumero: 200
+        } as any
+      ];
+      component.prestacionesSeleccionadasParaImportar.add(55);
+      component.confirmarImportacionPrestaciones();
+
+      expect(component.modificadosSinGuardar.has(55)).toBe(true);
+
+      let payloadCapturado: any = null;
+      auditoriaServiceSpy.guardarParcialmente = (payload: any) => {
+        payloadCapturado = payload;
+        return of({});
+      };
+
+      component.guardarParcialmente(false);
+      expect(payloadCapturado).toBeTruthy();
+      expect(payloadCapturado.registros.length).toBe(1);
+      expect(payloadCapturado.registros[0].id).toBe(55);
+
+      // 2. Al volver a buscar la FC A-30-100, la prestación 55 (origen A-30-200) debe marcarse como esImportada
+      auditoriaServiceSpy.buscarPrestaciones = () => of({
+        prestaciones: [
+          { id: 1, facturaOrigenTipo: 'FC', facturaOrigenLetra: 'A', facturaOrigenPtovta: 30, facturaOrigenNumero: 100 },
+          { id: 55, facturaOrigenTipo: 'FC', facturaOrigenLetra: 'A', facturaOrigenPtovta: 30, facturaOrigenNumero: 200 }
+        ]
+      });
+
+      component.onBuscar();
+      const nativo = component.prestaciones.find(p => p.id === 1);
+      const importado = component.prestaciones.find(p => p.id === 55);
+      expect(nativo?.esImportada).toBeFalsy();
+      expect(importado?.esImportada).toBe(true);
+
+      // 3. Quitar prestación importada debe enviarla en idsParaBorrar
+      payloadCapturado = null;
+      component.quitarPrestacionImportada(importado!);
+      expect(payloadCapturado).toBeTruthy();
+      expect(payloadCapturado.idsParaBorrar).toContain(55);
+    });
+
+    it('ordenarModal debería alternar dirección y ordenar prestaciones candidatas por texto, número y fecha', () => {
+      component.prestacionesCandidatasFiltradas = [
+        { id: 1, paciente: 'ZAPATA JUAN', medico: 'DR. PEREZ', codigo: '420101', descripcion: 'CONSULTA', cantidad: 3, fecha: '2025-05-10', totalNeto: 300, total: 300 } as any,
+        { id: 2, paciente: 'ALVAREZ ANA', medico: 'DRA. GOMEZ', codigo: '100101', descripcion: 'ANALISIS', cantidad: 1, fecha: '2025-05-01', totalNeto: 100, total: 100 } as any,
+        { id: 3, paciente: 'GOMEZ LUIS', medico: 'DR. ALONSO', codigo: '200101', descripcion: 'ECOGRAFIA', cantidad: 2, fecha: '2025-05-05', totalNeto: 200, total: 200 } as any
+      ];
+
+      // Ordenar por paciente asc
+      component.ordenarModal('paciente');
+      expect(component.columnaOrdenModal).toBe('paciente');
+      expect(component.direccionOrdenModal).toBe('asc');
+      expect(component.prestacionesCandidatasFiltradas[0].paciente).toBe('ALVAREZ ANA');
+      expect(component.getIconoModal('paciente')).toBe('▲');
+      expect(component.getIconoModal('cantidad')).toBe('↕');
+
+      // Alternar a desc
+      component.ordenarModal('paciente');
+      expect(component.direccionOrdenModal).toBe('desc');
+      expect(component.prestacionesCandidatasFiltradas[0].paciente).toBe('ZAPATA JUAN');
+      expect(component.getIconoModal('paciente')).toBe('▼');
+
+      // Ordenar por cantidad asc
+      component.ordenarModal('cantidad');
+      expect(component.columnaOrdenModal).toBe('cantidad');
+      expect(component.direccionOrdenModal).toBe('asc');
+      expect(component.prestacionesCandidatasFiltradas[0].cantidad).toBe(1);
+      expect(component.prestacionesCandidatasFiltradas[2].cantidad).toBe(3);
+
+      // Ordenar por fecha asc
+      component.ordenarModal('fecha');
+      expect(component.columnaOrdenModal).toBe('fecha');
+      expect(component.direccionOrdenModal).toBe('asc');
+      expect(component.prestacionesCandidatasFiltradas[0].fecha).toBe('2025-05-01');
+
+      // Ordenar por total desc
+      component.ordenarModal('total');
+      component.ordenarModal('total');
+      expect(component.direccionOrdenModal).toBe('desc');
+      expect(component.prestacionesCandidatasFiltradas[0].total).toBe(300);
+    });
+
+    it('debería actualizar el tema de AG-Grid cuando cambia el modo en ThemeService', () => {
+      component.themeService.setTheme('light');
+      expect(component.themeService.getResolvedTheme()).toBe('light');
+
+      component.themeService.setTheme('dark');
+      expect(component.themeService.getResolvedTheme()).toBe('dark');
+      expect(component.theme).toBeTruthy();
+    });
   });
 });
 

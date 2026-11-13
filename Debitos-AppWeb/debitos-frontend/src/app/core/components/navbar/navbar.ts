@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth';
 import { NotificacionService } from '../../services/notificacion.service';
 import { Notificacion } from '../../models/notificacion.model';
 import { TourService } from '../../services/tour.service';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-navbar',
@@ -18,6 +19,7 @@ import { TourService } from '../../services/tour.service';
 export class NavbarComponent implements OnInit, OnDestroy {
   public authService = inject(AuthService);
   public notificacionService = inject(NotificacionService);
+  public themeService = inject(ThemeService);
   private tourService = inject(TourService);
   private router = inject(Router);
   private elementRef = inject(ElementRef);

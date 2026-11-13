@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest, Subject, takeUntil } from 'rxjs';
 import { DirectorioService } from '../../core/services/directorio.service';
+import { ExcelExportService, ContextoFiltroExportacion } from '../../core/services/excel-export';
 import { DirectorioPrestacionDetalle } from '../../core/models/directorio.model';
 
 export interface OpcionFiltroItem {
@@ -35,14 +36,18 @@ export class DirectorioMotivoDetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private directorioService = inject(DirectorioService);
+  private excelExportService = inject(ExcelExportService);
   private cdr = inject(ChangeDetectorRef);
   private readonly destroy$ = new Subject<void>();
+
+  exportandoExcel: boolean = false;
 
   motivo: string = '';
   codigoCobertura: string = 'TODAS';
   tipoDoc: string = 'TODOS';
   fechaDesde: string = '';
   fechaHasta: string = '';
+  criterioFecha: string = 'periodo';
 
   cargando: boolean = false;
   prestaciones: DirectorioPrestacionDetalle[] = [];
@@ -93,6 +98,7 @@ export class DirectorioMotivoDetalleComponent implements OnInit, OnDestroy {
       this.tipoDoc = queryParams.get('tipoDoc') || 'TODOS';
       this.fechaDesde = queryParams.get('fechaDesde') || '';
       this.fechaHasta = queryParams.get('fechaHasta') || '';
+      this.criterioFecha = queryParams.get('criterioFecha') || 'periodo';
       this.cargarDetalle();
     });
   }
@@ -106,7 +112,16 @@ export class DirectorioMotivoDetalleComponent implements OnInit, OnDestroy {
     if (!this.motivo) return;
 
     this.cargando = true;
-    this.directorioService.obtenerMotivoDetalle(this.motivo, this.codigoCobertura, this.tipoDoc, this.fechaDesde, this.fechaHasta)
+    this.directorioService.obtenerMotivoDetalle(
+      this.motivo,
+      this.codigoCobertura,
+      this.tipoDoc,
+      this.fechaDesde,
+      this.fechaHasta,
+      0,
+      1000,
+      this.criterioFecha
+    )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
       next: (data) => {
@@ -502,6 +517,73 @@ export class DirectorioMotivoDetalleComponent implements OnInit, OnDestroy {
     this.filtroImporteDesde = '';
     this.filtroImporteHasta = '';
     this.filtroAceptadoSeleccionado = 'TODOS';
+  }
+
+  async exportarExcel(): Promise<void> {
+    const lista = this.prestacionesFiltradas;
+    if (this.exportandoExcel || !lista || lista.length === 0) return;
+
+    this.exportandoExcel = true;
+    this.cdr.markForCheck();
+
+    try {
+      const extras: string[] = [];
+      if (this.filtroBusqueda && this.filtroBusqueda.trim()) {
+        extras.push(`Búsqueda: "${this.filtroBusqueda.trim()}"`);
+      }
+      if (this.filtroFechaDesde || this.filtroFechaHasta) {
+        const d = this.filtroFechaDesde ? this.formatearFechaIsoToAr(this.filtroFechaDesde) : 'Inicio';
+        const h = this.filtroFechaHasta ? this.formatearFechaIsoToAr(this.filtroFechaHasta) : 'Fin';
+        extras.push(`Rango Fecha: ${d} - ${h}`);
+      }
+      if (this.filtroPacienteSeleccionado && this.filtroPacienteSeleccionado !== 'TODOS') {
+        extras.push(`Paciente: ${this.filtroPacienteSeleccionado}`);
+      }
+      if (this.filtroPrestacionSeleccionada && this.filtroPrestacionSeleccionada !== 'TODAS') {
+        extras.push(`Prestación: ${this.filtroPrestacionSeleccionada}`);
+      }
+      if (this.filtroImporteDesde !== '' || this.filtroImporteHasta !== '') {
+        const impMin = this.filtroImporteDesde !== '' ? this.formatearMoneda(Number(this.filtroImporteDesde)) : '$ 0,00';
+        const impMax = this.filtroImporteHasta !== '' ? this.formatearMoneda(Number(this.filtroImporteHasta)) : 'Sin límite';
+        extras.push(`Importe: ${impMin} a ${impMax}`);
+      }
+      if (this.filtroAceptadoSeleccionado && this.filtroAceptadoSeleccionado !== 'TODOS') {
+        extras.push(`Aceptado: ${this.filtroAceptadoSeleccionado === 'SI' ? 'SÍ (Pérdida)' : 'NO (Refacturable)'}`);
+      }
+
+      const coberturaTexto = this.codigoCobertura === 'TODAS'
+        ? 'Todas las Instituciones'
+        : this.codigoCobertura;
+
+      let rangoFechasTexto: string | undefined;
+      if (this.fechaDesde || this.fechaHasta) {
+        const d = this.fechaDesde ? this.formatearFechaIsoToAr(this.fechaDesde) : 'Inicio';
+        const h = this.fechaHasta ? this.formatearFechaIsoToAr(this.fechaHasta) : 'Hoy';
+        rangoFechasTexto = `${d} - ${h}`;
+      }
+
+      const contexto: ContextoFiltroExportacion = {
+        solapaTitulo: `Detalle por Motivo: ${this.motivo || 'Motivo no especificado'}`,
+        coberturaTexto,
+        tipoComprobanteTexto: this.tipoDoc && this.tipoDoc !== 'TODOS' ? this.tipoDoc : undefined,
+        criterioFechaTexto: this.criterioFecha === 'fecha' ? 'Fecha de Emisión' : 'Período de Factura',
+        rangoFechasTexto,
+        filtrosLocalesTexto: extras.length > 0 ? extras.join(' | ') : undefined
+      };
+
+      await this.excelExportService.exportarDetalleMotivo(
+        lista,
+        {
+          motivo: this.motivo,
+          totalDebitado: this.totalMontoFiltrado,
+          totalCasos: lista.length
+        },
+        contexto
+      );
+    } finally {
+      this.exportandoExcel = false;
+      this.cdr.markForCheck();
+    }
   }
 
   volverAlTablero(): void {

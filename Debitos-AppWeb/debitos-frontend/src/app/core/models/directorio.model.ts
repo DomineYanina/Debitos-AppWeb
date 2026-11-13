@@ -61,6 +61,7 @@ export interface DirectorioGrupoFactura {
 
 export interface DirectorioMotivoDebito {
   motivo: string;
+  categoria?: string;
   montoTotal: number;
   porcentaje: number;
   cantidadCasos: number;
@@ -269,6 +270,7 @@ export interface MetricaMedicoDTO {
   cantidadRegistros: number;
   debitosAceptados: number;
   debitosRefacturados: number;
+  diferencia?: number;
   totalTramitado: number;
   ticketPromedio: number;
   tasaRecupero: number;
@@ -362,3 +364,38 @@ export interface ReciboSinImputarDTO {
 }
 
 
+
+/** Detalle de Prestación Facturada en Factura Madre */
+export interface DirectorioPrestacionItem {
+  id: number;
+  tipoDoc: string;
+  letraDoc: string;
+  ptovtaDoc: number;
+  numeroDoc: number;
+  fechaPrestacion?: string;
+  fechaDoc?: string;
+  paciente: string;
+  carnet: string;
+  plan: string;
+  codigoPrestacion: string;
+  descripcionPrestacion: string;
+  especialidad: string;
+  cantidad: number;
+  importeTotal: number;
+  medico: string;
+  cobertura: string;
+  tipoRegistro: 'Ambulatorios' | 'Internados';
+  _originalIndex?: number;
+}
+
+/** Respuesta Paginada con KPIs de Prestaciones Facturadas */
+export interface DirectorioPrestacionesResponse {
+  totalRegistros: number;
+  totalMontoFacturado: number;
+  cantidadMedicos: number;
+  cantidadPacientes: number;
+  paginaActual: number;
+  totalPaginas: number;
+  tamanioPagina: number;
+  items: DirectorioPrestacionItem[];
+}

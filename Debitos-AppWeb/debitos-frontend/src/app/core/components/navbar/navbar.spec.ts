@@ -353,4 +353,16 @@ describe('NavbarComponent', () => {
     noLeidasCountSub.next(3);
     expect(component.noLeidasCount).toBe(3);
   });
+
+  it('debería permitir alternar el tema a través de themeService', () => {
+    component.themeService.setTheme('light');
+    expect(component.themeService.getTheme()).toBe('light');
+
+    const btnTheme = fixture.nativeElement.querySelector('.btn-theme-toggle');
+    expect(btnTheme).toBeTruthy();
+
+    btnTheme.click();
+    fixture.detectChanges();
+    expect(component.themeService.getTheme()).toBe('dark');
+  });
 });

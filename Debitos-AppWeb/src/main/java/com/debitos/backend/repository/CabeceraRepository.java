@@ -480,7 +480,8 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                 SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
                     COALESCE(asociadogrupo, grupo) AS gid,
                     periodo,
-                    fecha
+                    fecha,
+                    codigo_cobertura AS fc_cod
                 FROM cabecera
                 WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
                   AND ptovta IN (30, 31, 32, 53)
@@ -507,6 +508,10 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
               AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
               AND fc.gid IS NOT NULL
               AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+              AND (UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
+                   OR NULLIF(TRIM(c.codigo_cobertura), '') IS NULL
+                   OR NULLIF(TRIM(fc.fc_cod), '') IS NULL
+                   OR UPPER(TRIM(c.codigo_cobertura)) = UPPER(TRIM(fc.fc_cod)))
               AND (
                   c.asociado IS NULL
                   OR NOT EXISTS (
@@ -1258,6 +1263,58 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             @Param("desde") LocalDate desde,
             @Param("hasta") LocalDate hasta,
             @Param("financiador") String financiador,
+            @Param("limit") int limit);
+
+    /**
+     * Variante de búsqueda para Detalle y Trazabilidad que filtra además por
+     * Punto de Venta, Letra y/o Número de la Factura Madre antes de aplicar el
+     * límite, respetando el rango de fechas y el financiador seleccionados.
+     */
+    @Query(value = """
+            SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
+            FROM cabecera c
+            WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
+              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.fecha IS NOT NULL
+              AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
+              AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
+              AND (CAST(:ptovta AS integer) IS NULL OR c.ptovta = :ptovta)
+              AND (:letra IS NULL OR TRIM(:letra) = '' OR UPPER(TRIM(c.letra)) = UPPER(TRIM(:letra)))
+              AND (CAST(:numero AS bigint) IS NULL OR c.numero = :numero)
+              AND (
+                  (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01')
+                  OR EXISTS (
+                      SELECT 1 FROM cabecera c_hijo
+                      WHERE c_hijo.asociado = c.id
+                        AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                        AND c_hijo.fecha >= DATE '2024-07-01'
+                      UNION ALL
+                      SELECT 1 FROM cabecera c_hijo
+                      WHERE COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) IS NOT NULL
+                        AND COALESCE(NULLIF(c_hijo.asociadogrupo, 0), NULLIF(c_hijo.grupo, 0)) =
+                            COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), c.id)
+                        AND UPPER(TRIM(c_hijo.tipo)) IN ('NC','NCE','NCA','NCB','ND','NDE','NDA','NDB','RC','RCA','RCB','REC','OP')
+                        AND c_hijo.fecha >= DATE '2024-07-01'
+                  )
+              )
+              AND (
+                  :financiador IS NULL
+                  OR TRIM(:financiador) = ''
+                  OR UPPER(TRIM(:financiador)) = 'TODAS'
+                  OR UPPER(TRIM(c.codigo_cobertura)) = UPPER(TRIM(:financiador))
+                  OR UPPER(TRIM(c.cobertura)) LIKE UPPER(CONCAT('%', TRIM(:financiador), '%'))
+              )
+            GROUP BY COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
+            ORDER BY MAX(c.fecha) DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Long> findIdsGruposFacturasTrazabilidadFiltrada(
+            @Param("desde") LocalDate desde,
+            @Param("hasta") LocalDate hasta,
+            @Param("financiador") String financiador,
+            @Param("ptovta") Integer ptovta,
+            @Param("letra") String letra,
+            @Param("numero") Long numero,
             @Param("limit") int limit);
 
     /**

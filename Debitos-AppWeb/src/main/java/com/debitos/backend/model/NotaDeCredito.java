@@ -31,6 +31,12 @@ public class NotaDeCredito {
     @JoinColumn(name = "id_notadedebito")
     private NotaDeDebito notaDeDebitoPadre;
 
+    // Relación con la factura destino donde se audita/importa la prestación
+    @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "idcabecera_factura_destino")
+    private Cabecera cabeceraFacturaDestino;
+
     private Boolean debitoaceptado;
 
     @Column(name = "motivodedebito")
@@ -86,6 +92,14 @@ public class NotaDeCredito {
 
     public void setNotaDeDebitoPadre(NotaDeDebito notaDeDebitoPadre) {
         this.notaDeDebitoPadre = notaDeDebitoPadre;
+    }
+
+    public Cabecera getCabeceraFacturaDestino() {
+        return cabeceraFacturaDestino;
+    }
+
+    public void setCabeceraFacturaDestino(Cabecera cabeceraFacturaDestino) {
+        this.cabeceraFacturaDestino = cabeceraFacturaDestino;
     }
 
     public Boolean getDebitoaceptado() {
