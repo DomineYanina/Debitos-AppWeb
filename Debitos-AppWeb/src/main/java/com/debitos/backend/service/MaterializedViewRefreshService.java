@@ -8,7 +8,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,6 +41,12 @@ public class MaterializedViewRefreshService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    private final TransactionTemplate transactionTemplate;
+
+    public MaterializedViewRefreshService(PlatformTransactionManager transactionManager) {
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+    }
 
     /** Evita arranques de refresh simultáneos. */
     private final AtomicBoolean refreshEnCurso = new AtomicBoolean(false);
@@ -88,7 +95,6 @@ public class MaterializedViewRefreshService {
      * WARNING y continúa: el Tablero seguirá funcionando con la MV vacía o
      * degradará al comportamiento anterior si la vista no existe.</p>
      */
-    @Transactional
     public void ejecutarRefresh() {
         if (!refreshEnCurso.compareAndSet(false, true)) {
             log.debug("[MV] Refresh ya en curso, se omite este intento.");
@@ -97,7 +103,9 @@ public class MaterializedViewRefreshService {
         long inicio = System.currentTimeMillis();
         try {
             log.info("[MV] Ejecutando: {}", REFRESH_SQL);
-            entityManager.createNativeQuery(REFRESH_SQL).executeUpdate();
+            transactionTemplate.executeWithoutResult(status -> {
+                entityManager.createNativeQuery(REFRESH_SQL).executeUpdate();
+            });
             long duracion = System.currentTimeMillis() - inicio;
             log.info("[MV] mv_ids_anulados refrescada exitosamente en {} ms.", duracion);
         } catch (Exception e) {

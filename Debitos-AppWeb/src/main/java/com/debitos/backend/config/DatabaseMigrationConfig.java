@@ -285,6 +285,32 @@ public class DatabaseMigrationConfig {
                                             UPDATE cabecera SET asociado = r.kept_id WHERE asociado = r.id;
                                             UPDATE notadecredito SET idcabecera = r.kept_id WHERE idcabecera = r.id;
                                             UPDATE notadedebito SET idcabecera = r.kept_id WHERE idcabecera = r.id;
+                                            IF to_regclass('public.nc_ajustedeiva') IS NOT NULL THEN
+                                                UPDATE nc_ajustedeiva SET idcabecera = r.kept_id WHERE idcabecera = r.id;
+                                            END IF;
+                                            IF to_regclass('public.nd_ajustedeiva') IS NOT NULL THEN
+                                                UPDATE nd_ajustedeiva SET idcabecera = r.kept_id WHERE idcabecera = r.id;
+                                            END IF;
+                                            IF to_regclass('public.amb_liquidado') IS NOT NULL THEN
+                                                UPDATE amb_liquidado SET idcabecera = r.kept_id WHERE idcabecera = r.id;
+                                            END IF;
+                                            IF to_regclass('public.concepto') IS NOT NULL THEN
+                                                UPDATE concepto SET idcabecera = r.kept_id WHERE idcabecera = r.id;
+                                            END IF;
+                                            IF to_regclass('public.comprobantes_anulados') IS NOT NULL THEN
+                                                UPDATE comprobantes_anulados SET idcabecera = r.kept_id WHERE idcabecera = r.id;
+                                            END IF;
+                                            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='notadecredito' AND column_name='idcabecera_factura_destino') THEN
+                                                UPDATE notadecredito SET idcabecera_factura_destino = r.kept_id WHERE idcabecera_factura_destino = r.id;
+                                            END IF;
+                                            IF to_regclass('public.facturas_periodos_corregidos') IS NOT NULL THEN
+                                                DELETE FROM facturas_periodos_corregidos WHERE id_cabecera = r.id AND EXISTS (SELECT 1 FROM facturas_periodos_corregidos WHERE id_cabecera = r.kept_id);
+                                                UPDATE facturas_periodos_corregidos SET id_cabecera = r.kept_id WHERE id_cabecera = r.id;
+                                            END IF;
+                                            IF to_regclass('public.facturas_anuladas_manual') IS NOT NULL THEN
+                                                DELETE FROM facturas_anuladas_manual WHERE id_cabecera = r.id AND EXISTS (SELECT 1 FROM facturas_anuladas_manual WHERE id_cabecera = r.kept_id);
+                                                UPDATE facturas_anuladas_manual SET id_cabecera = r.kept_id WHERE id_cabecera = r.id;
+                                            END IF;
                                             DELETE FROM cabecera WHERE id = r.id;
                                         END LOOP;
                                     END $$;
@@ -673,12 +699,20 @@ public class DatabaseMigrationConfig {
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_anulados_nc ON cabecera (fecha, COALESCE(NULLIF(haber, 0), debe, 0), id, asociado, asociadogrupo, grupo) WHERE tipo IN ('NC','NCE','NCA','NCB') AND fecha >= DATE '2024-01-01'",
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_anul_fc_exp ON cabecera (fecha, debe, id, asociado, asociadogrupo, grupo) WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA') AND fecha >= DATE '2024-01-01'",
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_anul_nc_exp ON cabecera (fecha, COALESCE(NULLIF(haber, 0), debe, 0), id, asociado, asociadogrupo, grupo) WHERE UPPER(TRIM(tipo)) IN ('NC','NCE','NCA','NCB') AND fecha >= DATE '2024-01-01'",
-                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_trazabilidad_busqueda ON cabecera (numero, ptovta, (UPPER(TRIM(letra))), fecha DESC) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 53)",
-                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_periodo ON cabecera ((COALESCE(periodo, fecha)), codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 53)",
-                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_fecha ON cabecera (fecha, codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 53)",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_trazabilidad_busqueda ON cabecera (numero, ptovta, (UPPER(TRIM(letra))), fecha DESC) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 36, 53)",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_periodo ON cabecera ((COALESCE(periodo, fecha)), codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 36, 53)",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_fecha ON cabecera (fecha, codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 36, 53)",
                     "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idcabecera_fecha ON amb_liquidado (idcabecera, fecha DESC, id DESC)",
                     "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_codigo ON amb_liquidado (codigo)"
             };
+
+            try {
+                jdbcTemplate.execute("DROP INDEX IF EXISTS idx_cabecera_fc_trazabilidad_busqueda");
+                jdbcTemplate.execute("DROP INDEX IF EXISTS idx_cabecera_fc_prestaciones_periodo");
+                jdbcTemplate.execute("DROP INDEX IF EXISTS idx_cabecera_fc_prestaciones_fecha");
+            } catch (Exception e) {
+                log.debug("Aviso al regenerar índices de facturación por ptovta: {}", e.getMessage());
+            }
 
             for (String sqlIndex : indices) {
                 try {

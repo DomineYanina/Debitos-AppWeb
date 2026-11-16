@@ -364,6 +364,31 @@ describe('DirectorioDashboardComponent', () => {
     errSpy.mockRestore();
   });
 
+  it('cargarCoberturas debería pasar fechas/criterio y resetear selección si la cobertura ya no tiene débitos trabajados', () => {
+    component.fechaDesde = '2026-08-01';
+    component.fechaHasta = '2026-10-31';
+    component.criterioFechaCc = 'periodo';
+    component.codigoCoberturaSeleccionada = 'ABAC'; // Supongamos que estaba seleccionada ABAC
+
+    // El backend devuelve solo las coberturas con débitos trabajados (OSDE)
+    directorioServiceSpy.obtenerCoberturas.mockReturnValue(of([
+      { codigo: 'OSDE', nombre: 'OSDE BINARIO' }
+    ]));
+
+    component.cargarCoberturas();
+
+    expect(directorioServiceSpy.obtenerCoberturas).toHaveBeenCalledWith('2026-08-01', '2026-10-31', 'periodo');
+    expect(component.coberturas.length).toBe(1);
+    expect(component.coberturas[0].codigo).toBe('OSDE');
+    // Como ABAC no está entre las trabajadas, debe resetearse a 'TODAS'
+    expect(component.codigoCoberturaSeleccionada).toBe('TODAS');
+
+    // Ahora supongamos que el usuario selecciona OSDE y se vuelve a cargar
+    component.codigoCoberturaSeleccionada = 'OSDE';
+    component.cargarCoberturas();
+    expect(component.codigoCoberturaSeleccionada).toBe('OSDE');
+  });
+
   it('seleccionarSolapa debería cambiar la solapa activa y cargar los datos on-demand', () => {
     const spyCargarSolapa = vi.spyOn(component, 'cargarDatosSolapa');
     component.solapasCargadas.clear();
@@ -1760,6 +1785,7 @@ describe('DirectorioDashboardComponent', () => {
         { codigo: 'SWISS', nombre: 'SWISS MEDICAL' },
         { codigo: '446', nombre: 'O.S.SERVICIO PENITENCIARIO FEDERAL' }
       ];
+      directorioServiceSpy.obtenerCoberturas.mockReturnValue(of(component.coberturas));
       component.puntosDonut = [
         { etiqueta: '446 - O.S.SERVICIO PENITENCIARIO FEDERAL', saldo: 500000 },
         { etiqueta: 'OSDE - OSDE BINARIO', saldo: 300000 }

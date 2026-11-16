@@ -165,6 +165,8 @@ export class LoginComponent implements OnInit {
             this.router.navigate(['/admin']);
           } else if (userRole === 'DIRECTORIO') {
             this.router.navigate(['/directorio']);
+          } else if (userRole === 'OPERADOR_CONTADURIA') {
+            this.router.navigate(['/gestion-contable']);
           } else {
             this.router.navigate(['/auditoria']);
           }

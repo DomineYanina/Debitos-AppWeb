@@ -39,6 +39,21 @@ describe('DirectorioService', () => {
     req.flush(mockData);
   });
 
+  it('obtenerCoberturas con fechas y criterio debería enviar parámetros de consulta', () => {
+    const mockData = [{ codigo: 'OSDE', nombre: 'OSDE BINARIO' }];
+
+    service.obtenerCoberturas('2026-08-01', '2026-10-31', 'periodo').subscribe(res => {
+      expect(res).toEqual(mockData);
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/coberturas?fechaDesde=2026-08-01&fechaHasta=2026-10-31&criterioFecha=periodo`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('fechaDesde')).toBe('2026-08-01');
+    expect(req.request.params.get('fechaHasta')).toBe('2026-10-31');
+    expect(req.request.params.get('criterioFecha')).toBe('periodo');
+    req.flush(mockData);
+  });
+
   it('obtenerTiposDocumento debería hacer GET a /api/directorio/tipos-documento', () => {
     const mockTipos = ['FAC', 'FC', 'FCA', 'FCE'];
 

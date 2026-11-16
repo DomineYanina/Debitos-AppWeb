@@ -30,37 +30,46 @@ En la base de datos relacional PostgreSQL (tabla `usuarios`), los usuarios regis
 | **7** | `Directorio` | **`DIRECTORIO`** | *Directorio* | Acceso ejecutivo integral al Tablero de Control y análisis macroeconómico y estratégico. |
 | **8** | `MarianoMarchi` | **`TESORERIA`** | *Tesorería* | Acceso financiero a cuenta corriente, balances y cobranzas; modo solo consulta en auditoría. |
 | **9** | `ErikaLandriel` | **`TESORERIA`** | *Tesorería* | Acceso financiero a cuenta corriente, balances y cobranzas; modo solo consulta en auditoría. |
+| — | *(Asignable)* | **`OPERADOR_CONTADURIA`** | *Operador Contaduría* | Parametrización y ajustes contables (alias coberturas, períodos de facturas, exclusión de prestaciones y anulación manual); acceso total al Tablero y consulta en Buscador. |
 | — | *(Sin asignar)* | *`AUDITOR`* | *Auditor (Solo Consulta)* | Rol contemplado en UI para perfiles externos o de inspección de solo lectura sin edición. |
 
 ---
 
 ## 3. Matriz General de Permisos por Módulo
 
-| Módulo / Funcionalidad | `ADMIN` | `OPERADOR` | `GERENTE_DEBITOS` | `DIRECTORIO` | `TESORERIA` |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **MÓDULO ADMINISTRACIÓN (`/admin`)** | | | | | |
-| Acceso a la vista `/admin` | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| Sincronización Cta. Cte. (Gestión → Cabecera) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| Sincronización Prestaciones (`amb_liquidado`) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| Reconciliación de Huérfanas con Facturas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| Exportación de pendientes / sin asociar a Excel | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| **MÓDULO AUDITORÍA / BUSCADOR (`/auditoria`)** | | | | | |
-| Búsqueda de facturas, NC, ND y Recibos | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí* | ✅ Sí |
-| Visualización de prestaciones e historial | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí* | ✅ Sí |
-| Edición en grilla (Motivo Débito, Refactura, Importes) | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No |
-| Guardado parcial y Autoguardado (10s) | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No |
-| Carga de Prestaciones Externas / Importar | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No |
-| Emisión de Nueva Nota de Crédito / Débito | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No |
-| Reabrir o Finalizar Trámite (`cambiarEstadoGrupo`) | ✅ **Exclusivo** | ❌ No | ❌ No | ❌ No | ❌ No |
-| **MÓDULO TABLERO DE CONTROL (`/directorio`)** | | | | | |
-| Acceso a la vista `/directorio` | ✅ Sí | ❌ No | ✅ Sí | ✅ Sí | ✅ Sí |
-| Solapas Financieras *(Tablero, Cta. Cte., Cobranzas, Matriz)* | ✅ Sí | ❌ No | ❌ No | ✅ Sí | ✅ Sí |
-| Solapas Operativas *(Motivos, Analistas, Bucles, etc.)* | ✅ Sí | ❌ No | ✅ Sí | ✅ Sí | ❌ No |
-| Detalle de Motivo (`/directorio/motivo/:motivoId`) | ✅ Sí | ❌ No | ✅ Sí | ✅ Sí | ❌ No |
-| **CARACTERÍSTICAS ESPECIALES** | | | | | |
-| Campana de Notificaciones Operativas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| Simulador de Perfiles ("Ver como:" en Navbar) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
-| Panel de Ayuda: FAQs Avanzadas de Administración | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No |
+| Módulo / Funcionalidad | `ADMIN` | `OPERADOR` | `GERENTE_DEBITOS` | `DIRECTORIO` | `TESORERIA` | `OPERADOR_CONTADURIA` |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **MÓDULO ADMINISTRACIÓN (`/admin`)** | | | | | | |
+| Acceso a la vista `/admin` | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Sincronización Cta. Cte. (Gestión → Cabecera) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Sincronización Prestaciones (`amb_liquidado`) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Reconciliación de Huérfanas con Facturas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Exportación de pendientes / sin asociar a Excel | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| **MÓDULO AUDITORÍA / BUSCADOR (`/auditoria`)** | | | | | | |
+| Búsqueda de facturas, NC, ND y Recibos | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí* | ✅ Sí | ✅ Sí |
+| Visualización de prestaciones e historial | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí* | ✅ Sí | ✅ Sí |
+| Edición en grilla (Motivo Débito, Refactura, Importes) | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No | ❌ No |
+| Guardado parcial y Autoguardado (10s) | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No | ❌ No |
+| Carga de Prestaciones Externas / Importar | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No | ❌ No |
+| Emisión de Nueva Nota de Crédito / Débito | ✅ Sí | ✅ Sí | ✅ Sí | ❌ No | ❌ No | ❌ No |
+| Reabrir o Finalizar Trámite (`cambiarEstadoGrupo`) | ✅ **Exclusivo** | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Exportación de resultados a Excel | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí |
+| **MÓDULO TABLERO DE CONTROL (`/directorio`)** | | | | | | |
+| Acceso a la vista `/directorio` | ✅ Sí | ❌ No | ✅ Sí | ✅ Sí | ✅ Sí | ✅ Sí |
+| Solapas Financieras *(Tablero, Cta. Cte., Cobranzas, Matriz)* | ✅ Sí | ❌ No | ❌ No | ✅ Sí | ✅ Sí | ✅ Sí |
+| Solapas Operativas *(Motivos, Analistas, Bucles, etc.)* | ✅ Sí | ❌ No | ✅ Sí | ✅ Sí | ❌ No | ✅ Sí |
+| Detalle de Motivo (`/directorio/motivo/:motivoId`) | ✅ Sí | ❌ No | ✅ Sí | ✅ Sí | ❌ No | ✅ Sí |
+| **MÓDULO GESTIÓN CONTABLE (`/gestion-contable`)** | | | | | | |
+| Acceso a la vista `/gestion-contable` | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Sí |
+| Mapeo y Alias de Coberturas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Sí |
+| Corrección de Períodos de Facturas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Sí |
+| Prestaciones a No Considerar (App externa) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Sí |
+| Anulación y Reversión Manual de Facturas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Sí |
+| Consulta de Historial Centralizado de Ajustes | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ✅ Sí |
+| **CARACTERÍSTICAS ESPECIALES** | | | | | | |
+| Campana de Notificaciones Operativas | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Simulador de Perfiles ("Ver como:" en Navbar) | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
+| Panel de Ayuda: FAQs Avanzadas de Administración | ✅ Sí | ❌ No | ❌ No | ❌ No | ❌ No | ❌ No |
 
 *\* Nota sobre `DIRECTORIO`: El enlace a `/auditoria` se oculta en el Navbar por diseño para enfocar su flujo en el Tablero de Control, pero si navega a dicha URL el sistema bloquea todas las capacidades de edición (`puedeEditarPrestaciones = false`).*
 
@@ -156,6 +165,27 @@ Diseñado para el equipo de finanzas, cobranzas y tesorería institucional.
 
 ---
 
+### 🏛️🧾 4.6. Perfil `OPERADOR_CONTADURIA` (Operador de Contaduría)
+Diseñado para el equipo contable institucional para realizar homologaciones, correcciones de períodos y ajustes sobre facturas sin alterar la base transaccional de Gestión.
+- **Módulo Gestión Contable (`/gestion-contable`):**
+  - Acceso total a las 5 sub-solapas de trabajo contable:
+    - ✅ *Nombres de Coberturas*: asignación de alias para reportes sin modificar Gestión.
+    - ✅ *Períodos de Facturas*: corrección de período de imputación en formato `DD/MM/YYYY`.
+    - ✅ *Prestaciones a No Considerar*: exclusión/inclusión de prestaciones médicas para el consumo de la aplicación externa.
+    - ✅ *Facturas Anuladas*: forzado manual de anulación o reactivación sobre comprobantes en Débitos.
+    - ✅ *Historial de Ajustes*: consulta de la auditoría inmutable de todas las acciones realizadas.
+- **Módulo Tablero de Control (`/directorio`):**
+  - Acceso total a las **10 solapas** analíticas y financieras (igual que `DIRECTORIO` y `ADMIN`).
+  - Las métricas y filtros respetan automáticamente los períodos corregidos y excluyen facturas anuladas manualmente.
+- **Módulo Auditoría (`/auditoria` - Modo Solo Consulta):**
+  - Búsqueda de facturas, NC, ND y recibos con lectura completa de prestaciones e historial.
+  - Exportación de resultados a Excel habilitada.
+  - Celdas y botones de edición de prestaciones bloqueados (`puedeEditarPrestaciones = false`).
+- **Restricciones:**
+  - ⛔ Bloqueado el acceso a `/admin`.
+
+---
+
 ## 5. Implementación Técnica y Seguridad
 
 ### 5.1. Backend (Spring Boot Security)
@@ -171,13 +201,16 @@ Diseñado para el equipo de finanzas, cobranzas y tesorería institucional.
     - `POST /api/auditoria/nueva-nota-debito-ajuste-iva`
   - `@PreAuthorize("hasRole('ADMIN')")` exclusivo para `PUT /api/auditoria/grupo/{idGrupo}/estado/{nuevoEstado}`.
 - **Endpoints de Tablero y Reportes:**
-  - `@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")` en [`DirectorioController.java`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/src/main/java/com/debitos/backend/controller/DirectorioController.java) y [`GraficosController.java`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/src/main/java/com/debitos/backend/controller/GraficosController.java).
+  - `@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA', 'OPERADOR_CONTADURIA')")` en [`DirectorioController.java`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/src/main/java/com/debitos/backend/controller/DirectorioController.java) y [`GraficosController.java`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/src/main/java/com/debitos/backend/controller/GraficosController.java).
+- **Endpoints de Gestión Contable:**
+  - `@PreAuthorize("hasAnyRole('OPERADOR_CONTADURIA', 'ADMIN')")` en [`GestionContableController.java`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/src/main/java/com/debitos/backend/controller/GestionContableController.java) para búsqueda y edición de alias de cobertura, corrección de períodos, catalogación de prestaciones, forzado manual de anulaciones y consulta del historial.
 
 ### 5.2. Frontend (Angular 21)
 - **Guards de Enrutamiento ([`app.routes.ts`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/debitos-frontend/src/app/app.routes.ts)):**
   - `roleGuard` restringe `/admin` exclusivamente a `ADMIN`.
-  - `roleGuard` restringe `/directorio` a `DIRECTORIO`, `ADMIN`, `GERENTE_DEBITOS` y `TESORERIA`.
-  - `roleGuard` restringe `/directorio/motivo/:motivoId` a `DIRECTORIO`, `ADMIN` y `GERENTE_DEBITOS`.
+  - `roleGuard` restringe `/directorio` a `DIRECTORIO`, `ADMIN`, `GERENTE_DEBITOS`, `TESORERIA` y `OPERADOR_CONTADURIA`.
+  - `roleGuard` restringe `/directorio/motivo/:motivoId` a `DIRECTORIO`, `ADMIN`, `GERENTE_DEBITOS` y `OPERADOR_CONTADURIA`.
+  - `roleGuard` restringe `/gestion-contable` exclusivamente a `OPERADOR_CONTADURIA` y `ADMIN`.
 - **Navegación Dinámica ([`navbar.html`](file:///d:/yanina.domine/Escritorio/Debitos-AppWeb/Debitos-AppWeb/debitos-frontend/src/app/core/components/navbar/navbar.html)):**
   - Muestra y oculta los accesos superiores según el rol activo.
   - Para `ADMIN`, habilita el menú de simulación de perfiles en tiempo real.

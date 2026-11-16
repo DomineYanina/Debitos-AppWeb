@@ -133,6 +133,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     if (upper === 'DIRECTORIO') return 'Directorio';
     if (upper === 'GERENTE_DEBITOS') return 'Gerente de Débitos';
     if (upper === 'TESORERIA') return 'Tesorería';
+    if (upper === 'OPERADOR_CONTADURIA') return 'Operador Contaduría';
     return rol.charAt(0).toUpperCase() + rol.slice(1).toLowerCase();
   }
 
@@ -181,10 +182,14 @@ export class NavbarComponent implements OnInit, OnDestroy {
     const rolUpper = rol.toUpperCase();
     const urlActual = this.router.url;
 
-    if (urlActual.includes('/directorio') && rolUpper !== 'ADMIN' && rolUpper !== 'DIRECTORIO' && rolUpper !== 'GERENTE_DEBITOS' && rolUpper !== 'TESORERIA') {
+    if (urlActual.includes('/directorio') && rolUpper !== 'ADMIN' && rolUpper !== 'DIRECTORIO' && rolUpper !== 'GERENTE_DEBITOS' && rolUpper !== 'TESORERIA' && rolUpper !== 'OPERADOR_CONTADURIA') {
       this.router.navigate(['/auditoria']);
     } else if (urlActual.includes('/auditoria') && rolUpper === 'DIRECTORIO') {
       this.router.navigate(['/directorio']);
+    } else if (urlActual.includes('/gestion-contable') && rolUpper !== 'ADMIN' && rolUpper !== 'OPERADOR_CONTADURIA') {
+      this.router.navigate(['/auditoria']);
+    } else if (urlActual.includes('/admin') && rolUpper !== 'ADMIN') {
+      this.router.navigate(['/auditoria']);
     }
   }
 

@@ -15,7 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/directorio")
 @CrossOrigin(origins = "http://localhost:4200")
-@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")
+@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA', 'OPERADOR_CONTADURIA')")
 public class DirectorioController {
 
     @Autowired
@@ -28,8 +28,11 @@ public class DirectorioController {
     }
 
     @GetMapping("/coberturas")
-    public ResponseEntity<List<DirectorioCoberturaDTO>> obtenerCoberturas() {
-        List<DirectorioCoberturaDTO> lista = directorioService.obtenerCoberturasDisponibles();
+    public ResponseEntity<List<DirectorioCoberturaDTO>> obtenerCoberturas(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "periodo") String criterioFecha) {
+        List<DirectorioCoberturaDTO> lista = directorioService.obtenerCoberturasDisponibles(fechaDesde, fechaHasta, criterioFecha);
         return ResponseEntity.ok(lista);
     }
 

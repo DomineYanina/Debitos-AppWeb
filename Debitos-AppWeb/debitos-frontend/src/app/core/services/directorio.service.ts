@@ -62,8 +62,13 @@ export class DirectorioService {
     return this.http.get<PuntoDonutDTO[]>(`${this.apiGraficosUrl}/cartera-donut`, { params });
   }
 
-  obtenerCoberturas(): Observable<DirectorioCobertura[]> {
-    return this.http.get<DirectorioCobertura[]>(`${this.apiUrl}/coberturas`);
+  obtenerCoberturas(fechaDesde?: string, fechaHasta?: string, criterioFecha?: string): Observable<DirectorioCobertura[]> {
+    let params = new HttpParams();
+    if (fechaDesde) params = params.set('fechaDesde', fechaDesde);
+    if (fechaHasta) params = params.set('fechaHasta', fechaHasta);
+    if (criterioFecha) params = params.set('criterioFecha', criterioFecha);
+
+    return this.http.get<DirectorioCobertura[]>(`${this.apiUrl}/coberturas`, { params });
   }
 
   obtenerTiposDocumento(): Observable<string[]> {

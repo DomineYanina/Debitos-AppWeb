@@ -22,13 +22,19 @@ export const routes: Routes = [
     path: 'directorio',
     loadComponent: () => import('./features/directorio/directorio-dashboard.component').then(m => m.DirectorioDashboardComponent),
     canActivate: [roleGuard],
-    data: { roles: ['DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA'] }
+    data: { roles: ['DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA', 'OPERADOR_CONTADURIA'] }
   },
   {
     path: 'directorio/motivo/:motivoId',
     loadComponent: () => import('./features/directorio/directorio-motivo-detalle.component').then(m => m.DirectorioMotivoDetalleComponent),
     canActivate: [roleGuard],
-    data: { roles: ['DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS'] }
+    data: { roles: ['DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'OPERADOR_CONTADURIA'] }
+  },
+  {
+    path: 'gestion-contable',
+    loadComponent: () => import('./features/gestion-contable/gestion-contable.component').then(m => m.GestionContableComponent),
+    canActivate: [roleGuard],
+    data: { roles: ['OPERADOR_CONTADURIA', 'ADMIN'] }
   },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' }

@@ -162,13 +162,13 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     @Query(value = """
             SELECT
                 COALESCE(NULLIF(TRIM(c.cobertura), ''), COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'Sin financiador')) AS financiador,
-                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN COALESCE(c.debe, 0) ELSE 0 END), 0)
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN COALESCE(c.debe, 0) ELSE 0 END), 0)
               - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS saldo
             FROM cabecera c
             WHERE c.asociadogrupo IS NOT NULL
             GROUP BY 1
             HAVING
-                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN COALESCE(c.debe, 0) ELSE 0 END), 0)
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN COALESCE(c.debe, 0) ELSE 0 END), 0)
               - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) > 0
             ORDER BY 2 DESC
             """, nativeQuery = true)
@@ -484,7 +484,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                     codigo_cobertura AS fc_cod
                 FROM cabecera
                 WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND ptovta IN (30, 31, 32, 53)
+                  AND ptovta IN (30, 31, 32, 36, 53)
                   AND COALESCE(asociadogrupo, grupo) IS NOT NULL
                   AND id NOT IN (SELECT id FROM ids_anulados_15d)
                 ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
@@ -495,7 +495,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                          ELSE COALESCE(fc.periodo, fc.fecha)
                     END
                 , 'YYYY-MM') AS periodo,
-                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe ELSE 0 END), 0) AS facturado,
+                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe ELSE 0 END), 0) AS facturado,
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos,
                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado
             FROM cabecera c
@@ -507,7 +507,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             ) IS NOT NULL
               AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
               AND fc.gid IS NOT NULL
-              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
               AND (UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
                    OR NULLIF(TRIM(c.codigo_cobertura), '') IS NULL
                    OR NULLIF(TRIM(fc.fc_cod), '') IS NULL
@@ -518,7 +518,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                       SELECT 1 FROM cabecera c_asoc
                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                   )
               )
               AND NOT (
@@ -626,19 +626,19 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             familia AS (
                 SELECT
                     COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id) AS id_familia,
-                    MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.fecha END) AS fecha_emision,
-                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
+                    MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.fecha END) AS fecha_emision,
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
                     - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS saldo_vivo
                 FROM cabecera c
                 WHERE c.id NOT IN (SELECT id FROM ids_anulados_15d)
-                  AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                  AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                   AND (
                       c.asociado IS NULL
                       OR NOT EXISTS (
                           SELECT 1 FROM cabecera c_asoc
                           WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                             AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                       )
                   )
                   AND NOT (
@@ -653,9 +653,9 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                       )
                   )
                 GROUP BY COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id)
-                HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.fecha END) IS NOT NULL
+                HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.fecha END) IS NOT NULL
                    AND (
-                        COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
+                        COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
                         - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
                    ) > 0
             )
@@ -765,7 +765,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                     MIN(c.fecha) AS fecha_emision
                 FROM cabecera c
                 WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND c.ptovta IN (30, 31, 32, 53)
+                  AND c.ptovta IN (30, 31, 32, 36, 53)
                   AND c.fecha IS NOT NULL
                   AND c.id NOT IN (SELECT id FROM ids_anulados_15d)
                 GROUP BY COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id)
@@ -786,7 +786,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                           SELECT 1 FROM cabecera c_asoc
                           WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                             AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                       )
                   )
                   AND NOT EXISTS (
@@ -878,14 +878,14 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                       SELECT 1 FROM cabecera c_asoc
                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND c_asoc.ptovta IN (30, 31, 32, 53)
+                        AND c_asoc.ptovta IN (30, 31, 32, 36, 53)
                   ))
                   OR
                   (COALESCE(c.asociadogrupo, c.grupo) IS NOT NULL AND EXISTS (
                       SELECT 1 FROM cabecera c_grp
                       WHERE (COALESCE(c_grp.asociadogrupo, c_grp.grupo) = COALESCE(c.asociadogrupo, c.grupo) OR c_grp.id = COALESCE(c.asociadogrupo, c.grupo))
                         AND UPPER(TRIM(c_grp.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND c_grp.ptovta IN (30, 31, 32, 53)
+                        AND c_grp.ptovta IN (30, 31, 32, 36, 53)
                   ))
               )
               AND (
@@ -894,7 +894,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                       SELECT 1 FROM cabecera c_asoc
                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                   )
               )
             ORDER BY anio DESC
@@ -904,7 +904,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
     /**
      * Obtiene los montos recaudados agrupados por Financiador y Mes (1 al 12)
      * para el año especificado, considerando comprobantes de cobro vinculados a
-     * facturas con ptovta 30, 31, 32 o 53.
+     * facturas con ptovta 30, 31, 32, 36 o 53.
      * Retorna Object[3]: [0]=financiador (String), [1]=mes (Integer), [2]=monto
      * (BigDecimal).
      */
@@ -932,14 +932,14 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                       SELECT 1 FROM cabecera c_asoc
                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND c_asoc.ptovta IN (30, 31, 32, 53)
+                        AND c_asoc.ptovta IN (30, 31, 32, 36, 53)
                   ))
                   OR
                   (COALESCE(c.asociadogrupo, c.grupo) IS NOT NULL AND EXISTS (
                       SELECT 1 FROM cabecera c_grp
                       WHERE (COALESCE(c_grp.asociadogrupo, c_grp.grupo) = COALESCE(c.asociadogrupo, c.grupo) OR c_grp.id = COALESCE(c.asociadogrupo, c.grupo))
                         AND UPPER(TRIM(c_grp.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND c_grp.ptovta IN (30, 31, 32, 53)
+                        AND c_grp.ptovta IN (30, 31, 32, 36, 53)
                   ))
               )
               AND (
@@ -948,7 +948,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                       SELECT 1 FROM cabecera c_asoc
                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                   )
               )
             GROUP BY 1, 2, 4
@@ -1056,19 +1056,19 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                 familia AS (
                     SELECT
                         COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id) AS id_familia,
-                        MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.fecha END) AS fecha_emision,
-                        COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
+                        MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.fecha END) AS fecha_emision,
+                        COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
                         - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS saldo_vivo
                     FROM cabecera c
                     WHERE c.id NOT IN (SELECT id FROM ids_anulados_15d)
-                      AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                      AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                       AND (
                           c.asociado IS NULL
                           OR NOT EXISTS (
                               SELECT 1 FROM cabecera c_asoc
                               WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                                 AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                           )
                       )
                       AND NOT (
@@ -1083,9 +1083,9 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                           )
                       )
                     GROUP BY COALESCE(c.asociadogrupo, c.grupo, c.asociado, c.id)
-                    HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.fecha END) IS NOT NULL
+                    HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.fecha END) IS NOT NULL
                        AND (
-                            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
+                            COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0)
                             - COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC','NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
                        ) > 0
                 )
@@ -1195,7 +1195,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             SELECT DISTINCT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             FROM cabecera c
             WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.fecha IS NOT NULL
               AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
               AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1228,7 +1228,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             FROM cabecera c
             WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.fecha IS NOT NULL
               AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
               AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1274,7 +1274,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             SELECT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             FROM cabecera c
             WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.fecha IS NOT NULL
               AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
               AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1327,7 +1327,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             SELECT DISTINCT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             FROM cabecera c
             WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND (
                   (c.periodo IS NOT NULL AND c.periodo >= DATE '2024-07-01'
                    AND (CAST(:desde AS date) IS NULL OR c.periodo >= :desde)
@@ -1359,7 +1359,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             SELECT DISTINCT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id)
             FROM cabecera c
             WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.fecha IS NOT NULL
               AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
               AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1389,7 +1389,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
             SELECT COUNT(DISTINCT COALESCE(NULLIF(c.asociadogrupo, 0), NULLIF(c.grupo, 0), NULLIF(c.asociado, 0), c.id))
             FROM cabecera c
             WHERE UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.fecha IS NOT NULL
               AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
               AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1437,7 +1437,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                 OR (
                     COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB') THEN 1 END) >= 2
                     AND COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-                                   AND c.ptovta IN (30, 31, 32, 53)
+                                   AND c.ptovta IN (30, 31, 32, 36, 53)
                                    AND c.fecha IS NOT NULL
                                    AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
                                    AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1462,7 +1462,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                 OR (
                     COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB') THEN 1 END) >= 2
                     AND COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-                                   AND c.ptovta IN (30, 31, 32, 53)
+                                   AND c.ptovta IN (30, 31, 32, 36, 53)
                                    AND c.fecha IS NOT NULL
                                    AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
                                    AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)
@@ -1491,7 +1491,7 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
                     OR (
                         COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB') THEN 1 END) >= 2
                         AND COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC', 'FAC', 'FCE', 'FCA')
-                                       AND c.ptovta IN (30, 31, 32, 53)
+                                       AND c.ptovta IN (30, 31, 32, 36, 53)
                                        AND c.fecha IS NOT NULL
                                        AND (CAST(:desde AS date) IS NULL OR c.fecha >= :desde)
                                        AND (CAST(:hasta AS date) IS NULL OR c.fecha <= :hasta)

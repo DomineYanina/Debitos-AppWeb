@@ -20,6 +20,10 @@ Este documento tiene como propósito servir de guía operativa y de resolución 
 * **Bases de Datos PostgreSQL**:
   * **Base Principal (Débitos)**: `jdbc:postgresql://localhost:54321/Debitos` (Gestiona comprobantes, cabeceras, notas de débito/crédito y usuarios).
   * **Base Secundaria (Gestión / Solo Lectura)**: `jdbc:postgresql://172.16.15.41:9090/gestion` (Consultas de coberturas y afiliados).
+* **Regla de Puntos de Venta Contemplados en el Tablero de Control**:
+  * Solo se computan Facturas (`FC`, `FAC`, `FCE`, `FCA`) con puntos de venta: **`30`, `31`, `32`, `36` y `53`**.
+  * Los comprobantes asociados (NC, ND, Recibos) que cancelen o provengan de facturas fuera de estos puntos de venta son descartados del tablero.
+  * Centralizado en: `DirectorioService.PTO_VTA_PERMITIDOS = Set.of(30, 31, 32, 36, 53)`.
 
 ---
 

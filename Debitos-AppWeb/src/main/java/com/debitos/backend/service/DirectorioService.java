@@ -50,7 +50,7 @@ public class DirectorioService {
 
     private static final Logger log = LoggerFactory.getLogger(DirectorioService.class);
 
-    public static final Set<Integer> PTO_VTA_PERMITIDOS = Set.of(30, 31, 32, 53);
+    public static final Set<Integer> PTO_VTA_PERMITIDOS = Set.of(30, 31, 32, 36, 53);
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -365,15 +365,106 @@ public class DirectorioService {
 
     @Cacheable(CacheConfig.CACHE_COBERTURAS)
     public List<DirectorioCoberturaDTO> obtenerCoberturasDisponibles() {
-        String sql = """
-                    SELECT DISTINCT codigo_cobertura, cobertura
-                    FROM cabecera
-                    WHERE codigo_cobertura IS NOT NULL AND TRIM(codigo_cobertura) <> ''
-                      AND UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FCA', 'FR', 'FCB')
-                      AND ptovta IN (30, 31, 32, 53)
-                    ORDER BY cobertura ASC, codigo_cobertura ASC
-                """;
-        Query q = entityManager.createNativeQuery(sql);
+        return obtenerCoberturasDisponibles(null, null, "periodo");
+    }
+
+    public List<DirectorioCoberturaDTO> obtenerCoberturasDisponibles(LocalDate fechaDesde, LocalDate fechaHasta, String criterioFecha) {
+        if (fechaDesde == null && fechaHasta == null) {
+            String sql = """
+                        SELECT DISTINCT codigo_cobertura, cobertura
+                        FROM cabecera
+                        WHERE codigo_cobertura IS NOT NULL AND TRIM(codigo_cobertura) <> ''
+                          AND UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FCA', 'FR', 'FCB')
+                          AND ptovta IN (30, 31, 32, 36, 53)
+                        ORDER BY cobertura ASC, codigo_cobertura ASC
+                    """;
+            Query q = entityManager.createNativeQuery(sql);
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = q.getResultList();
+            Map<String, DirectorioCoberturaDTO> mapa = new LinkedHashMap<>();
+            for (Object[] row : rows) {
+                String cod = row[0] != null ? row[0].toString().trim() : "";
+                String nom = row[1] != null && !row[1].toString().trim().isEmpty() ? row[1].toString().trim() : cod;
+                if (!cod.isEmpty() && !mapa.containsKey(cod.toLowerCase())) {
+                    mapa.put(cod.toLowerCase(), new DirectorioCoberturaDTO(cod, nom));
+                }
+            }
+            return new ArrayList<>(mapa.values());
+        }
+
+        String criterio = (criterioFecha != null && !criterioFecha.trim().isEmpty())
+                ? criterioFecha.trim().toLowerCase()
+                : "periodo";
+
+        StringBuilder sql = new StringBuilder(CTE_ANULADOS_15D_CON_FC_MADRE);
+        sql.append("""
+                SELECT DISTINCT
+                    COALESCE(NULLIF(TRIM(fc.codigo_cobertura), ''), NULLIF(TRIM(c_fc.codigo_cobertura), ''), NULLIF(TRIM(c_nc.codigo_cobertura), '')) AS codigo_cobertura,
+                    COALESCE(NULLIF(TRIM(fc.cobertura), ''), NULLIF(TRIM(c_fc.cobertura), ''), NULLIF(TRIM(c_nc.cobertura), '')) AS cobertura
+                FROM notadecredito nc
+                LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
+                LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
+                LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
+                LEFT JOIN fc_madre fc ON COALESCE(c_nc.asociadogrupo, c_nc.grupo) = fc.gid
+                WHERE nc.motivodedebito IS NOT NULL
+                  AND TRIM(nc.motivodedebito) <> ''
+                  AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
+                  AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
+                  AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
+                  AND (
+                      c_nc.asociado IS NULL
+                      OR NOT EXISTS (
+                          SELECT 1 FROM cabecera c_asoc
+                          WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
+                            AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
+                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
+                      )
+                  )
+                """);
+
+        if ("fecha".equals(criterio)) {
+            sql.append(" AND COALESCE(c_fc.fecha, fc.fecha) IS NOT NULL");
+            sql.append(" AND fc.gid IS NOT NULL");
+            if (fechaDesde != null) {
+                sql.append(" AND COALESCE(c_fc.fecha, fc.fecha) >= :fechaDesde");
+            }
+            if (fechaHasta != null) {
+                sql.append(" AND COALESCE(c_fc.fecha, fc.fecha) <= :fechaHasta");
+            }
+        } else if ("analisis".equals(criterio)) {
+            sql.append(" AND COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) IS NOT NULL");
+            if (fechaDesde != null) {
+                sql.append(" AND COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) >= :fechaDesde");
+            }
+            if (fechaHasta != null) {
+                sql.append(" AND COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) <= :fechaHasta");
+            }
+        } else {
+            // "periodo" por defecto
+            sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+            sql.append(" AND fc.gid IS NOT NULL");
+            if (fechaDesde != null) {
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
+            }
+            if (fechaHasta != null) {
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
+            }
+        }
+
+        sql.append("""
+                 AND COALESCE(NULLIF(TRIM(fc.codigo_cobertura), ''), NULLIF(TRIM(c_fc.codigo_cobertura), ''), NULLIF(TRIM(c_nc.codigo_cobertura), '')) IS NOT NULL
+                 ORDER BY cobertura ASC, codigo_cobertura ASC
+                """);
+
+        Query q = entityManager.createNativeQuery(sql.toString());
+        if (fechaDesde != null) {
+            q.setParameter("fechaDesde", java.sql.Date.valueOf(fechaDesde));
+        }
+        if (fechaHasta != null) {
+            q.setParameter("fechaHasta", java.sql.Date.valueOf(fechaHasta));
+        }
+
+        @SuppressWarnings("unchecked")
         List<Object[]> rows = q.getResultList();
         Map<String, DirectorioCoberturaDTO> mapa = new LinkedHashMap<>();
         for (Object[] row : rows) {
@@ -433,7 +524,7 @@ public class DirectorioService {
             return cachedFechaMinimaPermitida;
         }
         try {
-            String sql = "SELECT MIN(COALESCE(c.periodo, c.fecha)) FROM cabecera c WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) AND c.fecha >= DATE '2024-01-01'";
+            String sql = "SELECT MIN(COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha)) FROM cabecera c WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) AND c.fecha >= DATE '2024-01-01'";
             Object res = entityManager.createNativeQuery(sql).getSingleResult();
             LocalDate fechaMin = convertirALocalDate(res);
             LocalDate julio2024 = LocalDate.of(2024, 7, 1);
@@ -462,19 +553,19 @@ public class DirectorioService {
                         ) AS INTEGER)
                         FROM (
                             SELECT
-                                MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 53) THEN c2.fecha END) AS fecha_emision,
-                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 53) THEN c2.debe WHEN UPPER(TRIM(c2.tipo)) IN ('ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
+                                MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 36, 53) THEN c2.fecha END) AS fecha_emision,
+                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 36, 53) THEN c2.debe WHEN UPPER(TRIM(c2.tipo)) IN ('ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
                                 - COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('RC','RCA','RCB','REC','NC','NCE','NCA','NCB') THEN COALESCE(c2.haber, c2.debe, 0) ELSE 0 END), 0) AS saldo_vivo
                             FROM cabecera c2
                             WHERE c2.fecha >= DATE '2024-01-01'
-                              AND (UPPER(TRIM(c2.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c2.ptovta IN (30, 31, 32, 53))
+                              AND (UPPER(TRIM(c2.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c2.ptovta IN (30, 31, 32, 36, 53))
                               AND (
                                   c2.asociado IS NULL
                                   OR NOT EXISTS (
                                       SELECT 1 FROM cabecera c_asoc
                                       WHERE (c_asoc.id = c2.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c2.asociado))
                                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                   )
                               )
                               AND NOT (
@@ -489,9 +580,9 @@ public class DirectorioService {
                                   )
                               )
                             GROUP BY COALESCE(c2.asociadogrupo, c2.grupo, c2.asociado, c2.id)
-                            HAVING MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 53) THEN c2.fecha END) IS NOT NULL
+                            HAVING MIN(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 36, 53) THEN c2.fecha END) IS NOT NULL
                                AND (
-                                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 53) THEN c2.debe WHEN UPPER(TRIM(c2.tipo)) IN ('ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
+                                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('FC','FAC','FCE','FCA') AND c2.ptovta IN (30, 31, 32, 36, 53) THEN c2.debe WHEN UPPER(TRIM(c2.tipo)) IN ('ND','NDE','NDA','NDB') THEN c2.debe ELSE 0 END), 0)
                                     - COALESCE(SUM(CASE WHEN UPPER(TRIM(c2.tipo)) IN ('RC','RCA','RCB','REC','NC','NCE','NCA','NCB') THEN COALESCE(c2.haber, c2.debe, 0) ELSE 0 END), 0)
                                ) > 0
                         ) f
@@ -528,25 +619,25 @@ public class DirectorioService {
                             WITH fc_madre AS (
                                 SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
                                     COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
-                                    c_fc.periodo,
+                                    COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo) AS periodo,
                                     c_fc.fecha,
                                     c_fc.codigo_cobertura AS fc_cod
                                 FROM cabecera c_fc
                                 WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                  AND c_fc.ptovta IN (30, 31, 32, 53)
+                                  AND c_fc.ptovta IN (30, 31, 32, 36, 53)
                                   AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
                                   AND c_fc.id NOT IN (SELECT id FROM mv_ids_anulados)
                                 ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
                             )
                             SELECT
                                 -- 0. Facturación Original (FC)
-                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
+                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
                                 -- 1. Cantidad de comprobantes FC
-                                COALESCE(COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN 1 END), 0) AS cant_facturas,
+                                COALESCE(COUNT(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN 1 END), 0) AS cant_facturas,
 
-                                -- 2. Incrementos (ND cuyo asociado es Factura con 'F' y ptovta 30, 31, 32 o 53)
+                                -- 2. Incrementos (ND cuyo asociado es Factura con 'F' y ptovta 30, 31, 32, 36 o 53)
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND EXISTS (
-                                    SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 53)
+                                    SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 36, 53)
                                 ) THEN c.debe ELSE 0 END), 0) AS incrementos_nd,
 
                                 -- 3. Débitos Recibidos (NC)
@@ -566,13 +657,13 @@ public class DirectorioService {
                             FROM cabecera c
                             LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
                             WHERE (
-                                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE(c.periodo, c.fecha)
+                                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha)
                                      ELSE COALESCE(fc.periodo, fc.fecha)
                                 END
                             ) IS NOT NULL
                               AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
                               AND fc.gid IS NOT NULL
-                              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                               AND (UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
                                    OR NULLIF(TRIM(c.codigo_cobertura), '') IS NULL
                                    OR NULLIF(TRIM(fc.fc_cod), '') IS NULL
@@ -583,7 +674,7 @@ public class DirectorioService {
                                       SELECT 1 FROM cabecera c_asoc
                                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                   )
                               )
                               AND NOT (
@@ -678,7 +769,7 @@ public class DirectorioService {
                     " AND (UPPER(TRIM(c.tipo)) IN ('FC', 'FCE', 'FCA', 'FAC', 'FR') OR UPPER(TRIM(c.tipo)) LIKE 'FC%')");
         }
         whereSql.append(
-                " AND (UPPER(TRIM(c.tipo)) NOT IN ('FC', 'FCE', 'FCA', 'FAC', 'FR') AND UPPER(TRIM(c.tipo)) NOT LIKE 'FC%' OR c.ptovta IN (30, 31, 32, 53))");
+                " AND (UPPER(TRIM(c.tipo)) NOT IN ('FC', 'FCE', 'FCA', 'FAC', 'FR') AND UPPER(TRIM(c.tipo)) NOT LIKE 'FC%' OR c.ptovta IN (30, 31, 32, 36, 53))");
         aplicarFiltrosCabeceraPeriodo(whereSql, "c", null, codigoCobertura, fechaDesde, fechaHasta);
 
         String countSql = "SELECT COUNT(c.id) " + whereSql;
@@ -698,7 +789,7 @@ public class DirectorioService {
                     SELECT c.id, c.tipo, c.letra, c.ptovta, c.numero, c.fecha, c.periodo,
                            c.codigo_cobertura, c.cobertura, c.asociadogrupo, c.debe, c.id_estado
                 """ + whereSql
-                + " ORDER BY COALESCE(c.periodo, c.fecha) DESC, c.fecha DESC, c.numero DESC LIMIT :limit OFFSET :offset";
+                + " ORDER BY COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) DESC, c.fecha DESC, c.numero DESC LIMIT :limit OFFSET :offset";
 
         Query query = crearQueryConFiltros(dataSql, codigoCobertura, tipoDoc, fechaDesde, fechaHasta);
         query.setParameter("limit", pageSize);
@@ -996,7 +1087,7 @@ public class DirectorioService {
                     c_fc.numero
                 FROM cabecera c_fc
                 WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
-                  AND c_fc.ptovta IN (30, 31, 32, 53)
+                  AND c_fc.ptovta IN (30, 31, 32, 36, 53)
                   AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
                   AND c_fc.id NOT IN (SELECT id FROM mv_ids_anulados)
                 ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
@@ -1037,14 +1128,14 @@ public class DirectorioService {
                               AND TRIM(nc.motivodedebito) <> ''
                               AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
                               AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
-                              AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 53)))
+                              AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
                               AND (
                                   c_nc.asociado IS NULL
                                   OR NOT EXISTS (
                                       SELECT 1 FROM cabecera c_asoc
                                       WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
                                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                   )
                               )
                         """);
@@ -1092,13 +1183,13 @@ public class DirectorioService {
             }
         } else {
             // "periodo" por defecto
-            whereSql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+            whereSql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
             whereSql.append(" AND fc.gid IS NOT NULL");
             if (fechaDesde != null) {
-                whereSql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
+                whereSql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
             }
             if (fechaHasta != null) {
-                whereSql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
+                whereSql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
             }
         }
 
@@ -1243,7 +1334,7 @@ public class DirectorioService {
                             WITH fc_madre AS (
                                 SELECT DISTINCT ON (COALESCE(asociadogrupo, grupo))
                                     COALESCE(asociadogrupo, grupo) AS gid,
-                                    periodo,
+                                    COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = cabecera.id), periodo) AS periodo,
                                     fecha,
                                     codigo_cobertura,
                                     cobertura,
@@ -1253,7 +1344,7 @@ public class DirectorioService {
                                     numero
                                 FROM cabecera
                                 WHERE UPPER(TRIM(tipo)) IN ('FC','FAC','FCE','FCA')
-                                  AND ptovta IN (30, 31, 32, 53)
+                                  AND ptovta IN (30, 31, 32, 36, 53)
                                   AND COALESCE(asociadogrupo, grupo) IS NOT NULL
                                   AND id NOT IN (SELECT id FROM mv_ids_anulados)
                                 ORDER BY COALESCE(asociadogrupo, grupo), fecha ASC, id ASC
@@ -1275,7 +1366,7 @@ public class DirectorioService {
                                    COALESCE(c_nc.letra, c_fc.letra, fc.letra) AS letraDoc,
                                    COALESCE(c_nc.ptovta, c_fc.ptovta, fc.ptovta) AS ptovtaDoc,
                                    COALESCE(c_nc.numero, c_fc.numero, fc.numero) AS numeroDoc,
-                                   COALESCE(c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) AS fechaDoc,
+                                   COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_nc.periodo, c_fc.fecha, fc.fecha, c_nc.fecha) AS fechaDoc,
                                    nc.motivodedebito, nc.comentarios_debito,
                                    nc.importedebitado, nc.debitoaceptado
                             FROM notadecredito nc
@@ -1294,7 +1385,7 @@ public class DirectorioService {
         sql.append(" AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))");
         sql.append(" AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))");
         sql.append(
-                " AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 53)))");
+                " AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))");
         sql.append(
                 """
                             AND (
@@ -1303,7 +1394,7 @@ public class DirectorioService {
                                     SELECT 1 FROM cabecera c_asoc
                                     WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
                                       AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                 )
                             )
                         """);
@@ -1350,13 +1441,13 @@ public class DirectorioService {
             }
         } else {
             // "periodo" por defecto
-            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+            sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
             sql.append(" AND fc.gid IS NOT NULL");
             if (fechaDesde != null) {
-                sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
             }
             if (fechaHasta != null) {
-                sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
             }
         }
         // Consulta COUNT previa
@@ -1450,14 +1541,16 @@ public class DirectorioService {
                 && !"TODAS".equalsIgnoreCase(codigoCobertura.trim())) {
             sb.append(" AND ").append(aliasCabecera).append(".codigo_cobertura = :codigoCobertura");
         }
+        sb.append(" AND ").append(aliasCabecera).append(".id NOT IN (SELECT id_cabecera FROM facturas_anuladas_manual WHERE anulada = TRUE)");
+
         String exprPeriodo;
         if (aliasFcMadre != null && !aliasFcMadre.trim().isEmpty()) {
             exprPeriodo = String.format(
-                    "CASE WHEN UPPER(TRIM(%s.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE(%s.periodo, %s.fecha) ELSE COALESCE(%s.periodo, %s.fecha) END",
-                    aliasCabecera, aliasCabecera, aliasCabecera, aliasFcMadre, aliasFcMadre);
+                    "CASE WHEN UPPER(TRIM(%s.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = %s.id), %s.periodo, %s.fecha) ELSE COALESCE(%s.periodo, %s.fecha) END",
+                    aliasCabecera, aliasCabecera, aliasCabecera, aliasCabecera, aliasFcMadre, aliasFcMadre);
             sb.append(" AND (").append(exprPeriodo).append(") IS NOT NULL");
         } else {
-            exprPeriodo = String.format("COALESCE(%s.periodo, %s.fecha)", aliasCabecera, aliasCabecera);
+            exprPeriodo = String.format("COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = %s.id), %s.periodo, %s.fecha)", aliasCabecera, aliasCabecera, aliasCabecera);
         }
 
         if (fechaDesde != null) {
@@ -1587,21 +1680,21 @@ public class DirectorioService {
                             WITH fc_madre AS (
                                 SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
                                     COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
-                                    c_fc.periodo,
+                                    COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo) AS periodo,
                                     c_fc.fecha,
                                     c_fc.codigo_cobertura AS fc_cod
                                 FROM cabecera c_fc
                                 WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                  AND c_fc.ptovta IN (30, 31, 32, 53)
+                                  AND c_fc.ptovta IN (30, 31, 32, 36, 53)
                                   AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
                                   AND c_fc.id NOT IN (SELECT id FROM mv_ids_anulados)
                                 ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
                             )
                             SELECT
                                 COALESCE(NULLIF(TRIM(c.codigo_cobertura), ''), 'S/C') || ' - ' || COALESCE(NULLIF(TRIM(c.cobertura), ''), 'Sin financiador') AS financiador,
-                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
+                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe ELSE 0 END), 0) AS facturacion_fc,
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND EXISTS (
-                                    SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 53)
+                                    SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 36, 53)
                                 ) THEN c.debe ELSE 0 END), 0) AS incrementos_nd,
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos_nc,
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND EXISTS (
@@ -1609,7 +1702,7 @@ public class DirectorioService {
                                 ) THEN c.debe ELSE 0 END), 0) AS refacturado_nd,
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS cobrado_rc,
                                 (
-                                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe ELSE 0 END), 0) +
+                                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe ELSE 0 END), 0) +
                                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') THEN c.debe ELSE 0 END), 0) -
                                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) -
                                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('RC','RCA','RCB','REC') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0)
@@ -1617,13 +1710,13 @@ public class DirectorioService {
                             FROM cabecera c
                             LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
                             WHERE (
-                                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE(c.periodo, c.fecha)
+                                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha)
                                      ELSE COALESCE(fc.periodo, fc.fecha)
                                 END
                             ) IS NOT NULL
                               AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
                               AND fc.gid IS NOT NULL
-                              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                               AND (UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
                                    OR NULLIF(TRIM(c.codigo_cobertura), '') IS NULL
                                    OR NULLIF(TRIM(fc.fc_cod), '') IS NULL
@@ -1634,7 +1727,7 @@ public class DirectorioService {
                                       SELECT 1 FROM cabecera c_asoc
                                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                   )
                               )
                               AND NOT (
@@ -1784,23 +1877,23 @@ public class DirectorioService {
                             WITH fc_madre AS (
                                 SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
                                     COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
-                                    c_fc.periodo,
+                                    COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo) AS periodo,
                                     c_fc.fecha,
                                     c_fc.codigo_cobertura AS fc_cod
                                 FROM cabecera c_fc
                                 WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                  AND c_fc.ptovta IN (30, 31, 32, 53)
+                                  AND c_fc.ptovta IN (30, 31, 32, 36, 53)
                                   AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
                                   AND c_fc.id NOT IN (SELECT id FROM mv_ids_anulados)
                                 ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
                             )
                             SELECT
                                 TO_CHAR(
-                                    CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE(c.periodo, c.fecha)
+                                    CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha)
                                          ELSE COALESCE(fc.periodo, fc.fecha)
                                     END
                                 , 'YYYY-MM') AS periodo,
-                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe ELSE 0 END), 0) AS facturado,
+                                COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe ELSE 0 END), 0) AS facturado,
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos,
                                 COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND EXISTS (
                                     SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) LIKE '%N%'
@@ -1809,13 +1902,13 @@ public class DirectorioService {
                             FROM cabecera c
                             LEFT JOIN fc_madre fc ON COALESCE(c.asociadogrupo, c.grupo) = fc.gid
                             WHERE (
-                                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE(c.periodo, c.fecha)
+                                CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') THEN COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha)
                                      ELSE COALESCE(fc.periodo, fc.fecha)
                                 END
                             ) IS NOT NULL
                               AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
                               AND fc.gid IS NOT NULL
-                              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                              AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                               AND (UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
                                    OR NULLIF(TRIM(c.codigo_cobertura), '') IS NULL
                                    OR NULLIF(TRIM(fc.fc_cod), '') IS NULL
@@ -1826,7 +1919,7 @@ public class DirectorioService {
                                       SELECT 1 FROM cabecera c_asoc
                                       WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                   )
                               )
                               AND NOT (
@@ -2010,7 +2103,7 @@ public class DirectorioService {
                             MAX(UPPER(TRIM(c.tipo))) AS tipo_doc
                         FROM cabecera c
                         WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
-                          AND c.ptovta IN (30, 31, 32, 53)
+                          AND c.ptovta IN (30, 31, 32, 36, 53)
                           AND c.fecha IS NOT NULL
                           AND COALESCE(c.asociadogrupo, c.grupo) IS NOT NULL
                           AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
@@ -2044,7 +2137,7 @@ public class DirectorioService {
                                           SELECT 1 FROM cabecera c_asoc
                                           WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                                             AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                       )
                                   )
                                   AND NOT EXISTS (
@@ -2059,15 +2152,15 @@ public class DirectorioService {
                             familia_saldo AS (
                                 SELECT
                                     COALESCE(c.asociadogrupo, c.grupo) AS id_familia,
-                                    MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.fecha END) AS fecha_emision,
-                                    MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.periodo END) AS periodo_emision,
-                                    MAX(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.codigo_cobertura END) AS codigo_cobertura,
-                                    MAX(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.cobertura END) AS cobertura,
-                                    MAX(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN UPPER(TRIM(c.tipo)) END) AS tipo_doc,
+                                    MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.fecha END) AS fecha_emision,
+                                    MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.periodo END) AS periodo_emision,
+                                    MAX(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.codigo_cobertura END) AS codigo_cobertura,
+                                    MAX(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.cobertura END) AS cobertura,
+                                    MAX(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN UPPER(TRIM(c.tipo)) END) AS tipo_doc,
                                     COALESCE(SUM(CASE
-                                        WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe
+                                        WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe
                                         WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND (
-                                            EXISTS (SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 53))
+                                            EXISTS (SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 36, 53))
                                             OR EXISTS (SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) LIKE '%N%')
                                         ) THEN c.debe
                                         ELSE 0
@@ -2077,14 +2170,14 @@ public class DirectorioService {
                                 WHERE c.id NOT IN (SELECT id FROM mv_ids_anulados)
                                   AND COALESCE(c.asociadogrupo, c.grupo) IS NOT NULL
                                   AND COALESCE(c.asociadogrupo, c.grupo) IN (SELECT id_familia FROM facturas)
-                                  AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                                  AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                                   AND (
                                       c.asociado IS NULL
                                       OR NOT EXISTS (
                                           SELECT 1 FROM cabecera c_asoc
                                           WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                                             AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                       )
                                   )
                                   AND NOT (
@@ -2099,12 +2192,12 @@ public class DirectorioService {
                                       )
                                   )
                                 GROUP BY COALESCE(c.asociadogrupo, c.grupo)
-                                HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.fecha END) IS NOT NULL
+                                HAVING MIN(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.fecha END) IS NOT NULL
                                    AND (
                                         COALESCE(SUM(CASE
-                                            WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe
+                                            WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe
                                             WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND (
-                                                EXISTS (SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 53))
+                                                EXISTS (SELECT 1 FROM cabecera c_fac WHERE c_fac.id = c.asociado AND UPPER(TRIM(c_fac.tipo)) LIKE '%F%' AND c_fac.ptovta IN (30, 31, 32, 36, 53))
                                                 OR EXISTS (SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) LIKE '%N%')
                                             ) THEN c.debe
                                             ELSE 0
@@ -2357,14 +2450,14 @@ public class DirectorioService {
                             WITH fc_madre AS (
                                 SELECT DISTINCT ON (COALESCE(c_fc.asociadogrupo, c_fc.grupo))
                                     COALESCE(c_fc.asociadogrupo, c_fc.grupo) AS gid,
-                                    c_fc.periodo,
+                                    COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo) AS periodo,
                                     c_fc.fecha,
                                     c_fc.codigo_cobertura,
                                     c_fc.cobertura,
                                     c_fc.tipo
                                 FROM cabecera c_fc
                                 WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                  AND c_fc.ptovta IN (30, 31, 32, 53)
+                                  AND c_fc.ptovta IN (30, 31, 32, 36, 53)
                                   AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
                                   AND c_fc.id NOT IN (SELECT id FROM mv_ids_anulados)
                                 ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
@@ -2398,14 +2491,14 @@ public class DirectorioService {
                             WHERE nc.motivodedebito IS NOT NULL AND TRIM(nc.motivodedebito) <> ''
                               AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
                               AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
-                              AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 53)))
+                              AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
                               AND (
                                   c_nc.asociado IS NULL
                                   OR NOT EXISTS (
                                       SELECT 1 FROM cabecera c_asoc
                                       WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
                                         AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                        AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                   )
                               )
                         """);
@@ -2453,13 +2546,13 @@ public class DirectorioService {
             }
         } else {
             // "periodo" por defecto
-            sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
+            sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
             sql.append(" AND fc.gid IS NOT NULL");
             if (fechaDesde != null) {
-                sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
             }
             if (fechaHasta != null) {
-                sql.append(" AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
             }
         }
 
@@ -3808,7 +3901,7 @@ public class DirectorioService {
                     .orElse(null);
 
             if (fcRaiz == null) {
-                continue; // Descartar grupos sin Factura Madre (FC con punto de venta 30, 31, 32 o 53)
+                continue; // Descartar grupos sin Factura Madre (FC con punto de venta 30, 31, 32, 36 o 53)
             }
 
             PrestacionLigeraDTO amb = prestacionPorFc.get(fcRaiz.getId());
@@ -4368,11 +4461,11 @@ public class DirectorioService {
         if ("periodo".equals(criterio)) {
             filtroFechaNc = """
                     AND fc.gid IS NOT NULL
-                    AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL
-                    AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= CAST(:p_fd AS DATE))
-                    AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= CAST(:p_fh AS DATE))
-                    AND (CAST(:p_per AS text) IS NULL OR TO_CHAR(COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha), 'YYYY-MM') = CAST(:p_per AS text)
-                         OR COALESCE(c_fc.periodo::text, fc.periodo::text, c_fc.fecha::text, fc.fecha::text) LIKE CAST(:p_per AS text) || '%')
+                    AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL
+                    AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= CAST(:p_fd AS DATE))
+                    AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= CAST(:p_fh AS DATE))
+                    AND (CAST(:p_per AS text) IS NULL OR TO_CHAR(COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha), 'YYYY-MM') = CAST(:p_per AS text)
+                         OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id)::text, c_fc.periodo::text, fc.periodo::text, c_fc.fecha::text, fc.fecha::text) LIKE CAST(:p_per AS text) || '%')
                     """;
         } else if ("fecha".equals(criterio)) {
             filtroFechaNc = """
@@ -4428,14 +4521,14 @@ public class DirectorioService {
                             AND fc.gid IS NOT NULL
                             AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
                             AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
-                            AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 53)))
+                            AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
                             AND (
                                 c_nc.asociado IS NULL
                                 OR NOT EXISTS (
                                     SELECT 1 FROM cabecera c_asoc
                                     WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
                                       AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                 )
                             )
                         """
@@ -4601,11 +4694,11 @@ public class DirectorioService {
         if ("periodo".equals(criterio)) {
             filtroFechaNc = """
                     AND fc.gid IS NOT NULL
-                    AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL
-                    AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= CAST(:p_fd AS DATE))
-                    AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= CAST(:p_fh AS DATE))
-                    AND (CAST(:p_per AS text) IS NULL OR TO_CHAR(COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha), 'YYYY-MM') = CAST(:p_per AS text)
-                         OR COALESCE(c_fc.periodo::text, fc.periodo::text, c_fc.fecha::text, fc.fecha::text) LIKE CAST(:p_per AS text) || '%')
+                    AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL
+                    AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= CAST(:p_fd AS DATE))
+                    AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= CAST(:p_fh AS DATE))
+                    AND (CAST(:p_per AS text) IS NULL OR TO_CHAR(COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha), 'YYYY-MM') = CAST(:p_per AS text)
+                         OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id)::text, c_fc.periodo::text, fc.periodo::text, c_fc.fecha::text, fc.fecha::text) LIKE CAST(:p_per AS text) || '%')
                     """;
         } else if ("fecha".equals(criterio)) {
             filtroFechaNc = """
@@ -4664,14 +4757,14 @@ public class DirectorioService {
                             AND fc.gid IS NOT NULL
                             AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
                             AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
-                            AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 53)))
+                            AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
                             AND (
                                 c_nc.asociado IS NULL
                                 OR NOT EXISTS (
                                     SELECT 1 FROM cabecera c_asoc
                                     WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
                                       AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                 )
                             )
                         """
@@ -4823,11 +4916,11 @@ public class DirectorioService {
         if ("periodo".equals(criterio)) {
             filtroFechaNc = """
                     AND fc.gid IS NOT NULL
-                    AND COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL
-                    AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= CAST(:p_fd AS DATE))
-                    AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= CAST(:p_fh AS DATE))
-                    AND (CAST(:p_per AS text) IS NULL OR TO_CHAR(COALESCE(c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha), 'YYYY-MM') = CAST(:p_per AS text)
-                         OR COALESCE(c_fc.periodo::text, fc.periodo::text, c_fc.fecha::text, fc.fecha::text) LIKE CAST(:p_per AS text) || '%')
+                    AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL
+                    AND (CAST(:p_fd AS DATE) IS NULL OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= CAST(:p_fd AS DATE))
+                    AND (CAST(:p_fh AS DATE) IS NULL OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= CAST(:p_fh AS DATE))
+                    AND (CAST(:p_per AS text) IS NULL OR TO_CHAR(COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha), 'YYYY-MM') = CAST(:p_per AS text)
+                         OR COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id)::text, c_fc.periodo::text, fc.periodo::text, c_fc.fecha::text, fc.fecha::text) LIKE CAST(:p_per AS text) || '%')
                     """;
         } else if ("fecha".equals(criterio)) {
             filtroFechaNc = """
@@ -4880,14 +4973,14 @@ public class DirectorioService {
                             AND fc.gid IS NOT NULL
                             AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
                             AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
-                            AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 53)))
+                            AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
                             AND (
                                 c_nc.asociado IS NULL
                                 OR NOT EXISTS (
                                     SELECT 1 FROM cabecera c_asoc
                                     WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
                                       AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                                      AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                                 )
                             )
                         """
@@ -5325,7 +5418,7 @@ public class DirectorioService {
             if (c.getId() == null)
                 continue;
 
-            // 1. Si es factura, solo se admiten ptovta 30, 31, 32 o 53
+            // 1. Si es factura, solo se admiten ptovta 30, 31, 32, 36 o 53
             if ("FC".equalsIgnoreCase(resolverTipoBase(c.getTipo()))) {
                 if (c.getPtovta() != null && PTO_VTA_PERMITIDOS.contains(c.getPtovta())) {
                     resultado.add(c);
@@ -5338,7 +5431,7 @@ public class DirectorioService {
             if (c.getAsociado() != null && !c.getAsociado().equals(c.getId())) {
                 Long asocId = c.getAsociado();
                 if (fcInvalidas.contains(asocId)) {
-                    continue; // Excluir porque cancela o apunta a factura no 30/31/32/53 (ej: ptovta 3)
+                    continue; // Excluir porque cancela o apunta a factura no 30/31/32/36/53 (ej: ptovta 3)
                 }
                 CabeceraBase padre = porId.get(asocId);
                 if (padre != null) {
@@ -6406,7 +6499,7 @@ public class DirectorioService {
 
         StringBuilder whereClause = new StringBuilder("""
             WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
         """);
 
@@ -6438,12 +6531,12 @@ public class DirectorioService {
             }
         } else {
             // "periodo" por defecto
-            whereClause.append(" AND COALESCE(c.periodo, c.fecha) IS NOT NULL ");
+            whereClause.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) IS NOT NULL ");
             if (fechaDesde != null) {
-                whereClause.append(" AND COALESCE(c.periodo, c.fecha) >= :fechaDesde ");
+                whereClause.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) >= :fechaDesde ");
             }
             if (fechaHasta != null) {
-                whereClause.append(" AND COALESCE(c.periodo, c.fecha) <= :fechaHasta ");
+                whereClause.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) <= :fechaHasta ");
             }
         }
 
@@ -6608,7 +6701,7 @@ public class DirectorioService {
             FROM amb_liquidado al
             JOIN cabecera c ON al.idcabecera = c.id
             WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
               AND LOWER(COALESCE(al.medico, al.efector, '')) LIKE LOWER(CONCAT('%', :q, '%'))
         """);
@@ -6620,8 +6713,8 @@ public class DirectorioService {
             if (fechaDesde != null) sql.append(" AND c.fecha >= :fechaDesde ");
             if (fechaHasta != null) sql.append(" AND c.fecha <= :fechaHasta ");
         } else {
-            if (fechaDesde != null) sql.append(" AND COALESCE(c.periodo, c.fecha) >= :fechaDesde ");
-            if (fechaHasta != null) sql.append(" AND COALESCE(c.periodo, c.fecha) <= :fechaHasta ");
+            if (fechaDesde != null) sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) >= :fechaDesde ");
+            if (fechaHasta != null) sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) <= :fechaHasta ");
         }
         sql.append(" ORDER BY med ASC LIMIT 15 ");
         try {
@@ -6657,7 +6750,7 @@ public class DirectorioService {
             FROM amb_liquidado al
             JOIN cabecera c ON al.idcabecera = c.id
             WHERE UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA')
-              AND c.ptovta IN (30, 31, 32, 53)
+              AND c.ptovta IN (30, 31, 32, 36, 53)
               AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
               AND (LOWER(COALESCE(al.codigo, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(COALESCE(al.descripcion, '')) LIKE LOWER(CONCAT('%', :q, '%')))
@@ -6670,8 +6763,8 @@ public class DirectorioService {
             if (fechaDesde != null) sql.append(" AND c.fecha >= :fechaDesde ");
             if (fechaHasta != null) sql.append(" AND c.fecha <= :fechaHasta ");
         } else {
-            if (fechaDesde != null) sql.append(" AND COALESCE(c.periodo, c.fecha) >= :fechaDesde ");
-            if (fechaHasta != null) sql.append(" AND COALESCE(c.periodo, c.fecha) <= :fechaHasta ");
+            if (fechaDesde != null) sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) >= :fechaDesde ");
+            if (fechaHasta != null) sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) <= :fechaHasta ");
         }
         sql.append(" ORDER BY cod ASC LIMIT 15 ");
         try {

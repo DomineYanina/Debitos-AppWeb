@@ -3,7 +3,7 @@
 
     <!-- Lado Izquierdo: Branding & Rol -->
     <div class="navbar-left">
-      <a [routerLink]="rolActual === 'ADMIN' ? '/admin' : (rolActual === 'DIRECTORIO' ? '/directorio' : '/auditoria')" class="navbar-brand">
+      <a [routerLink]="rolActual === 'ADMIN' ? '/admin' : (rolActual === 'OPERADOR_CONTADURIA' ? '/gestion-contable' : (rolActual === 'DIRECTORIO' ? '/directorio' : '/auditoria'))" class="navbar-brand">
         <span class="brand-title">Débitos</span>
       </a>
 
@@ -23,8 +23,11 @@
         <a routerLink="/auditoria" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual !== 'DIRECTORIO'">
           <span class="nav-label">Buscador de Documentos</span>
         </a>
-        <a routerLink="/directorio" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'DIRECTORIO' || rolActual === 'ADMIN' || rolActual === 'GERENTE_DEBITOS' || rolActual === 'TESORERIA'">
+        <a routerLink="/directorio" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'DIRECTORIO' || rolActual === 'ADMIN' || rolActual === 'GERENTE_DEBITOS' || rolActual === 'TESORERIA' || rolActual === 'OPERADOR_CONTADURIA'">
           <span class="nav-label">Tablero de Control</span>
+        </a>
+        <a routerLink="/gestion-contable" routerLinkActive="active-link" class="nav-item" *ngIf="rolActual === 'ADMIN' || rolActual === 'OPERADOR_CONTADURIA'">
+          <span class="nav-label">Gestión Contable</span>
         </a>
       </nav>
 

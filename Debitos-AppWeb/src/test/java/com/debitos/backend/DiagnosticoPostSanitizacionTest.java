@@ -18,7 +18,7 @@ public class DiagnosticoPostSanitizacionTest {
                         c_fc.fecha
                     FROM cabecera c_fc
                     WHERE UPPER(TRIM(c_fc.tipo)) IN ('FC','FAC','FCE','FCA')
-                      AND c_fc.ptovta IN (30, 31, 32, 53)
+                      AND c_fc.ptovta IN (30, 31, 32, 36, 53)
                       AND COALESCE(c_fc.asociadogrupo, c_fc.grupo) IS NOT NULL
                       AND c_fc.id NOT IN (SELECT id FROM mv_ids_anulados)
                     ORDER BY COALESCE(c_fc.asociadogrupo, c_fc.grupo), c_fc.fecha ASC, c_fc.id ASC
@@ -29,7 +29,7 @@ public class DiagnosticoPostSanitizacionTest {
                              ELSE COALESCE(fc.periodo, fc.fecha)
                         END
                     , 'YYYY-MM') AS periodo,
-                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 53) THEN c.debe ELSE 0 END), 0) AS facturado,
+                    COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('FC','FAC','FCE','FCA') AND c.ptovta IN (30, 31, 32, 36, 53) THEN c.debe ELSE 0 END), 0) AS facturado,
                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('NC','NCE','NCA','NCB') THEN COALESCE(c.haber, c.debe, 0) ELSE 0 END), 0) AS debitos,
                     COALESCE(SUM(CASE WHEN UPPER(TRIM(c.tipo)) IN ('ND','NDE','NDA','NDB') AND EXISTS (
                         SELECT 1 FROM cabecera c_nc WHERE c_nc.id = c.asociado AND UPPER(TRIM(c_nc.tipo)) LIKE '%N%'
@@ -44,14 +44,14 @@ public class DiagnosticoPostSanitizacionTest {
                 ) IS NOT NULL
                   AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
                   AND fc.gid IS NOT NULL
-                  AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 53))
+                  AND (UPPER(TRIM(c.tipo)) NOT IN ('FC','FAC','FCE','FCA') OR c.ptovta IN (30, 31, 32, 36, 53))
                   AND (
                       c.asociado IS NULL 
                       OR NOT EXISTS (
                           SELECT 1 FROM cabecera c_asoc
                           WHERE (c_asoc.id = c.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c.asociado))
                             AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 53))
+                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
                       )
                   )
                   AND (

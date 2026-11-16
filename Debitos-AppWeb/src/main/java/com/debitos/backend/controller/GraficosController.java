@@ -32,7 +32,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/graficos")
 @CrossOrigin(origins = "http://localhost:4200")
-@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA')")
+@PreAuthorize("hasAnyRole('DIRECTORIO', 'ADMIN', 'GERENTE_DEBITOS', 'TESORERIA', 'OPERADOR_CONTADURIA')")
 public class GraficosController {
 
     @Autowired

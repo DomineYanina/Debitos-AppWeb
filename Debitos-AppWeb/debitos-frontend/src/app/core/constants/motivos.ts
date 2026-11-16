@@ -14,7 +14,7 @@ export const LISTA_MOTIVOS_DEBITO = [
     motivos: [
       'Alta demorada', 'Demora en Inter Consulta', 'Demora en resolución quirúrgica', 'Diagnóstico ilegible',
       'Diagnóstico no reconocido', 'Diferencia de criterio médico', 'Falta de sello médico', 'Prestación no prescrita',
-      'Prestación no reconocida', 'Prestación no justificada', 'Refactura con HC firmada',
+      'Prestación no reconocida(Prestacional/ Medicamento/ Material Descartable)', 'Prestación no justificada', 'Refactura con HC firmada',
       'Tratamiento Medico justificado en Auditoria'
     ]
   },
@@ -155,36 +155,36 @@ export function obtenerCategoriaDeMotivo(motivo: string): string {
 
   // 3. Reglas semánticas para variantes históricas
   if (norm.includes('criterio medico') || norm.includes('inter consulta') || norm.includes('resolucion quirurgica')
-      || norm.includes('alta demorada') || norm.includes('prestacion no justificada')
-      || norm.includes('no reconoce prestacion') || norm.includes('reconoce prestacion')
-      || norm.includes('diagnostico') || norm.includes('sello medico') || norm.includes('hc firmada')) {
+    || norm.includes('alta demorada') || norm.includes('prestacion no justificada')
+    || norm.includes('no reconoce prestacion') || norm.includes('reconoce prestacion')
+    || norm.includes('diagnostico') || norm.includes('sello medico') || norm.includes('hc firmada')) {
     return '2. MÉDICOS / AUDITORÍA';
   }
 
   if (norm.includes('arancel') || norm.includes('nomenclador') || norm.includes('normas operativas')
-      || norm.includes('normas contractuales') || norm.includes('medicamentos descartables')
-      || norm.includes('medicamentos/descartables') || norm.includes('incluida en otra')
-      || norm.includes('inclusiones modulares') || norm.includes('apb') || norm.includes('convenio')
-      || norm.includes('homologada') || norm.includes('presupuesto acordado')) {
+    || norm.includes('normas contractuales') || norm.includes('medicamentos descartables')
+    || norm.includes('medicamentos/descartables') || norm.includes('incluida en otra')
+    || norm.includes('inclusiones modulares') || norm.includes('apb') || norm.includes('convenio')
+    || norm.includes('homologada') || norm.includes('presupuesto acordado')) {
     return '3. CONTRACTUALES / NOMENCLADOR';
   }
 
   if (norm.includes('firma paciente') || norm.includes('firma profesional') || norm.includes('historia clinica')
-      || norm.includes('historia/informe') || norm.includes('documentacion avalatoria') || norm.includes('documentacion')
-      || norm.includes('exceso de facturacion') || norm.includes('troquel') || norm.includes('hojas de enfermeria')
-      || norm.includes('no suministrada') || norm.includes('no utilizado')) {
+    || norm.includes('historia/informe') || norm.includes('documentacion avalatoria') || norm.includes('documentacion')
+    || norm.includes('exceso de facturacion') || norm.includes('troquel') || norm.includes('hojas de enfermeria')
+    || norm.includes('no suministrada') || norm.includes('no utilizado')) {
     return '4. OPERATIVOS Y DOCUMENTALES (administrativo)';
   }
 
   if (norm.includes('impuesto') || norm.includes('departamento comercial') || norm.includes('gestion comercial')
-      || norm.includes('rechazo de refactura') || norm.includes('tesoreria')) {
+    || norm.includes('rechazo de refactura') || norm.includes('tesoreria')) {
     return '5. AJUSTES Y GESTIÓN COMERCIAL';
   }
 
   if (norm.includes('autorizacion') || norm.includes('token') || norm.includes('duplicada')
-      || norm.includes('error de carga') || norm.includes('codigos multiples') || norm.includes('coseguro')
-      || norm.includes('iva') || norm.includes('afiliado') || norm.includes('fuera de termino')
-      || norm.includes('capitado') || norm.includes('honorarios')) {
+    || norm.includes('error de carga') || norm.includes('codigos multiples') || norm.includes('coseguro')
+    || norm.includes('iva') || norm.includes('afiliado') || norm.includes('fuera de termino')
+    || norm.includes('capitado') || norm.includes('honorarios')) {
     return '1. ADMINISTRATIVOS';
   }
 

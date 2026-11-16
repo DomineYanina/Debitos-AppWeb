@@ -22,11 +22,22 @@ WITH
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1. IDs formalmente registrados como anulados en comprobantes_anulados
+--    y en facturas_anuladas_manual (Gestión Contable)
 -- ─────────────────────────────────────────────────────────────────────────────
 docs_anulados AS (
-    SELECT DISTINCT idcabecera AS id
-    FROM comprobantes_anulados
-    WHERE idcabecera IS NOT NULL
+    (
+        SELECT DISTINCT idcabecera AS id
+        FROM comprobantes_anulados
+        WHERE idcabecera IS NOT NULL
+        UNION
+        SELECT DISTINCT id_cabecera AS id
+        FROM facturas_anuladas_manual
+        WHERE anulada = TRUE
+    )
+    EXCEPT
+    SELECT DISTINCT id_cabecera AS id
+    FROM facturas_anuladas_manual
+    WHERE anulada = FALSE
 ),
 
 -- ─────────────────────────────────────────────────────────────────────────────

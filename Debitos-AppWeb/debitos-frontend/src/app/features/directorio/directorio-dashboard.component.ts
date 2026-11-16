@@ -1373,9 +1373,26 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   cargarCoberturas(): void {
-    this.directorioService.obtenerCoberturas().subscribe({
+    const fDesde = this.criterioFechaCc === 'fecha'
+      ? (this.ccFechaDesde || this.fechaDesde)
+      : (this.fechaDesde || this._ccPeriodoDesde);
+    const fHasta = this.criterioFechaCc === 'fecha'
+      ? (this.ccFechaHasta || this.fechaHasta)
+      : (this.fechaHasta || this._ccPeriodoHasta);
+    const criterio = this.criterioFechaCc || 'periodo';
+
+    this.directorioService.obtenerCoberturas(fDesde, fHasta, criterio).pipe(
+      takeUntil(this.cancelarPeticionesEnVuelo$),
+      takeUntil(this.destroy$)
+    ).subscribe({
       next: (data) => {
         this.coberturas = data || [];
+        if (this.codigoCoberturaSeleccionada && this.codigoCoberturaSeleccionada !== 'TODAS') {
+          const existe = this.coberturas.some(c => c.codigo === this.codigoCoberturaSeleccionada);
+          if (!existe) {
+            this.codigoCoberturaSeleccionada = 'TODAS';
+          }
+        }
         if (this.buclesTodos.length > 0) {
           this.actualizarCoberturasBucles(this.buclesTodos);
         }
@@ -1438,17 +1455,20 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.cancelarPeticionesEnVuelo$.next();
     this.resetearEstadosCarga();
     this.solapasCargadas.clear();
+    this.cargarCoberturas();
     this.cargarDatosSolapa(this.solapaActiva, true);
     this.programarPrecargaSolapasSecundarias();
   }
 
   onFechaDesdeChange(): void {
     this.validarFechas();
+    this.cargarCoberturas();
     this.cdr.markForCheck();
   }
 
   onFechaHastaChange(): void {
     this.validarFechas();
+    this.cargarCoberturas();
     this.cdr.markForCheck();
   }
 
@@ -2442,6 +2462,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       this.periodoMesHasta = this.periodoMesDesde;
     }
     this.validarFechas();
+    this.cargarCoberturas();
     this.cdr.markForCheck();
   }
 
@@ -2450,6 +2471,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       this.periodoMesDesde = this.periodoMesHasta;
     }
     this.validarFechas();
+    this.cargarCoberturas();
     this.cdr.markForCheck();
   }
 

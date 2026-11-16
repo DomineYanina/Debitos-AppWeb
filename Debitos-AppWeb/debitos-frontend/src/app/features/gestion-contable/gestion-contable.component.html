@@ -1,0 +1,564 @@
+<div class="gestion-contable-container">
+  <!-- Encabezado Principal -->
+  <div class="header-section">
+    <div class="header-titles">
+      <h1 class="main-title">Gestión Contable</h1>
+      <p class="subtitle">Parametrización, correcciones y ajustes operativos de contaduría</p>
+    </div>
+  </div>
+
+  <!-- Banners de Notificación / Alerta -->
+  <div *ngIf="mensajeExito" class="alert-banner alert-success">
+    <span class="alert-icon">✓</span>
+    <span class="alert-text">{{ mensajeExito }}</span>
+    <button class="alert-close" (click)="limpiarMensajes()">✕</button>
+  </div>
+
+  <div *ngIf="mensajeError" class="alert-banner alert-danger">
+    <span class="alert-icon">⚠</span>
+    <span class="alert-text">{{ mensajeError }}</span>
+    <button class="alert-close" (click)="limpiarMensajes()">✕</button>
+  </div>
+
+  <!-- Barra de Sub-Solapas -->
+  <div class="subtabs-bar">
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'coberturas'" (click)="seleccionarSubSolapa('coberturas')">
+      🏢 Nombres de Coberturas
+    </button>
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'periodos'" (click)="seleccionarSubSolapa('periodos')">
+      📅 Períodos de Facturas
+    </button>
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'prestaciones'" (click)="seleccionarSubSolapa('prestaciones')">
+      🚫 Prestaciones a No Considerar
+    </button>
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'anuladas'" (click)="seleccionarSubSolapa('anuladas')">
+      ❌ Facturas Anuladas
+    </button>
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'historial'" (click)="seleccionarSubSolapa('historial')">
+      📜 Historial de Cambios
+    </button>
+  </div>
+
+  <!-- Contenido de las Sub-Solapas -->
+  <div class="tab-content">
+
+    <!-- ================================================================= -->
+    <!-- 1. COBERTURAS -->
+    <!-- ================================================================= -->
+    <div *ngIf="subSolapaActiva === 'coberturas'" class="panel-card fade-in">
+      <div class="panel-header">
+        <h3>Mapeo y Alias de Coberturas</h3>
+        <p class="panel-desc">
+          Modifique el nombre a mostrar para reportes contables sin alterar los registros originales de Gestión.
+        </p>
+      </div>
+
+      <!-- Buscador por código -->
+      <div class="search-box-card">
+        <label for="cobCodigo" class="search-box-label">Código de Cobertura:</label>
+        <div class="search-input-group">
+          <input
+            id="cobCodigo"
+            type="text"
+            class="form-control"
+            placeholder="Ej: OSDE, 0045, SWISS..."
+            [(ngModel)]="busquedaCobCodigo"
+            (keyup.enter)="buscarCobertura()"
+          />
+          <button class="btn-primary" (click)="buscarCobertura()" [disabled]="cargando">
+            🔍 Buscar Cobertura
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjeta de Edición de Cobertura Encontrada -->
+      <div *ngIf="coberturaSeleccionada" class="detail-card">
+        <div class="detail-row">
+          <div class="detail-field">
+            <span class="field-label">Código:</span>
+            <span class="field-value badge-code">{{ coberturaSeleccionada.codigoCobertura }}</span>
+          </div>
+          <div class="detail-field">
+            <span class="field-label">Nombre Original en Gestión:</span>
+            <span class="field-value text-muted">{{ coberturaSeleccionada.nombreOriginal || 'Sin nombre original' }}</span>
+          </div>
+        </div>
+
+        <div class="form-group-edit">
+          <label for="cobNuevoNombre">Nombre a Mostrar (Alias Contable):</label>
+          <input
+            id="cobNuevoNombre"
+            type="text"
+            class="form-control input-large"
+            placeholder="Ingrese el nombre personalizado que se usará en los reportes..."
+            [(ngModel)]="nuevoNombreMostrarCob"
+          />
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn-success" (click)="guardarAliasCobertura()" [disabled]="cargando">
+            💾 Guardar Nombre a Mostrar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 2. PERÍODOS DE FACTURAS -->
+    <!-- ================================================================= -->
+    <div *ngIf="subSolapaActiva === 'periodos'" class="panel-card fade-in">
+      <div class="panel-header">
+        <h3>Corrección del Período de Factura</h3>
+        <p class="panel-desc">
+          Reasigne el período de imputación para el Tablero de Control y métricas contables, conservando el período original.
+        </p>
+      </div>
+
+      <!-- Buscador de Factura -->
+      <div class="search-box-card">
+        <div class="doc-search-grid">
+          <div class="form-group">
+            <label>Tipo:</label>
+            <select class="form-control" [(ngModel)]="busquedaPerTipo">
+              <option value="FC">FC (Factura)</option>
+              <option value="FAC">FAC</option>
+              <option value="FCE">FCE</option>
+              <option value="FCA">FCA</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Letra:</label>
+            <select class="form-control" [(ngModel)]="busquedaPerLetra">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="M">M</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Punto de Venta:</label>
+            <input type="number" class="form-control" placeholder="Ej: 30" [(ngModel)]="busquedaPerPtoVta" />
+          </div>
+
+          <div class="form-group">
+            <label>Número:</label>
+            <input type="number" class="form-control" placeholder="Ej: 12345" [(ngModel)]="busquedaPerNumero" (keyup.enter)="buscarFacturaPeriodo()" />
+          </div>
+
+          <div class="form-group-btn">
+            <button class="btn-primary" (click)="buscarFacturaPeriodo()" [disabled]="cargando">
+              🔍 Buscar Factura
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalle de Factura Encontrada -->
+      <div *ngIf="facturaPeriodoSeleccionada" class="detail-card">
+        <div class="doc-banner">
+          <div class="doc-title-group">
+            <span class="doc-badge">{{ facturaPeriodoSeleccionada.tipo }} {{ facturaPeriodoSeleccionada.letra }}</span>
+            <span class="doc-number">Pto. {{ facturaPeriodoSeleccionada.ptovta }} - Nro. {{ facturaPeriodoSeleccionada.numero }}</span>
+          </div>
+          <div class="doc-amount">
+            {{ formatearMoneda(facturaPeriodoSeleccionada.importe) }}
+          </div>
+        </div>
+
+        <div class="doc-meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Cobertura:</span>
+            <span class="meta-value">{{ facturaPeriodoSeleccionada.cobertura }} ({{ facturaPeriodoSeleccionada.codigoCobertura }})</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Fecha Emisión:</span>
+            <span class="meta-value">{{ formatearFechaSimple(facturaPeriodoSeleccionada.fecha) }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Período Original:</span>
+            <span class="meta-value">{{ formatearFechaSimple(facturaPeriodoSeleccionada.periodoOriginal) }}</span>
+          </div>
+          <div class="meta-item" *ngIf="facturaPeriodoSeleccionada.periodoCorregido">
+            <span class="meta-label">Período Corregido Actual:</span>
+            <span class="meta-value badge-corrected">{{ formatearFechaSimple(facturaPeriodoSeleccionada.periodoCorregido) }}</span>
+          </div>
+        </div>
+
+        <div class="form-group-edit mt-4">
+          <label for="nuevoPeriodo">Nuevo Período Corregido (Fecha de Imputación):</label>
+          <div class="input-with-hint">
+            <input
+              id="nuevoPeriodo"
+              type="date"
+              class="form-control"
+              [(ngModel)]="nuevoPeriodoCorregido"
+            />
+            <small class="field-hint">Esta fecha determinará en qué mes y año computará la factura en el Tablero de Control.</small>
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <button class="btn-success" (click)="guardarPeriodoCorregido()" [disabled]="cargando">
+            💾 Guardar Período Corregido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 3. PRESTACIONES A NO CONSIDERAR -->
+    <!-- ================================================================= -->
+    <div *ngIf="subSolapaActiva === 'prestaciones'" class="panel-card fade-in">
+      <div class="panel-header">
+        <h3>Prestaciones a No Considerar</h3>
+        <p class="panel-desc">
+          Defina el estado de consideración de cada prestación médica para el consumo de la aplicación externa.
+        </p>
+      </div>
+
+      <!-- Filtro rápido por código o descripción -->
+      <div class="filter-bar">
+        <div class="filter-input-wrapper">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Filtrar por código de prestación o descripción..."
+            [(ngModel)]="filtroPrestacionCodigo"
+            (keyup.enter)="buscarPrestacionesConFiltro()"
+          />
+          <button class="btn-primary" (click)="buscarPrestacionesConFiltro()" [disabled]="cargando">
+            🔍 Filtrar
+          </button>
+          <button class="btn-secondary" (click)="limpiarFiltroPrestaciones()" *ngIf="filtroPrestacionCodigo">
+            ✕ Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla de Prestaciones -->
+      <div class="table-responsive mt-3">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 150px;">Código</th>
+              <th>Descripción</th>
+              <th style="width: 180px; text-align: center;">Estado</th>
+              <th style="width: 120px; text-align: center;">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="cargando && (!prestacionesPage || prestacionesPage.content.length === 0)">
+              <td colspan="4" class="text-center py-4">Cargando prestaciones...</td>
+            </tr>
+            <tr *ngIf="!cargando && prestacionesPage?.content?.length === 0">
+              <td colspan="4" class="text-center py-4 text-muted">No se encontraron prestaciones con el filtro ingresado.</td>
+            </tr>
+            <tr *ngFor="let p of prestacionesPage?.content">
+              <td class="font-bold badge-code">{{ p.codigo }}</td>
+              <td>{{ p.descripcion }}</td>
+              <td style="text-align: center;">
+                <span class="status-badge" [class.badge-considerar]="p.estado === 'Considerar'" [class.badge-no-considerar]="p.estado === 'No considerar'">
+                  {{ p.estado }}
+                </span>
+              </td>
+              <td style="text-align: center;">
+                <button class="btn-table-edit" (click)="abrirModalEditarPrestacion(p)">
+                  ✏️ Editar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginador -->
+      <div class="pagination-bar" *ngIf="prestacionesPage && prestacionesPage.totalPages > 1">
+        <span class="pagination-info">
+          Página {{ prestacionesPage.number + 1 }} de {{ prestacionesPage.totalPages }} ({{ prestacionesPage.totalElements }} registros)
+        </span>
+        <div class="pagination-buttons">
+          <button class="btn-page" [disabled]="prestacionesPage.first || cargando" (click)="cargarPrestaciones(paginaActualPrestaciones - 1)">
+            ◀ Anterior
+          </button>
+          <button class="btn-page" [disabled]="prestacionesPage.last || cargando" (click)="cargarPrestaciones(paginaActualPrestaciones + 1)">
+            Siguiente ▶
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Editar Estado de Prestación -->
+    <div class="modal-backdrop" *ngIf="modalPrestacionVisible">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h4>Modificar Estado de Prestación</h4>
+          <button class="modal-close" (click)="cerrarModalPrestacion()">✕</button>
+        </div>
+        <div class="modal-body" *ngIf="prestacionEnEdicion">
+          <p><strong>Código:</strong> <span class="badge-code">{{ prestacionEnEdicion.codigo }}</span></p>
+          <p><strong>Descripción:</strong> {{ prestacionEnEdicion.descripcion }}</p>
+
+          <div class="form-group mt-3">
+            <label>Seleccione el nuevo estado:</label>
+            <div class="radio-options">
+              <label class="radio-card" [class.selected]="nuevoEstadoPrestacion === 'Considerar'">
+                <input type="radio" name="estadoPrestacion" value="Considerar" [(ngModel)]="nuevoEstadoPrestacion" />
+                <span class="radio-title">✅ Considerar</span>
+                <span class="radio-desc">Se incluye con normalidad en las consultas del sistema externo.</span>
+              </label>
+
+              <label class="radio-card" [class.selected]="nuevoEstadoPrestacion === 'No considerar'">
+                <input type="radio" name="estadoPrestacion" value="No considerar" [(ngModel)]="nuevoEstadoPrestacion" />
+                <span class="radio-title">🚫 No considerar</span>
+                <span class="radio-desc">Se excluye para el procesamiento de la otra aplicación.</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" (click)="cerrarModalPrestacion()">Cancelar</button>
+          <button class="btn-success" (click)="guardarCambioEstadoPrestacion()" [disabled]="cargando">
+            💾 Guardar Estado
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 4. FACTURAS ANULADAS -->
+    <!-- ================================================================= -->
+    <div *ngIf="subSolapaActiva === 'anuladas'" class="panel-card fade-in">
+      <div class="panel-header">
+        <h3>Gestión Manual de Facturas Anuladas</h3>
+        <p class="panel-desc">
+          Marque facturas como anuladas para excluirlas de los totales, KPIs y balances del Tablero de Control, o revierta marcas previas.
+        </p>
+      </div>
+
+      <!-- Buscador para Anular / Revertir -->
+      <div class="search-box-card">
+        <h4>Buscar Factura para Modificar Estado</h4>
+        <div class="doc-search-grid">
+          <div class="form-group">
+            <label>Tipo:</label>
+            <select class="form-control" [(ngModel)]="busquedaAnulTipo">
+              <option value="FC">FC (Factura)</option>
+              <option value="FAC">FAC</option>
+              <option value="FCE">FCE</option>
+              <option value="FCA">FCA</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Letra:</label>
+            <select class="form-control" [(ngModel)]="busquedaAnulLetra">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="M">M</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Pto. Venta:</label>
+            <input type="number" class="form-control" placeholder="Ej: 30" [(ngModel)]="busquedaAnulPtoVta" />
+          </div>
+
+          <div class="form-group">
+            <label>Número:</label>
+            <input type="number" class="form-control" placeholder="Ej: 12345" [(ngModel)]="busquedaAnulNumero" (keyup.enter)="buscarFacturaAnulacion()" />
+          </div>
+
+          <div class="form-group-btn">
+            <button class="btn-primary" (click)="buscarFacturaAnulacion()" [disabled]="cargando">
+              🔍 Buscar Factura
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Factura Encontrada para Anular / Reactivar -->
+      <div *ngIf="facturaAnulacionSeleccionada" class="detail-card">
+        <div class="doc-banner">
+          <div class="doc-title-group">
+            <span class="doc-badge">{{ facturaAnulacionSeleccionada.tipo }} {{ facturaAnulacionSeleccionada.letra }}</span>
+            <span class="doc-number">Pto. {{ facturaAnulacionSeleccionada.ptovta }} - Nro. {{ facturaAnulacionSeleccionada.numero }}</span>
+          </div>
+          <div class="doc-amount">
+            {{ formatearMoneda(facturaAnulacionSeleccionada.importe) }}
+          </div>
+        </div>
+
+        <div class="doc-meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Cobertura:</span>
+            <span class="meta-value">{{ facturaAnulacionSeleccionada.cobertura }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Fecha:</span>
+            <span class="meta-value">{{ formatearFechaSimple(facturaAnulacionSeleccionada.fecha) }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Estado Actual en Débitos:</span>
+            <span class="meta-value">
+              <span *ngIf="facturaAnulacionSeleccionada.anulada" class="status-badge badge-no-considerar">
+                ❌ ANULADA {{ facturaAnulacionSeleccionada.origenAnulacion ? '(' + facturaAnulacionSeleccionada.origenAnulacion + ')' : '' }}
+              </span>
+              <span *ngIf="!facturaAnulacionSeleccionada.anulada" class="status-badge badge-considerar">
+                ✅ ACTIVA (Computa en Tablero)
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div class="actions-bar mt-4">
+          <button
+            *ngIf="!facturaAnulacionSeleccionada.anulada"
+            class="btn-danger"
+            (click)="cambiarAnulacion(facturaAnulacionSeleccionada.idCabecera, true)"
+            [disabled]="cargando"
+          >
+            ❌ Marcar como Anulada en Débitos
+          </button>
+
+          <button
+            *ngIf="facturaAnulacionSeleccionada.anulada"
+            class="btn-success"
+            (click)="cambiarAnulacion(facturaAnulacionSeleccionada.idCabecera, false)"
+            [disabled]="cargando"
+          >
+            ✓ Revertir Anulación (Reactivar Factura)
+          </button>
+        </div>
+      </div>
+
+      <!-- Listado de Facturas Anuladas Manualmente -->
+      <div class="mt-5">
+        <h4>Facturas con Anulación Manual Registrada</h4>
+        <div class="table-responsive mt-3">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Comprobante</th>
+                <th>Fecha</th>
+                <th>Cobertura</th>
+                <th style="text-align: right;">Importe</th>
+                <th style="text-align: center;">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="!facturasAnuladasPage || facturasAnuladasPage.content.length === 0">
+                <td colspan="5" class="text-center py-4 text-muted">No hay facturas con anulación manual registrada.</td>
+              </tr>
+              <tr *ngFor="let fa of facturasAnuladasPage?.content">
+                <td class="font-bold">{{ fa.tipo }} {{ fa.letra }} {{ fa.ptovta }}-{{ fa.numero }}</td>
+                <td>{{ formatearFechaSimple(fa.fecha) }}</td>
+                <td>{{ fa.cobertura }}</td>
+                <td style="text-align: right;">{{ formatearMoneda(fa.importe) }}</td>
+                <td style="text-align: center;">
+                  <button class="btn-table-revert" (click)="cambiarAnulacion(fa.idCabecera, false)">
+                    ✓ Reactivar
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-bar" *ngIf="facturasAnuladasPage && facturasAnuladasPage.totalPages > 1">
+          <span class="pagination-info">
+            Página {{ facturasAnuladasPage.number + 1 }} de {{ facturasAnuladasPage.totalPages }}
+          </span>
+          <div class="pagination-buttons">
+            <button class="btn-page" [disabled]="facturasAnuladasPage.first" (click)="cargarFacturasAnuladas(paginaActualAnuladas - 1)">
+              ◀ Anterior
+            </button>
+            <button class="btn-page" [disabled]="facturasAnuladasPage.last" (click)="cargarFacturasAnuladas(paginaActualAnuladas + 1)">
+              Siguiente ▶
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- 5. HISTORIAL DE AJUSTES -->
+    <!-- ================================================================= -->
+    <div *ngIf="subSolapaActiva === 'historial'" class="panel-card fade-in">
+      <div class="panel-header">
+        <h3>Historial y Auditoría de Ajustes Contables</h3>
+        <p class="panel-desc">
+          Registro inmutable de todas las operaciones realizadas por los operadores en el módulo contable.
+        </p>
+      </div>
+
+      <div class="filter-bar">
+        <div class="filter-input-wrapper">
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Buscar por referencia (comprobante, código cobertura, etc.)..."
+            [(ngModel)]="filtroHistorialRef"
+            (keyup.enter)="buscarHistorialConFiltro()"
+          />
+          <button class="btn-primary" (click)="buscarHistorialConFiltro()" [disabled]="cargando">
+            🔍 Filtrar
+          </button>
+          <button class="btn-secondary" (click)="limpiarFiltroHistorial()" *ngIf="filtroHistorialRef">
+            ✕ Limpiar
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive mt-3">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 160px;">Fecha y Hora</th>
+              <th>Operación</th>
+              <th>Referencia</th>
+              <th>Valor Anterior</th>
+              <th>Valor Nuevo</th>
+              <th style="width: 140px;">Usuario</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="cargando && (!historialPage || historialPage.content.length === 0)">
+              <td colspan="6" class="text-center py-4">Cargando registros de historial...</td>
+            </tr>
+            <tr *ngIf="!cargando && historialPage?.content?.length === 0">
+              <td colspan="6" class="text-center py-4 text-muted">No se registran cambios en el historial.</td>
+            </tr>
+            <tr *ngFor="let h of historialPage?.content">
+              <td class="text-muted">{{ formatearFechaHora(h.fechaHora) }}</td>
+              <td>
+                <span class="op-badge">{{ h.tipoOperacionDescripcion || h.tipoOperacionCodigo }}</span>
+              </td>
+              <td class="font-bold">{{ h.referencia }}</td>
+              <td class="text-muted"><del *ngIf="h.valorAnterior">{{ h.valorAnterior }}</del><span *ngIf="!h.valorAnterior">—</span></td>
+              <td class="text-success font-bold">{{ h.valorNuevo }}</td>
+              <td><span class="user-pill">{{ h.usuario }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-bar" *ngIf="historialPage && historialPage.totalPages > 1">
+        <span class="pagination-info">
+          Página {{ historialPage.number + 1 }} de {{ historialPage.totalPages }} ({{ historialPage.totalElements }} eventos)
+        </span>
+        <div class="pagination-buttons">
+          <button class="btn-page" [disabled]="historialPage.first || cargando" (click)="cargarHistorial(paginaActualHistorial - 1)">
+            ◀ Anterior
+          </button>
+          <button class="btn-page" [disabled]="historialPage.last || cargando" (click)="cargarHistorial(paginaActualHistorial + 1)">
+            Siguiente ▶
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

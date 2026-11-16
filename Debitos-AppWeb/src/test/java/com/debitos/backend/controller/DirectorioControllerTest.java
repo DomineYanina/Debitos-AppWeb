@@ -41,7 +41,7 @@ class DirectorioControllerTest {
         @Test
         @DisplayName("GET /api/directorio/coberturas debe retornar lista de coberturas")
         void testObtenerCoberturas() throws Exception {
-                when(directorioService.obtenerCoberturasDisponibles()).thenReturn(List.of(
+                when(directorioService.obtenerCoberturasDisponibles(isNull(), isNull(), eq("periodo"))).thenReturn(List.of(
                                 new DirectorioCoberturaDTO("OSDE", "OSDE BINARIO"),
                                 new DirectorioCoberturaDTO("SWISS", "SWISS MEDICAL")));
 
@@ -49,6 +49,23 @@ class DirectorioControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.length()").value(2))
+                                .andExpect(jsonPath("$[0].codigo").value("OSDE"))
+                                .andExpect(jsonPath("$[0].nombre").value("OSDE BINARIO"));
+        }
+
+        @Test
+        @DisplayName("GET /api/directorio/coberturas con filtros de período debe retornar solo coberturas trabajadas")
+        void testObtenerCoberturasConFiltrosPeriodo() throws Exception {
+                when(directorioService.obtenerCoberturasDisponibles(eq(LocalDate.of(2026, 8, 1)), eq(LocalDate.of(2026, 10, 31)), eq("periodo")))
+                                .thenReturn(List.of(new DirectorioCoberturaDTO("OSDE", "OSDE BINARIO")));
+
+                mockMvc.perform(get("/api/directorio/coberturas")
+                                .param("fechaDesde", "2026-08-01")
+                                .param("fechaHasta", "2026-10-31")
+                                .param("criterioFecha", "periodo")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.length()").value(1))
                                 .andExpect(jsonPath("$[0].codigo").value("OSDE"))
                                 .andExpect(jsonPath("$[0].nombre").value("OSDE BINARIO"));
         }

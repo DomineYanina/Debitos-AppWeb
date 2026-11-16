@@ -83,6 +83,25 @@ class DirectorioServiceTest {
     }
 
     @Test
+    @DisplayName("obtenerCoberturasDisponibles con fechas filtra instituciones con debitos trabajados")
+    void testObtenerCoberturasDisponiblesConFechas() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] { "OSDE", "OSDE BINARIO" });
+
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<DirectorioCoberturaDTO> result = directorioService.obtenerCoberturasDisponibles(
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 10, 31), "periodo");
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("OSDE", result.get(0).getCodigo());
+        assertEquals("OSDE BINARIO", result.get(0).getNombre());
+        verify(mockQuery).setParameter("fechaDesde", java.sql.Date.valueOf(LocalDate.of(2026, 8, 1)));
+        verify(mockQuery).setParameter("fechaHasta", java.sql.Date.valueOf(LocalDate.of(2026, 10, 31)));
+    }
+
+    @Test
     @DisplayName("obtenerTotalesMacro calcula correctamente los 4 totales financieros")
     void testObtenerTotalesMacro() {
         // fc=100000, cant=10, incNd=5000, debNc=10000, refNd=4000, cobRc=60000, dso=429
@@ -1387,8 +1406,8 @@ class DirectorioServiceTest {
     }
 
     @Test
-    @DisplayName("getCuentaCorrienteTresNiveles descarta facturas con punto de venta distinto de 30, 31, 32 o 53")
-    void testCuentaCorriente_descartaFacturasCuyoPuntoDeVentaNoSea30Ni31Ni32Ni53() {
+    @DisplayName("getCuentaCorrienteTresNiveles descarta facturas con punto de venta distinto de 30, 31, 32, 36 o 53")
+    void testCuentaCorriente_descartaFacturasCuyoPuntoDeVentaNoSea30Ni31Ni32Ni36Ni53() {
         // Factura con ptovta = 1 (debe descartarse)
         Cabecera fcPto1 = new Cabecera("FC", "A", 1, 1001, LocalDate.of(2025, 10, 10), LocalDate.of(2025, 10, 1), "FAC",
                 "OSDE");
@@ -1427,8 +1446,8 @@ class DirectorioServiceTest {
     }
 
     @Test
-    @DisplayName("getCuentaCorrienteTresNiveles acepta y procesa facturas con punto de venta 30, 31, 32 y 53")
-    void testCuentaCorriente_aceptaFacturasConPuntosDeVenta30_31_32_53() {
+    @DisplayName("getCuentaCorrienteTresNiveles acepta y procesa facturas con punto de venta 30, 31, 32, 36 y 53")
+    void testCuentaCorriente_aceptaFacturasConPuntosDeVenta30_31_32_36_53() {
         Cabecera fc30 = new Cabecera("FC", "A", 30, 1001, LocalDate.of(2025, 10, 10), LocalDate.of(2025, 10, 1), "FAC",
                 "SWISS");
         fc30.setId(10L);
@@ -1450,6 +1469,13 @@ class DirectorioServiceTest {
         fc32.setDebe(new BigDecimal("50000.00"));
         fc32.setAsociadogrupo(300L);
 
+        Cabecera fc36 = new Cabecera("FC", "A", 36, 1005, LocalDate.of(2025, 10, 10), LocalDate.of(2025, 10, 1), "FAC",
+                "SWISS");
+        fc36.setId(35L);
+        fc36.setCobertura("SWISS");
+        fc36.setDebe(new BigDecimal("55000.00"));
+        fc36.setAsociadogrupo(350L);
+
         Cabecera fc53 = new Cabecera("FC", "A", 53, 1004, LocalDate.of(2025, 10, 10), LocalDate.of(2025, 10, 1), "FAC",
                 "SWISS");
         fc53.setId(40L);
@@ -1457,14 +1483,14 @@ class DirectorioServiceTest {
         fc53.setDebe(new BigDecimal("60000.00"));
         fc53.setAsociadogrupo(400L);
 
-        when(cabeceraRepository.findCabecerasParaCuentaCorriente()).thenReturn(List.of(fc30, fc31, fc32, fc53));
+        when(cabeceraRepository.findCabecerasParaCuentaCorriente()).thenReturn(List.of(fc30, fc31, fc32, fc36, fc53));
 
         List<CcFinanciadorDTO> resultado = directorioService.getCuentaCorrienteTresNiveles(null, null);
 
         assertNotNull(resultado);
         assertEquals(1, resultado.size());
         CcPeriodoDTO per = resultado.get(0).getPeriodos().get(0);
-        assertEquals(4, per.getComprobantes().size(), "Deben incluirse las 4 facturas (ptovta 30, 31, 32 y 53)");
+        assertEquals(5, per.getComprobantes().size(), "Deben incluirse las 5 facturas (ptovta 30, 31, 32, 36 y 53)");
     }
 
     @Test
