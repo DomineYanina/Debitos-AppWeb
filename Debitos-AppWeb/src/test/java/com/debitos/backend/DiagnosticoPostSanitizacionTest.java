@@ -1,8 +1,10 @@
 package com.debitos.backend;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import java.sql.*;
 
+@Disabled("Test de diagnóstico manual local contra PostgreSQL (localhost:5432)")
 public class DiagnosticoPostSanitizacionTest {
 
     @Test

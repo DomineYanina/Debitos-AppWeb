@@ -1,11 +1,17 @@
-import { TestBed } from '@angular/core/testing';
-import { ExcelExportService } from './excel-export';
 import { vi } from 'vitest';
 
-vi.mock('file-saver', () => ({
-  saveAs: vi.fn()
+const { mockSaveAs } = vi.hoisted(() => ({
+  mockSaveAs: vi.fn()
 }));
 
+vi.mock('file-saver', () => ({
+  __esModule: true,
+  default: mockSaveAs,
+  saveAs: mockSaveAs
+}));
+
+import { TestBed } from '@angular/core/testing';
+import { ExcelExportService } from './excel-export';
 import { saveAs } from 'file-saver';
 
 describe('ExcelExportService', () => {

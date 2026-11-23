@@ -6,6 +6,7 @@ import com.debitos.backend.repository.CabeceraRepository;
 import com.debitos.backend.repository.NotaDeCreditoRepository;
 import com.debitos.backend.repository.NotaDeDebitoRepository;
 import com.debitos.backend.service.DirectorioService;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.time.LocalDate;
 import java.util.*;
 
+@Disabled("Test de diagnóstico manual local contra PostgreSQL (localhost:5432)")
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:postgresql://localhost:5432/Debitos?reWriteBatchedInserts=true",
     "spring.datasource.driver-class-name=org.postgresql.Driver",
