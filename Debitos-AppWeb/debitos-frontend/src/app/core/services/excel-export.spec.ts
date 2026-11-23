@@ -1,28 +1,17 @@
-import { vi } from 'vitest';
-
-const { mockSaveAs } = vi.hoisted(() => ({
-  mockSaveAs: vi.fn()
-}));
-
-vi.mock('file-saver', () => ({
-  __esModule: true,
-  default: mockSaveAs,
-  saveAs: mockSaveAs
-}));
-
 import { TestBed } from '@angular/core/testing';
 import { ExcelExportService } from './excel-export';
-import { saveAs } from 'file-saver';
+import { vi } from 'vitest';
 
 describe('ExcelExportService', () => {
   let service: ExcelExportService;
+  let saveAs: any;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [ExcelExportService]
     });
     service = TestBed.inject(ExcelExportService);
-    vi.clearAllMocks();
+    saveAs = vi.spyOn(service, 'guardarArchivo').mockImplementation(() => {});
   });
 
   it('debería crearse correctamente', () => {

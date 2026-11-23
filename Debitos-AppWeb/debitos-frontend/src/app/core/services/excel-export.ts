@@ -41,6 +41,10 @@ export interface ContextoFiltroExportacion {
 })
 export class ExcelExportService {
 
+  guardarArchivo(blob: Blob, filename: string): void {
+    saveAs(blob, filename);
+  }
+
   async exportarPrestaciones(data: Prestacion[], tipoBusqueda: string, filename: string) {
     if (!data || data.length === 0) return;
 
@@ -72,7 +76,7 @@ export class ExcelExportService {
 
     // 4. Generar y descargar el archivo
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   private obtenerConfiguracionColumnas(tipo: string): any[] {
@@ -361,7 +365,7 @@ export class ExcelExportService {
 
     // 6. Descargar
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   private obtenerTipoDisplay(tipo: string): string {
@@ -561,7 +565,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 11 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   async exportarPrestacionesCandidatas(data: PrestacionCandidata[], anio: number, filename: string) {
@@ -769,7 +773,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 17 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   // ===========================================================================
@@ -1080,7 +1084,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Control_Financiero'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Control_Financiero'));
   }
 
   // ---------------------------------------------------------------------------
@@ -1242,7 +1246,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Cuenta_Corriente_Imputados'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Cuenta_Corriente_Imputados'));
   }
 
   // ---------------------------------------------------------------------------
@@ -1335,7 +1339,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Recibos_No_Imputados'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Recibos_No_Imputados'));
   }
 
   // ---------------------------------------------------------------------------
@@ -1455,7 +1459,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Tiempos_Cobranza'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Tiempos_Cobranza'));
   }
 
   // ---------------------------------------------------------------------------
@@ -1557,7 +1561,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(
+    this.guardarArchivo(
       new Blob([buffer]),
       filename || this.generarNombreArchivoTablero(`Matriz_Cobranzas_${matriz.anioSeleccionado || ''}`)
     );
@@ -1709,7 +1713,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Motivos_Debito'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Motivos_Debito'));
   }
 
   // ---------------------------------------------------------------------------
@@ -1859,7 +1863,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Detalle_Motivo'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Detalle_Motivo'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2063,7 +2067,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Analistas_Debito'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Analistas_Debito'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2272,7 +2276,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Bucles_Insistencia'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Bucles_Insistencia'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2448,7 +2452,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Usuarios_Carga'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Usuarios_Carga'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2641,7 +2645,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Prestadores_Medicos'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Prestadores_Medicos'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2782,7 +2786,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Detalle_Trazabilidad'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Detalle_Trazabilidad'));
   }
 
   // ---------------------------------------------------------------------------
@@ -2976,7 +2980,7 @@ export class ExcelExportService {
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Prestaciones_Facturadas'));
+    this.guardarArchivo(new Blob([buffer]), filename || this.generarNombreArchivoTablero('Prestaciones_Facturadas'));
   }
 
   async exportarComprobantesCandidatos(data: ComprobanteCandidato[], anio: number, filename: string) {
@@ -3160,7 +3164,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 14 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   // =========================================================================
@@ -3266,7 +3270,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 4 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   async exportarGestionPeriodos(data: FacturaPeriodoDTO[], filename: string): Promise<void> {
@@ -3420,7 +3424,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 11 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   async exportarGestionPrestaciones(data: PrestacionConsideracionDTO[], filtro: string, filename: string): Promise<void> {
@@ -3517,7 +3521,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 4 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   async exportarGestionFacturasAnuladas(data: FacturaAnuladaDTO[], filename: string): Promise<void> {
@@ -3671,7 +3675,7 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 11 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 
   async exportarGestionHistorial(data: HistorialAjusteDTO[], filtro: string, filename: string): Promise<void> {
@@ -3780,6 +3784,6 @@ export class ExcelExportService {
     worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 7 } };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), filename);
+    this.guardarArchivo(new Blob([buffer]), filename);
   }
 }
