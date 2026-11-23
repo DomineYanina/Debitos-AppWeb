@@ -5,6 +5,7 @@ import java.time.LocalDate;
 
 public class FacturaAnuladaDTO {
     private Long idCabecera;
+    private Long asociadogrupo;
     private String comprobante;
     private String tipo;
     private String letra;
@@ -17,6 +18,12 @@ public class FacturaAnuladaDTO {
     private BigDecimal importe;
     private boolean anulada;
     private String origenAnulacion; // "MANUAL" | "GESTION"
+    private Long idCabeceraAnulador;
+    private String comprobanteAnulador;
+    private boolean tieneSolicitudAnulacion;
+    private Long idNotificacionSolicitud;
+    private String usuarioSolicitante;
+    private String motivoSolicitudAnulacion;
 
     public FacturaAnuladaDTO() {}
 
@@ -26,6 +33,14 @@ public class FacturaAnuladaDTO {
 
     public void setIdCabecera(Long idCabecera) {
         this.idCabecera = idCabecera;
+    }
+
+    public Long getAsociadogrupo() {
+        return asociadogrupo;
+    }
+
+    public void setAsociadogrupo(Long asociadogrupo) {
+        this.asociadogrupo = asociadogrupo;
     }
 
     public String getComprobante() {
@@ -122,5 +137,53 @@ public class FacturaAnuladaDTO {
 
     public void setOrigenAnulacion(String origenAnulacion) {
         this.origenAnulacion = origenAnulacion;
+    }
+
+    public Long getIdCabeceraAnulador() {
+        return idCabeceraAnulador;
+    }
+
+    public void setIdCabeceraAnulador(Long idCabeceraAnulador) {
+        this.idCabeceraAnulador = idCabeceraAnulador;
+    }
+
+    public String getComprobanteAnulador() {
+        return comprobanteAnulador;
+    }
+
+    public void setComprobanteAnulador(String comprobanteAnulador) {
+        this.comprobanteAnulador = comprobanteAnulador;
+    }
+
+    public boolean isTieneSolicitudAnulacion() {
+        return tieneSolicitudAnulacion;
+    }
+
+    public void setTieneSolicitudAnulacion(boolean tieneSolicitudAnulacion) {
+        this.tieneSolicitudAnulacion = tieneSolicitudAnulacion;
+    }
+
+    public Long getIdNotificacionSolicitud() {
+        return idNotificacionSolicitud;
+    }
+
+    public void setIdNotificacionSolicitud(Long idNotificacionSolicitud) {
+        this.idNotificacionSolicitud = idNotificacionSolicitud;
+    }
+
+    public String getUsuarioSolicitante() {
+        return usuarioSolicitante;
+    }
+
+    public void setUsuarioSolicitante(String usuarioSolicitante) {
+        this.usuarioSolicitante = usuarioSolicitante;
+    }
+
+    public String getMotivoSolicitudAnulacion() {
+        return motivoSolicitudAnulacion;
+    }
+
+    public void setMotivoSolicitudAnulacion(String motivoSolicitudAnulacion) {
+        this.motivoSolicitudAnulacion = motivoSolicitudAnulacion;
     }
 }

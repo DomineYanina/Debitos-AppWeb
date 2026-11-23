@@ -594,7 +594,42 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   filaNcParaCrearNdAjuste: any = null;
   modalHistorialVisible: boolean = false;
   filasHistorialComprobantes: any[] = [];
+  mostrarAnuladosHistorial: boolean = false;
+
+  get tieneDocumentosAnuladosHistorial(): boolean {
+    return this.filasHistorialComprobantes?.some(f => !!(f.anulado || f.anulador)) ?? false;
+  }
+
+  get filasHistorialComprobantesVisibles(): any[] {
+    if (!this.filasHistorialComprobantes || this.filasHistorialComprobantes.length === 0) {
+      return [];
+    }
+    if (!this.tieneDocumentosAnuladosHistorial || this.mostrarAnuladosHistorial) {
+      return this.filasHistorialComprobantes;
+    }
+    return this.filasHistorialComprobantes.filter(f => !f.anulado && !f.anulador);
+  }
+
+  actualizarEstadoVerAnulados(): void {
+    if (!this.tieneDocumentosAnuladosHistorial) {
+      this.mostrarAnuladosHistorial = false;
+    } else {
+      const buscadoEsAnulado = this.filasHistorialComprobantes.some(f =>
+        this.esDocumentoBuscado(f) && (f.anulado || f.anulador)
+      );
+      this.mostrarAnuladosHistorial = buscadoEsAnulado;
+    }
+  }
   cantidadHistorial: number = 1;
+  modalSolicitudAnulacionVisible: boolean = false;
+  comprobanteASolicitarAnulacion: any = null;
+  motivoSolicitudAnulacion: string = '';
+  guardandoSolicitudAnulacion: boolean = false;
+  solicitudesAnulacionEnviadas: Set<string> = new Set<string>();
+  modalConfirmarCancelacionSolicitudVisible: boolean = false;
+  comprobanteACancelarSolicitud: any = null;
+  cancelandoSolicitudAnulacion: boolean = false;
+  readonly PUNTOS_VENTA_CONTABLES_PERMITIDOS: number[] = [30, 31, 32, 36, 53];
   permitirNcConjunta: boolean = true;
   tieneAjusteIvaNcConjunta: boolean = false;
   tieneNdAjusteIvaCreada: boolean = false;
@@ -1994,7 +2029,22 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         this.facturasAsociadasInfo = (res && res.facturasAsociadas) ? res.facturasAsociadas : [];
 
         this.filasHistorialComprobantes = (res && res.historialComprobantes) ? res.historialComprobantes : [];
+        if (this.filasHistorialComprobantes && this.filasHistorialComprobantes.length > 0) {
+          this.filasHistorialComprobantes.forEach(f => {
+            if (f.anulado && f.anulador) {
+              if (f.detalleAnulacion && f.detalleAnulacion.toLowerCase().startsWith('anulado por')) {
+                f.anulador = false;
+              } else {
+                f.anulado = false;
+              }
+            }
+            if (f.solicitudAnulacionPendiente) {
+              this.solicitudesAnulacionEnviadas.add(this.obtenerClaveDocumento(f));
+            }
+          });
+        }
         this.cantidadHistorial = this.filasHistorialComprobantes.length > 0 ? this.filasHistorialComprobantes.length : 1;
+        this.actualizarEstadoVerAnulados();
 
         if (this.tipoBusquedaRealizada === 'NC' || this.tipoBusquedaRealizada === 'NCE') {
           this.tieneAjusteIvaNcConjunta = !!(res && res.resumenAjusteIva && res.resumenAjusteIva.length > 1);
@@ -3391,7 +3441,15 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.auditoriaService.obtenerHistorialComprobantes(tipo, letra, puntoVenta, numero).subscribe({
       next: (res) => {
         this.filasHistorialComprobantes = res || [];
+        if (this.filasHistorialComprobantes && this.filasHistorialComprobantes.length > 0) {
+          this.filasHistorialComprobantes.forEach(f => {
+            if (f.solicitudAnulacionPendiente) {
+              this.solicitudesAnulacionEnviadas.add(this.obtenerClaveDocumento(f));
+            }
+          });
+        }
         this.cantidadHistorial = this.filasHistorialComprobantes.length;
+        this.actualizarEstadoVerAnulados();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -3404,6 +3462,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.filasHistorialComprobantes.length === 0 && this.busquedaForm.valid) {
       const rawVal = this.busquedaForm.getRawValue();
       this.cargarHistorialComprobantes(rawVal.tipo || 'FC', rawVal.letra || '', rawVal.puntoVenta || '', rawVal.numero || '');
+    } else {
+      this.actualizarEstadoVerAnulados();
     }
     this.modalHistorialVisible = true;
     this.cdr.detectChanges();
@@ -3415,7 +3475,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   exportarHistorialAExcel() {
-    if (!this.filasHistorialComprobantes || this.filasHistorialComprobantes.length === 0) {
+    const filasAExportar = this.filasHistorialComprobantesVisibles;
+    if (!filasAExportar || filasAExportar.length === 0) {
       this.mostrarAlerta('No hay comprobantes en el historial para exportar.', undefined, 'error');
       return;
     }
@@ -3444,10 +3505,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       documentoReferencia: tipo === 'RC' ? `RC-${numero}` : `${tipo}-${letra}-${ptovta}-${numero}`,
       evento: 'EXPORTACION_EXCEL_HISTORIAL',
       fechaHora: new Date().toISOString(),
-      cantidadRegistrosPendientes: this.filasHistorialComprobantes.length
+      cantidadRegistrosPendientes: filasAExportar.length
     }).subscribe({ error: () => { } });
 
-    this.excelService.exportarHistorialComprobantes(this.filasHistorialComprobantes, infoBuscado, filename);
+    this.excelService.exportarHistorialComprobantes(filasAExportar, infoBuscado, filename);
   }
 
   obtenerTipoDisplay(tipo: string): string {
@@ -3524,6 +3585,155 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.actualizarValidadoresTipo(tipoOriginal);
 
     this.onBuscar();
+  }
+
+  esComprobanteAnulable(fila: any): boolean {
+    if (!fila || fila.anulado || fila.anulador || fila.placeholderNdAjusteIva) {
+      return false;
+    }
+    // No se debe poder solicitar la anulación de documentos que tengan prestaciones vinculadas
+    if (fila.tienePrestaciones !== false) {
+      return false;
+    }
+    const tipo = (fila.tipoDocumento || fila.tipo || '').toUpperCase();
+    if (tipo === 'RC') {
+      return false;
+    }
+    const pv = Number(fila.puntoVenta);
+    if (!pv || !this.PUNTOS_VENTA_CONTABLES_PERMITIDOS.includes(pv)) {
+      return false;
+    }
+    const num = Number(fila.numero);
+    if (!num || num <= 0) {
+      return false;
+    }
+    return true;
+  }
+
+  obtenerClaveDocumento(fila: any): string {
+    const tipo = (fila.tipoDocumento || fila.tipo || '').toUpperCase();
+    const letra = (fila.letra || '').toUpperCase();
+    const pv = Number(fila.puntoVenta || 0);
+    const num = Number(fila.numero || 0);
+    return `${tipo}-${letra}-${pv}-${num}`;
+  }
+
+  esSolicitudAnulacionEnviada(fila: any): boolean {
+    if (!fila) return false;
+    if (fila.solicitudAnulacionEnviada || fila.solicitudAnulacionPendiente) return true;
+    return this.solicitudesAnulacionEnviadas.has(this.obtenerClaveDocumento(fila));
+  }
+
+  abrirModalSolicitarAnulacion(fila: any): void {
+    if (!this.esComprobanteAnulable(fila)) {
+      if (fila?.tienePrestaciones !== false) {
+        this.mostrarAlerta('No se puede solicitar la anulación de documentos que tengan prestaciones vinculadas.', undefined, 'error');
+      }
+      return;
+    }
+    this.comprobanteASolicitarAnulacion = fila;
+    this.motivoSolicitudAnulacion = '';
+    this.guardandoSolicitudAnulacion = false;
+    this.modalSolicitudAnulacionVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalSolicitarAnulacion(): void {
+    this.modalSolicitudAnulacionVisible = false;
+    this.comprobanteASolicitarAnulacion = null;
+    this.motivoSolicitudAnulacion = '';
+    this.guardandoSolicitudAnulacion = false;
+    this.cdr.detectChanges();
+  }
+
+  confirmarSolicitudAnulacion(): void {
+    if (!this.comprobanteASolicitarAnulacion || !this.esComprobanteAnulable(this.comprobanteASolicitarAnulacion)) {
+      return;
+    }
+
+    this.guardandoSolicitudAnulacion = true;
+    const fila = this.comprobanteASolicitarAnulacion;
+    const tipoDoc = fila.tipoDocumento || fila.tipo || 'FC';
+    const letraDoc = fila.letra || 'A';
+    const puntoVenta = Number(fila.puntoVenta || 0);
+    const numero = Number(fila.numero || 0);
+    const motivo = this.motivoSolicitudAnulacion ? this.motivoSolicitudAnulacion.trim() : '';
+
+    this.notificacionService.solicitarAnulacionDocumento({
+      tipoDoc,
+      letraDoc,
+      puntoVenta,
+      numero
+    }, motivo).subscribe({
+      next: () => {
+        this.guardandoSolicitudAnulacion = false;
+        this.solicitudesAnulacionEnviadas.add(this.obtenerClaveDocumento(fila));
+        fila.solicitudAnulacionEnviada = true;
+        fila.solicitudAnulacionPendiente = true;
+        this.cerrarModalSolicitarAnulacion();
+        const docRef = `${tipoDoc} ${letraDoc} ${('0000' + puntoVenta).slice(-4)}-${('00000000' + numero).slice(-8)}`;
+        this.mostrarAlerta(
+          `Solicitud de anulación enviada con éxito para ${docRef}. Se ha notificado a Contaduría y Administración.`,
+          undefined,
+          'exito'
+        );
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.guardandoSolicitudAnulacion = false;
+        console.error('Error al solicitar anulación de documento:', err);
+        this.mostrarAlerta('No se pudo enviar la solicitud de anulación. Por favor reintente.', undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  abrirModalCancelarSolicitudAnulacion(fila: any): void {
+    this.comprobanteACancelarSolicitud = fila;
+    this.modalConfirmarCancelacionSolicitudVisible = true;
+    this.cdr.detectChanges();
+  }
+
+  cerrarModalCancelarSolicitudAnulacion(): void {
+    this.modalConfirmarCancelacionSolicitudVisible = false;
+    this.comprobanteACancelarSolicitud = null;
+    this.cancelandoSolicitudAnulacion = false;
+    this.cdr.detectChanges();
+  }
+
+  confirmarCancelarSolicitudAnulacion(): void {
+    if (!this.comprobanteACancelarSolicitud) return;
+    const fila = this.comprobanteACancelarSolicitud;
+    const tipoDoc = fila.tipoDocumento || fila.tipo || 'FC';
+    const letraDoc = fila.letra || 'A';
+    const puntoVenta = Number(fila.puntoVenta || 0);
+    const numero = Number(fila.numero || 0);
+
+    this.cancelandoSolicitudAnulacion = true;
+    this.notificacionService.cancelarSolicitudAnulacionDocumento({
+      tipoDoc,
+      letraDoc,
+      puntoVenta,
+      numero
+    }).subscribe({
+      next: () => {
+        this.cancelandoSolicitudAnulacion = false;
+        const clave = this.obtenerClaveDocumento(fila);
+        this.solicitudesAnulacionEnviadas.delete(clave);
+        fila.solicitudAnulacionEnviada = false;
+        fila.solicitudAnulacionPendiente = false;
+        this.cerrarModalCancelarSolicitudAnulacion();
+        const docRef = `${tipoDoc} ${letraDoc} ${('0000' + puntoVenta).slice(-4)}-${('00000000' + numero).slice(-8)}`;
+        this.mostrarAlerta(`Se canceló la solicitud de anulación para ${docRef}.`, undefined, 'exito');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.cancelandoSolicitudAnulacion = false;
+        console.error('Error al cancelar solicitud de anulación:', err);
+        this.mostrarAlerta('No se pudo cancelar la solicitud de anulación. Por favor intente nuevamente.', undefined, 'error');
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   get filaFacturaRaiz(): any {

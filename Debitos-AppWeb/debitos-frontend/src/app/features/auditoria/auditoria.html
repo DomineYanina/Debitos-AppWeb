@@ -1006,6 +1006,12 @@
       <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h3 class="historial-modal-titulo">Historial de Comprobantes Asociados</h3>
         <div style="display: flex; align-items: center; gap: 10px;">
+          <!-- Checkbox Ver Anulados -->
+          <label class="historial-toggle-anulados" [class.disabled]="!tieneDocumentosAnuladosHistorial"
+            [title]="!tieneDocumentosAnuladosHistorial ? 'No hay documentos anulados en este grupo' : (mostrarAnuladosHistorial ? 'Ocultar documentos anulados' : 'Mostrar documentos anulados')">
+            <input type="checkbox" [(ngModel)]="mostrarAnuladosHistorial" [disabled]="!tieneDocumentosAnuladosHistorial" />
+            Ver Anulados
+          </label>
           <button type="button" class="btn-exportar-historial" (click)="exportarHistorialAExcel()"
             title="Exportar historial a Excel (.xlsx)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
@@ -1034,16 +1040,18 @@
                 <th>Monto Neto</th>
                 <th>% IVA</th>
                 <th>Monto IVA</th>
-                <th style="text-align: center;">Acciones</th>
+                <th style="text-align: center;">Ver Prestaciones</th>
+                <th style="text-align: center;">Solicitar Anulación</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let fila of filasHistorialComprobantes"
+              <tr *ngFor="let fila of filasHistorialComprobantesVisibles"
                 [class.historial-fila-principal]="!fila.nivel || fila.nivel === 0"
                 [class.historial-fila-secundaria]="(fila.nivel || 0) > 0"
                 [class.historial-fila-buscado]="esDocumentoBuscado(fila)"
                 [class.historial-fila-iva]="fila.origenTipo === 'IVA' && !fila.placeholderNdAjusteIva"
-                [class.historial-fila-placeholder]="fila.placeholderNdAjusteIva">
+                [class.historial-fila-placeholder]="fila.placeholderNdAjusteIva"
+                [class.historial-fila-anulada]="fila.anulado || fila.anulador">
                 <!-- Tipo de documento con indentación de árbol y badge -->
                 <td class="historial-celda-tipo" [class.historial-fila-buscado]="esDocumentoBuscado(fila)">
                   <div class="historial-tipo-contenedor" [style.padding-left.px]="(fila.nivel || 0) * 16">
@@ -1058,6 +1066,10 @@
                       class="badge-estado badge-estado-pendiente">Pendiente</span>
                     <span *ngIf="fila.nivel === 0 && fila.idEstado === 2 && !authService.hasAnyRole(['OPERADOR'])"
                       class="badge-estado badge-estado-finalizado">Finalizado</span>
+                    <span *ngIf="fila.anulado" class="badge-estado badge-anulado"
+                      [title]="fila.detalleAnulacion || 'Documento anulado'">ANULADO</span>
+                    <span *ngIf="fila.anulador && !fila.anulado" class="badge-estado badge-anulador"
+                      [title]="fila.detalleAnulacion || 'Comprobante anulador'">ANULADOR</span>
                   </div>
                 </td>
                 <td>{{ esRecibo(fila) ? '' : fila.letra }}</td>
@@ -1072,7 +1084,7 @@
                 <td class="historial-celda-iva-monto">
                   {{ fila.montoIva != null ? (fila.montoIva | currency:'ARS':'symbol-narrow':'1.2-2') : '' }}
                 </td>
-                <!-- Columna Acciones -->
+                <!-- Columna Ver Prestaciones -->
                 <td class="historial-celda-acciones">
                   <!-- Placeholder ND de ajuste IVA: link para crear -->
                   <ng-container *ngIf="fila.placeholderNdAjusteIva">
@@ -1100,6 +1112,30 @@
                     </span>
                   </ng-container>
                 </td>
+                <!-- Columna Solicitar Anulación -->
+                <td class="historial-celda-anulacion">
+                  <ng-container *ngIf="fila.anulado || fila.anulador || fila.placeholderNdAjusteIva || fila.origenTipo === 'IVA'">
+                    <span class="text-muted">—</span>
+                  </ng-container>
+                  <ng-container *ngIf="!fila.anulado && !fila.anulador && !fila.placeholderNdAjusteIva && fila.origenTipo !== 'IVA'">
+                    <!-- Si la solicitud ya fue enviada o está pendiente: Badge + Botón Cancelar -->
+                    <div *ngIf="esSolicitudAnulacionEnviada(fila)" class="contenedor-solicitud-enviada">
+                      <span class="badge-solicitud-enviada" title="Solicitud enviada a Contaduría">Solicitud enviada</span>
+                      <button type="button" class="btn-cancelar-solicitud" (click)="abrirModalCancelarSolicitudAnulacion(fila)"
+                        title="Cancelar solicitud de anulación" [disabled]="cancelandoSolicitudAnulacion">
+                        ✕ Cancelar
+                      </button>
+                    </div>
+                    <!-- Si aún no fue solicitada -->
+                    <ng-container *ngIf="!esSolicitudAnulacionEnviada(fila)">
+                      <button *ngIf="esComprobanteAnulable(fila)" type="button" class="btn-solicitar-anulacion"
+                        (click)="abrirModalSolicitarAnulacion(fila)">
+                        Solicitar Anulación
+                      </button>
+                      <span *ngIf="!esComprobanteAnulable(fila)" class="text-muted">—</span>
+                    </ng-container>
+                  </ng-container>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -1107,6 +1143,85 @@
       </div>
       <div class="modal-footer" style="justify-content: center;">
         <button class="btn-modal-cancelar" (click)="cerrarModalHistorialComprobantes()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SOLICITAR ANULACIÓN DE DOCUMENTO -->
+  <div class="modal-overlay modal-overlay-top" *ngIf="modalSolicitudAnulacionVisible">
+    <div class="modal-box modal-solicitar-anulacion-box">
+      <div class="modal-header">
+        <div>
+          <h3>Solicitar Anulación de Documento</h3>
+          <p class="subtitulo-modal" style="margin-top: 4px; font-size: 0.85rem; color: #94a3b8;">
+            Se enviará una notificación al sector de Contaduría para evaluar y registrar la anulación.
+          </p>
+        </div>
+        <button type="button" class="btn-cerrar-modal" (click)="cerrarModalSolicitarAnulacion()"
+          aria-label="Cerrar modal" title="Cerrar">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem;">
+        <div *ngIf="comprobanteASolicitarAnulacion" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 1rem;">
+          <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc;">
+            {{ comprobanteASolicitarAnulacion.tipoDocumento || comprobanteASolicitarAnulacion.tipo }} {{ comprobanteASolicitarAnulacion.letra }}
+            {{ ('0000' + comprobanteASolicitarAnulacion.puntoVenta).slice(-4) }}-{{ ('00000000' + comprobanteASolicitarAnulacion.numero).slice(-8) }}
+          </div>
+          <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 4px;">
+            Monto Neto: {{ comprobanteASolicitarAnulacion.montoNeto | currency:'ARS':'symbol-narrow':'1.2-2' }} | Fecha: {{ comprobanteASolicitarAnulacion.fechaDocumento }}
+          </div>
+        </div>
+
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 0.85rem; font-weight: 600; color: #cbd5e1;">Motivo de la anulación (opcional):</label>
+          <textarea [(ngModel)]="motivoSolicitudAnulacion" rows="3" class="form-control"
+            placeholder="Describí brevemente por qué debe ser anulado este comprobante..."
+            style="width: 100%; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; padding: 8px; font-size: 0.85rem; resize: vertical; box-sizing: border-box;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 1rem 1.25rem;">
+        <button type="button" class="btn-modal-cancelar" (click)="cerrarModalSolicitarAnulacion()" [disabled]="guardandoSolicitudAnulacion">
+          Cancelar
+        </button>
+        <button type="button" class="btn-solicitar-anulacion" style="background: #dc2626; color: #ffffff; border: 1px solid #b91c1c; padding: 6px 14px; border-radius: 6px; font-weight: 600;"
+          (click)="confirmarSolicitudAnulacion()" [disabled]="guardandoSolicitudAnulacion">
+          {{ guardandoSolicitudAnulacion ? 'Enviando...' : 'Enviar Solicitud' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CANCELAR SOLICITUD DE ANULACIÓN -->
+  <div class="modal-overlay modal-overlay-top" *ngIf="modalConfirmarCancelacionSolicitudVisible">
+    <div class="modal-box modal-solicitar-anulacion-box">
+      <div class="modal-header">
+        <div>
+          <h3>Cancelar Solicitud de Anulación</h3>
+        </div>
+        <button type="button" class="btn-cerrar-modal" (click)="cerrarModalCancelarSolicitudAnulacion()"
+          aria-label="Cerrar modal" title="Cerrar">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem;">
+        <p style="margin: 0 0 1rem 0; font-size: 0.9rem; color: #cbd5e1;">
+          ¿Estás seguro de que deseás cancelar la solicitud de anulación para este comprobante?
+        </p>
+        <div *ngIf="comprobanteACancelarSolicitud" style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+          <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc;">
+            {{ comprobanteACancelarSolicitud.tipoDocumento || comprobanteACancelarSolicitud.tipo }} {{ comprobanteACancelarSolicitud.letra }}
+            {{ ('0000' + comprobanteACancelarSolicitud.puntoVenta).slice(-4) }}-{{ ('00000000' + comprobanteACancelarSolicitud.numero).slice(-8) }}
+          </div>
+          <div style="font-size: 0.82rem; color: #94a3b8; margin-top: 4px;">
+            La solicitud será retirada de la bandeja de Contaduría y volverá a habilitarse el botón de solicitud.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 1rem 1.25rem;">
+        <button type="button" class="btn-modal-cancelar" (click)="cerrarModalCancelarSolicitudAnulacion()" [disabled]="cancelandoSolicitudAnulacion">
+          Volver
+        </button>
+        <button type="button" class="btn-cancelar-solicitud" style="background: #ef4444; color: #ffffff; border: 1px solid #dc2626; padding: 6px 14px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;"
+          (click)="confirmarCancelarSolicitudAnulacion()" [disabled]="cancelandoSolicitudAnulacion">
+          {{ cancelandoSolicitudAnulacion ? 'Cancelando...' : 'Sí, Cancelar Solicitud' }}
+        </button>
       </div>
     </div>
   </div>

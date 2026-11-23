@@ -365,4 +365,30 @@ describe('NavbarComponent', () => {
     fixture.detectChanges();
     expect(component.themeService.getTheme()).toBe('dark');
   });
+
+  it('debería redirigir a gestion-contable con queryParams cuando la notificación es de tipo SOLICITUD_ANULACION_DOCUMENTO', () => {
+    const navigateSpy = vi.spyOn(router, 'navigate');
+    const notif: any = {
+      id: 55,
+      tipoNotificacion: 'SOLICITUD_ANULACION_DOCUMENTO',
+      tipoDoc: 'FC',
+      letra: 'A',
+      puntoVenta: 31,
+      numero: 1865
+    };
+
+    component.abrirComprobante(notif);
+
+    expect(notificacionServiceSpy.marcarComoLeida).toHaveBeenCalledWith(55);
+    expect(navigateSpy).toHaveBeenCalledWith(['/gestion-contable'], {
+      queryParams: {
+        subSolapa: 'anuladas',
+        tipo: 'FC',
+        letra: 'A',
+        ptoVta: 31,
+        numero: 1865,
+        abrirModal: 'true'
+      }
+    });
+  });
 });

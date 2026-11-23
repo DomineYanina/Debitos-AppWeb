@@ -41,6 +41,13 @@ public interface CabeceraRepository extends JpaRepository<Cabecera, Long> {
 
     List<Cabecera> findByAsociadogrupo(Long asociadogrupo);
 
+    List<Cabecera> findByAsociadogrupoOrderByFechaDescIdDesc(Long asociadogrupo);
+
+    List<Cabecera> findByAsociado(Long asociado);
+
+    @Query("SELECT c FROM Cabecera c WHERE UPPER(TRIM(c.comprobanteAsociado)) = UPPER(TRIM(:comprobanteAsociado)) ORDER BY c.id DESC")
+    List<Cabecera> findByComprobanteAsociadoIgnoreCase(@Param("comprobanteAsociado") String comprobanteAsociado);
+
     @Query("""
                 SELECT c FROM Cabecera c
                 WHERE (c.asociadogrupo IS NOT NULL AND c.asociadogrupo <> 0 AND c.asociadogrupo = :idGrupo)

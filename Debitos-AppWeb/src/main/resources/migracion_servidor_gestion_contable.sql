@@ -76,16 +76,56 @@ CREATE INDEX IF NOT EXISTS idx_prestaciones_estado ON prestaciones_consideracion
 -- 6. Tabla: Facturas Anuladas Manualmente
 CREATE TABLE IF NOT EXISTS facturas_anuladas_manual (
     id_cabecera BIGINT PRIMARY KEY REFERENCES cabecera(id) ON DELETE CASCADE,
-    anulada BOOLEAN NOT NULL DEFAULT TRUE
+    anulada BOOLEAN NOT NULL DEFAULT TRUE,
+    id_cabecera_anulador BIGINT REFERENCES cabecera(id) ON DELETE SET NULL,
+    fecha_anulacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    usuario VARCHAR(100)
 );
 
--- 7. Población inicial de prestaciones desde amb_liquidado con estado 'Considerar'
+ALTER TABLE facturas_anuladas_manual ADD COLUMN IF NOT EXISTS id_cabecera_anulador BIGINT REFERENCES cabecera(id) ON DELETE SET NULL;
+ALTER TABLE facturas_anuladas_manual ADD COLUMN IF NOT EXISTS fecha_anulacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE facturas_anuladas_manual ADD COLUMN IF NOT EXISTS usuario VARCHAR(100);
+CREATE INDEX IF NOT EXISTS idx_fam_anulador ON facturas_anuladas_manual (id_cabecera_anulador);
+
+-- 7. Población de prestaciones exclusivamente desde cob_prestaciones de Gestión vía dblink
+CREATE EXTENSION IF NOT EXISTS dblink;
+
+CREATE TEMP TABLE IF NOT EXISTS temp_cob_prestaciones_init (
+    codigo VARCHAR(50) PRIMARY KEY,
+    descripcion VARCHAR(255)
+) ON COMMIT DROP;
+
+INSERT INTO temp_cob_prestaciones_init (codigo, descripcion)
+SELECT DISTINCT ON (TRIM(codigo))
+    TRIM(codigo) AS codigo,
+    TRIM(COALESCE(descripcion, '')) AS descripcion
+FROM dblink(
+    'host=172.16.15.41 port=9090 dbname=gestion user=yanina password=yanina**333-',
+    $gestion$
+        SELECT codigo, descripcion, idprestacion
+        FROM cob_prestaciones
+        WHERE codigo IS NOT NULL AND TRIM(codigo) <> ''
+        ORDER BY TRIM(codigo), idprestacion DESC
+    $gestion$
+) AS cp(codigo VARCHAR, descripcion VARCHAR, idprestacion INT);
+
+-- Eliminar de prestaciones_consideracion los códigos con 'Considerar' que no existan en cob_prestaciones
+DELETE FROM prestaciones_consideracion
+WHERE estado = 'Considerar'
+  AND codigo NOT IN (SELECT codigo FROM temp_cob_prestaciones_init);
+
 INSERT INTO prestaciones_consideracion (codigo, descripcion, estado)
-SELECT TRIM(codigo), MAX(TRIM(descripcion)), 'Considerar'
-FROM amb_liquidado
+SELECT codigo, descripcion, 'Considerar'
+FROM temp_cob_prestaciones_init
+ON CONFLICT (codigo) DO UPDATE
+SET descripcion = EXCLUDED.descripcion;
+
+-- 8. Población inicial de coberturas_alias (desde tabla local 'coberturas' si existe, o ver poblar_coberturas_alias.sql)
+INSERT INTO coberturas_alias (codigo_cobertura, nombre_original, nombre_mostrar)
+SELECT TRIM(codigo), TRIM(nombre), TRIM(nombre)
+FROM coberturas
 WHERE codigo IS NOT NULL AND TRIM(codigo) <> ''
-GROUP BY TRIM(codigo)
-ON CONFLICT (codigo) DO NOTHING;
+ON CONFLICT (codigo_cobertura) DO NOTHING;
 
 COMMIT;
 
@@ -129,6 +169,10 @@ docs_anulados AS (
         SELECT DISTINCT id_cabecera AS id
         FROM facturas_anuladas_manual
         WHERE anulada = TRUE
+        UNION
+        SELECT DISTINCT id_cabecera_anulador AS id
+        FROM facturas_anuladas_manual
+        WHERE anulada = TRUE AND id_cabecera_anulador IS NOT NULL
     )
     EXCEPT
     SELECT DISTINCT id_cabecera AS id

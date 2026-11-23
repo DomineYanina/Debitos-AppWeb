@@ -28,22 +28,37 @@ export class NotificacionService {
   constructor() {
     this.iniciarPolling();
     this.authService.autenticado$.subscribe(isAuth => {
-      if (isAuth && (this.authService.esAdminReal() || this.authService.isAdmin())) {
+      if (isAuth && this.tieneAccesoNotificaciones()) {
         this.cargarNotificaciones();
       } else if (!isAuth) {
         this.notificacionesSubject.next([]);
         this.noLeidasCountSubject.next(0);
       }
     });
+    this.authService.rolActual$?.subscribe(() => {
+      if (this.tieneAccesoNotificaciones()) {
+        this.cargarNotificaciones();
+      }
+    });
+  }
+
+  public tieneAccesoNotificaciones(): boolean {
+    return !!this.authService.isLoggedIn() && (
+      (this.authService.esAdminReal ? this.authService.esAdminReal() : false) ||
+      (this.authService.isAdmin ? this.authService.isAdmin() : false) ||
+      (this.authService.hasRole ? this.authService.hasRole('OPERADOR_CONTADURIA') : false) ||
+      (this.authService.obtenerRol ? this.authService.obtenerRol() === 'OPERADOR_CONTADURIA' : false) ||
+      (this.authService.obtenerRolReal ? this.authService.obtenerRolReal() === 'OPERADOR_CONTADURIA' : false)
+    );
   }
 
   public iniciarPolling() {
-    if (this.authService.isLoggedIn() && (this.authService.esAdminReal() || this.authService.isAdmin())) {
+    if (this.tieneAccesoNotificaciones()) {
       this.cargarNotificaciones();
     }
     if (!this.pollingSub) {
       this.pollingSub = interval(25000).subscribe(() => {
-        if (this.authService.isLoggedIn() && (this.authService.esAdminReal() || this.authService.isAdmin())) {
+        if (this.tieneAccesoNotificaciones()) {
           this.cargarNotificaciones();
         }
       });
@@ -53,8 +68,15 @@ export class NotificacionService {
   public cargarNotificaciones() {
     if (!this.authService.isLoggedIn()) return;
 
-    this.http.get<Notificacion[]>(`${this.apiUrl}/recientes`).subscribe({
-      next: (data) => {
+    const rol = this.authService.obtenerRol ? this.authService.obtenerRol() : '';
+    const usuario = this.authService.obtenerUsuario ? this.authService.obtenerUsuario() : '';
+    const params: Record<string, string> = {};
+    if (rol && rol !== 'ADMIN') params['rol'] = rol;
+    if (usuario) params['usuario'] = usuario;
+    const options = Object.keys(params).length > 0 ? { params } : {};
+
+    this.http.get<Notificacion[]>(`${this.apiUrl}/recientes`, options).subscribe({
+      next: (data: Notificacion[]) => {
         const procesadas = (data || []).map(n => ({
           ...n,
           leida: n.leida === true
@@ -109,7 +131,8 @@ export class NotificacionService {
     this.noLeidasCountSubject.next(ordenadas.filter(n => !n.leida).length);
 
     // Persistir en backend
-    this.http.put(`${this.apiUrl}/${id}/leer`, {}).subscribe({
+    const usuario = this.authService.obtenerUsuario ? this.authService.obtenerUsuario() : '';
+    this.http.put(`${this.apiUrl}/${id}/leer`, { usuario }).subscribe({
       error: (err) => console.warn('No se pudo persistir lectura de notificación en BD:', err)
     });
   }
@@ -122,7 +145,10 @@ export class NotificacionService {
     this.noLeidasCountSubject.next(0);
 
     // Persistir en backend
-    this.http.put(`${this.apiUrl}/leer-todas`, {}).subscribe({
+    const rol = this.authService.obtenerRol ? this.authService.obtenerRol() : '';
+    const usuario = this.authService.obtenerUsuario ? this.authService.obtenerUsuario() : '';
+    const options: { params?: Record<string, string> } = (rol && rol !== 'ADMIN') ? { params: { rol } } : {};
+    this.http.put(`${this.apiUrl}/leer-todas`, { usuario, rol }, options).subscribe({
       error: (err) => console.warn('No se pudo persistir lectura masiva de notificaciones en BD:', err)
     });
   }
@@ -140,6 +166,39 @@ export class NotificacionService {
       puntoVenta: documento.puntoVenta,
       numero: documento.numero,
       detalle: detalle || ''
+    });
+  }
+
+  public solicitarAnulacionDocumento(documento: { tipoDoc: string; letraDoc: string; puntoVenta: number; numero: number }, motivo?: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/solicitar-anulacion`, {
+      usuario: this.authService.obtenerUsuario(),
+      tipoDoc: documento.tipoDoc,
+      letraDoc: documento.letraDoc,
+      puntoVenta: documento.puntoVenta,
+      numero: documento.numero,
+      motivo: motivo || ''
+    });
+  }
+
+  public cancelarSolicitudAnulacionDocumento(documento: { tipoDoc: string; letraDoc: string; puntoVenta: number; numero: number }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/cancelar-solicitud-anulacion`, {
+      usuario: this.authService.obtenerUsuario(),
+      tipoDoc: documento.tipoDoc,
+      letraDoc: documento.letraDoc,
+      puntoVenta: documento.puntoVenta,
+      numero: documento.numero
+    });
+  }
+
+  public rechazarSolicitudAnulacion(datos: { idNotificacion?: number | null; tipoDoc?: string; letraDoc?: string; puntoVenta?: number; numero?: number; motivoRechazo?: string }): Observable<any> {
+    return this.http.post(`${this.apiUrl}/rechazar-solicitud-anulacion`, {
+      usuario: this.authService.obtenerUsuario(),
+      idNotificacion: datos.idNotificacion,
+      tipoDoc: datos.tipoDoc,
+      letraDoc: datos.letraDoc,
+      puntoVenta: datos.puntoVenta,
+      numero: datos.numero,
+      motivoRechazo: datos.motivoRechazo || ''
     });
   }
 }

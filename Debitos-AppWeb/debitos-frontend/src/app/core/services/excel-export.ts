@@ -18,6 +18,13 @@ import {
   ReciboSinImputarDTO,
   TiemposCobranzaDTO
 } from '../models/directorio.model';
+import {
+  CoberturaAliasDTO,
+  FacturaPeriodoDTO,
+  PrestacionConsideracionDTO,
+  FacturaAnuladaDTO,
+  HistorialAjusteDTO
+} from '../models/gestion-contable.model';
 
 export interface ContextoFiltroExportacion {
   solapaTitulo: string;
@@ -3156,4 +3163,623 @@ export class ExcelExportService {
     saveAs(new Blob([buffer]), filename);
   }
 
+  // =========================================================================
+  // GESTIÓN CONTABLE - EXPORTACIONES
+  // =========================================================================
+
+  async exportarGestionCoberturas(data: CoberturaAliasDTO[], filtro: string, filename: string): Promise<void> {
+    if (!data || data.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Coberturas');
+
+    // 1. Título y Subtítulo
+    worksheet.mergeCells('A1:D1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'GESTIÓN CONTABLE - NOMBRES DE COBERTURAS';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.mergeCells('A2:D2');
+    const subCell = worksheet.getCell('A2');
+    const fechaDescarga = new Date().toLocaleString('es-AR');
+    const txtFiltro = filtro && filtro.trim().length > 0 ? `"${filtro.trim()}"` : 'Todos';
+    subCell.value = `Filtro aplicado: ${txtFiltro}  |  Total coberturas: ${data.length}  |  Fecha de reporte: ${fechaDescarga}`;
+    subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
+    subCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    worksheet.getRow(2).height = 20;
+
+    worksheet.getRow(3).height = 8;
+
+    // 2. Encabezados de Columna
+    const headers = [
+      'Código Cobertura',
+      'Nombre Original (Gestión)',
+      'Nombre a Mostrar (Alias)',
+      'Tiene Alias'
+    ];
+
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } }
+      };
+    });
+
+    // 3. Filas de Datos
+    let currentRow = 5;
+    data.forEach((item, index) => {
+      const row = worksheet.getRow(currentRow);
+      const tieneAlias = !!(item.nombreMostrar && item.nombreMostrar.trim() !== '' && item.nombreMostrar.trim() !== (item.nombreOriginal || '').trim());
+
+      row.getCell(1).value = item.codigoCobertura;
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(2).value = item.nombreOriginal || '-';
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      row.getCell(3).value = item.nombreMostrar || '-';
+      row.getCell(3).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      row.getCell(4).value = tieneAlias ? 'SÍ' : 'NO';
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const bgArgb = (index % 2 === 0) ? 'FFFFFFFF' : 'FFF8FAFC';
+      for (let col = 1; col <= 4; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+      }
+      row.height = 20;
+      currentRow++;
+    });
+
+    // 4. Ancho y Autofiltro
+    const minWidths = [18, 38, 38, 14];
+    for (let col = 1; col <= 4; col++) {
+      let maxLen = 0;
+      worksheet.getColumn(col).eachCell({ includeEmpty: false }, (cell) => {
+        if (Number(cell.row) >= 4 && Number(cell.row) < currentRow) {
+          const val = cell.value ? cell.value.toString() : '';
+          if (val.length > maxLen) maxLen = val.length;
+        }
+      });
+      worksheet.getColumn(col).width = Math.max(minWidths[col - 1], maxLen + 3);
+    }
+    worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 4 } };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
+  }
+
+  async exportarGestionPeriodos(data: FacturaPeriodoDTO[], filename: string): Promise<void> {
+    if (!data || data.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Periodos Corregidos');
+
+    worksheet.mergeCells('A1:K1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'GESTIÓN CONTABLE - CORRECCIÓN DE PERÍODOS DE FACTURAS';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.mergeCells('A2:K2');
+    const subCell = worksheet.getCell('A2');
+    const fechaDescarga = new Date().toLocaleString('es-AR');
+    subCell.value = `Total facturas con período corregido: ${data.length}  |  Fecha de reporte: ${fechaDescarga}`;
+    subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
+    subCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    worksheet.getRow(2).height = 20;
+
+    worksheet.getRow(3).height = 8;
+
+    const headers = [
+      'ID Cabecera',
+      'Tipo',
+      'Letra',
+      'Pto. Venta',
+      'Número',
+      'Fecha Emisión',
+      'Cód. Cobertura',
+      'Cobertura',
+      'Importe ($)',
+      'Período Original',
+      'Período Corregido'
+    ];
+
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } }
+      };
+    });
+
+    let currentRow = 5;
+    let sumaImporte = 0;
+
+    data.forEach((item, index) => {
+      const row = worksheet.getRow(currentRow);
+      const importe = Number(item.importe || 0);
+      sumaImporte += importe;
+
+      row.getCell(1).value = item.idCabecera;
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(2).value = item.tipo || '-';
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(3).value = item.letra || '-';
+      row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(4).value = item.ptovta != null ? item.ptovta : '-';
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(5).value = item.numero != null ? item.numero : '-';
+      row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(6).value = item.fecha ? item.fecha.toString() : '-';
+      row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(7).value = item.codigoCobertura || '-';
+      row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(8).value = item.cobertura || '-';
+      row.getCell(8).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      const cImp = row.getCell(9);
+      cImp.value = importe;
+      cImp.numFmt = '$ #,##0.00;($ #,##0.00);"-"';
+      cImp.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      row.getCell(10).value = item.periodoOriginal ? item.periodoOriginal.toString() : '-';
+      row.getCell(10).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(11).value = item.periodoCorregido ? item.periodoCorregido.toString() : '-';
+      row.getCell(11).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const bgArgb = (index % 2 === 0) ? 'FFFFFFFF' : 'FFF8FAFC';
+      for (let col = 1; col <= 11; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+      }
+      row.height = 20;
+      currentRow++;
+    });
+
+    // Fila Totales
+    const totalRow = worksheet.getRow(currentRow);
+    worksheet.mergeCells(`A${currentRow}:H${currentRow}`);
+    const lblTotal = totalRow.getCell(1);
+    lblTotal.value = `TOTAL (${data.length} FACTURAS):`;
+    lblTotal.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+    lblTotal.alignment = { vertical: 'middle', horizontal: 'right' };
+
+    const cTotal = totalRow.getCell(9);
+    cTotal.value = sumaImporte;
+    cTotal.numFmt = '$ #,##0.00;($ #,##0.00);"-"';
+    cTotal.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+    cTotal.alignment = { vertical: 'middle', horizontal: 'right' };
+
+    for (let col = 1; col <= 11; col++) {
+      const cell = totalRow.getCell(col);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF94A3B8' } },
+        bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
+      };
+    }
+    totalRow.height = 24;
+
+    const minWidths = [14, 10, 8, 12, 14, 16, 16, 32, 18, 18, 18];
+    for (let col = 1; col <= 11; col++) {
+      let maxLen = 0;
+      worksheet.getColumn(col).eachCell({ includeEmpty: false }, (cell) => {
+        if (Number(cell.row) >= 4 && Number(cell.row) < currentRow) {
+          const val = cell.value ? cell.value.toString() : '';
+          if (val.length > maxLen) maxLen = val.length;
+        }
+      });
+      worksheet.getColumn(col).width = Math.max(minWidths[col - 1], maxLen + 3);
+    }
+    worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 11 } };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
+  }
+
+  async exportarGestionPrestaciones(data: PrestacionConsideracionDTO[], filtro: string, filename: string): Promise<void> {
+    if (!data || data.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Prestaciones');
+
+    worksheet.mergeCells('A1:D1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'GESTIÓN CONTABLE - PRESTACIONES A NO CONSIDERAR';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.mergeCells('A2:D2');
+    const subCell = worksheet.getCell('A2');
+    const fechaDescarga = new Date().toLocaleString('es-AR');
+    const txtFiltro = filtro && filtro.trim().length > 0 ? `"${filtro.trim()}"` : 'Todos';
+    subCell.value = `Filtro aplicado: ${txtFiltro}  |  Total prestaciones: ${data.length}  |  Fecha de reporte: ${fechaDescarga}`;
+    subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
+    subCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    worksheet.getRow(2).height = 20;
+
+    worksheet.getRow(3).height = 8;
+
+    const headers = [
+      'Código Prestación',
+      'Descripción',
+      'Estado Ambulatorios',
+      'Estado Internados'
+    ];
+
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } }
+      };
+    });
+
+    let currentRow = 5;
+    data.forEach((item, index) => {
+      const row = worksheet.getRow(currentRow);
+
+      row.getCell(1).value = item.codigo;
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(2).value = item.descripcion || '-';
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      row.getCell(3).value = item.estadoAmbulatorio || item.estado || 'Considerar';
+      row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(4).value = item.estadoInternado || item.estado || 'Considerar';
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const bgArgb = (index % 2 === 0) ? 'FFFFFFFF' : 'FFF8FAFC';
+      for (let col = 1; col <= 4; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+      }
+      row.height = 20;
+      currentRow++;
+    });
+
+    const minWidths = [20, 55, 22, 22];
+    for (let col = 1; col <= 4; col++) {
+      let maxLen = 0;
+      worksheet.getColumn(col).eachCell({ includeEmpty: false }, (cell) => {
+        if (Number(cell.row) >= 4 && Number(cell.row) < currentRow) {
+          const val = cell.value ? cell.value.toString() : '';
+          if (val.length > maxLen) maxLen = val.length;
+        }
+      });
+      worksheet.getColumn(col).width = Math.max(minWidths[col - 1], maxLen + 3);
+    }
+    worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 4 } };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
+  }
+
+  async exportarGestionFacturasAnuladas(data: FacturaAnuladaDTO[], filename: string): Promise<void> {
+    if (!data || data.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Facturas Anuladas');
+
+    worksheet.mergeCells('A1:K1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'GESTIÓN CONTABLE - FACTURAS ANULADAS MANUALMENTE';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.mergeCells('A2:K2');
+    const subCell = worksheet.getCell('A2');
+    const fechaDescarga = new Date().toLocaleString('es-AR');
+    subCell.value = `Total facturas con anulación manual: ${data.length}  |  Fecha de reporte: ${fechaDescarga}`;
+    subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
+    subCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    worksheet.getRow(2).height = 20;
+
+    worksheet.getRow(3).height = 8;
+
+    const headers = [
+      'ID Cabecera',
+      'Comprobante',
+      'Tipo',
+      'Letra',
+      'Pto. Venta',
+      'Número',
+      'Fecha',
+      'Período',
+      'Cobertura',
+      'Importe ($)',
+      'Documento Anulador'
+    ];
+
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } }
+      };
+    });
+
+    let currentRow = 5;
+    let sumaImporte = 0;
+
+    data.forEach((item, index) => {
+      const row = worksheet.getRow(currentRow);
+      const importe = Number(item.importe || 0);
+      sumaImporte += importe;
+
+      row.getCell(1).value = item.idCabecera;
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const comp = item.comprobante || `${item.tipo || ''} ${item.letra || ''} ${item.ptovta || ''}-${item.numero || ''}`.trim();
+      row.getCell(2).value = comp;
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(3).value = item.tipo || '-';
+      row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(4).value = item.letra || '-';
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(5).value = item.ptovta != null ? item.ptovta : '-';
+      row.getCell(5).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(6).value = item.numero != null ? item.numero : '-';
+      row.getCell(6).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(7).value = item.fecha ? item.fecha.toString() : '-';
+      row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(8).value = item.periodo ? item.periodo.toString() : '-';
+      row.getCell(8).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(9).value = item.cobertura || '-';
+      row.getCell(9).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      const cImp = row.getCell(10);
+      cImp.value = importe;
+      cImp.numFmt = '$ #,##0.00;($ #,##0.00);"-"';
+      cImp.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      row.getCell(11).value = item.comprobanteAnulador || '-';
+      row.getCell(11).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      const bgArgb = (index % 2 === 0) ? 'FFFFFFFF' : 'FFF8FAFC';
+      for (let col = 1; col <= 11; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+      }
+      row.height = 20;
+      currentRow++;
+    });
+
+    const totalRow = worksheet.getRow(currentRow);
+    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+    const lblTotal = totalRow.getCell(1);
+    lblTotal.value = `TOTAL (${data.length} FACTURAS):`;
+    lblTotal.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+    lblTotal.alignment = { vertical: 'middle', horizontal: 'right' };
+
+    const cTotal = totalRow.getCell(10);
+    cTotal.value = sumaImporte;
+    cTotal.numFmt = '$ #,##0.00;($ #,##0.00);"-"';
+    cTotal.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+    cTotal.alignment = { vertical: 'middle', horizontal: 'right' };
+
+    for (let col = 1; col <= 11; col++) {
+      const cell = totalRow.getCell(col);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF94A3B8' } },
+        bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
+      };
+    }
+    totalRow.height = 24;
+
+    const minWidths = [14, 22, 10, 8, 12, 14, 16, 16, 32, 18, 18];
+    for (let col = 1; col <= 11; col++) {
+      let maxLen = 0;
+      worksheet.getColumn(col).eachCell({ includeEmpty: false }, (cell) => {
+        if (Number(cell.row) >= 4 && Number(cell.row) < currentRow) {
+          const val = cell.value ? cell.value.toString() : '';
+          if (val.length > maxLen) maxLen = val.length;
+        }
+      });
+      worksheet.getColumn(col).width = Math.max(minWidths[col - 1], maxLen + 3);
+    }
+    worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 11 } };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
+  }
+
+  async exportarGestionHistorial(data: HistorialAjusteDTO[], filtro: string, filename: string): Promise<void> {
+    if (!data || data.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Historial Cambios');
+
+    worksheet.mergeCells('A1:G1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'GESTIÓN CONTABLE - HISTORIAL DE CAMBIOS Y AUDITORÍA';
+    titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.mergeCells('A2:G2');
+    const subCell = worksheet.getCell('A2');
+    const fechaDescarga = new Date().toLocaleString('es-AR');
+    const txtFiltro = filtro && filtro.trim().length > 0 ? `"${filtro.trim()}"` : 'Todos';
+    subCell.value = `Filtro referencia: ${txtFiltro}  |  Total eventos registrados: ${data.length}  |  Fecha de reporte: ${fechaDescarga}`;
+    subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
+    subCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+    worksheet.getRow(2).height = 20;
+
+    worksheet.getRow(3).height = 8;
+
+    const headers = [
+      'ID',
+      'Fecha y Hora',
+      'Usuario',
+      'Operación',
+      'Referencia',
+      'Valor Anterior',
+      'Valor Nuevo'
+    ];
+
+    const headerRow = worksheet.getRow(4);
+    headerRow.values = headers;
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } }
+      };
+    });
+
+    let currentRow = 5;
+    data.forEach((item, index) => {
+      const row = worksheet.getRow(currentRow);
+
+      row.getCell(1).value = item.id;
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(2).value = item.fechaHora ? item.fechaHora.toString() : '-';
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(3).value = item.usuario || '-';
+      row.getCell(3).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      row.getCell(4).value = item.tipoOperacionDescripcion || item.tipoOperacionCodigo || '-';
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      row.getCell(5).value = item.referencia || '-';
+      row.getCell(5).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      row.getCell(6).value = item.valorAnterior || '-';
+      row.getCell(6).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      row.getCell(7).value = item.valorNuevo || '-';
+      row.getCell(7).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      const bgArgb = (index % 2 === 0) ? 'FFFFFFFF' : 'FFF8FAFC';
+      for (let col = 1; col <= 7; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+      }
+      row.height = 20;
+      currentRow++;
+    });
+
+    const minWidths = [10, 22, 18, 30, 24, 30, 30];
+    for (let col = 1; col <= 7; col++) {
+      let maxLen = 0;
+      worksheet.getColumn(col).eachCell({ includeEmpty: false }, (cell) => {
+        if (Number(cell.row) >= 4 && Number(cell.row) < currentRow) {
+          const val = cell.value ? cell.value.toString() : '';
+          if (val.length > maxLen) maxLen = val.length;
+        }
+      });
+      worksheet.getColumn(col).width = Math.max(minWidths[col - 1], maxLen + 3);
+    }
+    worksheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: currentRow - 1, column: 7 } };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), filename);
+  }
 }

@@ -7,7 +7,9 @@ export interface Notificacion {
   documentoReferencia: string;
   tipoDoc: string;
   letra: string;
+  letraDoc?: string;
   puntoVenta: number;
+  ptoVta?: number;
   numero: number;
   evento: string;
   mensaje: string;

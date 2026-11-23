@@ -32,16 +32,22 @@ export interface CorregirPeriodoRequest {
 export interface PrestacionConsideracionDTO {
   codigo: string;
   descripcion: string;
-  estado: string; // 'Considerar' | 'No considerar'
+  estado?: string; // 'Considerar' | 'No considerar' (legacy)
+  estadoAmbulatorio: string; // 'Considerar' | 'No considerar'
+  estadoInternado: string; // 'Considerar' | 'No considerar'
 }
 
 export interface CambiarEstadoPrestacionRequest {
   codigo: string;
-  estado: string;
+  estado?: string;
+  estadoAmbulatorio: string;
+  estadoInternado: string;
+  motivo?: string;
 }
 
 export interface FacturaAnuladaDTO {
   idCabecera: number;
+  asociadogrupo?: number | null;
   comprobante: string;
   tipo: string;
   letra: string;
@@ -54,11 +60,23 @@ export interface FacturaAnuladaDTO {
   importe: number;
   anulada: boolean;
   origenAnulacion: 'MANUAL' | 'GESTION' | null;
+  idCabeceraAnulador?: number | null;
+  comprobanteAnulador?: string | null;
+  tieneSolicitudAnulacion?: boolean;
+  idNotificacionSolicitud?: number | null;
+  usuarioSolicitante?: string | null;
+  motivoSolicitudAnulacion?: string | null;
 }
 
 export interface CambiarAnulacionRequest {
   idCabecera: number;
   anulada: boolean;
+  idCabeceraAnulador?: number | null;
+  comprobanteAnulador?: string | null;
+  tieneSolicitudAnulacion?: boolean;
+  idNotificacionSolicitud?: number | null;
+  usuarioSolicitante?: string | null;
+  motivoSolicitudAnulacion?: string | null;
 }
 
 export interface HistorialAjusteDTO {

@@ -60,10 +60,10 @@
         <span class="theme-label">{{ themeService.getLabel() }}</span>
       </button>
 
-      <!-- Campana de Notificaciones (para Admin) -->
-      <div class="notification-wrapper" *ngIf="esAdminReal || rolActual === 'ADMIN'">
+      <!-- Campana de Notificaciones (para Admin y Operador Contaduría) -->
+      <div class="notification-wrapper" *ngIf="esAdminReal || rolActual === 'ADMIN' || rolActual === 'OPERADOR_CONTADURIA'">
         <button class="btn-icon-bell" (click)="toggleNotificaciones($event)"
-          title="Notificaciones de ingresos de comprobantes">
+          title="Notificaciones de comprobantes">
           <span class="bell-icon">🔔</span>
           <span class="notification-badge" *ngIf="noLeidasCount > 0">
             {{ noLeidasCount > 99 ? '99+' : noLeidasCount }}
@@ -93,10 +93,12 @@
               [class.read]="notif.leida" (click)="abrirComprobante(notif)">
 
               <div class="notif-doc-badge"
-                [class.badge-nc]="notif.tipoDoc === 'NC' && notif.tipoNotificacion !== 'DOC_NO_ENCONTRADO'"
-                [class.badge-nd]="notif.tipoDoc === 'ND' && notif.tipoNotificacion !== 'DOC_NO_ENCONTRADO'"
-                [class.badge-faltante]="notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO'">
-                {{ (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') ? 'AUSENTE'
+                [class.badge-nc]="notif.tipoDoc === 'NC' && notif.tipoNotificacion !== 'DOC_NO_ENCONTRADO' && notif.tipoNotificacion !== 'SOLICITUD_ANULACION_DOCUMENTO'"
+                [class.badge-nd]="notif.tipoDoc === 'ND' && notif.tipoNotificacion !== 'DOC_NO_ENCONTRADO' && notif.tipoNotificacion !== 'SOLICITUD_ANULACION_DOCUMENTO'"
+                [class.badge-faltante]="notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO'"
+                [class.badge-anulacion]="notif.tipoNotificacion === 'SOLICITUD_ANULACION_DOCUMENTO'">
+                {{ notif.tipoNotificacion === 'SOLICITUD_ANULACION_DOCUMENTO' ? 'ANULACIÓN'
+                : (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') ? 'AUSENTE'
                 : (notif.tipoDoc || 'DOC') }}
               </div>
 
@@ -111,8 +113,9 @@
                 <p class="notif-msg">{{ notif.mensaje }}</p>
                 <div class="notif-actions">
                   <button class="btn-view-doc">
-                    {{ (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') ? 'Ver
-                    Reporte ➔' : 'Ver en Auditoría ➔' }}
+                    {{ notif.tipoNotificacion === 'SOLICITUD_ANULACION_DOCUMENTO' ? 'Gestionar Anulación ➔' :
+                    (notif.tipoNotificacion === 'DOC_NO_ENCONTRADO' || notif.evento === 'DOC_NO_ENCONTRADO') ? 'Ver Reporte ➔' :
+                    'Ver en Auditoría ➔' }}
                   </button>
                   <button class="btn-mark-read" *ngIf="!notif.leida" (click)="marcarComoLeida(notif, $event)">
                     ✓ Marcar vista

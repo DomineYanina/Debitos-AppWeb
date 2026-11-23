@@ -18,15 +18,19 @@ import com.debitos.backend.dto.ResultadoBusquedaDTO;
 import com.debitos.backend.model.AmbLiquidado;
 import com.debitos.backend.model.AmbLiquidadoManual;
 import com.debitos.backend.model.Cabecera;
+import com.debitos.backend.model.FacturaAnuladaManual;
 import com.debitos.backend.model.NcAjusteDeIva;
 import com.debitos.backend.model.NdAjusteDeIva;
 import com.debitos.backend.model.NotaDeCredito;
 import com.debitos.backend.model.NotaDeDebito;
+import com.debitos.backend.model.Notificacion;
 import com.debitos.backend.model.RegistroImputacion;
 import com.debitos.backend.model.RegistroUsabilidad;
 import com.debitos.backend.repository.AmbLiquidadoManualRepository;
 import com.debitos.backend.repository.AmbLiquidadoRepository;
 import com.debitos.backend.repository.CabeceraRepository;
+import com.debitos.backend.repository.ComprobanteAnuladoRepository;
+import com.debitos.backend.repository.FacturaAnuladaManualRepository;
 import com.debitos.backend.repository.NcAjusteDeIvaRepository;
 import com.debitos.backend.repository.NdAjusteDeIvaRepository;
 import com.debitos.backend.repository.NotaDeCreditoRepository;
@@ -45,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -94,6 +99,12 @@ public class AuditoriaService {
 
     @Autowired
     private AmbLiquidadoManualRepository ambLiquidadoManualRepository;
+
+    @Autowired(required = false)
+    private ComprobanteAnuladoRepository comprobanteAnuladoRepository;
+
+    @Autowired(required = false)
+    private FacturaAnuladaManualRepository facturaAnuladaManualRepository;
 
     @Autowired(required = false)
     @org.springframework.beans.factory.annotation.Qualifier("gestionJdbcTemplate")
@@ -625,6 +636,7 @@ public class AuditoriaService {
         filaFc.setMontoIva(ivaFc);
         filaFc.setIdGrupo(grupoId != null && grupoId != 0L ? grupoId : (raiz.getAsociadogrupo() != null ? raiz.getAsociadogrupo() : (raiz.getGrupo() != null ? raiz.getGrupo() : raiz.getId())));
         filaFc.setIdEstado(raiz.getIdEstado() != null ? raiz.getIdEstado() : 1);
+        filaFc.setIdCabecera(raiz.getId());
         boolean tienePrestacionesFc = raiz.getId() != null && !ambLiquidadoRepository.findByCabecera_Id(raiz.getId()).isEmpty();
         if (!tienePrestacionesFc && raiz.getLetra() != null && raiz.getPtovta() != null && raiz.getNumero() != null) {
             tienePrestacionesFc = !ambLiquidadoRepository.findPrestacionesPorFactura(raiz.getLetra(), raiz.getPtovta(), raiz.getNumero()).isEmpty();
@@ -749,6 +761,12 @@ public class AuditoriaService {
             }
         }
 
+        // 4. Detección y marcado de comprobantes anulados y anuladores
+        detectarMarcasAnulacionEnHistorial(historial, familia, hijosPorPadre, raiz);
+
+        // 5. Detección y marcado de solicitudes de anulación pendientes
+        detectarSolicitudesAnulacionPendientes(historial);
+
         return historial;
     }
 
@@ -807,6 +825,361 @@ public class AuditoriaService {
                 recorrerHistorialRecursivo(hijo.getId(), nivel + 1, hijosPorPadre, historial, visitados, familia);
             }
         }
+    }
+
+    private void detectarMarcasAnulacionEnHistorial(List<FilaHistorialDTO> historial,
+                                                    List<Cabecera> familia,
+                                                    Map<Long, List<Cabecera>> hijosPorPadre,
+                                                    Cabecera raiz) {
+        if (historial == null || historial.isEmpty()) return;
+
+        // 1. Obtener IDs formalmente registrados como anulados y anuladores en la BD
+        Set<Long> idsAnuladosBd = new HashSet<>();
+        Set<Long> idsAnuladoresBd = new HashSet<>();
+        if (comprobanteAnuladoRepository != null) {
+            try {
+                List<Long> ids = comprobanteAnuladoRepository.findIdsCabeceraAnulados();
+                if (ids != null) idsAnuladosBd.addAll(ids);
+            } catch (Exception e) {
+                log.warn("No se pudieron cargar IDs desde comprobanteAnuladoRepository: {}", e.getMessage());
+            }
+        }
+        if (facturaAnuladaManualRepository != null) {
+            try {
+                List<Long> idsManual = facturaAnuladaManualRepository.findIdsCabeceraAnuladasManual();
+                if (idsManual != null) idsAnuladosBd.addAll(idsManual);
+            } catch (Exception e) {
+                log.warn("No se pudieron cargar IDs desde facturaAnuladaManualRepository: {}", e.getMessage());
+            }
+            try {
+                List<Long> idsAnuladores = facturaAnuladaManualRepository.findIdsCabeceraAnuladoresManual();
+                if (idsAnuladores != null) idsAnuladoresBd.addAll(idsAnuladores);
+            } catch (Exception e) {
+                log.warn("No se pudieron cargar IDs anuladores desde facturaAnuladaManualRepository: {}", e.getMessage());
+            }
+        }
+
+        // Prioridad de contrapartida: Si un comprobante está explícitamente registrado como ANULADOR
+        // en facturas_anuladas_manual, nunca debe tratarse como un comprobante anulado (incluso si
+        // figuraba históricamente en comprobantes_anulados).
+        idsAnuladosBd.removeAll(idsAnuladoresBd);
+
+        // Mapas auxiliares para acceso O(1)
+        Map<Long, Cabecera> cabeceraMap = (familia != null)
+                ? familia.stream().filter(c -> c.getId() != null).collect(Collectors.toMap(Cabecera::getId, c -> c, (a, b) -> a))
+                : Collections.emptyMap();
+        Map<Long, FilaHistorialDTO> filaPorId = historial.stream()
+                .filter(f -> f.getIdCabecera() != null)
+                .collect(Collectors.toMap(FilaHistorialDTO::getIdCabecera, f -> f, (a, b) -> a));
+
+        // 2. Detección de pares dinámicos con clave canónica única (evita procesar A->B y B->A)
+        Set<String> paresProcesados = new HashSet<>();
+
+        if (hijosPorPadre != null) {
+            for (Map.Entry<Long, List<Cabecera>> entry : hijosPorPadre.entrySet()) {
+                Long padreId = entry.getKey();
+                List<Cabecera> hijos = entry.getValue();
+                if (padreId == null || hijos == null || hijos.isEmpty()) continue;
+
+                Cabecera padre = cabeceraMap.get(padreId);
+                FilaHistorialDTO filaPadre = filaPorId.get(padreId);
+                if (padre == null || filaPadre == null) continue;
+
+                String tipoPadre = resolverTipoBase(padre.getTipo());
+
+                for (Cabecera hijo : hijos) {
+                    if (hijo == null || hijo.getId() == null) continue;
+                    FilaHistorialDTO filaHijo = filaPorId.get(hijo.getId());
+                    if (filaHijo == null) continue;
+
+                    long minId = Math.min(padre.getId(), hijo.getId());
+                    long maxId = Math.max(padre.getId(), hijo.getId());
+                    String parKey = minId + "_" + maxId;
+                    if (paresProcesados.contains(parKey)) {
+                        continue;
+                    }
+
+                    String tipoHijo = resolverTipoBase(hijo.getTipo());
+
+                    // Caso 1: NC <-> ND (o viceversa)
+                    // Caso 2: FC <-> NC (o viceversa)
+                    boolean esParCandidato = ("NC".equalsIgnoreCase(tipoPadre) && "ND".equalsIgnoreCase(tipoHijo))
+                            || ("ND".equalsIgnoreCase(tipoPadre) && "NC".equalsIgnoreCase(tipoHijo))
+                            || ("FC".equalsIgnoreCase(tipoPadre) && "NC".equalsIgnoreCase(tipoHijo))
+                            || ("NC".equalsIgnoreCase(tipoPadre) && "FC".equalsIgnoreCase(tipoHijo));
+
+                    if (!esParCandidato) continue;
+
+                    BigDecimal montoPadre = resolverMontoComparacion(filaPadre, padre);
+                    BigDecimal montoHijo = resolverMontoComparacion(filaHijo, hijo);
+
+                    if (montoPadre.compareTo(BigDecimal.ZERO) > 0 && montoPadre.compareTo(montoHijo) == 0) {
+                        boolean esParNcNd = ("NC".equalsIgnoreCase(tipoPadre) && "ND".equalsIgnoreCase(tipoHijo))
+                                || ("ND".equalsIgnoreCase(tipoPadre) && "NC".equalsIgnoreCase(tipoHijo));
+
+                        long diffDias = (padre.getFecha() != null && hijo.getFecha() != null)
+                                ? Math.abs(java.time.temporal.ChronoUnit.DAYS.between(padre.getFecha(), hijo.getFecha()))
+                                : 0;
+
+                        // Si es NC <-> ND (anulación de nota de crédito por nota de débito o viceversa),
+                        // no hay límite de días (puede anularse meses después).
+                        // Si es FC <-> NC, se conserva la ventana de 15 días o comprobación explícita.
+                        if (esParNcNd || diffDias <= 15) {
+                            paresProcesados.add(parKey);
+
+                            // Determinar quién es ANULADO y quién es ANULADOR
+                            Cabecera cabAnulado;
+                            Cabecera cabAnulador;
+                            FilaHistorialDTO filaAnulado;
+                            FilaHistorialDTO filaAnulador;
+                            String tipoAnulado;
+                            String tipoAnulador;
+
+                            if ("FC".equalsIgnoreCase(tipoPadre) && "NC".equalsIgnoreCase(tipoHijo)) {
+                                cabAnulado = padre; filaAnulado = filaPadre; tipoAnulado = tipoPadre;
+                                cabAnulador = hijo; filaAnulador = filaHijo; tipoAnulador = tipoHijo;
+                            } else if ("NC".equalsIgnoreCase(tipoPadre) && "FC".equalsIgnoreCase(tipoHijo)) {
+                                cabAnulado = hijo; filaAnulado = filaHijo; tipoAnulado = tipoHijo;
+                                cabAnulador = padre; filaAnulador = filaPadre; tipoAnulador = tipoPadre;
+                            } else {
+                                // Par NC <-> ND:
+                                // 1) Si uno está formalmente en BD como anulado y el otro como anulador:
+                                if (idsAnuladosBd.contains(padre.getId()) || idsAnuladoresBd.contains(hijo.getId())) {
+                                    cabAnulado = padre; filaAnulado = filaPadre; tipoAnulado = tipoPadre;
+                                    cabAnulador = hijo; filaAnulador = filaHijo; tipoAnulador = tipoHijo;
+                                } else if (idsAnuladosBd.contains(hijo.getId()) || idsAnuladoresBd.contains(padre.getId())) {
+                                    cabAnulado = hijo; filaAnulado = filaHijo; tipoAnulado = tipoHijo;
+                                    cabAnulador = padre; filaAnulador = filaPadre; tipoAnulador = tipoPadre;
+                                } else {
+                                    // 2) Criterio cronológico: el emitido primero es el ANULADO, el emitido después es el ANULADOR
+                                    boolean padreEsAnterior;
+                                    if (!padre.getFecha().equals(hijo.getFecha())) {
+                                        padreEsAnterior = padre.getFecha().isBefore(hijo.getFecha());
+                                    } else {
+                                        padreEsAnterior = padre.getId() < hijo.getId();
+                                    }
+
+                                    if (padreEsAnterior) {
+                                        cabAnulado = padre; filaAnulado = filaPadre; tipoAnulado = tipoPadre;
+                                        cabAnulador = hijo; filaAnulador = filaHijo; tipoAnulador = tipoHijo;
+                                    } else {
+                                        cabAnulado = hijo; filaAnulado = filaHijo; tipoAnulado = tipoHijo;
+                                        cabAnulador = padre; filaAnulador = filaPadre; tipoAnulador = tipoPadre;
+                                    }
+                                }
+                            }
+
+                            // Asignación con exclusión mutua estricta
+                            filaAnulado.setAnulado(true);
+                            filaAnulado.setAnulador(false);
+                            String descAnulado = String.format("Anulado por %s %s-%04d-%08d del %s ($ %s)",
+                                    cabAnulador.getTipo() != null ? cabAnulador.getTipo() : tipoAnulador,
+                                    cabAnulador.getLetra() != null ? cabAnulador.getLetra() : "",
+                                    cabAnulador.getPtovta() != null ? cabAnulador.getPtovta() : 0,
+                                    cabAnulador.getNumero() != null ? cabAnulador.getNumero() : 0,
+                                    cabAnulador.getFecha(),
+                                    formatearMontoParaDetalle(montoHijo));
+                            filaAnulado.setDetalleAnulacion(descAnulado);
+
+                            filaAnulador.setAnulador(true);
+                            filaAnulador.setAnulado(false);
+                            String descAnulador = String.format("Documento anulador de contrapartida de %s %s-%04d-%08d",
+                                    cabAnulado.getTipo() != null ? cabAnulado.getTipo() : tipoAnulado,
+                                    cabAnulado.getLetra() != null ? cabAnulado.getLetra() : "",
+                                    cabAnulado.getPtovta() != null ? cabAnulado.getPtovta() : 0,
+                                    cabAnulado.getNumero() != null ? cabAnulado.getNumero() : 0);
+                            filaAnulador.setDetalleAnulacion(descAnulador);
+
+                            // Persistir automáticamente en facturas_anuladas_manual si aún no está registrada
+                            if (facturaAnuladaManualRepository != null && cabAnulado.getId() != null && cabAnulador.getId() != null) {
+                                try {
+                                    if (!facturaAnuladaManualRepository.existsById(cabAnulado.getId())) {
+                                        FacturaAnuladaManual famAuto = new FacturaAnuladaManual(cabAnulado, true);
+                                        famAuto.setCabeceraAnulador(cabAnulador);
+                                        famAuto.setIdCabeceraAnulador(cabAnulador.getId());
+                                        famAuto.setFechaAnulacion(LocalDateTime.now());
+                                        famAuto.setUsuario("SISTEMA_AUTO");
+                                        facturaAnuladaManualRepository.save(famAuto);
+                                        idsAnuladosBd.add(cabAnulado.getId());
+                                        idsAnuladoresBd.add(cabAnulador.getId());
+                                        log.info("Anulación automática persistida: ID {} ({}) anulada por ID {} ({})",
+                                                cabAnulado.getId(), cabAnulado.getComprobante(),
+                                                cabAnulador.getId(), cabAnulador.getComprobante());
+                                    }
+                                } catch (Exception exAutoFam) {
+                                    log.warn("No se pudo persistir anulación automática en facturas_anuladas_manual: {}", exAutoFam.getMessage());
+                                }
+                            }
+
+                            if (notificacionService != null && cabAnulado != null) {
+                                try {
+                                    notificacionService.eliminarSolicitudesAnulacionParaDocumento(
+                                            cabAnulado.getTipo(), cabAnulado.getLetra(),
+                                            cabAnulado.getPtovta(), cabAnulado.getNumero()
+                                    );
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Documentos marcados formalmente en BD
+        // 3a. Anulaciones manuales registradas en Gestión Contable (con relación anulado <-> contrapartida anulador)
+        if (facturaAnuladaManualRepository != null && !filaPorId.isEmpty()) {
+            try {
+                List<com.debitos.backend.model.FacturaAnuladaManual> famList =
+                        facturaAnuladaManualRepository.findActivasPorIdsCabeceraOAnulador(filaPorId.keySet());
+                if (famList != null) {
+                    for (com.debitos.backend.model.FacturaAnuladaManual fam : famList) {
+                        Long idAnulado = fam.getIdCabecera() != null ? fam.getIdCabecera() : (fam.getCabecera() != null ? fam.getCabecera().getId() : null);
+                        Long idAnulador = fam.getIdCabeceraAnulador() != null ? fam.getIdCabeceraAnulador() : (fam.getCabeceraAnulador() != null ? fam.getCabeceraAnulador().getId() : null);
+
+                        FilaHistorialDTO filaAnulado = idAnulado != null ? filaPorId.get(idAnulado) : null;
+                        FilaHistorialDTO filaAnulador = idAnulador != null ? filaPorId.get(idAnulador) : null;
+                        Cabecera cAnulado = idAnulado != null ? cabeceraMap.get(idAnulado) : null;
+                        if (cAnulado == null && fam.getCabecera() != null) cAnulado = fam.getCabecera();
+                        Cabecera cAnulador = idAnulador != null ? cabeceraMap.get(idAnulador) : null;
+                        if (cAnulador == null && fam.getCabeceraAnulador() != null) cAnulador = fam.getCabeceraAnulador();
+
+                        if (filaAnulado != null) {
+                            filaAnulado.setAnulado(true);
+                            filaAnulado.setAnulador(false);
+                            if (cAnulador != null) {
+                                BigDecimal montoComp = (filaAnulado.getMontoNeto() != null && filaAnulado.getMontoNeto().compareTo(BigDecimal.ZERO) > 0)
+                                        ? filaAnulado.getMontoNeto()
+                                        : (filaAnulador != null && filaAnulador.getMontoNeto() != null ? filaAnulador.getMontoNeto() : BigDecimal.ZERO);
+                                filaAnulado.setDetalleAnulacion(String.format("Anulado por %s %s-%04d-%08d del %s ($ %s)",
+                                        cAnulador.getTipo() != null ? cAnulador.getTipo() : "NDE",
+                                        cAnulador.getLetra() != null ? cAnulador.getLetra() : "",
+                                        cAnulador.getPtovta() != null ? cAnulador.getPtovta() : 0,
+                                        cAnulador.getNumero() != null ? cAnulador.getNumero() : 0,
+                                        cAnulador.getFecha(),
+                                        formatearMontoParaDetalle(montoComp)));
+                            } else if (fam.getComprobanteAnulador() != null && !fam.getComprobanteAnulador().isBlank()) {
+                                filaAnulado.setDetalleAnulacion("Anulado por " + fam.getComprobanteAnulador());
+                            } else if (filaAnulado.getDetalleAnulacion() == null || filaAnulado.getDetalleAnulacion().trim().isEmpty()) {
+                                filaAnulado.setDetalleAnulacion("Comprobante registrado formalmente como anulado");
+                            }
+                        }
+
+                        if (filaAnulador != null) {
+                            filaAnulador.setAnulador(true);
+                            filaAnulador.setAnulado(false);
+                            if (cAnulado != null) {
+                                filaAnulador.setDetalleAnulacion(String.format("Documento anulador de contrapartida de %s %s-%04d-%08d",
+                                        cAnulado.getTipo() != null ? cAnulado.getTipo() : "NCE",
+                                        cAnulado.getLetra() != null ? cAnulado.getLetra() : "",
+                                        cAnulado.getPtovta() != null ? cAnulado.getPtovta() : 0,
+                                        cAnulado.getNumero() != null ? cAnulado.getNumero() : 0));
+                            } else if (filaAnulador.getDetalleAnulacion() == null || filaAnulador.getDetalleAnulacion().trim().isEmpty()) {
+                                filaAnulador.setDetalleAnulacion("Documento registrado formalmente como anulador");
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Error al procesar parejas de anulación manual en historial: {}", e.getMessage());
+            }
+        }
+
+        // 3b. Resto de documentos anulados/anuladores de BD
+        for (FilaHistorialDTO fila : historial) {
+            if (fila.getIdCabecera() != null) {
+                if (idsAnuladoresBd.contains(fila.getIdCabecera())) {
+                    fila.setAnulador(true);
+                    fila.setAnulado(false);
+                    if (fila.getDetalleAnulacion() == null || fila.getDetalleAnulacion().trim().isEmpty()) {
+                        fila.setDetalleAnulacion("Documento registrado formalmente como anulador");
+                    }
+                } else if (idsAnuladosBd.contains(fila.getIdCabecera())) {
+                    fila.setAnulado(true);
+                    fila.setAnulador(false);
+                    if (fila.getDetalleAnulacion() == null || fila.getDetalleAnulacion().trim().isEmpty()) {
+                        fila.setDetalleAnulacion("Comprobante registrado formalmente como anulado");
+                    }
+                }
+            }
+        }
+
+        // 4. Normalización final defensiva: asegurar que ninguna fila conserve ambos booleanos en true
+        for (FilaHistorialDTO fila : historial) {
+            if (fila.isAnulado() && fila.isAnulador()) {
+                if (fila.getDetalleAnulacion() != null && fila.getDetalleAnulacion().toLowerCase().startsWith("anulado por")) {
+                    fila.setAnulador(false);
+                } else {
+                    fila.setAnulado(false);
+                }
+            }
+        }
+    }
+
+    private void detectarSolicitudesAnulacionPendientes(List<FilaHistorialDTO> historial) {
+        if (historial == null || historial.isEmpty() || notificacionService == null) {
+            return;
+        }
+
+        try {
+            List<Notificacion> solicitudes = notificacionService.obtenerSolicitudesAnulacion();
+            if (solicitudes == null || solicitudes.isEmpty()) {
+                return;
+            }
+
+            Set<String> clavesSolicitudes = new HashSet<>();
+            for (Notificacion n : solicitudes) {
+                if (n == null) continue;
+                String t = n.getTipoDoc() != null ? n.getTipoDoc().trim().toUpperCase() : "";
+                String l = n.getLetraDoc() != null ? n.getLetraDoc().trim().toUpperCase() : "";
+                int pv = n.getPtoVta() != null ? n.getPtoVta() : 0;
+                int num = n.getNumero() != null ? n.getNumero() : 0;
+
+                // Clave exacta (ej. NDE-A-32-1137) y base normalizada (ej. ND-A-32-1137)
+                clavesSolicitudes.add(String.format("%s-%s-%d-%d", t, l, pv, num));
+                clavesSolicitudes.add(String.format("%s-%s-%d-%d", resolverTipoBase(t), l, pv, num));
+            }
+
+            for (FilaHistorialDTO fila : historial) {
+                if (fila == null) continue;
+                String t = fila.getTipoDocumento() != null ? fila.getTipoDocumento().trim().toUpperCase() : "";
+                String l = fila.getLetra() != null ? fila.getLetra().trim().toUpperCase() : "";
+                int pv = fila.getPuntoVenta() != null ? fila.getPuntoVenta() : 0;
+                int num = fila.getNumero() != null ? fila.getNumero() : 0;
+
+                String claveExacta = String.format("%s-%s-%d-%d", t, l, pv, num);
+                String claveBase = String.format("%s-%s-%d-%d", resolverTipoBase(t), l, pv, num);
+
+                if (clavesSolicitudes.contains(claveExacta) || clavesSolicitudes.contains(claveBase)) {
+                    fila.setSolicitudAnulacionPendiente(true);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error al detectar solicitudes de anulación pendientes en historial: {}", e.getMessage());
+        }
+    }
+
+    private BigDecimal resolverMontoComparacion(FilaHistorialDTO fila, Cabecera cab) {
+        if (fila != null && fila.getMontoNeto() != null && fila.getMontoNeto().compareTo(BigDecimal.ZERO) > 0) {
+            return fila.getMontoNeto();
+        }
+        if (cab != null) {
+            String tipo = resolverTipoBase(cab.getTipo());
+            if ("NC".equalsIgnoreCase(tipo)) {
+                return (cab.getHaber() != null && cab.getHaber().compareTo(BigDecimal.ZERO) > 0)
+                        ? cab.getHaber()
+                        : (cab.getDebe() != null ? cab.getDebe() : BigDecimal.ZERO);
+            }
+            return (cab.getDebe() != null && cab.getDebe().compareTo(BigDecimal.ZERO) > 0)
+                    ? cab.getDebe()
+                    : (cab.getHaber() != null ? cab.getHaber() : BigDecimal.ZERO);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private String formatearMontoParaDetalle(BigDecimal monto) {
+        if (monto == null) return "0,00";
+        java.text.DecimalFormat df = new java.text.DecimalFormat("#,##0.00", new java.text.DecimalFormatSymbols(new java.util.Locale("es", "AR")));
+        return df.format(monto);
     }
 
     private FilaHistorialDTO mapearCabeceraAFilaHistorial(Cabecera cab, int nivel, List<Cabecera> familia) {
@@ -933,6 +1306,7 @@ public class AuditoriaService {
         fila.setPorcentajeIva(porcIva);
         fila.setMontoIva(montoIva);
         fila.setTienePrestaciones(tienePrestaciones);
+        fila.setIdCabecera(cab.getId());
         fila.setIdGrupo(cab.getAsociadogrupo() != null ? cab.getAsociadogrupo() : (cab.getGrupo() != null ? cab.getGrupo() : cab.getId()));
         fila.setIdEstado(cab.getIdEstado() != null ? cab.getIdEstado() : 1);
 

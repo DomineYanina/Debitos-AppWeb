@@ -65,9 +65,10 @@ public class SincronizacionCtaCteService {
                 COALESCE(c_asoc.letra, grp.letra_grp, c_orig.letra) AS letra_asoc,
                 COALESCE(c_asoc.num4, grp.ptovta_grp, c_orig.num4) AS ptovta_asoc,
                 COALESCE(NULLIF(TRIM(c_asoc.num8), ''), NULLIF(TRIM(c_asoc.numero), ''), grp.numero_grp, NULLIF(TRIM(c_orig.num8), ''), NULLIF(TRIM(c_orig.numero), '')) AS numero_asoc,
-                COALESCE(c.idcomprobante_asociado, grp.idcomp_grp, c.idcomporigen) AS idcomprobante_asociado_final
+                COALESCE(c.idcomprobante_asociado, grp.idcomp_grp, c.idcomporigen) AS idcomprobante_asociado_final,
+                liq.tiporegistro_liq
             FROM cct_comprobantes c
-            LEFT JOIN cct_comprobantes_tipo t ON c.idtipocomp = t.idtipocomp
+            JOIN cct_comprobantes_tipo t ON c.idtipocomp = t.idtipocomp
             LEFT JOIN cct_persona p ON c.idpersona = p.idpersona
             LEFT JOIN LATERAL (
                 SELECT idgrupocomp
@@ -92,13 +93,29 @@ public class SincronizacionCtaCteService {
                 JOIN cct_comprobantes_tipo t2 ON c2.idtipocomp = t2.idtipocomp
                 WHERE a2.idgrupocomp = a.idgrupocomp
                   AND c2.idcomprobante <> c.idcomprobante
+                  AND t2.idtipo = 1
                 ORDER BY 
                     CASE WHEN UPPER(TRIM(t2.abreviatura)) IN ('FAC', 'FC', 'FCE', 'FR') THEN 0 ELSE 1 END,
                     c2.fecha DESC
                 LIMIT 1
             ) grp ON (c.idcomprobante_asociado IS NULL AND a.idgrupocomp IS NOT NULL)
+            LEFT JOIN LATERAL (
+                SELECT 
+                    CASE 
+                        WHEN UPPER(TRIM(cl.ambint)) = 'I' THEN 'Internados'
+                        WHEN UPPER(TRIM(cl.ambint)) = 'A' THEN 'Ambulatorios'
+                        ELSE NULL
+                    END AS tiporegistro_liq
+                FROM cob_liquidaciones cl
+                WHERE cl.letra = c.letra
+                  AND cl.num4 = LPAD(TRIM(c.num4), 4, '0')
+                  AND cl.num8 = LPAD(COALESCE(NULLIF(TRIM(c.num8), ''), TRIM(c.numero)), 8, '0')
+                ORDER BY cl.idliquidacion DESC
+                LIMIT 1
+            ) liq ON (UPPER(TRIM(t.abreviatura)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB'))
             WHERE EXTRACT(YEAR FROM COALESCE(c.periodo, c.fecha)) = :anio
               AND COALESCE(c.periodo, c.fecha) <= CURRENT_DATE
+              AND t.idtipo = 1
               AND (t.abreviatura IS NULL OR UPPER(TRIM(t.abreviatura)) NOT IN ('RC', 'RCA', 'RCB', 'REC', 'OP'))
 
             UNION ALL
@@ -121,7 +138,8 @@ public class SincronizacionCtaCteService {
                 COALESCE(c_asoc.letra, grp.letra_grp, c_orig.letra) AS letra_asoc,
                 COALESCE(c_asoc.num4, grp.ptovta_grp, c_orig.num4) AS ptovta_asoc,
                 COALESCE(NULLIF(TRIM(c_asoc.num8), ''), NULLIF(TRIM(c_asoc.numero), ''), grp.numero_grp, NULLIF(TRIM(c_orig.num8), ''), NULLIF(TRIM(c_orig.numero), '')) AS numero_asoc,
-                COALESCE(grp.idcomp_grp, c.idcomprobante_asociado, c.idcomporigen) AS idcomprobante_asociado_final
+                COALESCE(grp.idcomp_grp, c.idcomprobante_asociado, c.idcomporigen) AS idcomprobante_asociado_final,
+                NULL::text AS tiporegistro_liq
             FROM cct_comprobantes c
             JOIN cct_comprobantes_tipo t ON c.idtipocomp = t.idtipocomp
             JOIN cct_comprobantes_asignacion a ON a.idcomprobante = c.idcomprobante
@@ -142,6 +160,7 @@ public class SincronizacionCtaCteService {
                 JOIN cct_comprobantes_tipo t2 ON c2.idtipocomp = t2.idtipocomp
                 WHERE a2.idgrupocomp = a.idgrupocomp
                   AND c2.idcomprobante <> c.idcomprobante
+                  AND t2.idtipo = 1
                 ORDER BY 
                     CASE WHEN UPPER(TRIM(t2.abreviatura)) IN ('FAC', 'FC', 'FCE', 'FR') THEN 0 ELSE 1 END,
                     c2.fecha DESC
@@ -149,6 +168,7 @@ public class SincronizacionCtaCteService {
             ) grp ON TRUE
             WHERE EXTRACT(YEAR FROM COALESCE(c.periodo, c.fecha)) = :anio
               AND COALESCE(c.periodo, c.fecha) <= CURRENT_DATE
+              AND t.idtipo = 1
               AND UPPER(TRIM(t.abreviatura)) IN ('RC', 'RCA', 'RCB', 'REC', 'OP')
 
             UNION ALL
@@ -171,12 +191,14 @@ public class SincronizacionCtaCteService {
                 NULL::varchar AS letra_asoc,
                 NULL::varchar AS ptovta_asoc,
                 NULL::varchar AS numero_asoc,
-                NULL::bigint AS idcomprobante_asociado_final
+                NULL::bigint AS idcomprobante_asociado_final,
+                NULL::text AS tiporegistro_liq
             FROM cct_comprobantes c
             JOIN cct_comprobantes_tipo t ON c.idtipocomp = t.idtipocomp
             LEFT JOIN cct_persona p ON c.idpersona = p.idpersona
             WHERE EXTRACT(YEAR FROM COALESCE(c.periodo, c.fecha)) = :anio
               AND COALESCE(c.periodo, c.fecha) <= CURRENT_DATE
+              AND t.idtipo = 1
               AND UPPER(TRIM(t.abreviatura)) IN ('RC', 'RCA', 'RCB', 'REC', 'OP')
               AND NOT EXISTS (
                   SELECT 1 FROM cct_comprobantes_asignacion a WHERE a.idcomprobante = c.idcomprobante
@@ -354,6 +376,7 @@ public class SincronizacionCtaCteService {
                 c.setHaber(haber);
                 c.setCodigoCobertura(trimOrNull(f.get("codigo_cobertura")));
                 c.setCobertura(trimOrNull(f.get("cobertura")));
+                c.setTiporegistro(trimOrNull(f.get("tiporegistro_liq")));
 
                 // Regla de Factura: comprobante_asociado debe contener el comprobante propio
                 if (Cabecera.esFactura(tipo)) {
@@ -502,6 +525,7 @@ public class SincronizacionCtaCteService {
                 c.setHaber(haber);
                 c.setCodigoCobertura(trimOrNull(f.get("codigo_cobertura")));
                 c.setCobertura(trimOrNull(f.get("cobertura")));
+                c.setTiporegistro(trimOrNull(f.get("tiporegistro_liq")));
 
                 if (Cabecera.esFactura(tipo)) {
                     c.setComprobanteAsociado(c.getComprobante());
@@ -732,6 +756,13 @@ public class SincronizacionCtaCteService {
                 cab.setCodigoCobertura(trimOrNull(f.get("codigo_cobertura")));
                 cab.setCobertura(trimOrNull(f.get("cobertura")));
 
+                // Tipo de registro (Ambulatorios / Internados)
+                String tipoRegistro = trimOrNull(f.get("tiporegistro_liq"));
+                if (tipoRegistro == null && Cabecera.esFactura(tipo)) {
+                    tipoRegistro = "Ambulatorios";
+                }
+                cab.setTiporegistro(tipoRegistro);
+
                 // Si es factura, comprobante_asociado debe contener el comprobante propio
                 if (Cabecera.esFactura(tipo)) {
                     String compCalculado = String.format("%s %s%04d-%08d", tipo.toUpperCase(), letra.toUpperCase(), ptovta, numero);
@@ -739,6 +770,9 @@ public class SincronizacionCtaCteService {
                     cab.setComprobanteAsociado(compCalculado);
                 } else if ("RC".equalsIgnoreCase(tipo) || "REC".equalsIgnoreCase(tipo) || "RCA".equalsIgnoreCase(tipo) || "RCB".equalsIgnoreCase(tipo) || "OP".equalsIgnoreCase(tipo)) {
                     cab.setComprobante(String.valueOf(numero));
+                } else {
+                    String compCalculado = String.format("%s %s%04d-%08d", tipo.toUpperCase(), letra.toUpperCase(), ptovta, numero);
+                    cab.setComprobante(compCalculado);
                 }
 
                 // Pre-asignar comprobante_asociado si viene en la consulta de Gestión
@@ -863,8 +897,8 @@ public class SincronizacionCtaCteService {
                         INSERT INTO cabecera (
                             tipo, letra, ptovta, numero, origen, id_estado, id_asignacion,
                             asociadogrupo, fecha, periodo, debe, haber, codigo_cobertura,
-                            cobertura, comprobante, comprobante_asociado
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            cobertura, comprobante, comprobante_asociado, tiporegistro
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """;
                     int batchSize = 2000;
                     for (int i = 0; i < nuevasCabeceras.size(); i += batchSize) {
@@ -887,7 +921,8 @@ public class SincronizacionCtaCteService {
                                 c.getCodigoCobertura(),
                                 c.getCobertura(),
                                 c.getComprobante(),
-                                c.getComprobanteAsociado()
+                                c.getComprobanteAsociado(),
+                                c.getTiporegistro()
                             });
                         }
                         debitosJdbcTemplate.batchUpdate(sqlInsertCab, batchParams);
@@ -918,20 +953,22 @@ public class SincronizacionCtaCteService {
                 }
                 contadorAsociados[0] += facturasAutoAsociadas;
 
-                // Paso 4.2: En documentos hijos con comprobante_asociado textual, vincular al ID del padre en un solo UPDATE acotado al año
+                // Paso 4.2: En documentos hijos con comprobante_asociado textual, vincular al ID del padre y heredar asociadogrupo
                 StringBuilder sqlHijos = new StringBuilder("""
                     UPDATE cabecera c_hijo
-                    SET asociado = c_padre.id
+                    SET asociado = c_padre.id,
+                        asociadogrupo = COALESCE(c_padre.asociadogrupo, c_hijo.asociadogrupo)
                     FROM cabecera c_padre
                     WHERE c_hijo.comprobante_asociado IS NOT NULL
                       AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
-                      AND UPPER(TRIM(COALESCE(c_padre.comprobante, c_padre.comprobante_asociado))) = UPPER(TRIM(c_hijo.comprobante_asociado))
                       AND (
-                          c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo = 0
-                          OR c_padre.asociadogrupo IS NULL OR c_padre.asociadogrupo = 0
-                          OR c_hijo.asociadogrupo = c_padre.asociadogrupo
+                          UPPER(TRIM(COALESCE(c_padre.comprobante, c_padre.comprobante_asociado))) = UPPER(TRIM(c_hijo.comprobante_asociado))
+                          OR REPLACE(REPLACE(UPPER(TRIM(COALESCE(c_padre.comprobante, UPPER(TRIM(c_padre.tipo)) || UPPER(TRIM(c_padre.letra)) || LPAD(c_padre.ptovta::text, 4, '0') || LPAD(c_padre.numero::text, 8, '0')))), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_hijo.comprobante_asociado)), ' ', ''), '-', '')
                       )
-                      AND (c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id)
+                      AND (
+                          c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id
+                          OR (c_padre.asociadogrupo IS NOT NULL AND c_padre.asociadogrupo > 0 AND (c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo <> c_padre.asociadogrupo))
+                      )
                 """);
                 int hijosAsociados;
                 if (anio > 2000) {
@@ -948,6 +985,38 @@ public class SincronizacionCtaCteService {
                     hijosAsociados = debitosJdbcTemplate.update(sqlHijos.toString());
                 }
                 contadorAsociados[0] += hijosAsociados;
+
+                // Paso 4.3: Propagar tiporegistro de facturas a documentos hijos (NC, ND, RC) vinculados
+                debitosJdbcTemplate.update("""
+                    UPDATE cabecera c_hijo
+                    SET tiporegistro = c_padre.tiporegistro
+                    FROM cabecera c_padre
+                    WHERE c_hijo.asociado = c_padre.id
+                      AND c_padre.tiporegistro IS NOT NULL
+                      AND c_hijo.tiporegistro IS NULL
+                """);
+
+                debitosJdbcTemplate.update("""
+                    UPDATE cabecera c_hijo
+                    SET tiporegistro = c_fac.tiporegistro
+                    FROM cabecera c_fac
+                    WHERE c_hijo.asociadogrupo = c_fac.asociadogrupo
+                      AND c_fac.asociadogrupo IS NOT NULL AND c_fac.asociadogrupo > 0
+                      AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                      AND c_fac.tiporegistro IS NOT NULL
+                      AND c_hijo.tiporegistro IS NULL
+                """);
+
+                debitosJdbcTemplate.update("""
+                    UPDATE cabecera c_hijo
+                    SET tiporegistro = c_fac.tiporegistro
+                    FROM cabecera c_fac
+                    WHERE c_hijo.grupo = c_fac.grupo
+                      AND c_fac.grupo IS NOT NULL AND c_fac.grupo > 0
+                      AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                      AND c_fac.tiporegistro IS NOT NULL
+                      AND c_hijo.tiporegistro IS NULL
+                """);
             });
 
             resumen.setNuevosInsertados(nuevasCabeceras.size());
@@ -1156,6 +1225,19 @@ public class SincronizacionCtaCteService {
                 log.info("Reconciliación: {} comprobantes con período NULL completados a partir de su fecha.", periodosReparados);
             }
 
+            // Reconciliación de comprobante canónico si es NULL en NC, ND, etc.
+            int comprobantesReparados = debitosJdbcTemplate.update("""
+                UPDATE cabecera
+                SET comprobante = CASE 
+                    WHEN UPPER(TRIM(tipo)) IN ('RC', 'REC', 'OP', 'RCA', 'RCB') THEN numero::text
+                    ELSE UPPER(TRIM(tipo)) || ' ' || UPPER(TRIM(letra)) || LPAD(ptovta::text, 4, '0') || '-' || LPAD(numero::text, 8, '0')
+                END
+                WHERE comprobante IS NULL AND tipo IS NOT NULL AND numero IS NOT NULL
+            """);
+            if (comprobantesReparados > 0) {
+                log.info("Reconciliación: {} comprobantes completaron su texto canónico en cabecera.", comprobantesReparados);
+            }
+
             // Nivel 1: Auto-asociación de facturas huérfanas históricas (asociado = id)
             int facturasAutoAsociadas = debitosJdbcTemplate.update("""
                 UPDATE cabecera
@@ -1189,35 +1271,37 @@ public class SincronizacionCtaCteService {
                 log.info("Reconciliación Nivel 1.5: {} documentos con ID de padre completaron su comprobante_asociado textual.", porIdAsociadoExistente);
             }
 
-            // Nivel 2: Documentos con comprobante_asociado textual pero asociado desactualizado o nulo
+            // Nivel 2: Documentos con comprobante_asociado textual pero asociado o asociadogrupo desactualizado o nulo
             int porComprobanteAsoc = debitosJdbcTemplate.update("""
                 UPDATE cabecera c_hijo
-                SET asociado = c_padre.id
+                SET asociado = c_padre.id,
+                    asociadogrupo = COALESCE(c_padre.asociadogrupo, c_hijo.asociadogrupo)
                 FROM cabecera c_padre
                 WHERE c_hijo.comprobante_asociado IS NOT NULL
-                  AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR')
-                  AND UPPER(TRIM(COALESCE(c_padre.comprobante, c_padre.comprobante_asociado))) = UPPER(TRIM(c_hijo.comprobante_asociado))
+                  AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
                   AND (
-                      c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo = 0
-                      OR c_padre.asociadogrupo IS NULL OR c_padre.asociadogrupo = 0
-                      OR c_hijo.asociadogrupo = c_padre.asociadogrupo
+                      UPPER(TRIM(COALESCE(c_padre.comprobante, c_padre.comprobante_asociado))) = UPPER(TRIM(c_hijo.comprobante_asociado))
+                      OR REPLACE(REPLACE(UPPER(TRIM(COALESCE(c_padre.comprobante, UPPER(TRIM(c_padre.tipo)) || UPPER(TRIM(c_padre.letra)) || LPAD(c_padre.ptovta::text, 4, '0') || LPAD(c_padre.numero::text, 8, '0')))), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_hijo.comprobante_asociado)), ' ', ''), '-', '')
                   )
-                  AND (c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id)
+                  AND (
+                      c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id
+                      OR (c_padre.asociadogrupo IS NOT NULL AND c_padre.asociadogrupo > 0 AND (c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo <> c_padre.asociadogrupo))
+                  )
             """);
             totalReconciliados += porComprobanteAsoc;
             if (porComprobanteAsoc > 0) {
                 log.info("Reconciliación Nivel 2: {} huérfanos vinculados directamente por comprobante_asociado.", porComprobanteAsoc);
             }
 
-            // Nivel 2.5: Alinear asociadogrupo de comprobantes sin asociadogrupo que ya tienen asociado apuntando a una familia
+            // Nivel 2.5: Alinear asociadogrupo de comprobantes cuyo padre pertenece a una familia con asociadogrupo
             int porAsociadoAlineado = debitosJdbcTemplate.update("""
                 UPDATE cabecera c_hijo
                 SET asociadogrupo = c_padre.asociadogrupo
                 FROM cabecera c_padre
                 WHERE c_hijo.asociado = c_padre.id
                   AND c_padre.asociadogrupo IS NOT NULL AND c_padre.asociadogrupo > 0
-                  AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR')
-                  AND (c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo = 0)
+                  AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND (c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo = 0 OR c_hijo.asociadogrupo <> c_padre.asociadogrupo)
             """);
             if (porAsociadoAlineado > 0) {
                 log.info("Reconciliación Nivel 2.5: {} documentos alinearon su asociadogrupo con la familia del documento al que apuntan.", porAsociadoAlineado);
@@ -1289,6 +1373,7 @@ public class SincronizacionCtaCteService {
                                     JOIN cct_comprobantes_tipo t2 ON c2.idtipocomp = t2.idtipocomp
                                     WHERE a2.idgrupocomp = a.idgrupocomp
                                       AND c2.idcomprobante <> c.idcomprobante
+                                      AND t2.idtipo = 1
                                     ORDER BY 
                                         CASE WHEN UPPER(TRIM(t2.abreviatura)) IN ('FAC', 'FC', 'FCE', 'FR') THEN 0 ELSE 1 END,
                                         c2.fecha DESC
@@ -1299,6 +1384,7 @@ public class SincronizacionCtaCteService {
                                   AND (c.num4 = :ptovtaStr OR c.num4 = :ptovtaPad)
                                   AND (c.num8 = :numeroStr OR c.num8 = :numeroPad)
                                   AND (:asociadogrupo IS NULL OR a.idgrupocomp = :asociadogrupo)
+                                  AND t.idtipo = 1
                                 LIMIT 1
                             """, new MapSqlParameterSource()
                                     .addValue("tipo", tipoHijo.toUpperCase())
@@ -1408,6 +1494,99 @@ public class SincronizacionCtaCteService {
             totalReconciliados += porGrupo;
             if (porGrupo > 0) {
                 log.info("Reconciliación Nivel 4: {} huérfanos o comprobantes desalineados vinculados por coincidencia de grupo (asociadogrupo).", porGrupo);
+            }
+
+            // Nivel 5: Propagar tiporegistro desde facturas a todos los comprobantes hijos reconciliados
+            int porTipoRegAsociado = debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET tiporegistro = c_padre.tiporegistro
+                FROM cabecera c_padre
+                WHERE c_hijo.asociado = c_padre.id
+                  AND c_padre.tiporegistro IS NOT NULL
+                  AND c_hijo.tiporegistro IS NULL
+            """);
+
+            int porTipoRegGrupo = debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET tiporegistro = c_fac.tiporegistro
+                FROM cabecera c_fac
+                WHERE c_hijo.asociadogrupo = c_fac.asociadogrupo
+                  AND c_fac.asociadogrupo IS NOT NULL AND c_fac.asociadogrupo > 0
+                  AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND c_fac.tiporegistro IS NOT NULL
+                  AND c_hijo.tiporegistro IS NULL
+            """);
+
+            int porTipoRegLegacy = debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET tiporegistro = c_fac.tiporegistro
+                FROM cabecera c_fac
+                WHERE c_hijo.grupo = c_fac.grupo
+                  AND c_fac.grupo IS NOT NULL AND c_fac.grupo > 0
+                  AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND c_fac.tiporegistro IS NOT NULL
+                  AND c_hijo.tiporegistro IS NULL
+            """);
+
+            int totalTipoReg = porTipoRegAsociado + porTipoRegGrupo + porTipoRegLegacy;
+            if (totalTipoReg > 0) {
+                log.info("Reconciliación Nivel 5: {} comprobantes hijos heredaron tiporegistro de su factura padre.", totalTipoReg);
+            }
+
+            // Nivel 6: Detección y persistencia automática de comprobantes anulados (NC <-> ND con montos idénticos)
+            int autoAnuladosNcNd = debitosJdbcTemplate.update("""
+                INSERT INTO facturas_anuladas_manual (id_cabecera, id_cabecera_anulador, anulada, fecha_anulacion, usuario)
+                SELECT 
+                    c_nc.id AS id_cabecera,
+                    c_nd.id AS id_cabecera_anulador,
+                    TRUE AS anulada,
+                    NOW() AS fecha_anulacion,
+                    'SISTEMA_AUTO' AS usuario
+                FROM cabecera c_nc
+                JOIN cabecera c_nd ON (
+                    c_nd.asociado = c_nc.id 
+                    OR (
+                        c_nd.comprobante_asociado IS NOT NULL 
+                        AND REPLACE(REPLACE(UPPER(TRIM(COALESCE(c_nc.comprobante, UPPER(TRIM(c_nc.tipo)) || UPPER(TRIM(c_nc.letra)) || LPAD(c_nc.ptovta::text, 4, '0') || LPAD(c_nc.numero::text, 8, '0')))), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_nd.comprobante_asociado)), ' ', ''), '-', '')
+                    )
+                )
+                WHERE UPPER(TRIM(c_nc.tipo)) IN ('NC', 'NCE', 'NCA', 'NCB')
+                  AND UPPER(TRIM(c_nd.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB')
+                  AND GREATEST(COALESCE(c_nc.debe, 0), COALESCE(c_nc.haber, 0)) > 0
+                  AND GREATEST(COALESCE(c_nc.debe, 0), COALESCE(c_nc.haber, 0)) = GREATEST(COALESCE(c_nd.debe, 0), COALESCE(c_nd.haber, 0))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM facturas_anuladas_manual fam WHERE fam.id_cabecera = c_nc.id
+                  )
+            """);
+
+            int autoAnuladosNdNc = debitosJdbcTemplate.update("""
+                INSERT INTO facturas_anuladas_manual (id_cabecera, id_cabecera_anulador, anulada, fecha_anulacion, usuario)
+                SELECT 
+                    c_nc.id AS id_cabecera,
+                    c_nd.id AS id_cabecera_anulador,
+                    TRUE AS anulada,
+                    NOW() AS fecha_anulacion,
+                    'SISTEMA_AUTO' AS usuario
+                FROM cabecera c_nd
+                JOIN cabecera c_nc ON (
+                    c_nc.asociado = c_nd.id 
+                    OR (
+                        c_nc.comprobante_asociado IS NOT NULL 
+                        AND REPLACE(REPLACE(UPPER(TRIM(COALESCE(c_nd.comprobante, UPPER(TRIM(c_nd.tipo)) || UPPER(TRIM(c_nd.letra)) || LPAD(c_nd.ptovta::text, 4, '0') || LPAD(c_nd.numero::text, 8, '0')))), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_nc.comprobante_asociado)), ' ', ''), '-', '')
+                    )
+                )
+                WHERE UPPER(TRIM(c_nc.tipo)) IN ('NC', 'NCE', 'NCA', 'NCB')
+                  AND UPPER(TRIM(c_nd.tipo)) IN ('ND', 'NDE', 'NDA', 'NDB')
+                  AND GREATEST(COALESCE(c_nc.debe, 0), COALESCE(c_nc.haber, 0)) > 0
+                  AND GREATEST(COALESCE(c_nc.debe, 0), COALESCE(c_nc.haber, 0)) = GREATEST(COALESCE(c_nd.debe, 0), COALESCE(c_nd.haber, 0))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM facturas_anuladas_manual fam WHERE fam.id_cabecera = c_nc.id
+                  )
+            """);
+
+            int totalAutoAnulados = autoAnuladosNcNd + autoAnuladosNdNc;
+            if (totalAutoAnulados > 0) {
+                log.info("Reconciliación Nivel 6: {} pares de comprobantes (NC/ND con importes coincidentes) registrados automáticamente como anulados en facturas_anuladas_manual.", totalAutoAnulados);
             }
 
         } catch (Exception e) {

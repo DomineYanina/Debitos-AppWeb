@@ -140,6 +140,48 @@ describe('ExcelExportService', () => {
     expect(saveAs).toHaveBeenCalled();
   });
 
+  it('exportarHistorialComprobantes debería exportar correctamente filas con marcas de anulado y anulador', async () => {
+    const filasAnuladas: any[] = [
+      {
+        nivel: 0,
+        tipoDocumento: 'FC',
+        letra: 'A',
+        puntoVenta: 31,
+        numero: 1865,
+        fechaDocumento: '2026-05-01',
+        montoNeto: 151804189.73,
+        origenTipo: null
+      },
+      {
+        nivel: 1,
+        tipoDocumento: 'NCE',
+        letra: 'A',
+        puntoVenta: 31,
+        numero: 888,
+        fechaDocumento: '2026-08-19',
+        montoNeto: 34749129.17,
+        origenTipo: 'DEB',
+        anulado: true,
+        detalleAnulacion: 'Anulado por NDE A-0031-00000494 del 2026-08-24 ($ 34.749.129,17)'
+      },
+      {
+        nivel: 2,
+        tipoDocumento: 'NDE',
+        letra: 'A',
+        puntoVenta: 31,
+        numero: 494,
+        fechaDocumento: '2026-08-24',
+        montoNeto: 34749129.17,
+        origenTipo: 'REF',
+        anulador: true,
+        detalleAnulacion: 'Documento anulador de contrapartida de NCE A-0031-00000888'
+      }
+    ];
+
+    await service.exportarHistorialComprobantes(filasAnuladas, null, 'historial_anulados.xlsx');
+    expect(saveAs).toHaveBeenCalled();
+  });
+
   describe('Exportación de las 10 Solapas del Tablero de Control Financiero', () => {
     const contextoBase = {
       solapaTitulo: 'Solapa de Prueba',
@@ -569,6 +611,90 @@ describe('ExcelExportService', () => {
         contextoBase
       );
 
+      expect(saveAs).toHaveBeenCalled();
+    });
+  });
+
+  describe('Gestión Contable Exports', () => {
+    it('exportarGestionCoberturas debería generar archivo y llamar a saveAs', async () => {
+      const data = [
+        { codigoCobertura: '443', nombreOriginal: 'OSDE', nombreMostrar: 'OSDE BINARIO' }
+      ];
+      await service.exportarGestionCoberturas(data, 'OSDE', 'coberturas.xlsx');
+      expect(saveAs).toHaveBeenCalled();
+    });
+
+    it('exportarGestionCoberturas no debería ejecutar si la lista está vacía', async () => {
+      await service.exportarGestionCoberturas([], '', 'coberturas.xlsx');
+      expect(saveAs).not.toHaveBeenCalled();
+    });
+
+    it('exportarGestionPeriodos debería generar archivo y llamar a saveAs', async () => {
+      const data = [
+        {
+          idCabecera: 1,
+          tipo: 'FC',
+          letra: 'A',
+          ptovta: 30,
+          numero: 1001,
+          fecha: '2026-05-10',
+          periodoOriginal: '2026-05-01',
+          periodoCorregido: '2026-06-01',
+          codigoCobertura: '443',
+          cobertura: 'OSDE',
+          importe: 50000
+        }
+      ];
+      await service.exportarGestionPeriodos(data, 'periodos.xlsx');
+      expect(saveAs).toHaveBeenCalled();
+    });
+
+    it('exportarGestionPrestaciones debería generar archivo y llamar a saveAs', async () => {
+      const data = [
+        { codigo: '420101', descripcion: 'CONSULTA', estado: 'Considerar', estadoAmbulatorio: 'Considerar', estadoInternado: 'No considerar' }
+      ];
+      await service.exportarGestionPrestaciones(data, '', 'prestaciones.xlsx');
+      expect(saveAs).toHaveBeenCalled();
+    });
+
+    it('exportarGestionFacturasAnuladas debería generar archivo y llamar a saveAs', async () => {
+      const data = [
+        {
+          idCabecera: 10,
+          comprobante: 'FC A 0030-00001001',
+          tipo: 'FC',
+          letra: 'A',
+          ptovta: 30,
+          numero: 1001,
+          fecha: '2026-05-10',
+          periodo: '2026-05-01',
+          codigoCobertura: '443',
+          cobertura: 'OSDE',
+          importe: 15000,
+          anulada: true,
+          origenAnulacion: 'MANUAL' as const,
+          idCabeceraAnulador: 25,
+          comprobanteAnulador: 'NCE A 0030-00000888'
+        }
+      ];
+      await service.exportarGestionFacturasAnuladas(data, 'facturas_anuladas.xlsx');
+      expect(saveAs).toHaveBeenCalled();
+    });
+
+    it('exportarGestionHistorial debería generar archivo y llamar a saveAs', async () => {
+      const data = [
+        {
+          id: 1,
+          tipoOperacionCodigo: 'CAMBIO_ALIAS_COBERTURA',
+          tipoOperacionDescripcion: 'Cambio de Alias Cobertura',
+          referencia: '443',
+          valorAnterior: 'OSDE',
+          valorNuevo: 'OSDE BINARIO',
+          usuario: 'admin',
+          fechaHora: '2026-05-10 10:00:00'
+        }
+      ];
+      await service.exportarGestionHistorial(data, '', 'historial.xlsx');
       expect(saveAs).toHaveBeenCalled();
     });
   });

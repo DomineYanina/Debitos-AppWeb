@@ -65,10 +65,30 @@ CREATE TABLE IF NOT EXISTS facturas_anuladas_manual (
     anulada BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- 7. Población inicial de prestaciones desde amb_liquidado con estado 'Considerar'
+-- 7. Población de prestaciones exclusivamente desde cob_prestaciones de Gestión vía dblink
+CREATE EXTENSION IF NOT EXISTS dblink;
+
+CREATE TEMP TABLE IF NOT EXISTS temp_cob_prestaciones_init (
+    codigo VARCHAR(50) PRIMARY KEY,
+    descripcion VARCHAR(255)
+) ON COMMIT DROP;
+
+INSERT INTO temp_cob_prestaciones_init (codigo, descripcion)
+SELECT DISTINCT ON (TRIM(codigo))
+    TRIM(codigo) AS codigo,
+    TRIM(COALESCE(descripcion, '')) AS descripcion
+FROM dblink(
+    'host=172.16.15.41 port=9090 dbname=gestion user=yanina password=yanina**333-',
+    $gestion$
+        SELECT codigo, descripcion, idprestacion
+        FROM cob_prestaciones
+        WHERE codigo IS NOT NULL AND TRIM(codigo) <> ''
+        ORDER BY TRIM(codigo), idprestacion DESC
+    $gestion$
+) AS cp(codigo VARCHAR, descripcion VARCHAR, idprestacion INT);
+
 INSERT INTO prestaciones_consideracion (codigo, descripcion, estado)
-SELECT TRIM(codigo), MAX(TRIM(descripcion)), 'Considerar'
-FROM amb_liquidado
-WHERE codigo IS NOT NULL AND TRIM(codigo) <> ''
-GROUP BY TRIM(codigo)
-ON CONFLICT (codigo) DO NOTHING;
+SELECT codigo, descripcion, 'Considerar'
+FROM temp_cob_prestaciones_init
+ON CONFLICT (codigo) DO UPDATE
+SET descripcion = EXCLUDED.descripcion;

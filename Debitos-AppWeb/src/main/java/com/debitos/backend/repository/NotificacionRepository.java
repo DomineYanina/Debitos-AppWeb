@@ -21,6 +21,17 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
     @Query(value = "SELECT * FROM notificaciones ORDER BY fecha_creacion DESC LIMIT 50", nativeQuery = true)
     List<Notificacion> findTop50();
 
+    @Query("SELECT n FROM Notificacion n WHERE n.tipoNotificacion = 'SOLICITUD_ANULACION_DOCUMENTO'")
+    List<Notificacion> findSolicitudesAnulacion();
+
+    @Query("SELECT n FROM Notificacion n WHERE n.tipoNotificacion = 'SOLICITUD_ANULACION_DOCUMENTO' " +
+           "AND UPPER(TRIM(n.letraDoc)) = UPPER(TRIM(:letra)) " +
+           "AND n.ptoVta = :ptoVta AND n.numero = :numero")
+    List<Notificacion> findSolicitudesAnulacionPorDocumento(
+            @Param("letra") String letra,
+            @Param("ptoVta") Integer ptoVta,
+            @Param("numero") Integer numero);
+
     @Query(value = "SELECT COUNT(*) FROM notificaciones WHERE rol_destino IN (:roles) AND (leida IS FALSE OR leida IS NULL)", nativeQuery = true)
     long countByRolDestinoInAndLeidaFalse(@Param("roles") Collection<String> roles);
 

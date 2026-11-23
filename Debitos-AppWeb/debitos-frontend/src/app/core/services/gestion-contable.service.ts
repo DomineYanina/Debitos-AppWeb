@@ -22,7 +22,34 @@ export class GestionContableService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/api/contable`;
 
+  private buildPageParams(page: number, size: number, sortBy?: string, sortDir?: string): HttpParams {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (sortBy && sortBy.trim().length > 0) {
+      params = params.set('sortBy', sortBy.trim());
+      if (sortDir) {
+        params = params.set('sortDir', sortDir);
+      }
+    }
+    return params;
+  }
+
   // 1. Coberturas
+  listarCoberturas(
+    filtro?: string,
+    page: number = 0,
+    size: number = 20,
+    sortBy?: string,
+    sortDir?: string
+  ): Observable<PageResponse<CoberturaAliasDTO>> {
+    let params = this.buildPageParams(page, size, sortBy, sortDir);
+    if (filtro && filtro.trim().length > 0) {
+      params = params.set('filtro', filtro.trim());
+    }
+    return this.http.get<PageResponse<CoberturaAliasDTO>>(`${this.apiUrl}/coberturas`, { params });
+  }
+
   buscarCobertura(codigo: string): Observable<CoberturaAliasDTO> {
     const params = new HttpParams().set('codigo', codigo);
     return this.http.get<CoberturaAliasDTO>(`${this.apiUrl}/coberturas/buscar`, { params });
@@ -42,17 +69,34 @@ export class GestionContableService {
     return this.http.get<FacturaPeriodoDTO>(`${this.apiUrl}/periodos/buscar-factura`, { params });
   }
 
+  listarFacturasPeriodoCorregido(page: number = 0, size: number = 20): Observable<PageResponse<FacturaPeriodoDTO>> {
+    const params = this.buildPageParams(page, size);
+    return this.http.get<PageResponse<FacturaPeriodoDTO>>(`${this.apiUrl}/periodos`, { params });
+  }
+
   guardarPeriodoCorregido(req: CorregirPeriodoRequest): Observable<FacturaPeriodoDTO> {
     return this.http.post<FacturaPeriodoDTO>(`${this.apiUrl}/periodos/corregir`, req);
   }
 
   // 3. Prestaciones
-  listarPrestaciones(filtro?: string, page: number = 0, size: number = 20): Observable<PageResponse<PrestacionConsideracionDTO>> {
-    let params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
+  listarPrestaciones(
+    filtro?: string,
+    page: number = 0,
+    size: number = 20,
+    sortBy?: string,
+    sortDir?: string,
+    estadoAmb?: string,
+    estadoInt?: string
+  ): Observable<PageResponse<PrestacionConsideracionDTO>> {
+    let params = this.buildPageParams(page, size, sortBy, sortDir);
     if (filtro && filtro.trim().length > 0) {
       params = params.set('filtro', filtro.trim());
+    }
+    if (estadoAmb && estadoAmb.trim().length > 0 && estadoAmb !== 'TODOS') {
+      params = params.set('estadoAmbulatorio', estadoAmb.trim());
+    }
+    if (estadoInt && estadoInt.trim().length > 0 && estadoInt !== 'TODOS') {
+      params = params.set('estadoInternado', estadoInt.trim());
     }
     return this.http.get<PageResponse<PrestacionConsideracionDTO>>(`${this.apiUrl}/prestaciones`, { params });
   }
@@ -71,10 +115,18 @@ export class GestionContableService {
     return this.http.get<FacturaAnuladaDTO>(`${this.apiUrl}/facturas-anuladas/buscar`, { params });
   }
 
-  listarFacturasAnuladas(page: number = 0, size: number = 20): Observable<PageResponse<FacturaAnuladaDTO>> {
-    const params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
+  listarCandidatosAnulador(idCabeceraOrigen: number): Observable<FacturaAnuladaDTO[]> {
+    const params = new HttpParams().set('idCabeceraOrigen', idCabeceraOrigen.toString());
+    return this.http.get<FacturaAnuladaDTO[]>(`${this.apiUrl}/facturas-anuladas/candidatos-anulador`, { params });
+  }
+
+  listarFacturasAnuladas(
+    page: number = 0,
+    size: number = 20,
+    sortBy?: string,
+    sortDir?: string
+  ): Observable<PageResponse<FacturaAnuladaDTO>> {
+    const params = this.buildPageParams(page, size, sortBy, sortDir);
     return this.http.get<PageResponse<FacturaAnuladaDTO>>(`${this.apiUrl}/facturas-anuladas`, { params });
   }
 
@@ -83,10 +135,14 @@ export class GestionContableService {
   }
 
   // 5. Historial de Ajustes
-  obtenerHistorial(referencia?: string, page: number = 0, size: number = 20): Observable<PageResponse<HistorialAjusteDTO>> {
-    let params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
+  obtenerHistorial(
+    referencia?: string,
+    page: number = 0,
+    size: number = 20,
+    sortBy?: string,
+    sortDir?: string
+  ): Observable<PageResponse<HistorialAjusteDTO>> {
+    let params = this.buildPageParams(page, size, sortBy, sortDir);
     if (referencia && referencia.trim().length > 0) {
       params = params.set('referencia', referencia.trim());
     }

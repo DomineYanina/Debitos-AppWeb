@@ -26,7 +26,6 @@ public class FacturaPeriodoCorregido {
 
     public FacturaPeriodoCorregido(Cabecera cabecera, LocalDate periodoOriginal, LocalDate periodoCorregido) {
         this.cabecera = cabecera;
-        this.idCabecera = cabecera != null ? cabecera.getId() : null;
         this.periodoOriginal = periodoOriginal;
         this.periodoCorregido = periodoCorregido;
     }
@@ -45,9 +44,6 @@ public class FacturaPeriodoCorregido {
 
     public void setCabecera(Cabecera cabecera) {
         this.cabecera = cabecera;
-        if (cabecera != null) {
-            this.idCabecera = cabecera.getId();
-        }
     }
 
     public LocalDate getPeriodoOriginal() {

@@ -707,6 +707,51 @@ describe('AuditoriaComponent', () => {
       expect(component.modalHistorialVisible).toBe(false);
     });
 
+    it('debería detectar documentos anulados y filtrar filas visibles según mostrarAnuladosHistorial', () => {
+      // 1. Sin anulados: tieneDocumentosAnuladosHistorial debe ser false y no filtra nada
+      component.filasHistorialComprobantes = [
+        { tipoDocumento: 'FC', numero: 1865, anulado: false },
+        { tipoDocumento: 'RC', numero: 7981280, anulado: false }
+      ];
+      component.actualizarEstadoVerAnulados();
+      expect(component.tieneDocumentosAnuladosHistorial).toBe(false);
+      expect(component.mostrarAnuladosHistorial).toBe(false);
+      expect(component.filasHistorialComprobantesVisibles.length).toBe(2);
+
+      // 2. Con anulados: tieneDocumentosAnuladosHistorial debe ser true
+      component.filasHistorialComprobantes = [
+        { tipoDocumento: 'FC', numero: 1865, anulado: false },
+        { tipoDocumento: 'RC', numero: 7981280, anulado: false },
+        { tipoDocumento: 'NDE', numero: 494, anulado: true },
+        { tipoDocumento: 'NCE', numero: 888, anulado: true }
+      ];
+      component.actualizarEstadoVerAnulados();
+      expect(component.tieneDocumentosAnuladosHistorial).toBe(true);
+      // Por defecto, como el buscado no es anulado, mostrarAnuladosHistorial es false
+      expect(component.mostrarAnuladosHistorial).toBe(false);
+      expect(component.filasHistorialComprobantesVisibles.length).toBe(2);
+
+      // 3. Al activar mostrarAnuladosHistorial, se muestran todos (4)
+      component.mostrarAnuladosHistorial = true;
+      expect(component.filasHistorialComprobantesVisibles.length).toBe(4);
+
+      // 4. Al desactivar, se vuelven a ocultar
+      component.mostrarAnuladosHistorial = false;
+      expect(component.filasHistorialComprobantesVisibles.length).toBe(2);
+    });
+
+    it('debería activar mostrarAnuladosHistorial por defecto si el documento buscado es anulado', () => {
+      component.busquedaForm.patchValue({ tipo: 'NCE', letra: 'A', puntoVenta: '31', numero: '888' });
+      component.filasHistorialComprobantes = [
+        { tipoDocumento: 'FC', letra: 'A', puntoVenta: 31, numero: 1865, anulado: false },
+        { tipoDocumento: 'NCE', letra: 'A', puntoVenta: 31, numero: 888, anulado: true }
+      ];
+      component.actualizarEstadoVerAnulados();
+      expect(component.tieneDocumentosAnuladosHistorial).toBe(true);
+      expect(component.mostrarAnuladosHistorial).toBe(true);
+      expect(component.filasHistorialComprobantesVisibles.length).toBe(2);
+    });
+
     it('exportarHistorialAExcel debería validar filas y llamar a excelService', () => {
       component.filasHistorialComprobantes = [];
       let alerta = '';
@@ -742,6 +787,97 @@ describe('AuditoriaComponent', () => {
       expect(component.esRecibo(null)).toBe(false);
     });
 
+    it('debería renderizar badges [ANULADO] y [ANULADOR] con tooltips en modalHistorialVisible', () => {
+      component.modalHistorialVisible = true;
+      component.filasHistorialComprobantes = [
+        {
+          nivel: 0,
+          tipoDocumento: 'FC',
+          letra: 'A',
+          puntoVenta: 31,
+          numero: 1865,
+          fechaDocumento: '2026-05-01',
+          montoNeto: 151804189.73,
+          tienePrestaciones: true
+        },
+        {
+          nivel: 1,
+          tipoDocumento: 'NCE',
+          letra: 'A',
+          puntoVenta: 31,
+          numero: 888,
+          fechaDocumento: '2026-08-19',
+          montoNeto: 34749129.17,
+          origenTipo: 'DEB',
+          anulado: true,
+          detalleAnulacion: 'Anulado por NDE A-0031-00000494 del 2026-08-24 ($ 34.749.129,17)',
+          tienePrestaciones: false
+        },
+        {
+          nivel: 2,
+          tipoDocumento: 'NDE',
+          letra: 'A',
+          puntoVenta: 31,
+          numero: 494,
+          fechaDocumento: '2026-08-24',
+          montoNeto: 34749129.17,
+          origenTipo: 'REF',
+          anulador: true,
+          detalleAnulacion: 'Documento anulador de contrapartida de NCE A-0031-00000888',
+          tienePrestaciones: false
+        }
+      ];
+      component.mostrarAnuladosHistorial = true;
+      component.cdr.detectChanges();
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const badgeAnulado = el.querySelector('.badge-anulado') as HTMLElement;
+      const badgeAnulador = el.querySelector('.badge-anulador') as HTMLElement;
+      const filaAnulada = el.querySelector('.historial-fila-anulada') as HTMLElement;
+
+      expect(badgeAnulado).toBeTruthy();
+      expect(badgeAnulado.textContent?.trim()).toBe('ANULADO');
+      expect(badgeAnulado.getAttribute('title')).toContain('NDE A-0031-00000494');
+
+      expect(badgeAnulador).toBeTruthy();
+      expect(badgeAnulador.textContent?.trim()).toBe('ANULADOR');
+      expect(badgeAnulador.getAttribute('title')).toContain('NCE A-0031-00000888');
+
+      expect(filaAnulada).toBeTruthy();
+    });
+
+    it('el modal de historial no debe renderizar ambas etiquetas ANULADO y ANULADOR en la misma fila si hubiera datos anómalos', () => {
+      component.modalHistorialVisible = true;
+      component.filasHistorialComprobantes = [
+        {
+          nivel: 1,
+          tipoDocumento: 'NCE',
+          letra: 'A',
+          puntoVenta: 31,
+          numero: 888,
+          fechaDocumento: '2026-08-19',
+          montoNeto: 34749129.17,
+          origenTipo: 'DEB',
+          anulado: true,
+          anulador: true,
+          detalleAnulacion: 'Anulado por NDE A-0031-00000494'
+        }
+      ];
+      component.mostrarAnuladosHistorial = true;
+      component.cdr.detectChanges();
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      const fila = el.querySelector('.historial-tabla tbody tr') as HTMLElement;
+      expect(fila).toBeTruthy();
+
+      const badgesAnulado = fila.querySelectorAll('.badge-anulado');
+      const badgesAnulador = fila.querySelectorAll('.badge-anulador');
+
+      expect(badgesAnulado.length + badgesAnulador.length).toBeLessThanOrEqual(1);
+    });
+
     it('cargarDocumentoDesdeHistorial debería cargar parámetros en busquedaForm y ejecutar búsqueda', () => {
       const filaFC = { tipoDocumento: 'FC', letra: 'A', puntoVenta: 2, numero: 200, tienePrestaciones: true };
       let busquedaEjecutada = false;
@@ -764,6 +900,87 @@ describe('AuditoriaComponent', () => {
       busquedaEjecutada = false;
       component.cargarDocumentoDesdeHistorial(filaIva);
       expect(busquedaEjecutada).toBe(false);
+    });
+
+    it('debería evaluar correctamente esComprobanteAnulable para puntos de venta y tipos', () => {
+      // FC válida sin prestaciones en punto de venta 31
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'FC', puntoVenta: 31, numero: 1865, tienePrestaciones: false })).toBe(true);
+      // FC que posee prestaciones vinculadas: NO anulable
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'FC', puntoVenta: 31, numero: 1865, tienePrestaciones: true })).toBe(false);
+      // NCE válida sin prestaciones en punto de venta 32
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'NCE', puntoVenta: 32, numero: 500, tienePrestaciones: false })).toBe(true);
+      // RC (Recibo) nunca anulable contablemente
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'RC', puntoVenta: 31, numero: 100, tienePrestaciones: false })).toBe(false);
+      // Punto de venta no contable (ej. 1)
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'FC', puntoVenta: 1, numero: 100, tienePrestaciones: false })).toBe(false);
+      // Ya anulado
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'FC', puntoVenta: 31, numero: 1865, anulado: true, tienePrestaciones: false })).toBe(false);
+      // Ya anulador
+      expect(component.esComprobanteAnulable({ tipoDocumento: 'NDE', puntoVenta: 31, numero: 494, anulador: true, tienePrestaciones: false })).toBe(false);
+      // Placeholder
+      expect(component.esComprobanteAnulable({ placeholderNdAjusteIva: true, tienePrestaciones: false })).toBe(false);
+    });
+
+    it('debería abrir, cerrar y confirmar la solicitud de anulación notificando al servicio', () => {
+      const fila = { tipoDocumento: 'FC', letra: 'A', puntoVenta: 31, numero: 1865, montoNeto: 150000, tienePrestaciones: false };
+      const notifService = (component as any).notificacionService;
+      if (!notifService.solicitarAnulacionDocumento) {
+        notifService.solicitarAnulacionDocumento = vi.fn();
+      }
+      const solicitarSpy = vi.spyOn(notifService, 'solicitarAnulacionDocumento').mockReturnValue(of({ ok: true }));
+
+      component.abrirModalSolicitarAnulacion(fila);
+      expect(component.modalSolicitudAnulacionVisible).toBe(true);
+      expect(component.comprobanteASolicitarAnulacion).toBe(fila);
+
+      component.motivoSolicitudAnulacion = 'Documento duplicado';
+      component.confirmarSolicitudAnulacion();
+
+      expect(solicitarSpy).toHaveBeenCalledWith({
+        tipoDoc: 'FC',
+        letraDoc: 'A',
+        puntoVenta: 31,
+        numero: 1865
+      }, 'Documento duplicado');
+      expect(component.modalSolicitudAnulacionVisible).toBe(false);
+      expect(component.esSolicitudAnulacionEnviada(fila)).toBe(true);
+    });
+
+    it('debería reconocer persistencia de solicitud de anulación si fila.solicitudAnulacionPendiente es true', () => {
+      const filaPendiente = { tipoDocumento: 'NDE', letra: 'A', puntoVenta: 32, numero: 1137, solicitudAnulacionPendiente: true };
+      expect(component.esSolicitudAnulacionEnviada(filaPendiente)).toBe(true);
+
+      const filaSinPendiente = { tipoDocumento: 'NDE', letra: 'A', puntoVenta: 32, numero: 1138, solicitudAnulacionPendiente: false };
+      expect(component.esSolicitudAnulacionEnviada(filaSinPendiente)).toBe(false);
+    });
+
+    it('debería abrir, cerrar y confirmar la cancelación de una solicitud de anulación previa', () => {
+      const fila = { tipoDocumento: 'NDE', letra: 'A', puntoVenta: 32, numero: 1137, solicitudAnulacionPendiente: true, solicitudAnulacionEnviada: true };
+      component.solicitudesAnulacionEnviadas.add(component.obtenerClaveDocumento(fila));
+      expect(component.esSolicitudAnulacionEnviada(fila)).toBe(true);
+
+      const notifService = (component as any).notificacionService;
+      if (!notifService.cancelarSolicitudAnulacionDocumento) {
+        notifService.cancelarSolicitudAnulacionDocumento = vi.fn();
+      }
+      const cancelarSpy = vi.spyOn(notifService, 'cancelarSolicitudAnulacionDocumento').mockReturnValue(of({ mensaje: 'ok' }));
+
+      component.abrirModalCancelarSolicitudAnulacion(fila);
+      expect(component.modalConfirmarCancelacionSolicitudVisible).toBe(true);
+      expect(component.comprobanteACancelarSolicitud).toBe(fila);
+
+      component.confirmarCancelarSolicitudAnulacion();
+
+      expect(cancelarSpy).toHaveBeenCalledWith({
+        tipoDoc: 'NDE',
+        letraDoc: 'A',
+        puntoVenta: 32,
+        numero: 1137
+      });
+      expect(component.modalConfirmarCancelacionSolicitudVisible).toBe(false);
+      expect(component.esSolicitudAnulacionEnviada(fila)).toBe(false);
+      expect(fila.solicitudAnulacionPendiente).toBe(false);
+      expect(fila.solicitudAnulacionEnviada).toBe(false);
     });
   });
 

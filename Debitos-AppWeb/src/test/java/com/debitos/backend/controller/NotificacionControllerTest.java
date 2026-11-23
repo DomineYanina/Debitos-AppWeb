@@ -48,12 +48,30 @@ class NotificacionControllerTest {
                 ZonedDateTime.now(), "NC B-0001-00000001", "NC", "B", 1, 1, "INGRESO_MANUAL_NC", false
         );
 
-        when(notificacionService.obtenerNotificacionesParaRol("ADMIN")).thenReturn(List.of(dto));
+        when(notificacionService.obtenerNotificacionesParaRol(eq("ADMIN"), nullable(String.class))).thenReturn(List.of(dto));
 
         mockMvc.perform(get("/api/notificaciones/recientes").param("rol", "ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].titulo").value("Título"));
+    }
+
+    @Test
+    @DisplayName("Obtener notificaciones recientes con usuario - Pasa usuario al servicio")
+    void testObtenerNotificacionesRecientesConUsuario() throws Exception {
+        NotificacionDTO dto = new NotificacionDTO(
+                16L, "SOLICITUD_ANULACION_DOCUMENTO", "Título", "Mensaje", "Paola",
+                ZonedDateTime.now(), "FC A-0032-00001137", "FC", "A", 32, 1137, "SOLICITUD_ANULACION_DOCUMENTO", false
+        );
+
+        when(notificacionService.obtenerNotificacionesParaRol("OPERADOR_CONTADURIA", "ErnestoDiaz")).thenReturn(List.of(dto));
+
+        mockMvc.perform(get("/api/notificaciones/recientes")
+                        .param("rol", "OPERADOR_CONTADURIA")
+                        .param("usuario", "ErnestoDiaz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(16))
+                .andExpect(jsonPath("$[0].leida").value(false));
     }
 
     @Test
@@ -63,7 +81,17 @@ class NotificacionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mensaje").value("Notificación marcada como leída"));
 
-        verify(notificacionService, times(1)).marcarComoLeida(12L);
+        verify(notificacionService, times(1)).marcarComoLeida(12L, null);
+    }
+
+    @Test
+    @DisplayName("Marcar notificación como leída con usuario - Pasa usuario al servicio")
+    void testMarcarComoLeidaConUsuario() throws Exception {
+        mockMvc.perform(put("/api/notificaciones/16/leer").param("usuario", "ErnestoDiaz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje").value("Notificación marcada como leída"));
+
+        verify(notificacionService, times(1)).marcarComoLeida(16L, "ErnestoDiaz");
     }
 
     @Test
@@ -73,7 +101,19 @@ class NotificacionControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.mensaje").value("Todas las notificaciones fueron marcadas como leídas"));
 
-        verify(notificacionService, times(1)).marcarTodasComoLeidas("ADMIN");
+        verify(notificacionService, times(1)).marcarTodasComoLeidas("ADMIN", null);
+    }
+
+    @Test
+    @DisplayName("Marcar todas como leídas con usuario - Pasa usuario al servicio")
+    void testMarcarTodasComoLeidasConUsuario() throws Exception {
+        mockMvc.perform(put("/api/notificaciones/leer-todas")
+                        .param("rol", "OPERADOR_CONTADURIA")
+                        .param("usuario", "ErnestoDiaz"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje").value("Todas las notificaciones fueron marcadas como leídas"));
+
+        verify(notificacionService, times(1)).marcarTodasComoLeidas("OPERADOR_CONTADURIA", "ErnestoDiaz");
     }
 
     @Test
@@ -119,6 +159,29 @@ class NotificacionControllerTest {
 
         verify(notificacionService, times(1)).registrarNotificacionDocumentoNoEncontrado(
                 "yanina", "FC", "A", 1, 9999, "Falta comprobante"
+        );
+    }
+
+    @Test
+    @DisplayName("Solicitar anulación de documento - Retorna 200 OK")
+    void testSolicitarAnulacion() throws Exception {
+        Map<String, Object> body = Map.of(
+                "usuario", "yanina",
+                "tipoDoc", "FC",
+                "letraDoc", "A",
+                "puntoVenta", 31,
+                "numero", 1865,
+                "motivo", "Factura duplicada"
+        );
+
+        mockMvc.perform(post("/api/notificaciones/solicitar-anulacion")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje").value("Solicitud de anulación registrada y notificada con éxito"));
+
+        verify(notificacionService, times(1)).registrarSolicitudAnulacion(
+                "yanina", "FC", "A", 31, 1865, "Factura duplicada"
         );
     }
 }

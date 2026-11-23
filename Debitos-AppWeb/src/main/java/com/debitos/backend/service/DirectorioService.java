@@ -369,92 +369,46 @@ public class DirectorioService {
     }
 
     public List<DirectorioCoberturaDTO> obtenerCoberturasDisponibles(LocalDate fechaDesde, LocalDate fechaHasta, String criterioFecha) {
-        if (fechaDesde == null && fechaHasta == null) {
-            String sql = """
-                        SELECT DISTINCT codigo_cobertura, cobertura
-                        FROM cabecera
-                        WHERE codigo_cobertura IS NOT NULL AND TRIM(codigo_cobertura) <> ''
-                          AND UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FCA', 'FR', 'FCB')
-                          AND ptovta IN (30, 31, 32, 36, 53)
-                        ORDER BY cobertura ASC, codigo_cobertura ASC
-                    """;
-            Query q = entityManager.createNativeQuery(sql);
-            @SuppressWarnings("unchecked")
-            List<Object[]> rows = q.getResultList();
-            Map<String, DirectorioCoberturaDTO> mapa = new LinkedHashMap<>();
-            for (Object[] row : rows) {
-                String cod = row[0] != null ? row[0].toString().trim() : "";
-                String nom = row[1] != null && !row[1].toString().trim().isEmpty() ? row[1].toString().trim() : cod;
-                if (!cod.isEmpty() && !mapa.containsKey(cod.toLowerCase())) {
-                    mapa.put(cod.toLowerCase(), new DirectorioCoberturaDTO(cod, nom));
-                }
-            }
-            return new ArrayList<>(mapa.values());
-        }
-
         String criterio = (criterioFecha != null && !criterioFecha.trim().isEmpty())
                 ? criterioFecha.trim().toLowerCase()
                 : "periodo";
 
-        StringBuilder sql = new StringBuilder(CTE_ANULADOS_15D_CON_FC_MADRE);
-        sql.append("""
+        StringBuilder sql = new StringBuilder("""
                 SELECT DISTINCT
-                    COALESCE(NULLIF(TRIM(fc.codigo_cobertura), ''), NULLIF(TRIM(c_fc.codigo_cobertura), ''), NULLIF(TRIM(c_nc.codigo_cobertura), '')) AS codigo_cobertura,
-                    COALESCE(NULLIF(TRIM(fc.cobertura), ''), NULLIF(TRIM(c_fc.cobertura), ''), NULLIF(TRIM(c_nc.cobertura), '')) AS cobertura
-                FROM notadecredito nc
-                LEFT JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
-                LEFT JOIN amb_liquidado al ON nc.id_prestacion = al.id
-                LEFT JOIN cabecera c_fc ON al.idcabecera = c_fc.id
-                LEFT JOIN fc_madre fc ON COALESCE(c_nc.asociadogrupo, c_nc.grupo) = fc.gid
-                WHERE nc.motivodedebito IS NOT NULL
-                  AND TRIM(nc.motivodedebito) <> ''
-                  AND (c_nc.id IS NULL OR c_nc.id NOT IN (SELECT id FROM mv_ids_anulados))
-                  AND (NULLIF(TRIM(c_nc.codigo_cobertura), '') IS NULL OR NULLIF(TRIM(fc.codigo_cobertura), '') IS NULL OR UPPER(TRIM(c_nc.codigo_cobertura)) = UPPER(TRIM(fc.codigo_cobertura)))
-                  AND (c_fc.id IS NULL OR (c_fc.id NOT IN (SELECT id FROM mv_ids_anulados) AND c_fc.ptovta IN (30, 31, 32, 36, 53)))
-                  AND (
-                      c_nc.asociado IS NULL
-                      OR NOT EXISTS (
-                          SELECT 1 FROM cabecera c_asoc
-                          WHERE (c_asoc.id = c_nc.asociado OR c_asoc.id = (SELECT c_sub.asociado FROM cabecera c_sub WHERE c_sub.id = c_nc.asociado))
-                            AND UPPER(TRIM(c_asoc.tipo)) IN ('FC','FAC','FCE','FCA')
-                            AND (c_asoc.ptovta IS NULL OR c_asoc.ptovta NOT IN (30, 31, 32, 36, 53))
-                      )
-                  )
+                    TRIM(c.codigo_cobertura) AS codigo_cobertura,
+                    TRIM(c.cobertura) AS cobertura
+                FROM cabecera c
+                WHERE c.codigo_cobertura IS NOT NULL AND TRIM(c.codigo_cobertura) <> ''
+                  AND UPPER(TRIM(c.tipo)) IN ('FAC', 'FC', 'FCE', 'FCA', 'FR', 'FCB')
+                  AND c.ptovta IN (30, 31, 32, 36, 53)
+                  AND c.id NOT IN (SELECT id FROM mv_ids_anulados)
                 """);
 
         if ("fecha".equals(criterio)) {
-            sql.append(" AND COALESCE(c_fc.fecha, fc.fecha) IS NOT NULL");
-            sql.append(" AND fc.gid IS NOT NULL");
             if (fechaDesde != null) {
-                sql.append(" AND COALESCE(c_fc.fecha, fc.fecha) >= :fechaDesde");
+                sql.append(" AND c.fecha >= :fechaDesde");
             }
             if (fechaHasta != null) {
-                sql.append(" AND COALESCE(c_fc.fecha, fc.fecha) <= :fechaHasta");
+                sql.append(" AND c.fecha <= :fechaHasta");
             }
         } else if ("analisis".equals(criterio)) {
-            sql.append(" AND COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) IS NOT NULL");
             if (fechaDesde != null) {
-                sql.append(" AND COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) >= :fechaDesde");
+                sql.append(" AND COALESCE(c.fecha, c.periodo) >= :fechaDesde");
             }
             if (fechaHasta != null) {
-                sql.append(" AND COALESCE(c_nc.fecha, nc.fecha_registro::date, c_fc.fecha) <= :fechaHasta");
+                sql.append(" AND COALESCE(c.fecha, c.periodo) <= :fechaHasta");
             }
         } else {
-            // "periodo" por defecto
-            sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) IS NOT NULL");
-            sql.append(" AND fc.gid IS NOT NULL");
+            // "periodo" por defecto: respeta período corregido o período contable de factura
             if (fechaDesde != null) {
-                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) >= :fechaDesde");
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) >= :fechaDesde");
             }
             if (fechaHasta != null) {
-                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c_fc.id), c_fc.periodo, fc.periodo, c_fc.fecha, fc.fecha) <= :fechaHasta");
+                sql.append(" AND COALESCE((SELECT fpc.periodo_corregido FROM facturas_periodos_corregidos fpc WHERE fpc.id_cabecera = c.id), c.periodo, c.fecha) <= :fechaHasta");
             }
         }
 
-        sql.append("""
-                 AND COALESCE(NULLIF(TRIM(fc.codigo_cobertura), ''), NULLIF(TRIM(c_fc.codigo_cobertura), ''), NULLIF(TRIM(c_nc.codigo_cobertura), '')) IS NOT NULL
-                 ORDER BY cobertura ASC, codigo_cobertura ASC
-                """);
+        sql.append(" ORDER BY cobertura ASC, codigo_cobertura ASC");
 
         Query q = entityManager.createNativeQuery(sql.toString());
         if (fechaDesde != null) {

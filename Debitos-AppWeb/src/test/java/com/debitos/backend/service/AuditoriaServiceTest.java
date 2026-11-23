@@ -54,6 +54,12 @@ class AuditoriaServiceTest {
     @Mock
     private AmbLiquidadoManualRepository ambLiquidadoManualRepository;
 
+    @Mock
+    private com.debitos.backend.repository.ComprobanteAnuladoRepository comprobanteAnuladoRepository;
+
+    @Mock
+    private com.debitos.backend.repository.FacturaAnuladaManualRepository facturaAnuladaManualRepository;
+
     @InjectMocks
     private AuditoriaService auditoriaService;
 
@@ -2454,6 +2460,352 @@ class AuditoriaServiceTest {
         assertEquals(777, response.getIdsMapeados().get(-1));
         // No se debe volver a guardar en ambLiquidadoRepository porque ya existía
         verify(ambLiquidadoRepository, never()).save(any(AmbLiquidado.class));
+    }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - NC anulada por ND con <= 15 días y mismo monto neto se marca como ANULADO y ANULADOR")
+    void testObtenerHistorialComprobantes_NcAnuladaPorNd_MismoMontoMenor15Dias() {
+        Cabecera fc = new Cabecera();
+        fc.setId(100L);
+        fc.setTipo("FC");
+        fc.setLetra("A");
+        fc.setPtovta(31);
+        fc.setNumero(1865);
+        fc.setFecha(LocalDate.of(2026, 5, 1));
+        fc.setPeriodo(LocalDate.of(2026, 5, 1));
+        fc.setDebe(new BigDecimal("151804189.73"));
+        fc.setAsociadogrupo(100L);
+        fc.setAsociado(100L);
+
+        // NCE 888 generada el 19/08/2026
+        Cabecera nc = new Cabecera();
+        nc.setId(101L);
+        nc.setTipo("NCE");
+        nc.setLetra("A");
+        nc.setPtovta(31);
+        nc.setNumero(888);
+        nc.setFecha(LocalDate.of(2026, 8, 19));
+        nc.setHaber(new BigDecimal("34749129.17"));
+        nc.setAsociadogrupo(100L);
+        nc.setAsociado(100L);
+
+        // NDE 494 generada el 24/08/2026 (5 días después) por el mismo monto
+        Cabecera nd = new Cabecera();
+        nd.setId(102L);
+        nd.setTipo("NDE");
+        nd.setLetra("A");
+        nd.setPtovta(31);
+        nd.setNumero(494);
+        nd.setFecha(LocalDate.of(2026, 8, 24));
+        nd.setDebe(new BigDecimal("34749129.17"));
+        nd.setAsociadogrupo(100L);
+        nd.setAsociado(101L); // Apunta a NC 101
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(31), eq(888)))
+                .thenReturn(List.of(nc));
+        lenient().when(cabeceraRepository.findById(100L)).thenReturn(Optional.of(fc));
+        lenient().when(cabeceraRepository.findById(101L)).thenReturn(Optional.of(nc));
+        lenient().when(cabeceraRepository.findById(102L)).thenReturn(Optional.of(nd));
+        when(cabeceraRepository.findByAsociadogrupo(100L)).thenReturn(List.of(fc, nc, nd));
+        when(cabeceraRepository.findByAsociadoIn(anyCollection())).thenReturn(Collections.emptyList());
+
+        when(ambLiquidadoRepository.findTotalesFacturaMadre("A", 31, 1865))
+                .thenReturn(new Object[][]{{"2026-05", "151804189.73", "0.00"}});
+        when(ambLiquidadoRepository.findByCabecera_Id(100L)).thenReturn(Collections.emptyList());
+        when(notaDeCreditoRepository.findByCabecera_Id(101L)).thenReturn(Collections.emptyList());
+        when(notaDeDebitoRepository.findByCabecera_Id(102L)).thenReturn(Collections.emptyList());
+        when(ndAjusteDeIvaRepository.findByCabecera_Id(101L)).thenReturn(Optional.empty());
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("NCE", "A", 31, 888);
+
+        assertNotNull(historial);
+        assertEquals(3, historial.size());
+
+        FilaHistorialDTO filaNc = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 888).findFirst().orElseThrow();
+        FilaHistorialDTO filaNd = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 494).findFirst().orElseThrow();
+
+        assertTrue(filaNc.isAnulado(), "La NCE 888 debe marcarse como anulada");
+        assertFalse(filaNc.isAnulador());
+        assertNotNull(filaNc.getDetalleAnulacion());
+        assertTrue(filaNc.getDetalleAnulacion().contains("NDE A-0031-00000494"));
+
+        assertFalse(filaNd.isAnulado());
+        assertTrue(filaNd.isAnulador(), "La NDE 494 debe marcarse como anuladora");
+        assertNotNull(filaNd.getDetalleAnulacion());
+        assertTrue(filaNd.getDetalleAnulacion().contains("NCE A-0031-00000888"));
+    }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - ND emitida más de 15 días después NO anula a la NC")
+    void testObtenerHistorialComprobantes_DiferenciaMayor15Dias_NoSeMarcaAnulado() {
+        Cabecera fc = new Cabecera();
+        fc.setId(200L);
+        fc.setTipo("FC");
+        fc.setLetra("A");
+        fc.setPtovta(31);
+        fc.setNumero(1865);
+        fc.setFecha(LocalDate.of(2026, 5, 1));
+        fc.setPeriodo(LocalDate.of(2026, 5, 1));
+        fc.setDebe(new BigDecimal("151804189.73"));
+        fc.setAsociadogrupo(200L);
+        fc.setAsociado(200L);
+
+        // NCE 898 emitida el 24/08/2026
+        Cabecera nc = new Cabecera();
+        nc.setId(201L);
+        nc.setTipo("NCE");
+        nc.setLetra("A");
+        nc.setPtovta(31);
+        nc.setNumero(898);
+        nc.setFecha(LocalDate.of(2026, 8, 24));
+        nc.setHaber(new BigDecimal("34588581.90"));
+        nc.setAsociadogrupo(200L);
+        nc.setAsociado(200L);
+
+        // ND 1137 emitida meses antes o después (> 15 días)
+        Cabecera nd = new Cabecera();
+        nd.setId(202L);
+        nd.setTipo("ND");
+        nd.setLetra("A");
+        nd.setPtovta(32);
+        nd.setNumero(1137);
+        nd.setFecha(LocalDate.of(2024, 4, 9)); // Más de 15 días
+        nd.setDebe(new BigDecimal("34588581.90"));
+        nd.setAsociadogrupo(200L);
+        nd.setAsociado(201L);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(31), eq(898)))
+                .thenReturn(List.of(nc));
+        when(cabeceraRepository.findById(200L)).thenReturn(Optional.of(fc));
+        when(cabeceraRepository.findByAsociadogrupo(200L)).thenReturn(List.of(fc, nc, nd));
+        when(cabeceraRepository.findByAsociadoIn(anyCollection())).thenReturn(Collections.emptyList());
+
+        when(ambLiquidadoRepository.findTotalesFacturaMadre("A", 31, 1865))
+                .thenReturn(new Object[][]{{"2026-05", "151804189.73", "0.00"}});
+        when(ambLiquidadoRepository.findByCabecera_Id(200L)).thenReturn(Collections.emptyList());
+        when(notaDeCreditoRepository.findByCabecera_Id(201L)).thenReturn(Collections.emptyList());
+        when(notaDeDebitoRepository.findByCabecera_Id(202L)).thenReturn(Collections.emptyList());
+        when(ndAjusteDeIvaRepository.findByCabecera_Id(201L)).thenReturn(Optional.empty());
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("NCE", "A", 31, 898);
+
+        assertNotNull(historial);
+        FilaHistorialDTO filaNc = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 898).findFirst().orElseThrow();
+        FilaHistorialDTO filaNd = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 1137).findFirst().orElseThrow();
+
+        assertFalse(filaNc.isAnulado(), "La NCE 898 no debe marcarse como anulada porque la diferencia supera los 15 días");
+        assertFalse(filaNd.isAnulador(), "La ND 1137 no debe marcarse como anuladora");
+    }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - Relación mutua NCE y NDE asigna ANULADO a la anterior y ANULADOR a la posterior con exclusión mutua")
+    void testObtenerHistorialComprobantes_RelacionMutua_ExclusionMutua() {
+        Cabecera fc = new Cabecera();
+        fc.setId(100L);
+        fc.setTipo("FC");
+        fc.setLetra("A");
+        fc.setPtovta(31);
+        fc.setNumero(1865);
+        fc.setFecha(LocalDate.of(2026, 5, 1));
+        fc.setDebe(new BigDecimal("151804189.73"));
+        fc.setAsociadogrupo(100L);
+        fc.setAsociado(100L);
+
+        // NCE 888 emitida el 19/08/2026 (anterior -> debe ser ANULADO)
+        Cabecera nc = new Cabecera();
+        nc.setId(101L);
+        nc.setTipo("NCE");
+        nc.setLetra("A");
+        nc.setPtovta(31);
+        nc.setNumero(888);
+        nc.setFecha(LocalDate.of(2026, 8, 19));
+        nc.setHaber(new BigDecimal("34749129.17"));
+        nc.setAsociadogrupo(100L);
+        nc.setAsociado(102L); // Apunta mutuamente a ND 102
+
+        // NDE 494 emitida el 24/08/2026 (posterior -> debe ser ANULADOR)
+        Cabecera nd = new Cabecera();
+        nd.setId(102L);
+        nd.setTipo("NDE");
+        nd.setLetra("A");
+        nd.setPtovta(31);
+        nd.setNumero(494);
+        nd.setFecha(LocalDate.of(2026, 8, 24));
+        nd.setDebe(new BigDecimal("34749129.17"));
+        nd.setAsociadogrupo(100L);
+        nd.setAsociado(101L); // Apunta mutuamente a NC 101
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(31), eq(888)))
+                .thenReturn(List.of(nc));
+        lenient().when(cabeceraRepository.findById(100L)).thenReturn(Optional.of(fc));
+        lenient().when(cabeceraRepository.findById(101L)).thenReturn(Optional.of(nc));
+        lenient().when(cabeceraRepository.findById(102L)).thenReturn(Optional.of(nd));
+        when(cabeceraRepository.findByAsociadogrupo(100L)).thenReturn(List.of(fc, nc, nd));
+        when(cabeceraRepository.findByAsociadoIn(anyCollection())).thenReturn(Collections.emptyList());
+
+        when(ambLiquidadoRepository.findTotalesFacturaMadre("A", 31, 1865))
+                .thenReturn(new Object[][]{{"2026-05", "151804189.73", "0.00"}});
+        when(ambLiquidadoRepository.findByCabecera_Id(100L)).thenReturn(Collections.emptyList());
+        when(notaDeCreditoRepository.findByCabecera_Id(101L)).thenReturn(Collections.emptyList());
+        when(notaDeDebitoRepository.findByCabecera_Id(102L)).thenReturn(Collections.emptyList());
+        when(ndAjusteDeIvaRepository.findByCabecera_Id(101L)).thenReturn(Optional.empty());
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("NCE", "A", 31, 888);
+
+        assertNotNull(historial);
+        FilaHistorialDTO filaNc = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 888).findFirst().orElseThrow();
+        FilaHistorialDTO filaNd = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 494).findFirst().orElseThrow();
+
+        // NCE 888: solo ANULADO
+        assertTrue(filaNc.isAnulado(), "NCE 888 debe ser ANULADO");
+        assertFalse(filaNc.isAnulador(), "NCE 888 NO debe ser ANULADOR");
+
+        // NDE 494: solo ANULADOR
+        assertFalse(filaNd.isAnulado(), "NDE 494 NO debe ser ANULADO");
+        assertTrue(filaNd.isAnulador(), "NDE 494 debe ser ANULADOR");
+
+        // Ningún comprobante puede tener ambas marcas activas
+        for (FilaHistorialDTO fila : historial) {
+            assertFalse(fila.isAnulado() && fila.isAnulador(),
+                    "Ningún comprobante debe tener activas simultáneamente las marcas ANULADO y ANULADOR");
+        }
+    }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - Anulador manual tiene prioridad sobre comprobantes_anulados y recibe rol ANULADOR")
+    void testObtenerHistorialComprobantes_AnuladorManualPrioridadSobreComprobantesAnulados() {
+        Cabecera fc = new Cabecera();
+        fc.setId(500L);
+        fc.setTipo("FC");
+        fc.setLetra("A");
+        fc.setPtovta(31);
+        fc.setNumero(1865);
+        fc.setFecha(LocalDate.of(2026, 5, 1));
+        fc.setDebe(new BigDecimal("151804189.73"));
+        fc.setAsociadogrupo(500L);
+        fc.setAsociado(500L);
+
+        // NCE 888 registrada como ANULADA manualmente
+        Cabecera nc = new Cabecera();
+        nc.setId(501L);
+        nc.setTipo("NCE");
+        nc.setLetra("A");
+        nc.setPtovta(31);
+        nc.setNumero(888);
+        nc.setFecha(LocalDate.of(2026, 8, 19));
+        nc.setHaber(new BigDecimal("34749129.17"));
+        nc.setAsociadogrupo(500L);
+        nc.setAsociado(500L); // Ambos apuntan a la FC raíz directamente
+
+        // NDE 494 registrada como ANULADOR en facturas_anuladas_manual pero presente en comprobantes_anulados
+        Cabecera nd = new Cabecera();
+        nd.setId(502L);
+        nd.setTipo("NDE");
+        nd.setLetra("A");
+        nd.setPtovta(31);
+        nd.setNumero(494);
+        nd.setFecha(LocalDate.of(2026, 8, 24));
+        nd.setDebe(new BigDecimal("34749129.17"));
+        nd.setAsociadogrupo(500L);
+        nd.setAsociado(500L); // Ambos apuntan a la FC raíz directamente
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(31), eq(888)))
+                .thenReturn(List.of(nc));
+        lenient().when(cabeceraRepository.findById(500L)).thenReturn(Optional.of(fc));
+        lenient().when(cabeceraRepository.findById(501L)).thenReturn(Optional.of(nc));
+        lenient().when(cabeceraRepository.findById(502L)).thenReturn(Optional.of(nd));
+        when(cabeceraRepository.findByAsociadogrupo(500L)).thenReturn(List.of(fc, nc, nd));
+        when(cabeceraRepository.findByAsociadoIn(anyCollection())).thenReturn(Collections.emptyList());
+
+        when(ambLiquidadoRepository.findTotalesFacturaMadre("A", 31, 1865))
+                .thenReturn(new Object[][]{{"2026-05", "151804189.73", "0.00"}});
+        when(ambLiquidadoRepository.findByCabecera_Id(500L)).thenReturn(Collections.emptyList());
+        when(notaDeCreditoRepository.findByCabecera_Id(501L)).thenReturn(Collections.emptyList());
+        when(notaDeDebitoRepository.findByCabecera_Id(502L)).thenReturn(Collections.emptyList());
+        when(ndAjusteDeIvaRepository.findByCabecera_Id(501L)).thenReturn(Optional.empty());
+
+        // Simulamos que la NDE 494 estaba registrada en comprobantes_anulados histórica
+        when(comprobanteAnuladoRepository.findIdsCabeceraAnulados()).thenReturn(List.of(502L));
+        // Y en facturas_anuladas_manual: 501 anulada, 502 anulador
+        when(facturaAnuladaManualRepository.findIdsCabeceraAnuladasManual()).thenReturn(List.of(501L));
+        when(facturaAnuladaManualRepository.findIdsCabeceraAnuladoresManual()).thenReturn(List.of(502L));
+
+        com.debitos.backend.model.FacturaAnuladaManual fam = new com.debitos.backend.model.FacturaAnuladaManual();
+        fam.setIdCabecera(501L);
+        fam.setCabecera(nc);
+        fam.setIdCabeceraAnulador(502L);
+        fam.setCabeceraAnulador(nd);
+        fam.setAnulada(true);
+
+        when(facturaAnuladaManualRepository.findActivasPorIdsCabeceraOAnulador(anyCollection()))
+                .thenReturn(List.of(fam));
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("NCE", "A", 31, 888);
+
+        assertNotNull(historial);
+        FilaHistorialDTO filaNc = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 888).findFirst().orElseThrow();
+        FilaHistorialDTO filaNd = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 494).findFirst().orElseThrow();
+
+        // NCE 888: solo ANULADO
+        assertTrue(filaNc.isAnulado(), "NCE 888 debe ser ANULADO");
+        assertFalse(filaNc.isAnulador(), "NCE 888 NO debe ser ANULADOR");
+        assertNotNull(filaNc.getDetalleAnulacion());
+        assertTrue(filaNc.getDetalleAnulacion().contains("NDE A-0031-00000494"));
+
+        // NDE 494: solo ANULADOR (aunque estaba en comprobantes_anulados)
+        assertFalse(filaNd.isAnulado(), "NDE 494 NO debe ser ANULADO a pesar de estar en comprobantes_anulados");
+        assertTrue(filaNd.isAnulador(), "NDE 494 debe ser ANULADOR");
+        assertNotNull(filaNd.getDetalleAnulacion());
+        assertTrue(filaNd.getDetalleAnulacion().contains("NCE A-0031-00000888"));
+    }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - Marca solicitudAnulacionPendiente si existe notificación activa")
+    void testObtenerHistorialComprobantes_MarcaSolicitudAnulacionPendiente() {
+        Cabecera fc = new Cabecera();
+        fc.setId(600L);
+        fc.setTipo("FC");
+        fc.setLetra("A");
+        fc.setPtovta(31);
+        fc.setNumero(1865);
+        fc.setAsociadogrupo(600L);
+        fc.setAsociado(600L);
+
+        Cabecera nde = new Cabecera();
+        nde.setId(601L);
+        nde.setTipo("NDE");
+        nde.setLetra("A");
+        nde.setPtovta(32);
+        nde.setNumero(1137);
+        nde.setAsociadogrupo(600L);
+        nde.setAsociado(600L);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(31), eq(1865)))
+                .thenReturn(List.of(fc));
+        when(cabeceraRepository.findByAsociadogrupo(600L))
+                .thenReturn(List.of(fc, nde));
+
+        com.debitos.backend.model.Notificacion notif = new com.debitos.backend.model.Notificacion(
+                "SOLICITUD_ANULACION_DOCUMENTO",
+                "Solicitud de Anulación",
+                "Mensaje",
+                "OPERADOR_CONTADURIA",
+                "PaolaBurniego",
+                "NDE",
+                "A",
+                32,
+                1137
+        );
+        when(notificacionService.obtenerSolicitudesAnulacion()).thenReturn(List.of(notif));
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("FC", "A", 31, 1865);
+
+        assertNotNull(historial);
+        FilaHistorialDTO filaNde = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 1137).findFirst().orElseThrow();
+        assertTrue(filaNde.isSolicitudAnulacionPendiente(), "NDE 1137 debe tener solicitudAnulacionPendiente = true");
+
+        FilaHistorialDTO filaFc = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 1865).findFirst().orElseThrow();
+        assertFalse(filaFc.isSolicitudAnulacionPendiente(), "FC 1865 no tiene solicitud pendiente");
     }
 }
 

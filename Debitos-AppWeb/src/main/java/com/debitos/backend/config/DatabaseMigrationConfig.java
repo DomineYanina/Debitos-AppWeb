@@ -26,6 +26,23 @@ public class DatabaseMigrationConfig {
             @Autowired(required = false) @Qualifier("gestionJdbcTemplate") NamedParameterJdbcTemplate gestionJdbcTemplate) {
         return args -> {
             try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS notificacion_lecturas (
+                        id BIGSERIAL PRIMARY KEY,
+                        notificacion_id BIGINT NOT NULL REFERENCES notificaciones(id) ON DELETE CASCADE,
+                        usuario VARCHAR(100) NOT NULL,
+                        fecha_lectura TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                        CONSTRAINT uk_notif_lectura_usuario UNIQUE (notificacion_id, usuario)
+                    )
+                """);
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notif_lecturas_user ON notificacion_lecturas (usuario)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_notif_lecturas_notif ON notificacion_lecturas (notificacion_id)");
+                log.info("Migración automática aplicada: tabla notificacion_lecturas e índices asegurados.");
+            } catch (Exception e) {
+                log.warn("Aviso migración notificacion_lecturas: {}", e.getMessage());
+            }
+
+            try {
                 jdbcTemplate.execute("ALTER TABLE registro_imputacion ALTER COLUMN tipo_imputacion TYPE VARCHAR(100)");
                 log.info("Migración automática aplicada: registro_imputacion.tipo_imputacion ampliado a VARCHAR(100).");
             } catch (Exception e) {
@@ -371,6 +388,7 @@ public class DatabaseMigrationConfig {
                                                     JOIN cct_comprobantes c ON a.idcomprobante = c.idcomprobante
                                                     JOIN cct_comprobantes_tipo t ON c.idtipocomp = t.idtipocomp
                                                     WHERE UPPER(TRIM(t.abreviatura)) IN ('RC', 'REC', 'RCA', 'RCB', 'OP')
+                                                      AND t.idtipo = 1
                                                       AND ((c.numero IS NOT NULL AND TRIM(c.numero) ~ '^[0-9]+$')
                                                            OR (c.num8 IS NOT NULL AND TRIM(c.num8) ~ '^[0-9]+$'))
                                                     ORDER BY a.idgrupocomp, c.idcomprobante DESC
@@ -405,6 +423,7 @@ public class DatabaseMigrationConfig {
                                         JOIN cct_comprobantes c ON a.idcomprobante = c.idcomprobante
                                         JOIN cct_comprobantes_tipo t ON c.idtipocomp = t.idtipocomp
                                         WHERE UPPER(TRIM(t.abreviatura)) IN ('RC', 'REC', 'RCA', 'RCB', 'OP')
+                                          AND t.idtipo = 1
                                           AND ((c.numero IS NOT NULL AND TRIM(c.numero) ~ '^[0-9]+$')
                                                OR (c.num8 IS NOT NULL AND TRIM(c.num8) ~ '^[0-9]+$'))
                                         ORDER BY a.idgrupocomp, c.idcomprobante DESC
@@ -832,6 +851,343 @@ public class DatabaseMigrationConfig {
                 log.info("Migración automática aplicada: columna idcabecera_factura_destino verificada/creada en notadecredito.");
             } catch (Exception e) {
                 log.debug("Aviso migración notadecredito.idcabecera_factura_destino: {}", e.getMessage());
+            }
+
+            // =========================================================================
+            // MIGRACIÓN: Módulo Gestión Contable (Tablas y columnas requeridas)
+            // =========================================================================
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS facturas_anuladas_manual (
+                        id_cabecera BIGINT PRIMARY KEY,
+                        anulada BOOLEAN NOT NULL DEFAULT TRUE
+                    )
+                """);
+                jdbcTemplate.execute("ALTER TABLE facturas_anuladas_manual ADD COLUMN IF NOT EXISTS id_cabecera_anulador BIGINT");
+                jdbcTemplate.execute("ALTER TABLE facturas_anuladas_manual ADD COLUMN IF NOT EXISTS fecha_anulacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP");
+                jdbcTemplate.execute("ALTER TABLE facturas_anuladas_manual ADD COLUMN IF NOT EXISTS usuario VARCHAR(100)");
+                jdbcTemplate.execute("ALTER TABLE facturas_anuladas_manual DROP COLUMN IF EXISTS comprobante_anulador");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_fam_anulador ON facturas_anuladas_manual (id_cabecera_anulador)");
+                log.info("Migración automática aplicada: columnas de comprobante anulador verificadas/creadas en facturas_anuladas_manual (comprobante_anulador redundante descartado).");
+            } catch (Exception e) {
+                log.debug("Aviso migración facturas_anuladas_manual: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS tipo_operacion (
+                        id SERIAL PRIMARY KEY,
+                        codigo VARCHAR(50) UNIQUE NOT NULL,
+                        descripcion VARCHAR(150) NOT NULL
+                    )
+                """);
+                jdbcTemplate.execute("""
+                    INSERT INTO tipo_operacion (codigo, descripcion) VALUES
+                        ('COBERTURA_RENOMBRE', 'Cambio de nombre a mostrar de cobertura'),
+                        ('PERIODO_CORRECCION', 'Corrección del período de factura'),
+                        ('PRESTACION_ESTADO', 'Modificación de estado de prestación (Considerar / No considerar)'),
+                        ('FACTURA_ANULADA_MANUAL', 'Anulación manual de factura en Débitos'),
+                        ('FACTURA_DESANULADA_MANUAL', 'Reversión de anulación manual de factura')
+                    ON CONFLICT (codigo) DO NOTHING
+                """);
+            } catch (Exception e) {
+                log.debug("Aviso migración tipo_operacion: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS historial_ajustes_contabilidad (
+                        id BIGSERIAL PRIMARY KEY,
+                        id_tipo_operacion INTEGER NOT NULL,
+                        referencia VARCHAR(150) NOT NULL,
+                        valor_anterior TEXT,
+                        valor_nuevo TEXT,
+                        usuario VARCHAR(100) NOT NULL,
+                        fecha_hora TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """);
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_historial_contab_tipo ON historial_ajustes_contabilidad (id_tipo_operacion)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_historial_contab_ref ON historial_ajustes_contabilidad (referencia)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_historial_contab_fecha ON historial_ajustes_contabilidad (fecha_hora DESC)");
+            } catch (Exception e) {
+                log.debug("Aviso migración historial_ajustes_contabilidad: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS coberturas_alias (
+                        codigo_cobertura VARCHAR(50) PRIMARY KEY,
+                        nombre_original VARCHAR(255),
+                        nombre_mostrar VARCHAR(255) NOT NULL
+                    )
+                """);
+            } catch (Exception e) {
+                log.debug("Aviso migración coberturas_alias: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS facturas_periodos_corregidos (
+                        id_cabecera BIGINT PRIMARY KEY,
+                        periodo_original DATE,
+                        periodo_corregido DATE NOT NULL
+                    )
+                """);
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_fact_per_corregido ON facturas_periodos_corregidos (periodo_corregido)");
+            } catch (Exception e) {
+                log.debug("Aviso migración facturas_periodos_corregidos: {}", e.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS prestaciones_consideracion (
+                        codigo VARCHAR(50) PRIMARY KEY,
+                        descripcion VARCHAR(255),
+                        estado VARCHAR(20) NOT NULL DEFAULT 'Considerar',
+                        estado_ambulatorio VARCHAR(20) NOT NULL DEFAULT 'Considerar',
+                        estado_internado VARCHAR(20) NOT NULL DEFAULT 'Considerar'
+                    )
+                """);
+                jdbcTemplate.execute("ALTER TABLE prestaciones_consideracion ADD COLUMN IF NOT EXISTS estado_ambulatorio VARCHAR(20) NOT NULL DEFAULT 'Considerar'");
+                jdbcTemplate.execute("ALTER TABLE prestaciones_consideracion ADD COLUMN IF NOT EXISTS estado_internado VARCHAR(20) NOT NULL DEFAULT 'Considerar'");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_prestaciones_estado ON prestaciones_consideracion (estado)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_prestaciones_estado_amb ON prestaciones_consideracion (estado_ambulatorio)");
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_prestaciones_estado_int ON prestaciones_consideracion (estado_internado)");
+
+                Integer cantPrestaciones = jdbcTemplate.queryForObject(
+                        "SELECT count(*) FROM prestaciones_consideracion", Integer.class);
+                if (cantPrestaciones != null && cantPrestaciones < 50000) {
+                    log.info("Sincronizando prestaciones_consideracion desde cob_prestaciones (Gestión)...");
+                    try {
+                        jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS dblink");
+                        jdbcTemplate.execute("""
+                            CREATE TEMP TABLE IF NOT EXISTS temp_cob_prestaciones_mig (
+                                codigo VARCHAR(50) PRIMARY KEY,
+                                descripcion VARCHAR(255)
+                            ) ON COMMIT DROP;
+
+                            INSERT INTO temp_cob_prestaciones_mig (codigo, descripcion)
+                            SELECT DISTINCT ON (TRIM(codigo))
+                                TRIM(codigo) AS codigo,
+                                TRIM(COALESCE(descripcion, '')) AS descripcion
+                            FROM dblink(
+                                'host=172.16.15.41 port=9090 dbname=gestion user=yanina password=yanina**333-',
+                                $gestion$
+                                    SELECT codigo, descripcion, idprestacion
+                                    FROM cob_prestaciones
+                                    WHERE codigo IS NOT NULL AND TRIM(codigo) <> ''
+                                    ORDER BY TRIM(codigo), idprestacion DESC
+                                $gestion$
+                            ) AS cp(codigo VARCHAR, descripcion VARCHAR, idprestacion INT);
+
+                            DELETE FROM prestaciones_consideracion
+                            WHERE estado = 'Considerar'
+                              AND estado_ambulatorio = 'Considerar'
+                              AND estado_internado = 'Considerar'
+                              AND codigo NOT IN (SELECT codigo FROM temp_cob_prestaciones_mig);
+
+                            INSERT INTO prestaciones_consideracion (codigo, descripcion, estado, estado_ambulatorio, estado_internado)
+                            SELECT codigo, descripcion, 'Considerar', 'Considerar', 'Considerar'
+                            FROM temp_cob_prestaciones_mig
+                            ON CONFLICT (codigo) DO UPDATE
+                            SET descripcion = EXCLUDED.descripcion;
+                        """);
+                        log.info("Sincronización de prestaciones_consideracion desde cob_prestaciones finalizada exitosamente vía dblink.");
+                    } catch (Exception exDblink) {
+                        log.warn("No se pudo sincronizar vía dblink ({}), intentando vía gestionJdbcTemplate...", exDblink.getMessage());
+                        if (gestionJdbcTemplate != null) {
+                            List<Map<String, Object>> filasGestion = gestionJdbcTemplate.queryForList("""
+                                SELECT DISTINCT ON (TRIM(codigo))
+                                    TRIM(codigo) AS codigo,
+                                    TRIM(COALESCE(descripcion, '')) AS descripcion
+                                FROM cob_prestaciones
+                                WHERE codigo IS NOT NULL AND TRIM(codigo) <> ''
+                                ORDER BY TRIM(codigo), idprestacion DESC
+                            """, Collections.emptyMap());
+
+                            if (!filasGestion.isEmpty()) {
+                                List<Object[]> batch = new ArrayList<>();
+                                for (Map<String, Object> row : filasGestion) {
+                                    String c = (String) row.get("codigo");
+                                    String d = (String) row.get("descripcion");
+                                    if (c != null && !c.isBlank()) {
+                                        batch.add(new Object[] { c, d });
+                                    }
+                                }
+
+                                jdbcTemplate.batchUpdate("""
+                                    INSERT INTO prestaciones_consideracion (codigo, descripcion, estado, estado_ambulatorio, estado_internado)
+                                    VALUES (?, ?, 'Considerar', 'Considerar', 'Considerar')
+                                    ON CONFLICT (codigo) DO UPDATE
+                                    SET descripcion = EXCLUDED.descripcion
+                                """, batch);
+
+                                log.info("Sincronización de prestaciones_consideracion vía gestionJdbcTemplate completada: {} filas.", batch.size());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Aviso migración prestaciones_consideracion: {}", e.getMessage());
+            }
+
+            // =========================================================================
+            // MIGRACIÓN: Backfill y propagación de tiporegistro (Ambulatorios / Internados)
+            // =========================================================================
+            try {
+                jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_cabecera_tiporegistro ON cabecera (tiporegistro)");
+
+                Integer facturasSinTipo = jdbcTemplate.queryForObject("""
+                    SELECT count(*) FROM cabecera
+                    WHERE UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                      AND tiporegistro IS NULL
+                """, Integer.class);
+
+                if (facturasSinTipo != null && facturasSinTipo > 0) {
+                    log.info("Iniciando migración de tiporegistro: se detectaron {} facturas sin tiporegistro...", facturasSinTipo);
+
+                    // 1. Población desde prestaciones locales en amb_liquidado
+                    try {
+                        int desdeAmb = jdbcTemplate.update("""
+                            UPDATE cabecera c
+                            SET tiporegistro = sub.tiporegistro
+                            FROM (
+                                SELECT idcabecera, tiporegistro
+                                FROM (
+                                    SELECT idcabecera, tiporegistro,
+                                           ROW_NUMBER() OVER(PARTITION BY idcabecera ORDER BY COUNT(*) DESC) as rn
+                                    FROM amb_liquidado
+                                    WHERE idcabecera IS NOT NULL AND tiporegistro IN ('Ambulatorios', 'Internados')
+                                    GROUP BY idcabecera, tiporegistro
+                                ) t
+                                WHERE t.rn = 1
+                            ) sub
+                            WHERE c.id = sub.idcabecera
+                              AND c.tiporegistro IS NULL
+                        """);
+                        if (desdeAmb > 0) {
+                            log.info("Migración tiporegistro: {} cabeceras actualizadas desde amb_liquidado local.", desdeAmb);
+                        }
+                    } catch (Exception exAmb) {
+                        log.warn("Aviso migración tiporegistro desde amb_liquidado: {}", exAmb.getMessage());
+                    }
+
+                    // 2. Población desde cob_liquidaciones en Gestión (vía dblink o consulta directa)
+                    boolean completadoDblink = false;
+                    try {
+                        int desdeGestion = jdbcTemplate.update("""
+                            UPDATE cabecera c
+                            SET tiporegistro = CASE 
+                                WHEN UPPER(TRIM(g.ambint)) = 'I' THEN 'Internados'
+                                WHEN UPPER(TRIM(g.ambint)) = 'A' THEN 'Ambulatorios'
+                                ELSE NULL
+                            END
+                            FROM (
+                                SELECT DISTINCT ON (letra, num4, num8) letra, num4, num8, ambint
+                                FROM dblink('host=172.16.15.41 port=9090 dbname=gestion user=yanina password=yanina**333-',
+                                            'SELECT letra, num4, num8, ambint, idliquidacion FROM cob_liquidaciones WHERE ambint IN (''A'', ''I'') ORDER BY letra, num4, num8, idliquidacion DESC')
+                                    AS t(letra varchar, num4 varchar, num8 varchar, ambint varchar, idliquidacion int)
+                            ) g
+                            WHERE c.letra = g.letra
+                              AND LPAD(c.ptovta::text, 4, '0') = g.num4
+                              AND LPAD(c.numero::text, 8, '0') = g.num8
+                              AND UPPER(TRIM(c.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                              AND c.tiporegistro IS NULL
+                        """);
+                        completadoDblink = true;
+                        log.info("Migración tiporegistro vía dblink: {} facturas actualizadas desde cob_liquidaciones.", desdeGestion);
+                    } catch (Exception exDblink) {
+                        log.warn("No se pudo ejecutar actualización de tiporegistro vía dblink ({}). Intentando vía gestiónJdbcTemplate...", exDblink.getMessage());
+                    }
+
+                    if (!completadoDblink && gestionJdbcTemplate != null) {
+                        try {
+                            List<Map<String, Object>> liqs = gestionJdbcTemplate.queryForList("""
+                                SELECT DISTINCT ON (letra, num4, num8)
+                                    letra, num4, num8, ambint
+                                FROM cob_liquidaciones
+                                WHERE ambint IN ('A', 'I')
+                                ORDER BY letra, num4, num8, idliquidacion DESC
+                            """, Collections.emptyMap());
+
+                            List<Object[]> batchParams = new ArrayList<>(liqs.size());
+                            for (Map<String, Object> row : liqs) {
+                                String letra = (String) row.get("letra");
+                                String num4Str = (String) row.get("num4");
+                                String num8Str = (String) row.get("num8");
+                                String ambint = (String) row.get("ambint");
+                                if (letra != null && num4Str != null && num8Str != null && ambint != null) {
+                                    try {
+                                        int p = Integer.parseInt(num4Str.trim());
+                                        int n = Integer.parseInt(num8Str.trim());
+                                        String tr = "I".equalsIgnoreCase(ambint.trim()) ? "Internados" : "Ambulatorios";
+                                        batchParams.add(new Object[] { tr, letra.trim().toUpperCase(), p, n });
+                                    } catch (NumberFormatException ignored) {}
+                                }
+                            }
+
+                            if (!batchParams.isEmpty()) {
+                                int batchSize = 2000;
+                                int totalActualizados = 0;
+                                for (int i = 0; i < batchParams.size(); i += batchSize) {
+                                    List<Object[]> sub = batchParams.subList(i, Math.min(i + batchSize, batchParams.size()));
+                                    int[] res = jdbcTemplate.batchUpdate("""
+                                        UPDATE cabecera
+                                        SET tiporegistro = ?
+                                        WHERE UPPER(TRIM(letra)) = ?
+                                          AND ptovta = ?
+                                          AND numero = ?
+                                          AND UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                                          AND tiporegistro IS NULL
+                                    """, sub);
+                                    for (int r : res) {
+                                        if (r > 0) totalActualizados += r;
+                                    }
+                                }
+                                log.info("Migración tiporegistro vía JDBC directo: {} facturas actualizadas desde Gestión.", totalActualizados);
+                            }
+                        } catch (Exception exDirect) {
+                            log.error("Error al migrar tiporegistro vía JDBC directo: {}", exDirect.getMessage(), exDirect);
+                        }
+                    }
+
+                    // 3. Propagación de tiporegistro a documentos hijos (asociado directo, asociadogrupo, grupo)
+                    int propAsociado = jdbcTemplate.update("""
+                        UPDATE cabecera c_hijo
+                        SET tiporegistro = c_padre.tiporegistro
+                        FROM cabecera c_padre
+                        WHERE c_hijo.asociado = c_padre.id
+                          AND c_padre.tiporegistro IS NOT NULL
+                          AND c_hijo.tiporegistro IS NULL
+                    """);
+
+                    int propGrupo = jdbcTemplate.update("""
+                        UPDATE cabecera c_hijo
+                        SET tiporegistro = c_fac.tiporegistro
+                        FROM cabecera c_fac
+                        WHERE c_hijo.asociadogrupo = c_fac.asociadogrupo
+                          AND c_fac.asociadogrupo IS NOT NULL AND c_fac.asociadogrupo > 0
+                          AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                          AND c_fac.tiporegistro IS NOT NULL
+                          AND c_hijo.tiporegistro IS NULL
+                    """);
+
+                    int propLegacy = jdbcTemplate.update("""
+                        UPDATE cabecera c_hijo
+                        SET tiporegistro = c_fac.tiporegistro
+                        FROM cabecera c_fac
+                        WHERE c_hijo.grupo = c_fac.grupo
+                          AND c_fac.grupo IS NOT NULL AND c_fac.grupo > 0
+                          AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                          AND c_fac.tiporegistro IS NOT NULL
+                          AND c_hijo.tiporegistro IS NULL
+                    """);
+
+                    log.info("Migración tiporegistro completada: propagado a {} comprobantes por asociado directo, {} por asociadogrupo y {} por grupo legacy.",
+                            propAsociado, propGrupo, propLegacy);
+                }
+            } catch (Exception e) {
+                log.warn("Aviso migración tiporegistro en cabecera: {}", e.getMessage());
             }
         };
     }

@@ -19,6 +19,7 @@ public class ComprobanteCandidatoDTO {
     private String comprobanteAsociado;
     private Long asociadogrupo;
     private Long idAsignacion;
+    private String tiporegistro;
 
     public ComprobanteCandidatoDTO() {
     }
@@ -133,5 +134,13 @@ public class ComprobanteCandidatoDTO {
 
     public void setIdAsignacion(Long idAsignacion) {
         this.idAsignacion = idAsignacion;
+    }
+
+    public String getTiporegistro() {
+        return tiporegistro;
+    }
+
+    public void setTiporegistro(String tiporegistro) {
+        this.tiporegistro = tiporegistro;
     }
 }

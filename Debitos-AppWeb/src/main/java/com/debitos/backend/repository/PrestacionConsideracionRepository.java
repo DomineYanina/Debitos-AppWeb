@@ -14,6 +14,19 @@ public interface PrestacionConsideracionRepository extends JpaRepository<Prestac
     @Query("SELECT p FROM PrestacionConsideracion p " +
            "WHERE (:filtro IS NULL OR :filtro = '' OR " +
            "LOWER(p.codigo) LIKE LOWER(CONCAT('%', :filtro, '%')) OR " +
-           "LOWER(p.descripcion) LIKE LOWER(CONCAT('%', :filtro, '%')))")
-    Page<PrestacionConsideracion> buscarConFiltro(@Param("filtro") String filtro, Pageable pageable);
+           "LOWER(p.descripcion) LIKE LOWER(CONCAT('%', :filtro, '%'))) " +
+           "AND (:estadoAmb IS NULL OR :estadoAmb = '' OR LOWER(p.estadoAmbulatorio) = LOWER(:estadoAmb)) " +
+           "AND (:estadoInt IS NULL OR :estadoInt = '' OR LOWER(p.estadoInternado) = LOWER(:estadoInt))")
+    Page<PrestacionConsideracion> buscarConFiltro(
+            @Param("filtro") String filtro,
+            @Param("estadoAmb") String estadoAmb,
+            @Param("estadoInt") String estadoInt,
+            Pageable pageable);
+
+    default Page<PrestacionConsideracion> buscarConFiltro(
+            String filtro,
+            String estado,
+            Pageable pageable) {
+        return buscarConFiltro(filtro, estado, null, pageable);
+    }
 }

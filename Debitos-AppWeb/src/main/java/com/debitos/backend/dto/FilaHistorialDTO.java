@@ -41,6 +41,21 @@ public class FilaHistorialDTO {
     private Integer idEstado;
     private String comprobanteAsociado;
 
+    /** Indica si el documento está anulado contablemente y carece de validez económica activa. */
+    private boolean anulado;
+
+    /** Indica si el documento es el anulador / contrapartida que generó la anulación. */
+    private boolean anulador;
+
+    /** Detalle o motivo de la anulación para tooltip informativo. */
+    private String detalleAnulacion;
+
+    /** ID de la cabecera correspondiente en la base de datos. */
+    private Long idCabecera;
+
+    /** Indica si existe una solicitud de anulación activa/pendiente enviada para este comprobante. */
+    private boolean solicitudAnulacionPendiente;
+
     public FilaHistorialDTO() {}
 
     public FilaHistorialDTO(String tipoDocumento, String letra, Integer puntoVenta, Integer numero,
@@ -98,4 +113,19 @@ public class FilaHistorialDTO {
 
     public String getComprobanteAsociado() { return comprobanteAsociado; }
     public void setComprobanteAsociado(String comprobanteAsociado) { this.comprobanteAsociado = comprobanteAsociado; }
+
+    public boolean isAnulado() { return anulado; }
+    public void setAnulado(boolean anulado) { this.anulado = anulado; }
+
+    public boolean isAnulador() { return anulador; }
+    public void setAnulador(boolean anulador) { this.anulador = anulador; }
+
+    public String getDetalleAnulacion() { return detalleAnulacion; }
+    public void setDetalleAnulacion(String detalleAnulacion) { this.detalleAnulacion = detalleAnulacion; }
+
+    public Long getIdCabecera() { return idCabecera; }
+    public void setIdCabecera(Long idCabecera) { this.idCabecera = idCabecera; }
+
+    public boolean isSolicitudAnulacionPendiente() { return solicitudAnulacionPendiente; }
+    public void setSolicitudAnulacionPendiente(boolean solicitudAnulacionPendiente) { this.solicitudAnulacionPendiente = solicitudAnulacionPendiente; }
 }

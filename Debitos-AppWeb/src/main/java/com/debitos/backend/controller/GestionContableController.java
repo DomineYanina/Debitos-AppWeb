@@ -6,12 +6,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/contable")
@@ -25,6 +25,17 @@ public class GestionContableController {
     // =========================================================================
     // 1. Mapeo de Nombres de Coberturas
     // =========================================================================
+
+    @GetMapping("/coberturas")
+    public ResponseEntity<Page<CoberturaAliasDTO>> listarCoberturas(
+            @RequestParam(required = false) String filtro,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "asc") String sortDir) {
+        Page<CoberturaAliasDTO> resultado = gestionContableService.buscarCoberturasPaginadas(filtro, page, size, sortBy, sortDir);
+        return ResponseEntity.ok(resultado);
+    }
 
     @GetMapping("/coberturas/buscar")
     public ResponseEntity<CoberturaAliasDTO> buscarCobertura(@RequestParam String codigo) {
@@ -70,6 +81,14 @@ public class GestionContableController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/periodos")
+    public ResponseEntity<Page<FacturaPeriodoDTO>> listarFacturasPeriodoCorregido(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        return ResponseEntity.ok(gestionContableService.listarFacturasPeriodoCorregido(pageable));
+    }
+
     // =========================================================================
     // 3. Prestaciones a No Considerar
     // =========================================================================
@@ -77,10 +96,16 @@ public class GestionContableController {
     @GetMapping("/prestaciones")
     public ResponseEntity<Page<PrestacionConsideracionDTO>> listarPrestaciones(
             @RequestParam(required = false) String filtro,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String estadoAmbulatorio,
+            @RequestParam(required = false) String estadoInternado,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("codigo").ascending());
-        Page<PrestacionConsideracionDTO> resultado = gestionContableService.buscarPrestaciones(filtro, pageable);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "asc") String sortDir) {
+        String amb = (estadoAmbulatorio != null) ? estadoAmbulatorio : estado;
+        String intn = estadoInternado;
+        Page<PrestacionConsideracionDTO> resultado = gestionContableService.buscarPrestaciones(filtro, amb, intn, page, size, sortBy, sortDir);
         return ResponseEntity.ok(resultado);
     }
 
@@ -110,12 +135,20 @@ public class GestionContableController {
         return ResponseEntity.ok(dto);
     }
 
+    @GetMapping("/facturas-anuladas/candidatos-anulador")
+    public ResponseEntity<List<FacturaAnuladaDTO>> buscarCandidatosAnuladorPorGrupo(
+            @RequestParam Long idCabeceraOrigen) {
+        List<FacturaAnuladaDTO> candidatos = gestionContableService.buscarCandidatosAnuladorPorGrupo(idCabeceraOrigen);
+        return ResponseEntity.ok(candidatos);
+    }
+
     @GetMapping("/facturas-anuladas")
     public ResponseEntity<Page<FacturaAnuladaDTO>> listarFacturasAnuladas(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page<FacturaAnuladaDTO> resultado = gestionContableService.listarFacturasAnuladas(pageable);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir) {
+        Page<FacturaAnuladaDTO> resultado = gestionContableService.listarFacturasAnuladas(page, size, sortBy, sortDir);
         return ResponseEntity.ok(resultado);
     }
 
@@ -136,9 +169,10 @@ public class GestionContableController {
     public ResponseEntity<Page<HistorialAjusteDTO>> obtenerHistorial(
             @RequestParam(required = false) String referencia,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("fechaHora").descending());
-        Page<HistorialAjusteDTO> historial = gestionContableService.obtenerHistorial(referencia, pageable);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir) {
+        Page<HistorialAjusteDTO> historial = gestionContableService.obtenerHistorial(referencia, page, size, sortBy, sortDir);
         return ResponseEntity.ok(historial);
     }
 

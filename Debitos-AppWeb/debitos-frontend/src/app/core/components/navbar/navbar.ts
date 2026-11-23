@@ -112,6 +112,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
           },
           error: (err) => console.warn('Error al cargar roles dinámicos:', err)
         });
+      }
+      if (this.esAdminReal || this.rolActual === 'ADMIN' || this.rolActual === 'OPERADOR_CONTADURIA') {
         this.notificacionService.cargarNotificaciones();
       }
     } else {
@@ -219,7 +221,21 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   abrirComprobante(notif: Notificacion): void {
     this.notificacionesAbiertas = false;
-    this.notificacionService.navegarAComprobante(notif);
+    if (notif.tipoNotificacion === 'SOLICITUD_ANULACION_DOCUMENTO') {
+      this.notificacionService.marcarComoLeida(notif.id);
+      this.router.navigate(['/gestion-contable'], {
+        queryParams: {
+          subSolapa: 'anuladas',
+          tipo: notif.tipoDoc || 'FC',
+          letra: notif.letra || notif.letraDoc || 'A',
+          ptoVta: notif.puntoVenta ?? notif.ptoVta ?? 30,
+          numero: notif.numero,
+          abrirModal: 'true'
+        }
+      });
+    } else {
+      this.notificacionService.navegarAComprobante(notif);
+    }
   }
 
   onLogout(): void {

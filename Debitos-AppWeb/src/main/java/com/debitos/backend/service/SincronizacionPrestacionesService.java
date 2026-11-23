@@ -912,6 +912,15 @@ public class SincronizacionPrestacionesService {
                             batchUpdatesAmb
                         );
                         totalAmb += batchUpdatesAmb.size();
+
+                        List<Object[]> cabParamsAmb = batchUpdatesAmb.stream()
+                                .map(p -> new Object[] { p[0] })
+                                .distinct()
+                                .toList();
+                        debitosJdbcTemplate.batchUpdate(
+                            "UPDATE cabecera SET tiporegistro = 'Ambulatorios' WHERE id = ? AND tiporegistro IS NULL",
+                            cabParamsAmb
+                        );
                     }
                 }
             }
@@ -981,6 +990,15 @@ public class SincronizacionPrestacionesService {
                         batchUpdatesInt
                     );
                     totalInt += batchUpdatesInt.size();
+
+                    List<Object[]> cabParamsInt = batchUpdatesInt.stream()
+                            .map(p -> new Object[] { p[0] })
+                            .distinct()
+                            .toList();
+                    debitosJdbcTemplate.batchUpdate(
+                        "UPDATE cabecera SET tiporegistro = 'Internados' WHERE id = ? AND tiporegistro IS NULL",
+                        cabParamsInt
+                    );
                 }
                 // Nota: el cursor ultimoId avanza siempre, inspeccionando el siguiente lote sin bloquearse
             }
@@ -991,6 +1009,7 @@ public class SincronizacionPrestacionesService {
             resultado.setInternadosReconciliados(totalInt);
 
             if (total > 0) {
+                propagarTipoRegistroDocumentos();
                 resultado.setMensaje(String.format(
                     "Reconciliación exitosa para el año %d: se vincularon %d prestaciones a cabecera (%d ambulatorias, %d internaciones).",
                     anio, total, totalAmb, totalInt
@@ -1011,6 +1030,43 @@ public class SincronizacionPrestacionesService {
         }
 
         return resultado;
+    }
+
+    private void propagarTipoRegistroDocumentos() {
+        try {
+            debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET tiporegistro = c_padre.tiporegistro
+                FROM cabecera c_padre
+                WHERE c_hijo.asociado = c_padre.id
+                  AND c_padre.tiporegistro IS NOT NULL
+                  AND c_hijo.tiporegistro IS NULL
+            """);
+
+            debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET tiporegistro = c_fac.tiporegistro
+                FROM cabecera c_fac
+                WHERE c_hijo.asociadogrupo = c_fac.asociadogrupo
+                  AND c_fac.asociadogrupo IS NOT NULL AND c_fac.asociadogrupo > 0
+                  AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND c_fac.tiporegistro IS NOT NULL
+                  AND c_hijo.tiporegistro IS NULL
+            """);
+
+            debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET tiporegistro = c_fac.tiporegistro
+                FROM cabecera c_fac
+                WHERE c_hijo.grupo = c_fac.grupo
+                  AND c_fac.grupo IS NOT NULL AND c_fac.grupo > 0
+                  AND UPPER(TRIM(c_fac.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND c_fac.tiporegistro IS NOT NULL
+                  AND c_hijo.tiporegistro IS NULL
+            """);
+        } catch (Exception e) {
+            log.warn("Aviso en propagación de tiporegistro: {}", e.getMessage());
+        }
     }
 
     private void ejecutarEnLotes(String sql, List<Object[]> listaParams, int batchSize) {

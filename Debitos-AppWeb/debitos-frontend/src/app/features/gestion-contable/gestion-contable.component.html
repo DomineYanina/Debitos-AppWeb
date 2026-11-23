@@ -22,20 +22,25 @@
 
   <!-- Barra de Sub-Solapas -->
   <div class="subtabs-bar">
-    <button class="subtab-btn" [class.active]="subSolapaActiva === 'coberturas'" (click)="seleccionarSubSolapa('coberturas')">
-      🏢 Nombres de Coberturas
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'coberturas'"
+      (click)="seleccionarSubSolapa('coberturas')">
+      Nombres de Coberturas
     </button>
-    <button class="subtab-btn" [class.active]="subSolapaActiva === 'periodos'" (click)="seleccionarSubSolapa('periodos')">
-      📅 Períodos de Facturas
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'periodos'"
+      (click)="seleccionarSubSolapa('periodos')">
+      Períodos de Facturas
     </button>
-    <button class="subtab-btn" [class.active]="subSolapaActiva === 'prestaciones'" (click)="seleccionarSubSolapa('prestaciones')">
-      🚫 Prestaciones a No Considerar
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'prestaciones'"
+      (click)="seleccionarSubSolapa('prestaciones')">
+      Prestaciones a No Considerar
     </button>
-    <button class="subtab-btn" [class.active]="subSolapaActiva === 'anuladas'" (click)="seleccionarSubSolapa('anuladas')">
-      ❌ Facturas Anuladas
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'anuladas'"
+      (click)="seleccionarSubSolapa('anuladas')">
+      Documentos Anulados
     </button>
-    <button class="subtab-btn" [class.active]="subSolapaActiva === 'historial'" (click)="seleccionarSubSolapa('historial')">
-      📜 Historial de Cambios
+    <button class="subtab-btn" [class.active]="subSolapaActiva === 'historial'"
+      (click)="seleccionarSubSolapa('historial')">
+      Historial de Cambios
     </button>
   </div>
 
@@ -47,57 +52,136 @@
     <!-- ================================================================= -->
     <div *ngIf="subSolapaActiva === 'coberturas'" class="panel-card fade-in">
       <div class="panel-header">
-        <h3>Mapeo y Alias de Coberturas</h3>
-        <p class="panel-desc">
-          Modifique el nombre a mostrar para reportes contables sin alterar los registros originales de Gestión.
-        </p>
+        <div class="panel-header-info">
+          <h3>Coberturas</h3>
+          <p class="panel-desc">
+            Modifique el nombre a mostrar para reportes contables.
+          </p>
+        </div>
+        <button type="button" class="btn-exportar-excel" (click)="exportarAExcel()" [disabled]="cargando"
+          title="Exportar a Excel (.xlsx)">
+          <svg class="icon-excel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Exportar a Excel
+        </button>
       </div>
 
-      <!-- Buscador por código -->
+      <!-- Buscador por código o nombre -->
       <div class="search-box-card">
-        <label for="cobCodigo" class="search-box-label">Código de Cobertura:</label>
+        <label for="cobCodigo" class="search-box-label">Filtrar Coberturas:</label>
         <div class="search-input-group">
-          <input
-            id="cobCodigo"
-            type="text"
-            class="form-control"
-            placeholder="Ej: OSDE, 0045, SWISS..."
-            [(ngModel)]="busquedaCobCodigo"
-            (keyup.enter)="buscarCobertura()"
-          />
-          <button class="btn-primary" (click)="buscarCobertura()" [disabled]="cargando">
-            🔍 Buscar Cobertura
+          <input id="cobCodigo" type="text" class="form-control"
+            placeholder="Buscar por código (ej: 443) o nombre (ej: OSDE, SWISS)..." [(ngModel)]="busquedaCobCodigo"
+            (keyup.enter)="buscarCoberturasConFiltro()" />
+          <button class="btn-primary" (click)="buscarCoberturasConFiltro()" [disabled]="cargando">
+            Filtrar
+          </button>
+          <button class="btn-secondary" (click)="limpiarFiltroCoberturas()" *ngIf="busquedaCobCodigo">
+            Limpiar
           </button>
         </div>
       </div>
 
-      <!-- Tarjeta de Edición de Cobertura Encontrada -->
-      <div *ngIf="coberturaSeleccionada" class="detail-card">
-        <div class="detail-row">
-          <div class="detail-field">
-            <span class="field-label">Código:</span>
-            <span class="field-value badge-code">{{ coberturaSeleccionada.codigoCobertura }}</span>
-          </div>
-          <div class="detail-field">
-            <span class="field-label">Nombre Original en Gestión:</span>
-            <span class="field-value text-muted">{{ coberturaSeleccionada.nombreOriginal || 'Sin nombre original' }}</span>
+      <!-- Tabla de Coberturas -->
+      <div class="table-responsive mt-3">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 140px;" class="sortable-col"
+                [class.col-sorted]="ordenCoberturas.columna === 'codigoCobertura'"
+                (click)="ordenarTabla('coberturas', 'codigoCobertura')" title="Ordenar por Código">
+                Código <span class="sort-indicator" [class.active]="ordenCoberturas.columna === 'codigoCobertura'">{{
+                  getIconoOrden(ordenCoberturas, 'codigoCobertura') }}</span>
+              </th>
+              <th class="sortable-col" [class.col-sorted]="ordenCoberturas.columna === 'nombreOriginal'"
+                (click)="ordenarTabla('coberturas', 'nombreOriginal')" title="Ordenar por Nombre Original">
+                Nombre Original <span class="sort-indicator"
+                  [class.active]="ordenCoberturas.columna === 'nombreOriginal'">{{ getIconoOrden(ordenCoberturas,
+                  'nombreOriginal') }}</span>
+              </th>
+              <th class="sortable-col" [class.col-sorted]="ordenCoberturas.columna === 'nombreMostrar'"
+                (click)="ordenarTabla('coberturas', 'nombreMostrar')" title="Ordenar por Nombre a Mostrar">
+                Nombre a Mostrar <span class="sort-indicator"
+                  [class.active]="ordenCoberturas.columna === 'nombreMostrar'">{{ getIconoOrden(ordenCoberturas,
+                  'nombreMostrar') }}</span>
+              </th>
+              <th style="width: 120px; text-align: center;">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="cargando && (!coberturasPage || coberturasPage.content.length === 0)">
+              <td colspan="4" class="text-center py-4">Cargando coberturas...</td>
+            </tr>
+            <tr *ngIf="!cargando && coberturasPage?.content?.length === 0">
+              <td colspan="4" class="text-center py-4 text-muted">No se encontraron coberturas con el filtro ingresado.
+              </td>
+            </tr>
+            <tr *ngFor="let cob of coberturasPage?.content">
+              <td class="font-bold badge-code">{{ cob.codigoCobertura }}</td>
+              <td class="text-secondary">{{ cob.nombreOriginal || 'Sin nombre original' }}</td>
+              <td>
+                <span class="alias-text font-semibold">{{ cob.nombreMostrar || cob.nombreOriginal }}</span>
+                <span *ngIf="cob.nombreMostrar && cob.nombreMostrar !== cob.nombreOriginal" class="badge-alias-tag"
+                  title="Alias personalizado">Personalizado</span>
+              </td>
+              <td style="text-align: center;">
+                <button class="btn-table-edit" (click)="abrirModalEditarCobertura(cob)">
+                  ✏️ Editar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginador -->
+      <div class="pagination-bar" *ngIf="coberturasPage && coberturasPage.totalPages > 1">
+        <span class="pagination-info">
+          Página {{ coberturasPage.number + 1 }} de {{ coberturasPage.totalPages }} ({{ coberturasPage.totalElements }}
+          registros)
+        </span>
+        <div class="pagination-buttons">
+          <button class="btn-page" [disabled]="coberturasPage.first || cargando"
+            (click)="cargarCoberturas(paginaActualCoberturas - 1)">
+            ◀ Anterior
+          </button>
+          <button class="btn-page" [disabled]="coberturasPage.last || cargando"
+            (click)="cargarCoberturas(paginaActualCoberturas + 1)">
+            Siguiente ▶
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Editar Alias de Cobertura -->
+    <div class="modal-backdrop" *ngIf="modalCoberturaVisible">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h4>Modificar Nombre a Mostrar de Cobertura</h4>
+          <button class="modal-close" (click)="cerrarModalCobertura()">✕</button>
+        </div>
+        <div class="modal-body" *ngIf="coberturaEnEdicion">
+          <p><strong>Código:</strong> <span class="badge-code">{{ coberturaEnEdicion.codigoCobertura }}</span></p>
+          <p><strong>Nombre Original en Gestión:</strong> <span class="text-muted">{{ coberturaEnEdicion.nombreOriginal
+              || 'Sin nombre original' }}</span></p>
+
+          <div class="form-group mt-3">
+            <label for="modalCobNuevoNombre"><strong>Nombre a Mostrar (Alias Contable):</strong></label>
+            <input id="modalCobNuevoNombre" type="text" class="form-control"
+              placeholder="Ingrese el nuevo alias para reportes..." [(ngModel)]="nuevoNombreMostrarEdicion"
+              (keyup.enter)="guardarEdicionModalCobertura()" />
+            <small class="field-hint">Este nombre se utilizará en los reportes contables sin alterar los registros
+              originales de Gestión.</small>
           </div>
         </div>
-
-        <div class="form-group-edit">
-          <label for="cobNuevoNombre">Nombre a Mostrar (Alias Contable):</label>
-          <input
-            id="cobNuevoNombre"
-            type="text"
-            class="form-control input-large"
-            placeholder="Ingrese el nombre personalizado que se usará en los reportes..."
-            [(ngModel)]="nuevoNombreMostrarCob"
-          />
-        </div>
-
-        <div class="actions-bar">
-          <button class="btn-success" (click)="guardarAliasCobertura()" [disabled]="cargando">
-            💾 Guardar Nombre a Mostrar
+        <div class="modal-footer">
+          <button class="btn-secondary" (click)="cerrarModalCobertura()" [disabled]="cargando">Cancelar</button>
+          <button class="btn-success" (click)="guardarEdicionModalCobertura()"
+            [disabled]="cargando || !nuevoNombreMostrarEdicion.trim()">
+            💾 Guardar Nombre
           </button>
         </div>
       </div>
@@ -108,10 +192,22 @@
     <!-- ================================================================= -->
     <div *ngIf="subSolapaActiva === 'periodos'" class="panel-card fade-in">
       <div class="panel-header">
-        <h3>Corrección del Período de Factura</h3>
-        <p class="panel-desc">
-          Reasigne el período de imputación para el Tablero de Control y métricas contables, conservando el período original.
-        </p>
+        <div class="panel-header-info">
+          <h3>Corrección del Período de Factura</h3>
+          <p class="panel-desc">
+            Reasigne el período de imputación para el Tablero de Control y métricas contables, conservando el período
+            original.
+          </p>
+        </div>
+        <button type="button" class="btn-exportar-excel" (click)="exportarAExcel()" [disabled]="cargando"
+          title="Exportar a Excel (.xlsx)">
+          <svg class="icon-excel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Exportar a Excel
+        </button>
       </div>
 
       <!-- Buscador de Factura -->
@@ -120,7 +216,7 @@
           <div class="form-group">
             <label>Tipo:</label>
             <select class="form-control" [(ngModel)]="busquedaPerTipo">
-              <option value="FC">FC (Factura)</option>
+              <option value="FC">FC</option>
               <option value="FAC">FAC</option>
               <option value="FCE">FCE</option>
               <option value="FCA">FCA</option>
@@ -132,8 +228,6 @@
             <select class="form-control" [(ngModel)]="busquedaPerLetra">
               <option value="A">A</option>
               <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="M">M</option>
             </select>
           </div>
 
@@ -144,65 +238,79 @@
 
           <div class="form-group">
             <label>Número:</label>
-            <input type="number" class="form-control" placeholder="Ej: 12345" [(ngModel)]="busquedaPerNumero" (keyup.enter)="buscarFacturaPeriodo()" />
+            <input type="number" class="form-control" placeholder="Ej: 12345" [(ngModel)]="busquedaPerNumero"
+              (keyup.enter)="buscarFacturaPeriodo()" />
           </div>
 
           <div class="form-group-btn">
             <button class="btn-primary" (click)="buscarFacturaPeriodo()" [disabled]="cargando">
-              🔍 Buscar Factura
+              Buscar Factura
             </button>
           </div>
         </div>
       </div>
 
       <!-- Detalle de Factura Encontrada -->
-      <div *ngIf="facturaPeriodoSeleccionada" class="detail-card">
-        <div class="doc-banner">
-          <div class="doc-title-group">
-            <span class="doc-badge">{{ facturaPeriodoSeleccionada.tipo }} {{ facturaPeriodoSeleccionada.letra }}</span>
-            <span class="doc-number">Pto. {{ facturaPeriodoSeleccionada.ptovta }} - Nro. {{ facturaPeriodoSeleccionada.numero }}</span>
+      <div *ngIf="facturaPeriodoSeleccionada" class="detail-card period-detail-card p-4 sm:p-5">
+        <div class="doc-banner mb-3 pb-2.5">
+          <div class="doc-title-group flex items-center gap-3">
+            <span class="doc-badge bg-blue-900/40 text-blue-400 border border-blue-500/30">{{
+              facturaPeriodoSeleccionada.tipo }} {{ facturaPeriodoSeleccionada.letra }}</span>
+            <span class="doc-number text-slate-100 font-bold">Pto. {{ facturaPeriodoSeleccionada.ptovta }} - Nro. {{
+              facturaPeriodoSeleccionada.numero }}</span>
           </div>
-          <div class="doc-amount">
+          <div class="doc-amount font-extrabold text-emerald-400">
             {{ formatearMoneda(facturaPeriodoSeleccionada.importe) }}
           </div>
         </div>
 
-        <div class="doc-meta-grid">
+        <div class="doc-meta-grid doc-meta-grid-3cols grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3 p-3">
           <div class="meta-item">
-            <span class="meta-label">Cobertura:</span>
-            <span class="meta-value">{{ facturaPeriodoSeleccionada.cobertura }} ({{ facturaPeriodoSeleccionada.codigoCobertura }})</span>
+            <span class="meta-label text-slate-400 text-xs font-semibold uppercase">Cobertura</span>
+            <span class="meta-value text-slate-100 font-medium">{{ facturaPeriodoSeleccionada.cobertura }} ({{
+              facturaPeriodoSeleccionada.codigoCobertura }})</span>
           </div>
-          <div class="meta-item">
-            <span class="meta-label">Fecha Emisión:</span>
-            <span class="meta-value">{{ formatearFechaSimple(facturaPeriodoSeleccionada.fecha) }}</span>
+          <div class="meta-item sm:border-l sm:border-slate-700 sm:pl-4">
+            <span class="meta-label text-slate-400 text-xs font-semibold uppercase">Fecha Emisión</span>
+            <span class="meta-value text-slate-100 font-medium">{{
+              formatearFechaSimple(facturaPeriodoSeleccionada.fecha) }}</span>
           </div>
-          <div class="meta-item">
-            <span class="meta-label">Período Original:</span>
-            <span class="meta-value">{{ formatearFechaSimple(facturaPeriodoSeleccionada.periodoOriginal) }}</span>
-          </div>
-          <div class="meta-item" *ngIf="facturaPeriodoSeleccionada.periodoCorregido">
-            <span class="meta-label">Período Corregido Actual:</span>
-            <span class="meta-value badge-corrected">{{ formatearFechaSimple(facturaPeriodoSeleccionada.periodoCorregido) }}</span>
+          <div class="meta-item sm:border-l sm:border-slate-700 sm:pl-4">
+            <span class="meta-label text-slate-400 text-xs font-semibold uppercase">Período Original</span>
+            <div class="periodo-value-wrap flex items-center gap-2 flex-wrap">
+              <span class="meta-value text-slate-100 font-medium">{{
+                formatearFechaSimple(facturaPeriodoSeleccionada.periodoOriginal) }}</span>
+              <span *ngIf="facturaPeriodoSeleccionada.periodoCorregido" class="badge-corrected text-xs">
+                (Actual: {{ formatearFechaSimple(facturaPeriodoSeleccionada.periodoCorregido) }})
+              </span>
+            </div>
           </div>
         </div>
 
-        <div class="form-group-edit mt-4">
-          <label for="nuevoPeriodo">Nuevo Período Corregido (Fecha de Imputación):</label>
-          <div class="input-with-hint">
-            <input
-              id="nuevoPeriodo"
-              type="date"
-              class="form-control"
-              [(ngModel)]="nuevoPeriodoCorregido"
-            />
-            <small class="field-hint">Esta fecha determinará en qué mes y año computará la factura en el Tablero de Control.</small>
+        <div class="doc-action-row flex flex-col md:flex-row md:items-center justify-between gap-4 mt-3 pt-1">
+          <div class="action-input-group flex items-center gap-2.5 flex-wrap">
+            <label for="nuevoPeriodo" class="action-label text-slate-200 text-sm font-semibold whitespace-nowrap mb-0">
+              Nuevo Período Corregido:
+            </label>
+            <input id="nuevoPeriodo" type="month" class="form-control action-date-input" [(ngModel)]="nuevoPeriodoMes"
+              (ngModelChange)="onPeriodoMesChange($event)" />
+            <span *ngIf="nuevoPeriodoCorregido"
+              class="imputacion-badge text-xs font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-700/50 px-2 py-1 rounded whitespace-nowrap">
+              Imputa: {{ formatearFechaSimple(nuevoPeriodoCorregido) }}
+            </span>
           </div>
-        </div>
 
-        <div class="actions-bar">
-          <button class="btn-success" (click)="guardarPeriodoCorregido()" [disabled]="cargando">
-            💾 Guardar Período Corregido
-          </button>
+          <div class="action-hint-group flex-1 px-1">
+            <small class="field-hint text-slate-400 text-xs leading-tight">
+              Solo es posible seleccionar mes y año. Se imputa automáticamente al primer día del mes.
+            </small>
+          </div>
+
+          <div class="action-btn-group md:ml-auto">
+            <button class="btn-success whitespace-nowrap" (click)="guardarPeriodoCorregido()" [disabled]="cargando">
+              💾 Guardar Período Corregido
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -212,60 +320,110 @@
     <!-- ================================================================= -->
     <div *ngIf="subSolapaActiva === 'prestaciones'" class="panel-card fade-in">
       <div class="panel-header">
-        <h3>Prestaciones a No Considerar</h3>
-        <p class="panel-desc">
-          Defina el estado de consideración de cada prestación médica para el consumo de la aplicación externa.
-        </p>
+        <div class="panel-header-info">
+          <h3>Prestaciones</h3>
+          <p class="panel-desc">
+            Defina el estado de consideración de cada prestación médica para el consumo de la aplicación externa.
+          </p>
+        </div>
+        <button type="button" class="btn-exportar-excel" (click)="exportarAExcel()" [disabled]="cargando"
+          title="Exportar a Excel (.xlsx)">
+          <svg class="icon-excel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Exportar a Excel
+        </button>
       </div>
 
-      <!-- Filtro rápido por código o descripción -->
-      <div class="filter-bar">
-        <div class="filter-input-wrapper">
-          <input
-            type="text"
-            class="form-control"
-            placeholder="Filtrar por código de prestación o descripción..."
-            [(ngModel)]="filtroPrestacionCodigo"
-            (keyup.enter)="buscarPrestacionesConFiltro()"
-          />
+      <!-- Filtro rápido por código, descripción y estados -->
+      <div class="filter-bar filter-bar-prestaciones">
+        <div class="filter-input-wrapper filter-prestaciones-wrapper">
+          <input type="text" class="form-control filter-text-input"
+            placeholder="Filtrar por código de prestación o descripción..." [(ngModel)]="filtroPrestacionCodigo"
+            (keyup.enter)="buscarPrestacionesConFiltro()" />
+          <select class="form-control filter-estado-select" aria-label="Filtrar por estado ambulatorios"
+            [(ngModel)]="filtroPrestacionEstadoAmb" (change)="buscarPrestacionesConFiltro()">
+            <option value="">Ambulatorios: Todos</option>
+            <option value="Considerar">Ambulatorios: Considerar</option>
+            <option value="No considerar">Ambulatorios: No considerar</option>
+          </select>
+          <select class="form-control filter-estado-select" aria-label="Filtrar por estado internados"
+            [(ngModel)]="filtroPrestacionEstadoInt" (change)="buscarPrestacionesConFiltro()">
+            <option value="">Internados: Todos</option>
+            <option value="Considerar">Internados: Considerar</option>
+            <option value="No considerar">Internados: No considerar</option>
+          </select>
           <button class="btn-primary" (click)="buscarPrestacionesConFiltro()" [disabled]="cargando">
-            🔍 Filtrar
+            Filtrar
           </button>
-          <button class="btn-secondary" (click)="limpiarFiltroPrestaciones()" *ngIf="filtroPrestacionCodigo">
-            ✕ Limpiar
+          <button class="btn-secondary" (click)="limpiarFiltroPrestaciones()"
+            *ngIf="filtroPrestacionCodigo || filtroPrestacionEstadoAmb || filtroPrestacionEstadoInt">
+            Limpiar
           </button>
         </div>
       </div>
 
       <!-- Tabla de Prestaciones -->
       <div class="table-responsive mt-3">
-        <table class="data-table">
+        <table class="data-table tabla-prestaciones">
           <thead>
             <tr>
-              <th style="width: 150px;">Código</th>
-              <th>Descripción</th>
-              <th style="width: 180px; text-align: center;">Estado</th>
-              <th style="width: 120px; text-align: center;">Acción</th>
+              <th style="width: 110px;" class="sortable-col" [class.col-sorted]="ordenPrestaciones.columna === 'codigo'"
+                (click)="ordenarTabla('prestaciones', 'codigo')" title="Ordenar por Código">
+                Código <span class="sort-indicator" [class.active]="ordenPrestaciones.columna === 'codigo'">{{
+                  getIconoOrden(ordenPrestaciones, 'codigo') }}</span>
+              </th>
+              <th style="width: 41%;" class="sortable-col"
+                [class.col-sorted]="ordenPrestaciones.columna === 'descripcion'"
+                (click)="ordenarTabla('prestaciones', 'descripcion')" title="Ordenar por Descripción">
+                Descripción <span class="sort-indicator" [class.active]="ordenPrestaciones.columna === 'descripcion'">{{
+                  getIconoOrden(ordenPrestaciones, 'descripcion') }}</span>
+              </th>
+              <th style="width: 21%; text-align: center;" class="sortable-col"
+                [class.col-sorted]="ordenPrestaciones.columna === 'estadoAmbulatorio'"
+                (click)="ordenarTabla('prestaciones', 'estadoAmbulatorio')" title="Ordenar por Estado Ambulatorios">
+                Estado Ambulatorios <span class="sort-indicator"
+                  [class.active]="ordenPrestaciones.columna === 'estadoAmbulatorio'">{{
+                  getIconoOrden(ordenPrestaciones, 'estadoAmbulatorio') }}</span>
+              </th>
+              <th style="width: 21%; text-align: center;" class="sortable-col"
+                [class.col-sorted]="ordenPrestaciones.columna === 'estadoInternado'"
+                (click)="ordenarTabla('prestaciones', 'estadoInternado')" title="Ordenar por Estado Internados">
+                Estado Internados <span class="sort-indicator"
+                  [class.active]="ordenPrestaciones.columna === 'estadoInternado'">{{
+                  getIconoOrden(ordenPrestaciones, 'estadoInternado') }}</span>
+              </th>
+              <th style="width: 100px; text-align: center;">Acción</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="cargando && (!prestacionesPage || prestacionesPage.content.length === 0)">
-              <td colspan="4" class="text-center py-4">Cargando prestaciones...</td>
+              <td colspan="5" class="text-center py-4">Cargando prestaciones...</td>
             </tr>
             <tr *ngIf="!cargando && prestacionesPage?.content?.length === 0">
-              <td colspan="4" class="text-center py-4 text-muted">No se encontraron prestaciones con el filtro ingresado.</td>
+              <td colspan="5" class="text-center py-4 text-muted">No se encontraron prestaciones con el filtro
+                ingresado.</td>
             </tr>
             <tr *ngFor="let p of prestacionesPage?.content">
               <td class="font-bold badge-code">{{ p.codigo }}</td>
-              <td>{{ p.descripcion }}</td>
+              <td class="col-descripcion" [title]="p.descripcion">{{ p.descripcion }}</td>
               <td style="text-align: center;">
-                <span class="status-badge" [class.badge-considerar]="p.estado === 'Considerar'" [class.badge-no-considerar]="p.estado === 'No considerar'">
-                  {{ p.estado }}
+                <span class="status-badge" [class.badge-considerar]="(p.estadoAmbulatorio || p.estado) === 'Considerar'"
+                  [class.badge-no-considerar]="(p.estadoAmbulatorio || p.estado) === 'No considerar'">
+                  {{ p.estadoAmbulatorio || p.estado || 'Considerar' }}
+                </span>
+              </td>
+              <td style="text-align: center;">
+                <span class="status-badge" [class.badge-considerar]="(p.estadoInternado || p.estado) === 'Considerar'"
+                  [class.badge-no-considerar]="(p.estadoInternado || p.estado) === 'No considerar'">
+                  {{ p.estadoInternado || p.estado || 'Considerar' }}
                 </span>
               </td>
               <td style="text-align: center;">
                 <button class="btn-table-edit" (click)="abrirModalEditarPrestacion(p)">
-                  ✏️ Editar
+                  Editar
                 </button>
               </td>
             </tr>
@@ -276,13 +434,16 @@
       <!-- Paginador -->
       <div class="pagination-bar" *ngIf="prestacionesPage && prestacionesPage.totalPages > 1">
         <span class="pagination-info">
-          Página {{ prestacionesPage.number + 1 }} de {{ prestacionesPage.totalPages }} ({{ prestacionesPage.totalElements }} registros)
+          Página {{ prestacionesPage.number + 1 }} de {{ prestacionesPage.totalPages }} ({{
+          prestacionesPage.totalElements }} registros)
         </span>
         <div class="pagination-buttons">
-          <button class="btn-page" [disabled]="prestacionesPage.first || cargando" (click)="cargarPrestaciones(paginaActualPrestaciones - 1)">
+          <button class="btn-page" [disabled]="prestacionesPage.first || cargando"
+            (click)="cargarPrestaciones(paginaActualPrestaciones - 1)">
             ◀ Anterior
           </button>
-          <button class="btn-page" [disabled]="prestacionesPage.last || cargando" (click)="cargarPrestaciones(paginaActualPrestaciones + 1)">
+          <button class="btn-page" [disabled]="prestacionesPage.last || cargando"
+            (click)="cargarPrestaciones(paginaActualPrestaciones + 1)">
             Siguiente ▶
           </button>
         </div>
@@ -301,18 +462,35 @@
           <p><strong>Descripción:</strong> {{ prestacionEnEdicion.descripcion }}</p>
 
           <div class="form-group mt-3">
-            <label>Seleccione el nuevo estado:</label>
+            <label><strong>Estado Ambulatorios:</strong></label>
             <div class="radio-options">
-              <label class="radio-card" [class.selected]="nuevoEstadoPrestacion === 'Considerar'">
-                <input type="radio" name="estadoPrestacion" value="Considerar" [(ngModel)]="nuevoEstadoPrestacion" />
+              <label class="radio-card" [class.selected]="nuevoEstadoAmbulatorio === 'Considerar'">
+                <input type="radio" name="estadoAmbModal" value="Considerar" [(ngModel)]="nuevoEstadoAmbulatorio" />
                 <span class="radio-title">✅ Considerar</span>
-                <span class="radio-desc">Se incluye con normalidad en las consultas del sistema externo.</span>
+                <span class="radio-desc">Se incluye para pacientes ambulatorios.</span>
               </label>
 
-              <label class="radio-card" [class.selected]="nuevoEstadoPrestacion === 'No considerar'">
-                <input type="radio" name="estadoPrestacion" value="No considerar" [(ngModel)]="nuevoEstadoPrestacion" />
+              <label class="radio-card" [class.selected]="nuevoEstadoAmbulatorio === 'No considerar'">
+                <input type="radio" name="estadoAmbModal" value="No considerar" [(ngModel)]="nuevoEstadoAmbulatorio" />
                 <span class="radio-title">🚫 No considerar</span>
-                <span class="radio-desc">Se excluye para el procesamiento de la otra aplicación.</span>
+                <span class="radio-desc">Se excluye para pacientes ambulatorios.</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group mt-3">
+            <label><strong>Estado Internados:</strong></label>
+            <div class="radio-options">
+              <label class="radio-card" [class.selected]="nuevoEstadoInternado === 'Considerar'">
+                <input type="radio" name="estadoIntModal" value="Considerar" [(ngModel)]="nuevoEstadoInternado" />
+                <span class="radio-title">✅ Considerar</span>
+                <span class="radio-desc">Se incluye para pacientes internados.</span>
+              </label>
+
+              <label class="radio-card" [class.selected]="nuevoEstadoInternado === 'No considerar'">
+                <input type="radio" name="estadoIntModal" value="No considerar" [(ngModel)]="nuevoEstadoInternado" />
+                <span class="radio-title">🚫 No considerar</span>
+                <span class="radio-desc">Se excluye para pacientes internados.</span>
               </label>
             </div>
           </div>
@@ -331,20 +509,38 @@
     <!-- ================================================================= -->
     <div *ngIf="subSolapaActiva === 'anuladas'" class="panel-card fade-in">
       <div class="panel-header">
-        <h3>Gestión Manual de Facturas Anuladas</h3>
-        <p class="panel-desc">
-          Marque facturas como anuladas para excluirlas de los totales, KPIs y balances del Tablero de Control, o revierta marcas previas.
-        </p>
+        <div class="panel-header-info">
+          <h3>Gestión Manual de Documentos Anulados</h3>
+          <p class="panel-desc">
+            Marque documentos como anuladas para excluirlas de los totales, KPIs y balances del Tablero de Control, o
+            revierta marcas previas.
+          </p>
+        </div>
+        <div class="panel-header-actions">
+          <button type="button" class="btn-anular-doc" (click)="abrirModalAnulacion()" [disabled]="cargando"
+            title="Anular Factura asociando comprobante anulador">
+            Anular Documento
+          </button>
+          <button type="button" class="btn-exportar-excel" (click)="exportarAExcel()" [disabled]="cargando"
+            title="Exportar a Excel (.xlsx)">
+            <svg class="icon-excel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Exportar a Excel
+          </button>
+        </div>
       </div>
 
       <!-- Buscador para Anular / Revertir -->
       <div class="search-box-card">
-        <h4>Buscar Factura para Modificar Estado</h4>
+        <h4>Buscar Documento para Modificar Estado</h4>
         <div class="doc-search-grid">
           <div class="form-group">
-            <label>Tipo:</label>
-            <select class="form-control" [(ngModel)]="busquedaAnulTipo">
-              <option value="FC">FC (Factura)</option>
+            <label for="anulTipo">Tipo:</label>
+            <select id="anulTipo" class="form-control" [(ngModel)]="busquedaAnulTipo">
+              <option value="FC">FC</option>
               <option value="FAC">FAC</option>
               <option value="FCE">FCE</option>
               <option value="FCA">FCA</option>
@@ -352,28 +548,28 @@
           </div>
 
           <div class="form-group">
-            <label>Letra:</label>
-            <select class="form-control" [(ngModel)]="busquedaAnulLetra">
+            <label for="anulLetra">Letra:</label>
+            <select id="anulLetra" class="form-control" [(ngModel)]="busquedaAnulLetra">
               <option value="A">A</option>
               <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="M">M</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label>Pto. Venta:</label>
-            <input type="number" class="form-control" placeholder="Ej: 30" [(ngModel)]="busquedaAnulPtoVta" />
+            <label for="anulPtoVta">Pto. Venta:</label>
+            <input id="anulPtoVta" type="number" class="form-control" placeholder="Ej: 30"
+              [(ngModel)]="busquedaAnulPtoVta" />
           </div>
 
           <div class="form-group">
-            <label>Número:</label>
-            <input type="number" class="form-control" placeholder="Ej: 12345" [(ngModel)]="busquedaAnulNumero" (keyup.enter)="buscarFacturaAnulacion()" />
+            <label for="anulNumero">Número:</label>
+            <input id="anulNumero" type="number" class="form-control" placeholder="Ej: 12345"
+              [(ngModel)]="busquedaAnulNumero" (keyup.enter)="buscarFacturaAnulacion()" />
           </div>
 
           <div class="form-group-btn">
             <button class="btn-primary" (click)="buscarFacturaAnulacion()" [disabled]="cargando">
-              🔍 Buscar Factura
+              Buscar Documento
             </button>
           </div>
         </div>
@@ -383,8 +579,10 @@
       <div *ngIf="facturaAnulacionSeleccionada" class="detail-card">
         <div class="doc-banner">
           <div class="doc-title-group">
-            <span class="doc-badge">{{ facturaAnulacionSeleccionada.tipo }} {{ facturaAnulacionSeleccionada.letra }}</span>
-            <span class="doc-number">Pto. {{ facturaAnulacionSeleccionada.ptovta }} - Nro. {{ facturaAnulacionSeleccionada.numero }}</span>
+            <span class="doc-badge">{{ facturaAnulacionSeleccionada.tipo }} {{ facturaAnulacionSeleccionada.letra
+              }}</span>
+            <span class="doc-number">Pto. {{ facturaAnulacionSeleccionada.ptovta }} - Nro. {{
+              facturaAnulacionSeleccionada.numero }}</span>
           </div>
           <div class="doc-amount">
             {{ formatearMoneda(facturaAnulacionSeleccionada.importe) }}
@@ -400,11 +598,17 @@
             <span class="meta-label">Fecha:</span>
             <span class="meta-value">{{ formatearFechaSimple(facturaAnulacionSeleccionada.fecha) }}</span>
           </div>
+          <div class="meta-item"
+            *ngIf="facturaAnulacionSeleccionada.anulada && facturaAnulacionSeleccionada.comprobanteAnulador">
+            <span class="meta-label">Documento Anulador:</span>
+            <span class="meta-value font-bold text-accent">{{ facturaAnulacionSeleccionada.comprobanteAnulador }}</span>
+          </div>
           <div class="meta-item">
             <span class="meta-label">Estado Actual en Débitos:</span>
             <span class="meta-value">
               <span *ngIf="facturaAnulacionSeleccionada.anulada" class="status-badge badge-no-considerar">
-                ❌ ANULADA {{ facturaAnulacionSeleccionada.origenAnulacion ? '(' + facturaAnulacionSeleccionada.origenAnulacion + ')' : '' }}
+                ❌ ANULADA {{ facturaAnulacionSeleccionada.origenAnulacion ? '(' +
+                facturaAnulacionSeleccionada.origenAnulacion + ')' : '' }}
               </span>
               <span *ngIf="!facturaAnulacionSeleccionada.anulada" class="status-badge badge-considerar">
                 ✅ ACTIVA (Computa en Tablero)
@@ -414,21 +618,13 @@
         </div>
 
         <div class="actions-bar mt-4">
-          <button
-            *ngIf="!facturaAnulacionSeleccionada.anulada"
-            class="btn-danger"
-            (click)="cambiarAnulacion(facturaAnulacionSeleccionada.idCabecera, true)"
-            [disabled]="cargando"
-          >
-            ❌ Marcar como Anulada en Débitos
+          <button *ngIf="!facturaAnulacionSeleccionada.anulada" class="btn-danger"
+            (click)="abrirModalConFactura(facturaAnulacionSeleccionada)" [disabled]="cargando">
+            Anular Documento...
           </button>
 
-          <button
-            *ngIf="facturaAnulacionSeleccionada.anulada"
-            class="btn-success"
-            (click)="cambiarAnulacion(facturaAnulacionSeleccionada.idCabecera, false)"
-            [disabled]="cargando"
-          >
+          <button *ngIf="facturaAnulacionSeleccionada.anulada" class="btn-success"
+            (click)="cambiarAnulacion(facturaAnulacionSeleccionada.idCabecera, false)" [disabled]="cargando">
             ✓ Revertir Anulación (Reactivar Factura)
           </button>
         </div>
@@ -441,22 +637,46 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Comprobante</th>
-                <th>Fecha</th>
-                <th>Cobertura</th>
-                <th style="text-align: right;">Importe</th>
+                <th class="sortable-col" [class.col-sorted]="ordenAnuladas.columna === 'comprobante'"
+                  (click)="ordenarTabla('anuladas', 'comprobante')" title="Ordenar por Comprobante">
+                  Comprobante <span class="sort-indicator" [class.active]="ordenAnuladas.columna === 'comprobante'">{{
+                    getIconoOrden(ordenAnuladas, 'comprobante') }}</span>
+                </th>
+                <th class="sortable-col" [class.col-sorted]="ordenAnuladas.columna === 'fecha'"
+                  (click)="ordenarTabla('anuladas', 'fecha')" title="Ordenar por Fecha">
+                  Fecha <span class="sort-indicator" [class.active]="ordenAnuladas.columna === 'fecha'">{{
+                    getIconoOrden(ordenAnuladas, 'fecha') }}</span>
+                </th>
+                <th class="sortable-col" [class.col-sorted]="ordenAnuladas.columna === 'cobertura'"
+                  (click)="ordenarTabla('anuladas', 'cobertura')" title="Ordenar por Cobertura">
+                  Cobertura <span class="sort-indicator" [class.active]="ordenAnuladas.columna === 'cobertura'">{{
+                    getIconoOrden(ordenAnuladas, 'cobertura') }}</span>
+                </th>
+                <th style="text-align: right;" class="sortable-col"
+                  [class.col-sorted]="ordenAnuladas.columna === 'importe'" (click)="ordenarTabla('anuladas', 'importe')"
+                  title="Ordenar por Importe">
+                  Importe <span class="sort-indicator" [class.active]="ordenAnuladas.columna === 'importe'">{{
+                    getIconoOrden(ordenAnuladas, 'importe') }}</span>
+                </th>
+                <th style="text-align: center;">Doc. Anulador</th>
                 <th style="text-align: center;">Acción</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngIf="!facturasAnuladasPage || facturasAnuladasPage.content.length === 0">
-                <td colspan="5" class="text-center py-4 text-muted">No hay facturas con anulación manual registrada.</td>
+                <td colspan="6" class="text-center py-4 text-muted">No hay facturas con anulación manual registrada.
+                </td>
               </tr>
               <tr *ngFor="let fa of facturasAnuladasPage?.content">
-                <td class="font-bold">{{ fa.tipo }} {{ fa.letra }} {{ fa.ptovta }}-{{ fa.numero }}</td>
+                <td class="font-bold font-mono">{{ formatearComprobante(fa) }}</td>
                 <td>{{ formatearFechaSimple(fa.fecha) }}</td>
-                <td>{{ fa.cobertura }}</td>
+                <td class="text-secondary">{{ fa.cobertura }}</td>
                 <td style="text-align: right;">{{ formatearMoneda(fa.importe) }}</td>
+                <td style="text-align: center;">
+                  <span class="badge-doc-anulador" [class.badge-vacio]="!fa.comprobanteAnulador">
+                    {{ fa.comprobanteAnulador || '—' }}
+                  </span>
+                </td>
                 <td style="text-align: center;">
                   <button class="btn-table-revert" (click)="cambiarAnulacion(fa.idCabecera, false)">
                     ✓ Reactivar
@@ -472,11 +692,230 @@
             Página {{ facturasAnuladasPage.number + 1 }} de {{ facturasAnuladasPage.totalPages }}
           </span>
           <div class="pagination-buttons">
-            <button class="btn-page" [disabled]="facturasAnuladasPage.first" (click)="cargarFacturasAnuladas(paginaActualAnuladas - 1)">
+            <button class="btn-page" [disabled]="facturasAnuladasPage.first"
+              (click)="cargarFacturasAnuladas(paginaActualAnuladas - 1)">
               ◀ Anterior
             </button>
-            <button class="btn-page" [disabled]="facturasAnuladasPage.last" (click)="cargarFacturasAnuladas(paginaActualAnuladas + 1)">
+            <button class="btn-page" [disabled]="facturasAnuladasPage.last"
+              (click)="cargarFacturasAnuladas(paginaActualAnuladas + 1)">
               Siguiente ▶
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Anular Factura con Documento Anulador -->
+    <div class="modal-backdrop" *ngIf="modalAnulacionVisible">
+      <div class="modal-dialog modal-dialog-lg">
+        <div class="modal-header">
+          <h4>Anular Documento</h4>
+          <button class="modal-close" (click)="cerrarModalAnulacion()" [disabled]="modalGuardando">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-intro">
+            Para registrar la anulación de un documento, debe indicar obligatoriamente el comprobante
+            anulador (ej: Nota de Crédito o Débito). Ambos quedarán excluidos de los totales contables del Tablero de
+            Control.
+          </p>
+
+          <!-- SECCIÓN 1: Factura a Anular -->
+          <div class="modal-section-card">
+            <h5 class="section-title">
+              <span class="step-num">1</span> Documento a Anular
+            </h5>
+            <div class="modal-doc-search-grid">
+              <div class="form-group">
+                <label>Tipo:</label>
+                <select class="form-control" [(ngModel)]="modalAnulTipo">
+                  <option value="FC">FC</option>
+                  <option value="FAC">FAC</option>
+                  <option value="FCE">FCE</option>
+                  <option value="FCA">FCA</option>
+                  <option value="NCE">NCE</option>
+                  <option value="NC">NC</option>
+                  <option value="NDE">NDE</option>
+                  <option value="ND">ND</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Letra:</label>
+                <select class="form-control" [(ngModel)]="modalAnulLetra">
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Pto. Venta:</label>
+                <input type="number" class="form-control" placeholder="Ej: 30" [(ngModel)]="modalAnulPtoVta" />
+              </div>
+
+              <div class="form-group">
+                <label>Número:</label>
+                <input type="number" class="form-control" placeholder="Ej: 12345" [(ngModel)]="modalAnulNumero"
+                  (keyup.enter)="buscarDocAAnularModal()" />
+              </div>
+
+              <div class="form-group-btn">
+                <button type="button" class="btn-primary" (click)="buscarDocAAnularModal()"
+                  [disabled]="buscandoModalDoc || modalGuardando">
+                  {{ buscandoModalDoc ? 'Buscando...' : 'Buscar' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="modal-alert alert-danger" *ngIf="errorModalDoc">
+              ⚠️ {{ errorModalDoc }}
+            </div>
+
+            <!-- Previsualización del documento encontrado para anular -->
+            <div class="doc-preview-box" *ngIf="docAAnularModal">
+              <div class="doc-preview-header">
+                <span class="preview-badge badge-target font-mono">{{ formatearComprobante(docAAnularModal) }}</span>
+                <span class="preview-amount">{{ formatearMoneda(docAAnularModal.importe) }}</span>
+              </div>
+              <div class="doc-preview-body">
+                <span><strong>Cobertura:</strong> {{ docAAnularModal.cobertura }}</span>
+                <span><strong>Fecha:</strong> {{ formatearFechaSimple(docAAnularModal.fecha) }}</span>
+                <span class="grupo-pill" *ngIf="docAAnularModal.asociadogrupo"><strong>Grupo:</strong> #{{
+                  docAAnularModal.asociadogrupo }}</span>
+                <span class="grupo-pill grupo-missing" *ngIf="!docAAnularModal.asociadogrupo">Sin asociadogrupo
+                  asignado</span>
+                <span class="preview-status status-check" *ngIf="docAAnularModal.asociadogrupo">✓ Factura identificada
+                  para anulación</span>
+              </div>
+            </div>
+
+            <!-- Alerta informativa de Solicitud de Anulación de Operador -->
+            <div class="solicitud-anulacion-alerta" *ngIf="docAAnularModal?.tieneSolicitudAnulacion">
+              <span class="alerta-icono">⚠️</span>
+              <div class="alerta-contenido">
+                <div class="alerta-titulo">Solicitud de anulación recibida de <strong>{{ docAAnularModal?.usuarioSolicitante || 'Operador' }}</strong></div>
+                <div class="alerta-motivo" *ngIf="docAAnularModal?.motivoSolicitudAnulacion">
+                  <strong>Motivo indicado:</strong> "{{ docAAnularModal?.motivoSolicitudAnulacion }}"
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: Documento Anulador -->
+          <div class="modal-section-card mt-3">
+            <h5 class="section-title">
+              <span class="step-num">2</span> Documento Anulador (Obligatorio)
+              <span class="grupo-pill" *ngIf="docAAnularModal?.asociadogrupo">Grupo #{{ docAAnularModal?.asociadogrupo
+                }}</span>
+            </h5>
+
+            <div class="modal-info-box" *ngIf="!docAAnularModal">
+              Primero buscá e identificá el <strong>Documento a Anular</strong> en el Paso 1 para listar los
+              comprobantes disponibles dentro de su grupo.
+            </div>
+
+            <ng-container *ngIf="docAAnularModal">
+              <div class="modal-alert alert-danger" *ngIf="errorCandidatosAnulador">
+                ⚠️ {{ errorCandidatosAnulador }}
+              </div>
+
+              <div class="modal-info-box" *ngIf="cargandoCandidatosAnulador">
+                Buscando comprobantes disponibles en el grupo #{{ docAAnularModal.asociadogrupo }}...
+              </div>
+
+              <ng-container *ngIf="!cargandoCandidatosAnulador && !errorCandidatosAnulador">
+                <div class="modal-info-box" *ngIf="candidatosAnulador.length === 0">
+                  No existen otros comprobantes elegibles (no anulados y excluyendo recibos/OP) dentro del grupo
+                  <strong>#{{ docAAnularModal.asociadogrupo }}</strong>.
+                </div>
+
+                <ng-container *ngIf="candidatosAnulador.length > 0">
+                  <div class="candidatos-filter-box">
+                    <input type="text" class="form-control" aria-label="Filtrar documentos candidatos del grupo"
+                      placeholder="Filtrar comprobantes del grupo (tipo, número, fecha, importe)..."
+                      [(ngModel)]="filtroCandidatoAnulador" />
+                    <span class="candidatos-count">
+                      {{ candidatosAnuladorFiltrados.length }} de {{ candidatosAnulador.length }} disponibles
+                    </span>
+                  </div>
+
+                  <div class="modal-info-box" *ngIf="candidatosAnuladorFiltrados.length === 0">
+                    Ningún comprobante del grupo coincide con "{{ filtroCandidatoAnulador }}".
+                  </div>
+
+                  <div class="candidatos-list" *ngIf="candidatosAnuladorFiltrados.length > 0">
+                    <button type="button" class="candidato-item" *ngFor="let cand of candidatosAnuladorFiltrados"
+                      [class.selected]="docAnuladorModal?.idCabecera === cand.idCabecera" [disabled]="modalGuardando"
+                      (click)="seleccionarCandidatoAnulador(cand)">
+                      <div class="candidato-main">
+                        <span class="preview-badge badge-anulador font-mono">{{ formatearComprobante(cand) }}</span>
+                        <span class="candidato-meta">
+                          <span>{{ formatearFechaSimple(cand.fecha) }}</span>
+                          <span *ngIf="cand.cobertura">· {{ cand.cobertura }}</span>
+                        </span>
+                      </div>
+                      <div class="candidato-right">
+                        <span class="candidato-amount">{{ formatearMoneda(cand.importe) }}</span>
+                        <span class="candidato-select-hint">
+                          {{ docAnuladorModal?.idCabecera === cand.idCabecera ? '✓ Seleccionado' : 'Seleccionar' }}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </ng-container>
+              </ng-container>
+            </ng-container>
+
+            <div class="modal-alert alert-danger" *ngIf="errorModalAnulador">
+              ⚠️ {{ errorModalAnulador }}
+            </div>
+
+            <!-- Previsualización del documento anulador seleccionado -->
+            <div class="doc-preview-box preview-anulador" *ngIf="docAnuladorModal">
+              <div class="doc-preview-header">
+                <span class="preview-badge badge-anulador font-mono">{{ formatearComprobante(docAnuladorModal) }}</span>
+                <span class="preview-amount">{{ formatearMoneda(docAnuladorModal.importe) }}</span>
+              </div>
+              <div class="doc-preview-body">
+                <span><strong>Cobertura:</strong> {{ docAnuladorModal.cobertura }}</span>
+                <span><strong>Fecha:</strong> {{ formatearFechaSimple(docAnuladorModal.fecha) }}</span>
+                <span class="grupo-pill" *ngIf="docAnuladorModal.asociadogrupo && docAnuladorModal.asociadogrupo === docAAnularModal?.asociadogrupo"><strong>Grupo:</strong> #{{
+                  docAnuladorModal.asociadogrupo }}</span>
+                <span class="grupo-pill grupo-missing" *ngIf="docAnuladorModal.asociadogrupo && docAnuladorModal.asociadogrupo !== docAAnularModal?.asociadogrupo">
+                  ⚠️ Grupo origen #{{ docAnuladorModal.asociadogrupo }} (se unificará a #{{ docAAnularModal?.asociadogrupo }})
+                </span>
+                <span class="preview-status status-check">✓ Comprobante anulador verificado</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen de Asociación -->
+          <div class="modal-summary-card mt-3" *ngIf="docAAnularModal && docAnuladorModal">
+            <div class="summary-relation">
+              <span class="summary-doc font-mono">{{ formatearComprobante(docAAnularModal) }}</span>
+              <span class="summary-arrow">➔ queda anulado por ➔</span>
+              <span class="summary-doc anulador font-mono">{{ formatearComprobante(docAnuladorModal) }}</span>
+            </div>
+            <p class="summary-hint">
+              Al confirmar, ambos comprobantes serán excluidos de las estadísticas y paneles contables.
+            </p>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <button type="button" class="btn-rechazar-solicitud"
+              *ngIf="docAAnularModal?.tieneSolicitudAnulacion"
+              (click)="abrirModalRechazoSolicitud()" [disabled]="modalGuardando || rechazandoSolicitud">
+              🚫 Rechazar solicitud
+            </button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary" (click)="cerrarModalAnulacion()" [disabled]="modalGuardando || rechazandoSolicitud">
+              Cancelar
+            </button>
+            <button class="btn-danger" (click)="confirmarAnulacionModal()"
+              [disabled]="modalGuardando || rechazandoSolicitud || !docAAnularModal || !docAnuladorModal">
+              {{ modalGuardando ? 'Procesando anulación...' : '❌ Confirmar Anulación' }}
             </button>
           </div>
         </div>
@@ -488,26 +927,33 @@
     <!-- ================================================================= -->
     <div *ngIf="subSolapaActiva === 'historial'" class="panel-card fade-in">
       <div class="panel-header">
-        <h3>Historial y Auditoría de Ajustes Contables</h3>
-        <p class="panel-desc">
-          Registro inmutable de todas las operaciones realizadas por los operadores en el módulo contable.
-        </p>
+        <div class="panel-header-info">
+          <h3>Historial y Auditoría de Ajustes Contables</h3>
+          <p class="panel-desc">
+            Registro inmutable de todas las operaciones realizadas por los operadores en el módulo contable.
+          </p>
+        </div>
+        <button type="button" class="btn-exportar-excel" (click)="exportarAExcel()" [disabled]="cargando"
+          title="Exportar a Excel (.xlsx)">
+          <svg class="icon-excel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Exportar a Excel
+        </button>
       </div>
 
       <div class="filter-bar">
         <div class="filter-input-wrapper">
-          <input
-            type="text"
-            class="form-control"
+          <input type="text" class="form-control"
             placeholder="Buscar por referencia (comprobante, código cobertura, etc.)..."
-            [(ngModel)]="filtroHistorialRef"
-            (keyup.enter)="buscarHistorialConFiltro()"
-          />
+            [(ngModel)]="filtroHistorialRef" (keyup.enter)="buscarHistorialConFiltro()" />
           <button class="btn-primary" (click)="buscarHistorialConFiltro()" [disabled]="cargando">
-            🔍 Filtrar
+            Filtrar
           </button>
           <button class="btn-secondary" (click)="limpiarFiltroHistorial()" *ngIf="filtroHistorialRef">
-            ✕ Limpiar
+            Limpiar
           </button>
         </div>
       </div>
@@ -516,12 +962,37 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 160px;">Fecha y Hora</th>
-              <th>Operación</th>
-              <th>Referencia</th>
-              <th>Valor Anterior</th>
-              <th>Valor Nuevo</th>
-              <th style="width: 140px;">Usuario</th>
+              <th style="width: 160px;" class="sortable-col" [class.col-sorted]="ordenHistorial.columna === 'fechaHora'"
+                (click)="ordenarTabla('historial', 'fechaHora')" title="Ordenar por Fecha y Hora">
+                Fecha y Hora <span class="sort-indicator" [class.active]="ordenHistorial.columna === 'fechaHora'">{{
+                  getIconoOrden(ordenHistorial, 'fechaHora') }}</span>
+              </th>
+              <th class="sortable-col" [class.col-sorted]="ordenHistorial.columna === 'operacion'"
+                (click)="ordenarTabla('historial', 'operacion')" title="Ordenar por Operación">
+                Operación <span class="sort-indicator" [class.active]="ordenHistorial.columna === 'operacion'">{{
+                  getIconoOrden(ordenHistorial, 'operacion') }}</span>
+              </th>
+              <th class="sortable-col" [class.col-sorted]="ordenHistorial.columna === 'referencia'"
+                (click)="ordenarTabla('historial', 'referencia')" title="Ordenar por Referencia">
+                Referencia <span class="sort-indicator" [class.active]="ordenHistorial.columna === 'referencia'">{{
+                  getIconoOrden(ordenHistorial, 'referencia') }}</span>
+              </th>
+              <th class="sortable-col" [class.col-sorted]="ordenHistorial.columna === 'valorAnterior'"
+                (click)="ordenarTabla('historial', 'valorAnterior')" title="Ordenar por Valor Anterior">
+                Valor Anterior <span class="sort-indicator"
+                  [class.active]="ordenHistorial.columna === 'valorAnterior'">{{ getIconoOrden(ordenHistorial,
+                  'valorAnterior') }}</span>
+              </th>
+              <th class="sortable-col" [class.col-sorted]="ordenHistorial.columna === 'valorNuevo'"
+                (click)="ordenarTabla('historial', 'valorNuevo')" title="Ordenar por Valor Nuevo">
+                Valor Nuevo <span class="sort-indicator" [class.active]="ordenHistorial.columna === 'valorNuevo'">{{
+                  getIconoOrden(ordenHistorial, 'valorNuevo') }}</span>
+              </th>
+              <th style="width: 140px;" class="sortable-col" [class.col-sorted]="ordenHistorial.columna === 'usuario'"
+                (click)="ordenarTabla('historial', 'usuario')" title="Ordenar por Usuario">
+                Usuario <span class="sort-indicator" [class.active]="ordenHistorial.columna === 'usuario'">{{
+                  getIconoOrden(ordenHistorial, 'usuario') }}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -532,12 +1003,13 @@
               <td colspan="6" class="text-center py-4 text-muted">No se registran cambios en el historial.</td>
             </tr>
             <tr *ngFor="let h of historialPage?.content">
-              <td class="text-muted">{{ formatearFechaHora(h.fechaHora) }}</td>
+              <td class="text-secondary">{{ formatearFechaHora(h.fechaHora) }}</td>
               <td>
                 <span class="op-badge">{{ h.tipoOperacionDescripcion || h.tipoOperacionCodigo }}</span>
               </td>
               <td class="font-bold">{{ h.referencia }}</td>
-              <td class="text-muted"><del *ngIf="h.valorAnterior">{{ h.valorAnterior }}</del><span *ngIf="!h.valorAnterior">—</span></td>
+              <td class="text-muted"><del *ngIf="h.valorAnterior">{{ h.valorAnterior }}</del><span
+                  *ngIf="!h.valorAnterior">—</span></td>
               <td class="text-success font-bold">{{ h.valorNuevo }}</td>
               <td><span class="user-pill">{{ h.usuario }}</span></td>
             </tr>
@@ -547,18 +1019,80 @@
 
       <div class="pagination-bar" *ngIf="historialPage && historialPage.totalPages > 1">
         <span class="pagination-info">
-          Página {{ historialPage.number + 1 }} de {{ historialPage.totalPages }} ({{ historialPage.totalElements }} eventos)
+          Página {{ historialPage.number + 1 }} de {{ historialPage.totalPages }} ({{ historialPage.totalElements }}
+          eventos)
         </span>
         <div class="pagination-buttons">
-          <button class="btn-page" [disabled]="historialPage.first || cargando" (click)="cargarHistorial(paginaActualHistorial - 1)">
+          <button class="btn-page" [disabled]="historialPage.first || cargando"
+            (click)="cargarHistorial(paginaActualHistorial - 1)">
             ◀ Anterior
           </button>
-          <button class="btn-page" [disabled]="historialPage.last || cargando" (click)="cargarHistorial(paginaActualHistorial + 1)">
+          <button class="btn-page" [disabled]="historialPage.last || cargando"
+            (click)="cargarHistorial(paginaActualHistorial + 1)">
             Siguiente ▶
           </button>
         </div>
       </div>
     </div>
 
+  </div>
+
+  <!-- Modal de Éxito para Operaciones Confirmadas -->
+  <div class="modal-backdrop modal-backdrop-success" *ngIf="modalExitoVisible" (click)="cerrarModalExito()">
+    <div class="modal-dialog modal-dialog-success" (click)="$event.stopPropagation()">
+      <div class="modal-success-header">
+        <button type="button" class="modal-close" (click)="cerrarModalExito()" title="Cerrar">✕</button>
+      </div>
+      <div class="modal-success-body">
+        <div class="modal-success-icon-wrap">
+          <span class="modal-success-icon">✓</span>
+        </div>
+        <h4 class="modal-success-title">{{ modalExitoTitulo }}</h4>
+        <p class="modal-success-message" [innerHTML]="modalExitoMensaje"></p>
+      </div>
+      <div class="modal-success-footer">
+        <button type="button" class="btn-success-modal" (click)="cerrarModalExito()" autofocus>
+          Aceptar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Rechazar Solicitud de Anulación -->
+  <div class="modal-backdrop" *ngIf="modalRechazoVisible" (click)="cerrarModalRechazoSolicitud()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h4>Rechazar Solicitud de Anulación</h4>
+        <button class="modal-close" (click)="cerrarModalRechazoSolicitud()" [disabled]="rechazandoSolicitud">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-intro">
+          ¿Está seguro de que desea rechazar la solicitud de anulación recibida para este comprobante?
+        </p>
+        <div class="doc-preview-box" *ngIf="docAAnularModal" style="margin-bottom: 1rem;">
+          <div class="doc-preview-header">
+            <span class="preview-badge badge-target font-mono">{{ formatearComprobante(docAAnularModal) }}</span>
+            <span class="preview-amount">{{ formatearMoneda(docAAnularModal.importe) }}</span>
+          </div>
+          <div class="doc-preview-body">
+            <span><strong>Solicitado por:</strong> {{ docAAnularModal.usuarioSolicitante || 'Operador' }}</span>
+            <span *ngIf="docAAnularModal.motivoSolicitudAnulacion"><strong>Motivo original:</strong> "{{ docAAnularModal.motivoSolicitudAnulacion }}"</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Motivo del rechazo (opcional):</label>
+          <textarea class="form-control" rows="3" [(ngModel)]="motivoRechazoSolicitud"
+            placeholder="Indique las razones por las cuales no corresponde anular este comprobante..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="cerrarModalRechazoSolicitud()" [disabled]="rechazandoSolicitud">
+          Cancelar
+        </button>
+        <button class="btn-warning-rechazo" (click)="confirmarRechazarSolicitud()" [disabled]="rechazandoSolicitud">
+          {{ rechazandoSolicitud ? 'Rechazando...' : '🚫 Confirmar Rechazo' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>

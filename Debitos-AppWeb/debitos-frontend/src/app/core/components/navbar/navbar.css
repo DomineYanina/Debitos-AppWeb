@@ -514,6 +514,12 @@
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
+.notif-doc-badge.badge-anulacion {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
+}
+
 .notif-content {
   flex: 1;
 }
