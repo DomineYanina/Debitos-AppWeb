@@ -505,20 +505,20 @@
     </div>
 
     <!-- ================================================================= -->
-    <!-- 4. FACTURAS ANULADAS -->
+    <!-- 4. DOCUMENTOS ANULADOS -->
     <!-- ================================================================= -->
     <div *ngIf="subSolapaActiva === 'anuladas'" class="panel-card fade-in">
       <div class="panel-header">
         <div class="panel-header-info">
           <h3>Gestión Manual de Documentos Anulados</h3>
           <p class="panel-desc">
-            Marque documentos como anuladas para excluirlas de los totales, KPIs y balances del Tablero de Control, o
+            Marque documentos como anulados para excluirlos de los totales, KPIs y balances del Tablero de Control, o
             revierta marcas previas.
           </p>
         </div>
         <div class="panel-header-actions">
           <button type="button" class="btn-anular-doc" (click)="abrirModalAnulacion()" [disabled]="cargando"
-            title="Anular Factura asociando comprobante anulador">
+            title="Anular Documento asociando comprobante anulador">
             Anular Documento
           </button>
           <button type="button" class="btn-exportar-excel" (click)="exportarAExcel()" [disabled]="cargando"
@@ -544,6 +544,10 @@
               <option value="FAC">FAC</option>
               <option value="FCE">FCE</option>
               <option value="FCA">FCA</option>
+              <option value="NCE">NCE</option>
+              <option value="NC">NC</option>
+              <option value="NDE">NDE</option>
+              <option value="ND">ND</option>
             </select>
           </div>
 
@@ -625,14 +629,51 @@
 
           <button *ngIf="facturaAnulacionSeleccionada.anulada" class="btn-success"
             (click)="cambiarAnulacion(facturaAnulacionSeleccionada.idCabecera, false)" [disabled]="cargando">
-            ✓ Revertir Anulación (Reactivar Factura)
+            ✓ Revertir Anulación (Reactivar Documento)
           </button>
         </div>
       </div>
 
-      <!-- Listado de Facturas Anuladas Manualmente -->
+      <!-- Listado de Documentos Anulados Manualmente -->
       <div class="mt-5">
-        <h4>Facturas con Anulación Manual Registrada</h4>
+        <h4>Documentos con Anulación Manual Registrada</h4>
+
+        <!-- Barra de filtros del listado de documentos anulados -->
+        <div class="filter-bar filter-bar-prestaciones mt-3">
+          <div class="filter-input-wrapper filter-prestaciones-wrapper">
+            <select id="filtroAnuladasTipo" class="form-control filter-estado-select"
+              aria-label="Filtrar por tipo de documento anulado" [(ngModel)]="filtroAnuladasTipo"
+              (change)="buscarFacturasAnuladasConFiltro()">
+              <option value="">Tipo: Todos los comprobantes</option>
+              <optgroup label="Por Categoría">
+                <option value="FACTURAS">Todas las Facturas (FC, FAC, FCE, FCA)</option>
+                <option value="NOTAS_CREDITO">Todas las Notas de Crédito (NC, NCE)</option>
+                <option value="NOTAS_DEBITO">Todas las Notas de Débito (ND, NDE)</option>
+              </optgroup>
+              <optgroup label="Por Tipo Específico">
+                <option value="FC">FC</option>
+                <option value="FAC">FAC</option>
+                <option value="FCE">FCE</option>
+                <option value="FCA">FCA</option>
+                <option value="NCE">NCE</option>
+                <option value="NC">NC</option>
+                <option value="NDE">NDE</option>
+                <option value="ND">ND</option>
+              </optgroup>
+            </select>
+            <input id="filtroAnuladasTexto" type="text" class="form-control filter-text-input"
+              placeholder="Filtrar por número, comprobante, cobertura o doc. anulador..."
+              [(ngModel)]="filtroAnuladasTexto" (keyup.enter)="buscarFacturasAnuladasConFiltro()" />
+            <button class="btn-primary" (click)="buscarFacturasAnuladasConFiltro()" [disabled]="cargando">
+              Filtrar
+            </button>
+            <button class="btn-secondary" (click)="limpiarFiltroFacturasAnuladas()"
+              *ngIf="filtroAnuladasTipo || filtroAnuladasTexto">
+              Limpiar
+            </button>
+          </div>
+        </div>
+
         <div class="table-responsive mt-3">
           <table class="data-table">
             <thead>
@@ -664,10 +705,12 @@
             </thead>
             <tbody>
               <tr *ngIf="!facturasAnuladasPage || facturasAnuladasPage.content.length === 0">
-                <td colspan="6" class="text-center py-4 text-muted">No hay facturas con anulación manual registrada.
+                <td colspan="6" class="text-center py-4 text-muted">No hay documentos con anulación manual registrada.
                 </td>
               </tr>
-              <tr *ngFor="let fa of facturasAnuladasPage?.content">
+              <tr *ngFor="let fa of facturasAnuladasPage?.content" class="clickable-row"
+                (click)="abrirModalDetalleAnulacion(fa)"
+                title="Haga clic para ver el detalle del documento anulado y su anulador">
                 <td class="font-bold font-mono">{{ formatearComprobante(fa) }}</td>
                 <td>{{ formatearFechaSimple(fa.fecha) }}</td>
                 <td class="text-secondary">{{ fa.cobertura }}</td>
@@ -678,7 +721,8 @@
                   </span>
                 </td>
                 <td style="text-align: center;">
-                  <button class="btn-table-revert" (click)="cambiarAnulacion(fa.idCabecera, false)">
+                  <button class="btn-table-revert"
+                    (click)="cambiarAnulacion(fa.idCabecera, false); $event.stopPropagation()">
                     ✓ Reactivar
                   </button>
                 </td>
@@ -783,7 +827,7 @@
                   docAAnularModal.asociadogrupo }}</span>
                 <span class="grupo-pill grupo-missing" *ngIf="!docAAnularModal.asociadogrupo">Sin asociadogrupo
                   asignado</span>
-                <span class="preview-status status-check" *ngIf="docAAnularModal.asociadogrupo">✓ Factura identificada
+                <span class="preview-status status-check" *ngIf="docAAnularModal.asociadogrupo">✓ Documento identificado
                   para anulación</span>
               </div>
             </div>
@@ -918,6 +962,116 @@
               {{ modalGuardando ? 'Procesando anulación...' : '❌ Confirmar Anulación' }}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Detalle de Documento Anulado y su Anulador -->
+    <div class="modal-backdrop" *ngIf="modalDetalleAnulacionVisible" (click)="cerrarModalDetalleAnulacion()">
+      <div class="modal-dialog modal-dialog-lg" *ngIf="detalleAnulacionSeleccionada as det"
+        (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h4>Detalle de Documento Anulado y su Anulador</h4>
+          <button class="modal-close" (click)="cerrarModalDetalleAnulacion()">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Resumen de Relación -->
+          <div class="modal-summary-card mb-3">
+            <div class="summary-relation">
+              <span class="summary-doc font-mono">{{ formatearComprobante(det) }}</span>
+              <span class="summary-arrow">➔ anulado con ➔</span>
+              <span class="summary-doc anulador font-mono">
+                {{ det.comprobanteAnulador || 'Sin comprobante anulador vinculado' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 1: Documento Anulado -->
+          <div class="modal-section-card">
+            <h5 class="section-title">
+              <span class="step-num">1</span> Documento Anulado
+            </h5>
+            <div class="doc-preview-box">
+              <div class="doc-preview-header">
+                <span class="preview-badge badge-target font-mono">{{ formatearComprobante(det) }}</span>
+                <span class="preview-amount">{{ formatearMoneda(det.importe) }}</span>
+              </div>
+              <div class="detalle-anulacion-grid mt-2">
+                <div class="detalle-field">
+                  <span class="detalle-label">Cobertura</span>
+                  <span class="detalle-val">
+                    {{ det.cobertura || '—' }}
+                    <small *ngIf="det.codigoCobertura" class="text-muted">({{ det.codigoCobertura }})</small>
+                  </span>
+                </div>
+                <div class="detalle-field">
+                  <span class="detalle-label">Tipo de Registro</span>
+                  <span class="detalle-val">{{ det.tipoRegistro || 'No especificado' }}</span>
+                </div>
+                <div class="detalle-field">
+                  <span class="detalle-label">Fecha de Emisión</span>
+                  <span class="detalle-val">{{ formatearFechaSimple(det.fecha) }}</span>
+                </div>
+                <div class="detalle-field">
+                  <span class="detalle-label">Período Contable</span>
+                  <span class="detalle-val">{{ formatearFechaSimple(det.periodo) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: Documento Anulador -->
+          <div class="modal-section-card mt-3">
+            <h5 class="section-title">
+              <span class="step-num">2</span> Documento Anulador (Contrapartida)
+            </h5>
+
+            <div class="modal-info-box" *ngIf="!det.idCabeceraAnulador && !det.comprobanteAnulador">
+              Este documento no registra un comprobante anulador de contrapartida asociado.
+            </div>
+
+            <div class="doc-preview-box preview-anulador" *ngIf="det.idCabeceraAnulador || det.comprobanteAnulador">
+              <div class="doc-preview-header">
+                <span class="preview-badge badge-anulador font-mono">
+                  {{ det.comprobanteAnulador || (det.tipoAnulador ? (det.tipoAnulador + ' ' + (det.letraAnulador || '') + ' ' + det.ptovtaAnulador + '-' + det.numeroAnulador) : ('ID #' + det.idCabeceraAnulador)) }}
+                </span>
+                <span class="preview-amount" *ngIf="det.importeAnulador != null">
+                  {{ formatearMoneda(det.importeAnulador) }}
+                </span>
+              </div>
+              <div class="detalle-anulacion-grid mt-2">
+                <div class="detalle-field">
+                  <span class="detalle-label">Cobertura</span>
+                  <span class="detalle-val">
+                    {{ det.coberturaAnulador || det.cobertura || '—' }}
+                    <small *ngIf="det.codigoCoberturaAnulador" class="text-muted">({{ det.codigoCoberturaAnulador }})</small>
+                  </span>
+                </div>
+                <div class="detalle-field">
+                  <span class="detalle-label">Tipo de Registro</span>
+                  <span class="detalle-val">{{ det.tipoRegistroAnulador || det.tipoRegistro || 'No especificado' }}</span>
+                </div>
+                <div class="detalle-field">
+                  <span class="detalle-label">Fecha de Emisión</span>
+                  <span class="detalle-val">{{ formatearFechaSimple(det.fechaAnulador || null) }}</span>
+                </div>
+                <div class="detalle-field">
+                  <span class="detalle-label">Período Contable</span>
+                  <span class="detalle-val">{{ formatearFechaSimple(det.periodoAnulador || null) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn-table-revert" (click)="reactivarDesdeModalDetalle()" [disabled]="cargando">
+            ✓ Revertir Anulación (Reactivar Documento)
+          </button>
+          <button type="button" class="btn-secondary" (click)="cerrarModalDetalleAnulacion()">
+            Cerrar
+          </button>
         </div>
       </div>
     </div>

@@ -23,6 +23,9 @@ public interface AmbLiquidadoRepository extends JpaRepository<AmbLiquidado, Inte
     @Query(value = "SELECT * FROM amb_liquidado WHERE idcabecera IN (:idsCabecera)", nativeQuery = true)
     List<AmbLiquidado> findByCabecera_IdIn(@Param("idsCabecera") java.util.Collection<Long> idsCabecera);
 
+    @Query("SELECT DISTINCT al.cabecera.id FROM AmbLiquidado al WHERE al.cabecera.id IN :idsCabecera")
+    java.util.Set<Long> findCabeceraIdsConPrestaciones(@Param("idsCabecera") java.util.Collection<Long> idsCabecera);
+
     @Query("""
         SELECT new com.debitos.backend.dto.PrestacionLigeraDTO(
             al.cabecera.id,

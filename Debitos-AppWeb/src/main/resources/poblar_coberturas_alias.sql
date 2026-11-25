@@ -7,7 +7,8 @@
 -- MÉTODO 1 (Recomendado directo): Conexión directa mediante dblink
 -- Si ejecutas este script en DBeaver conectado a la base 'Debitos', este comando
 -- consulta la tabla 'cob_cobertura' en el servidor de gestión (172.16.15.41:9090)
--- e inserta automáticamente las 706 coberturas.
+-- e inserta automáticamente las 697 coberturas institucionales (excluyendo
+-- a médicos, proveedores y entidades internas como SISTEMAS PP).
 -- -----------------------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS dblink;
 
@@ -18,21 +19,17 @@ SELECT
     TRIM(t.nombre) AS nombre_mostrar
 FROM dblink(
     'host=172.16.15.41 port=9090 dbname=gestion user=yanina password=yanina**333-',
-    'SELECT codigo, nombre FROM cob_cobertura WHERE codigo IS NOT NULL AND TRIM(codigo) <> '''''
+    'SELECT c.codigo, c.nombre FROM cob_cobertura c JOIN cct_persona p ON c.idpersona = p.idpersona WHERE c.codigo IS NOT NULL AND TRIM(c.codigo) <> '''' AND p.tipo IN (''O'', ''P'', ''A'', ''E'') AND p.idpersona NOT IN (259, 10001583) AND UPPER(TRIM(p.nombre)) <> ''SISTEMAS PP'' AND UPPER(TRIM(c.nombre)) <> ''SISTEMAS PP'''
 ) AS t(codigo VARCHAR, nombre VARCHAR)
 ON CONFLICT (codigo_cobertura) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
--- MÉTODO 2 (Autónomo sin dblink): Inserción directa de los 706 registros
+-- MÉTODO 2 (Autónomo sin dblink): Inserción directa de las 697 coberturas institucionales
 -- Útil si el servidor de Débitos no tiene acceso de red al puerto 9090 de gestión.
 -- -----------------------------------------------------------------------------
 INSERT INTO coberturas_alias (codigo_cobertura, nombre_original, nombre_mostrar) VALUES
     ('000690', 'FUNDACION DR DANIEL GOMEZ', 'FUNDACION DR DANIEL GOMEZ'),
     ('000765', 'TECDEA S.A', 'TECDEA S.A'),
-    ('002014', 'JONATHAN GERARDO AGUILERA AGUDO', 'JONATHAN GERARDO AGUILERA AGUDO'),
-    ('002016', 'ALTAMIRANO FLORES AMADO', 'ALTAMIRANO FLORES AMADO'),
-    ('002018', 'ZURITA HERRERA LOYDA', 'ZURITA HERRERA LOYDA'),
-    ('1', 'SISTEMAS PP', 'SISTEMAS PP'),
     ('1000', 'OSTEOMEDICAL SA', 'OSTEOMEDICAL SA'),
     ('1001', 'EMPRESAS DE MEDICINA EMPRESARIAL', 'EMPRESAS DE MEDICINA EMPRESARIAL'),
     ('1002', 'GUAJIRA S.R.L', 'GUAJIRA S.R.L'),
@@ -219,13 +216,11 @@ INSERT INTO coberturas_alias (codigo_cobertura, nombre_original, nombre_mostrar)
     ('1183', 'PETROFUEL S.A.', 'PETROFUEL S.A.'),
     ('1184', 'BUCETA LUCIA ELISABET', 'BUCETA LUCIA ELISABET'),
     ('1185', 'ASOCIACION DE PLANTADORES DE TABACO DE M', 'ASOCIACION DE PLANTADORES DE TABACO DE M'),
-    ('1186', 'PAZ RODRIGUEZ ELKY GILDA', 'PAZ RODRIGUEZ ELKY GILDA'),
     ('1188', 'MENICHETTI JULIO Y MONDO MAURICIO SH', 'MENICHETTI JULIO Y MONDO MAURICIO SH'),
     ('1189', 'MAYOTTI PATRICIA HAYDEE', 'MAYOTTI PATRICIA HAYDEE'),
     ('1190', 'BATERIAS EXTREME', 'BATERIAS EXTREME'),
     ('1191', 'SARMORIA GUIDO LELIO', 'SARMORIA GUIDO LELIO'),
     ('1192', 'ARGENTINA CLAIMS SERVICE S.A', 'ARGENTINA CLAIMS SERVICE S.A'),
-    ('1193', 'CASADEI CARLOS LUIS', 'CASADEI CARLOS LUIS'),
     ('1194', 'OBISPADO DE SAN MIGUEL', 'OBISPADO DE SAN MIGUEL'),
     ('1195', 'TOLKEYEN PATAGONIA', 'TOLKEYEN PATAGONIA'),
     ('1196', 'BOIOLA Y ECHEVERRIA SH', 'BOIOLA Y ECHEVERRIA SH'),
@@ -445,7 +440,6 @@ INSERT INTO coberturas_alias (codigo_cobertura, nombre_original, nombre_mostrar)
     ('1966', 'SUE├æOS PURPURAS SRL', 'SUE├æOS PURPURAS SRL'),
     ('1967', 'ELISII DIEGO MARIO', 'ELISII DIEGO MARIO'),
     ('1968', 'TEXTIL VASALU SOCIEDAD ANONIMA', 'TEXTIL VASALU SOCIEDAD ANONIMA'),
-    ('1969', 'ETCHEGOYEN GUILLERMO MARTIN', 'ETCHEGOYEN GUILLERMO MARTIN'),
     ('1970', 'DKSOLUCIONES INTEGRALES SRL', 'DKSOLUCIONES INTEGRALES SRL'),
     ('1971', 'EDIFICIO GOBERNADOR CARLOS TEJEDOR 1259', 'EDIFICIO GOBERNADOR CARLOS TEJEDOR 1259'),
     ('1972', 'DEHEZA SOCIEDAD ANONIMA INDUSTRIAL COMER', 'DEHEZA SOCIEDAD ANONIMA INDUSTRIAL COMER'),
@@ -504,7 +498,6 @@ INSERT INTO coberturas_alias (codigo_cobertura, nombre_original, nombre_mostrar)
     ('2026', 'CACERES CENTURION MIGUEL', 'CACERES CENTURION MIGUEL'),
     ('2027', 'WORD SALUD SA', 'WORD SALUD SA'),
     ('2028', 'CLINICA CRUZ CELESTE SACYM', 'CLINICA CRUZ CELESTE SACYM'),
-    ('2029', 'CHEREY ROXANA ELIZABETH', 'CHEREY ROXANA ELIZABETH'),
     ('300', 'COLEGIO DE FARMACEUTICOS DE LA PCIA DE B', 'COLEGIO DE FARMACEUTICOS DE LA PCIA DE B'),
     ('3000', 'LISTA BASE SCMM', 'LISTA BASE SCMM'),
     ('400', 'COMEI', 'COMEI'),
@@ -698,7 +691,6 @@ INSERT INTO coberturas_alias (codigo_cobertura, nombre_original, nombre_mostrar)
     ('797', 'OSPIL O.S. PERS. DE LA INDUSTRIA LECHERA', 'OSPIL O.S. PERS. DE LA INDUSTRIA LECHERA'),
     ('798', 'OSPIN', 'OSPIN'),
     ('799', 'OSECAC', 'OSECAC'),
-    ('800', 'RESIDENTES', 'RESIDENTES'),
     ('801', 'O.S. PERSONAL GRAFICO', 'O.S. PERSONAL GRAFICO'),
     ('802', 'INTEGRAL AMCI', 'INTEGRAL AMCI'),
     ('803', 'GRUPO ROI S.A.', 'GRUPO ROI S.A.'),

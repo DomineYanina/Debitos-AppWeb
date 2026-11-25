@@ -303,6 +303,34 @@ class DirectorioServiceTest {
     }
 
     @Test
+    @DisplayName("obtenerPrestacionesPorMotivoPaginado genera queries SQL de COUNT y Datos válidas sin romper la sintaxis")
+    void testObtenerPrestacionesPorMotivoPaginadoGeneraSqlCorrecto() {
+        when(mockQuery.getSingleResult()).thenReturn(10L);
+        when(mockQuery.getResultList()).thenReturn(Collections.emptyList());
+
+        org.mockito.ArgumentCaptor<String> captor = org.mockito.ArgumentCaptor.forClass(String.class);
+
+        directorioService.obtenerPrestacionesPorMotivoPaginado(
+                "Demora en resolución quirúrgica", null, null,
+                LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), "periodo", 0, 1000);
+
+        verify(entityManager, atLeast(2)).createNativeQuery(captor.capture());
+        List<String> queries = captor.getAllValues();
+        assertTrue(queries.size() >= 2);
+
+        String countQuery = queries.get(0);
+        assertTrue(countQuery.contains("WITH fc_madre AS"));
+        assertTrue(countQuery.contains("SELECT COUNT(nc.id)"));
+        assertFalse(countQuery.contains("COALESCE((SELECT COUNT(nc.id)"));
+        assertTrue(countQuery.contains("FROM notadecredito nc"));
+
+        String dataQuery = queries.get(1);
+        assertTrue(dataQuery.contains("WITH fc_madre AS"));
+        assertTrue(dataQuery.contains("SELECT COALESCE(al.id, nc.id) AS id"));
+        assertTrue(dataQuery.contains("LIMIT :limit OFFSET :offset"));
+    }
+
+    @Test
     @DisplayName("obtenerPrestacionesPorMotivoPaginado retorna PaginatedResponseDTO estructurado")
     void testObtenerPrestacionesPorMotivoPaginado() {
         when(mockQuery.getSingleResult()).thenReturn(75L);
@@ -312,7 +340,7 @@ class DirectorioServiceTest {
                 java.sql.Date.valueOf(LocalDate.of(2026, 8, 5)), "420101", "CONSULTA",
                 "NC", "A", 1, 501, java.sql.Date.valueOf(LocalDate.of(2026, 8, 20)),
                 "Falta de autorización/Token", "No autorizada en línea",
-                new BigDecimal("3500.00"), true
+                new BigDecimal("3500.00"), true, "OPERADOR_CENTRAL"
         });
         when(mockQuery.getResultList()).thenReturn(rows);
 
@@ -327,6 +355,7 @@ class DirectorioServiceTest {
         assertEquals(3, res.getTotalPages());
         assertTrue(res.isLast());
         assertEquals(1, res.getContent().size());
+        assertEquals("OPERADOR_CENTRAL", res.getContent().get(0).getOperador());
     }
 
     @Test
@@ -1735,5 +1764,31 @@ class DirectorioServiceTest {
         assertTrue(sqlEjecutado.contains("al.operador_liquida)"), "En Internados debe agrupar por al.operador_liquida");
         assertTrue(sqlEjecutado.contains("LIKE 'INTERN%'"), "En Internados debe filtrar registros LIKE 'INTERN%'");
         assertFalse(sqlEjecutado.contains("NOT LIKE 'INTERN%'"), "En Internados no debe usar NOT LIKE 'INTERN%'");
+    }
+
+    @Test
+    @DisplayName("getMetricasOperadores en Todos no filtra por tipoRegistro e incluye lógica CASE para operador")
+    void testGetMetricasOperadores_todosNoFiltraTipoRegistroYUsaCaseOperador() {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] { "OJEDAD", "Falta de autorización/Token", "OSDE",
+                new BigDecimal("100000.00"), BigDecimal.ZERO, new BigDecimal("100000.00"), "Ambulatorios" });
+        rows.add(new Object[] { "NAGYP", "Sin motivo especificado", "OSDE",
+                new BigDecimal("200000.00"), new BigDecimal("50000.00"), new BigDecimal("150000.00"), "Internados" });
+
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        when(entityManager.createNativeQuery(sqlCaptor.capture())).thenReturn(mockQuery);
+        when(mockQuery.getResultList()).thenReturn(rows);
+
+        List<MetricaOperadorDTO> result = directorioService.getMetricasOperadores(
+                "2026-08", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), "periodo", "Todos");
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+
+        String sqlEjecutado = sqlCaptor.getValue();
+        assertTrue(sqlEjecutado.contains("al.operador_liquida"), "En Todos debe contemplar operador_liquida");
+        assertTrue(sqlEjecutado.contains("al.operador"), "En Todos debe contemplar operador");
+        assertFalse(sqlEjecutado.contains("NOT LIKE 'INTERN%'"), "En Todos no debe excluir internados");
+        assertFalse(sqlEjecutado.contains("AND UPPER(COALESCE(NULLIF(TRIM(al.tiporegistro)"), "En Todos no debe aplicar filtro WHERE restrictivo por tiporegistro");
     }
 }

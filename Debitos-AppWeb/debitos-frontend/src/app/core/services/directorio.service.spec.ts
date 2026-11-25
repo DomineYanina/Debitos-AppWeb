@@ -292,4 +292,15 @@ describe('DirectorioService', () => {
     expect(req.request.method).toBe('GET');
     req.flush([]);
   });
+
+  it('getDesempenoOperadores debería enviar Todos en tipoRegistro cuando se especifica', () => {
+    service.getDesempenoOperadores('2026-08', '2026-08-01', '2026-08-31', 'periodo', 'Todos').subscribe();
+
+    const req = httpMock.expectOne(r =>
+      r.url.includes('/api/graficos/desempeno/operadores') &&
+      r.params.get('tipoRegistro') === 'Todos'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 });

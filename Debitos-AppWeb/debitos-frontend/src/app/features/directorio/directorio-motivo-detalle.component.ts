@@ -356,7 +356,8 @@ export class DirectorioMotivoDetalleComponent implements OnInit, OnDestroy {
         (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
         (p.comentariosDebito && p.comentariosDebito.toLowerCase().includes(q)) ||
         (p.efector && p.efector.toLowerCase().includes(q)) ||
-        (p.medico && p.medico.toLowerCase().includes(q))
+        (p.medico && p.medico.toLowerCase().includes(q)) ||
+        (p.operador && p.operador.toLowerCase().includes(q))
       );
     }
 

@@ -92,6 +92,7 @@ export interface DirectorioPrestacionDetalle {
   comentariosDebito: string;
   importeDebitado: number;
   debitoAceptado: boolean | null;
+  operador?: string;
 }
 
 /** Interfaces para gráficos financieros (Chart.js / ng2-charts) */
@@ -122,6 +123,10 @@ export interface CcComprobanteDTO {
   refacturacionNd: number;
   cobranzasRc: number;
   saldo: number;
+  letra?: string;
+  ptovta?: number;
+  numero?: number;
+  tienePrestaciones?: boolean;
   expanded?: boolean;
   hijos?: CcComprobanteDTO[];
   _originalIndex?: number;

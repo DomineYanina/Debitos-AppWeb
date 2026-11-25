@@ -347,7 +347,7 @@ public class GraficosController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
             @RequestParam(defaultValue = "analisis") String criterioFecha,
-            @RequestParam(defaultValue = "Ambulatorios") String tipoRegistro) {
+            @RequestParam(defaultValue = "Todos") String tipoRegistro) {
         List<MetricaOperadorDTO> resultado = directorioService.getMetricasOperadores(periodo, fechaDesde, fechaHasta, criterioFecha, tipoRegistro);
         return ResponseEntity.ok(resultado);
     }

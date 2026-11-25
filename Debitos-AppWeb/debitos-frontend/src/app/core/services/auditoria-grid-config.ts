@@ -91,26 +91,68 @@ export class AuditoriaGridConfigService {
       });
     }
 
+    const tieneDebitoDefinido = (data: any) => data?.debitoAceptado === 'SI' || data?.debitoAceptado === 'NO';
+
     columnas.push(
       { headerName: 'Débito\nAceptado', field: 'debitoAceptado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: 'agSelectCellEditor', cellEditorParams: { values: ['', 'SI', 'NO'] }, width: 95, minWidth: 95, suppressAutoSize: true },
-      { headerName: 'Motivo\nDébito', field: 'motivoDebito', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', cellEditor: editorComponent, cellEditorParams: { grupos: motivosDebito } },
-      { headerName: 'Días\nFact.', field: 'diasFacturados', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 63 }
+      {
+        headerName: 'Motivo\nDébito',
+        field: 'motivoDebito',
+        editable: params => !esSoloLectura && tieneDebitoDefinido(params.data),
+        headerClass: 'bg-gris',
+        cellEditor: editorComponent,
+        cellEditorParams: { grupos: motivosDebito },
+        cellClassRules: {
+          'bg-gris': params => !esSoloLectura && tieneDebitoDefinido(params.data),
+          'bg-naranja': params => esSoloLectura || !tieneDebitoDefinido(params.data)
+        }
+      },
+      {
+        headerName: 'Días\nFact.',
+        field: 'diasFacturados',
+        editable: params => !esSoloLectura && tieneDebitoDefinido(params.data),
+        headerClass: 'bg-gris',
+        width: 63,
+        cellClassRules: {
+          'bg-gris': params => !esSoloLectura && tieneDebitoDefinido(params.data),
+          'bg-naranja': params => esSoloLectura || !tieneDebitoDefinido(params.data)
+        }
+      }
     );
 
     if (mostrarEnglobante) {
-      columnas.push({ headerName: 'Prestación\nEnglobante', field: 'prestacionEnglobante', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris' });
+      columnas.push({
+        headerName: 'Prestación\nEnglobante',
+        field: 'prestacionEnglobante',
+        editable: params => !esSoloLectura && tieneDebitoDefinido(params.data),
+        headerClass: 'bg-gris',
+        cellClassRules: {
+          'bg-gris': params => !esSoloLectura && tieneDebitoDefinido(params.data),
+          'bg-naranja': params => esSoloLectura || !tieneDebitoDefinido(params.data)
+        }
+      });
     }
 
     columnas.push({
-      headerName: 'Imp.\nDebitado', field: 'importeDebitado', editable: !esSoloLectura, cellClass: 'bg-gris', headerClass: 'bg-gris', width: 93,
-      valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''
+      headerName: 'Imp.\nDebitado',
+      field: 'importeDebitado',
+      editable: params => !esSoloLectura && tieneDebitoDefinido(params.data),
+      headerClass: 'bg-gris',
+      width: 93,
+      valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
+      cellClassRules: {
+        'bg-gris': params => !esSoloLectura && tieneDebitoDefinido(params.data),
+        'bg-naranja': params => esSoloLectura || !tieneDebitoDefinido(params.data)
+      }
     });
 
     columnas.push({
-      headerName: 'Comentarios\nDébito', field: 'comentariosDebito', headerClass: 'bg-naranja',
+      headerName: 'Comentarios\nDébito',
+      field: 'comentariosDebito',
+      headerClass: 'bg-naranja',
       headerTooltip: 'Observaciones específicas sobre el débito aplicado a esta prestación',
       tooltipValueGetter: params => params.value || '',
-      editable: params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
+      editable: params => !esSoloLectura && tieneDebitoDefinido(params.data) && !!params.data?.motivoDebito && params.data.motivoDebito !== '',
       cellEditor: 'agLargeTextCellEditor',
       cellEditorPopup: true,
       cellEditorPopupPosition: 'under',
@@ -120,8 +162,8 @@ export class AuditoriaGridConfigService {
         cols: 30
       },
       cellClassRules: {
-        'bg-gris': params => !esSoloLectura && !!params.data.motivoDebito && params.data.motivoDebito !== '',
-        'bg-naranja': params => esSoloLectura || (!params.data.motivoDebito || params.data.motivoDebito === '')
+        'bg-gris': params => !esSoloLectura && tieneDebitoDefinido(params.data) && !!params.data?.motivoDebito && params.data.motivoDebito !== '',
+        'bg-naranja': params => esSoloLectura || !tieneDebitoDefinido(params.data) || (!params.data?.motivoDebito || params.data.motivoDebito === '')
       }
     });
 
@@ -129,27 +171,25 @@ export class AuditoriaGridConfigService {
       {
         headerName: 'Motivo\nRefactura',
         field: 'motivoRefactura',
-        editable: params => !esSoloLectura && params.data.debitoAceptado !== 'SI',
-        cellClass: 'bg-gris',
+        editable: params => !esSoloLectura && params.data?.debitoAceptado === 'NO',
         headerClass: 'bg-gris',
         cellEditor: editorComponent,
         cellEditorParams: { grupos: motivosRefactura },
         cellClassRules: {
-          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado === 'SI',
-          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado !== 'SI'
+          'bg-gris': params => !esSoloLectura && params.data?.debitoAceptado === 'NO',
+          'bg-naranja': params => esSoloLectura || params.data?.debitoAceptado !== 'NO'
         }
       },
       {
         headerName: 'Imp.\nRefactura',
         field: 'importeRefactura',
-        editable: params => !esSoloLectura && params.data.debitoAceptado !== 'SI',
-        cellClass: 'bg-gris',
+        editable: params => !esSoloLectura && params.data?.debitoAceptado === 'NO',
         headerClass: 'bg-gris',
         width: 94,
         valueFormatter: params => params.value != null ? `$${Number(params.value).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
         cellClassRules: {
-          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado === 'SI',
-          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado !== 'SI'
+          'bg-gris': params => !esSoloLectura && params.data?.debitoAceptado === 'NO',
+          'bg-naranja': params => esSoloLectura || params.data?.debitoAceptado !== 'NO'
         }
       },
       {
@@ -158,7 +198,7 @@ export class AuditoriaGridConfigService {
         headerClass: 'bg-naranja',
         headerTooltip: 'Notas y aclaraciones sobre el proceso de refacturación',
         tooltipValueGetter: params => params.value || '',
-        editable: params => !esSoloLectura && params.data.debitoAceptado === 'NO',
+        editable: params => !esSoloLectura && params.data?.debitoAceptado === 'NO',
         cellEditor: 'agLargeTextCellEditor',
         cellEditorPopup: true,
         cellEditorPopupPosition: 'under',
@@ -168,8 +208,8 @@ export class AuditoriaGridConfigService {
           cols: 30
         },
         cellClassRules: {
-          'bg-gris': params => !esSoloLectura && params.data.debitoAceptado === 'NO',
-          'bg-naranja': params => esSoloLectura || params.data.debitoAceptado !== 'NO'
+          'bg-gris': params => !esSoloLectura && params.data?.debitoAceptado === 'NO',
+          'bg-naranja': params => esSoloLectura || params.data?.debitoAceptado !== 'NO'
         }
       }
     );

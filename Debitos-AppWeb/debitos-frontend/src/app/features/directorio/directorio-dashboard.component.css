@@ -2051,6 +2051,39 @@ td.text-center .badge-count {
   color: #1e293b;
 }
 
+/* Columna Ver Prestaciones en Cuenta Corriente */
+.table-cuenta-corriente .th-acciones-prestaciones,
+.table-cuenta-corriente .td-acciones-prestaciones {
+  text-align: center;
+  white-space: nowrap;
+  width: 135px;
+  min-width: 135px;
+  vertical-align: middle;
+}
+
+.table-cuenta-corriente .historial-link-ver-prestaciones {
+  color: #2563eb;
+  text-decoration: underline;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.84rem;
+  transition: color 0.15s ease;
+}
+
+.table-cuenta-corriente .historial-link-ver-prestaciones:hover {
+  color: #1d4ed8;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente .historial-link-ver-prestaciones {
+  color: #60a5fa !important;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+:host-context([data-theme="dark"]) .table-cuenta-corriente .historial-link-ver-prestaciones:hover {
+  color: #93c5fd !important;
+}
+
 .row-factura-raiz {
   cursor: pointer;
   transition: background 0.15s ease;
@@ -3428,6 +3461,11 @@ td.text-center .badge-count {
 .color-diferencia {
   color: #7c3aed !important;
   font-weight: 600;
+}
+
+.color-diferencia.diferencia-excedente {
+  color: #0284c7 !important;
+  font-weight: 700;
 }
 
 .sortable-col {
@@ -5445,6 +5483,49 @@ td.text-center .badge-count {
   color: #38bdf8 !important;
 }
 
+/* Bordes coloreados específicos para las 6 tarjetas KPI en modo oscuro (Tablero de Control) */
+:host-context([data-theme="dark"]) .kpi-card.card-facturacion-fc,
+:host-context([data-theme="dark"]) .card-facturacion-fc,
+[data-theme="dark"] .kpi-card.card-facturacion-fc,
+[data-theme="dark"] .card-facturacion-fc {
+  border: 2.5px solid #2563eb !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-card.card-incrementos-nd,
+:host-context([data-theme="dark"]) .card-incrementos-nd,
+[data-theme="dark"] .kpi-card.card-incrementos-nd,
+[data-theme="dark"] .card-incrementos-nd {
+  border: 2.5px solid #f59e0b !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-card.card-debitos-nc,
+:host-context([data-theme="dark"]) .card-debitos-nc,
+[data-theme="dark"] .kpi-card.card-debitos-nc,
+[data-theme="dark"] .card-debitos-nc {
+  border: 2.5px solid #ef4444 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-card.card-refacturacion-nd,
+:host-context([data-theme="dark"]) .card-refacturacion-nd,
+[data-theme="dark"] .kpi-card.card-refacturacion-nd,
+[data-theme="dark"] .card-refacturacion-nd {
+  border: 2.5px solid #06b6d4 !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-card.card-cobranzas-rc,
+:host-context([data-theme="dark"]) .card-cobranzas-rc,
+[data-theme="dark"] .kpi-card.card-cobranzas-rc,
+[data-theme="dark"] .card-cobranzas-rc {
+  border: 2.5px solid #16a34a !important;
+}
+
+:host-context([data-theme="dark"]) .kpi-card.card-saldo-real,
+:host-context([data-theme="dark"]) .card-saldo-real,
+[data-theme="dark"] .kpi-card.card-saldo-real,
+[data-theme="dark"] .card-saldo-real {
+  border: 2.5px solid #94a3b8 !important;
+}
+
 /* REQUISITO: Color de fondo de los gráficos #e5edfd (excepto Pareto en Motivos) */
 :host-context([data-theme="dark"]) .grafico-body,
 :host-context([data-theme="dark"]) .grafico-body--tall {
@@ -6441,6 +6522,14 @@ td.text-center .badge-count {
   font-weight: 700;
 }
 
+:host-context([data-theme="dark"]) .color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .tr-analista.is-expanded .color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .tr-motivo.is-expanded .color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-diferencia.diferencia-excedente {
+  color: #38bdf8 !important; /* Sky 400 - celeste vibrante para saldos a favor/excedentes */
+  font-weight: 700;
+}
+
 :host-context([data-theme="dark"]) .color-ticket,
 :host-context([data-theme="dark"]) .color-ticket-promedio {
   color: #cbd5e1 !important;
@@ -6467,37 +6556,71 @@ td.text-center .badge-count {
   color: #ffffff !important;
 }
 
-/* 3. Fila 'TOTAL GENERAL' (Fila Fija / Sticky) */
+/* 3. Fila 'TOTAL GENERAL' (FONDO AZUL OSCURO ELEGANTE Y FORMATO DE COLORES IDÉNTICO A USUARIO DE CARGA) */
 :host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th,
 :host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th,
 :host-context([data-theme="dark"]) tr.tr-totales-fijos th {
-  background-color: rgba(30, 58, 138, 0.45) !important;
+  background-color: #172554 !important; /* base sólida bg-blue-950 para sticky scroll */
+  background: linear-gradient(180deg, #1e3a8a 0%, #172554 100%) !important; /* fondo azul oscuro y elegante */
   color: #ffffff !important;
-  border-top: 1px solid #334155 !important;
-  border-bottom: 2px solid #0284c7 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+  border-top: 1px solid #2563eb !important;
+  border-bottom: 2px solid #3b82f6 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.35) !important;
 }
 
 :host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.th-total-label,
-:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.th-total-label {
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.th-total-label,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.th-total-label,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.th-total-label {
   color: #ffffff !important;
   font-weight: 800;
+  letter-spacing: 0.03em;
 }
 
-:host-context([data-theme="dark"]) .tr-totales-fijos .color-facturado {
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.font-weight-bold,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.font-weight-bold {
   color: #ffffff !important;
 }
 
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.color-facturado,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.color-facturado,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.color-facturado,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.color-facturado,
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-facturado {
+  color: #bfdbfe !important; /* text-blue-200 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.color-aceptado,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.color-aceptado,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.color-aceptado,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.color-aceptado,
 :host-context([data-theme="dark"]) .tr-totales-fijos .color-aceptado {
-  color: #34d399 !important;
+  color: #fca5a5 !important; /* text-red-300 claro y visible */
 }
 
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.color-refacturado,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.color-refacturado,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.color-refacturado,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.color-refacturado,
 :host-context([data-theme="dark"]) .tr-totales-fijos .color-refacturado {
-  color: #60a5fa !important;
+  color: #93c5fd !important; /* text-blue-300 claro y visible */
 }
 
-:host-context([data-theme="dark"]) .tr-totales-fijos .color-diferencia {
-  color: #c084fc !important;
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos th.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos th.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas thead tr.tr-totales-fijos-analistas th.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas tr.tr-totales-fijos-analistas th.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-diferencia,
+:host-context([data-theme="dark"]) .tr-totales-fijos .color-diferencia.diferencia-excedente {
+  color: #e9d5ff !important; /* text-purple-200 claro y visible */
 }
 
 /* 4. Píldoras (Badges) de Contadores y Distribución */
@@ -7049,9 +7172,13 @@ td.text-center .badge-count {
 }
 
 :host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.color-diferencia,
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos th.color-diferencia.diferencia-excedente,
 :host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos th.color-diferencia.diferencia-excedente,
 :host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia,
-:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia {
+:host-context([data-theme="dark"]) .table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia,
+:host-context([data-theme="dark"]) .table-analistas.table-operadores thead tr.tr-totales-fijos-operadores th.color-diferencia.diferencia-excedente {
   color: #e9d5ff !important; /* text-purple-200 claro y visible */
 }
 
@@ -7345,10 +7472,10 @@ td.text-center .badge-count {
 }
 
 /* --------------------------------------------------------------------------
-   4. FILA 'TOTAL GENERAL' (FONDO AZUL OSCURO ELEGANTE Y TEXTO BLANCO PURO)
+   4. FILA 'TOTAL GENERAL' (FONDO AZUL OSCURO ELEGANTE Y FORMATO DE COLORES IDÉNTICO A USUARIO DE CARGA)
    -------------------------------------------------------------------------- */
 :host-context([data-theme="dark"]) .tbody-totales-medico {
-  border-bottom: 2px solid #0284c7 !important;
+  border-bottom: 2px solid #3b82f6 !important;
 }
 
 :host-context([data-theme="dark"]) .tr-total-superior-medicos td,
@@ -7358,7 +7485,7 @@ td.text-center .badge-count {
   color: #ffffff !important;
   border-top: 1px solid #2563eb !important;
   border-bottom: 2px solid #3b82f6 !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.35) !important;
 }
 
 :host-context([data-theme="dark"]) .tr-total-superior-medicos:hover td,
@@ -7374,16 +7501,49 @@ td.text-center .badge-count {
   letter-spacing: 0.03em;
 }
 
-/* Todos los valores numéricos y montos forzados a blanco puro */
-:host-context([data-theme="dark"]) .tr-total-superior-medicos td,
-:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td,
-:host-context([data-theme="dark"]) .tr-total-superior-medicos strong,
-:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-facturado,
-:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-aceptado,
-:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-refacturado,
-:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-diferencia,
-:host-context([data-theme="dark"]) .tr-total-superior-medicos .text-muted {
+/* Valores numéricos generales (casos, motivos, etc.) */
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td.font-weight-bold,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td.font-weight-bold,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos strong {
   color: #ffffff !important;
+}
+
+/* Montos de la fila TOTAL GENERAL con los mismos colores de Usuario de Carga */
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td.color-facturado,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td.color-facturado,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-facturado,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .color-facturado {
+  color: #bfdbfe !important; /* text-blue-200 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td.color-aceptado,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td.color-aceptado,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-aceptado,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .color-aceptado {
+  color: #fca5a5 !important; /* text-red-300 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td.color-refacturado,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td.color-refacturado,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-refacturado,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .color-refacturado {
+  color: #93c5fd !important; /* text-blue-300 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td.color-diferencia,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos td.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td.color-diferencia,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos td.color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-diferencia,
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .color-diferencia.diferencia-excedente,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .color-diferencia,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .color-diferencia.diferencia-excedente {
+  color: #e9d5ff !important; /* text-purple-200 claro y visible */
+}
+
+:host-context([data-theme="dark"]) .tr-total-superior-medicos .text-muted,
+:host-context([data-theme="dark"]) .table-medicos .tr-total-superior-medicos .text-muted {
+  color: #94a3b8 !important; /* texto gris suave para columnas sin total */
 }
 
 /* Badge del contador de médicos en TOTAL GENERAL */

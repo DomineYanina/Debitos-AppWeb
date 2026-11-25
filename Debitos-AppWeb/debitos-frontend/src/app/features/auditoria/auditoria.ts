@@ -3,7 +3,7 @@ import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angu
 import { Subject, Subscription, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Prestacion } from '../../core/models/prestacion';
 import { CommonModule } from '@angular/common';
 import { AuditoriaService, PrestacionCatalogo } from '../../core/services/auditoria';
@@ -182,6 +182,31 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
+    if (this.route) {
+      this.routeSub = this.route.queryParams.subscribe(params => {
+        const tipo = params['tipo'];
+        const numero = params['numero'];
+        if (tipo && numero) {
+          const letra = params['letra'] || '';
+          const puntoVenta = params['puntoVenta'] || '';
+
+          const tipoUpper = String(tipo).trim().toUpperCase();
+          const letraUpper = String(letra).trim().toUpperCase();
+          const pvStr = puntoVenta ? String(puntoVenta).trim() : '';
+          const numStr = String(numero).trim();
+
+          this.busquedaForm.patchValue({
+            tipo: tipoUpper,
+            letra: letraUpper,
+            puntoVenta: pvStr,
+            numero: numStr
+          });
+          this.actualizarValidadoresTipo(tipoUpper);
+          this.onBuscar();
+        }
+      });
+    }
+
     this.busquedaForm.get('tipo')?.valueChanges.subscribe(tipo => {
       this.actualizarValidadoresTipo(tipo);
     });
@@ -248,6 +273,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy() {
+    if (this.routeSub) this.routeSub.unsubscribe();
     if (this.autoguardadoSub) this.autoguardadoSub.unsubscribe();
     if (this.notifSub) this.notifSub.unsubscribe();
     if (this.catalogoSub) this.catalogoSub.unsubscribe();
@@ -282,6 +308,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   cdr = inject(ChangeDetectorRef);
   public authService = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute, { optional: true });
+  private routeSub?: Subscription;
 
   get esAdmin(): boolean {
     return this.authService.isAdmin();
@@ -361,6 +389,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   soloValorizadas: boolean = false;
   soloSinNC: boolean = false;
   soloConDebitoAceptado: boolean = false;
+  soloDebitoAceptado: boolean = false;
+  soloDebitoRechazado: boolean = false;
 
   get hayFiltrosActivos(): boolean {
     return !!(
@@ -373,7 +403,9 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       this.soloSinMotivoDebito ||
       this.soloSinMotivoRefactura ||
       this.soloSinNC ||
-      this.soloConDebitoAceptado
+      this.soloConDebitoAceptado ||
+      this.soloDebitoAceptado ||
+      this.soloDebitoRechazado
     );
   }
 
@@ -442,6 +474,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.soloValorizadas = false;
     this.soloSinNC = false;
     this.soloConDebitoAceptado = false;
+    this.soloDebitoAceptado = false;
+    this.soloDebitoRechazado = false;
     this.pacientesList = [];
     this.profesionalesList = [];
     this.prestacionesList = [];
@@ -1650,10 +1684,11 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     // Le agregamos la validación p.id != null para calmar a TypeScript
     if (p && p.id != null) {
       // Evaluamos si la fila realmente tiene algo digno de ser guardado
-      const tieneDebito = p.motivoDebito && p.motivoDebito.trim() !== '';
-      const tieneRefactura = p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      const tieneDebito = !!p.motivoDebito && p.motivoDebito.trim() !== '';
+      const tieneRefactura = !!p.motivoRefactura && p.motivoRefactura.trim() !== '';
+      const tieneDebitoAceptado = !!p.debitoAceptado && (p.debitoAceptado === 'SI' || p.debitoAceptado === 'NO');
 
-      if (tieneDebito || tieneRefactura || p.esImportada) {
+      if (tieneDebito || tieneRefactura || p.esImportada || tieneDebitoAceptado || this.tieneOtrasColumnasEdicion(p)) {
         this.modificadosSinGuardar.add(p.id); // Lo marcamos como pendiente
       } else {
         this.modificadosSinGuardar.delete(p.id); // Lo sacamos de la lista si quedó vacío
@@ -1714,16 +1749,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.registrosSeleccionados.length === 0 || !this.motivoRefacturaMasivoSeleccionado) return;
 
     const motivo = this.motivoRefacturaMasivoSeleccionado;
-    const filasConDebitoSi = this.registrosSeleccionados.filter(p => p.debitoAceptado === 'SI');
+    const filasNoRechazadas = this.registrosSeleccionados.filter(p => p.debitoAceptado !== 'NO');
 
-    if (filasConDebitoSi.length === this.registrosSeleccionados.length) {
-      this.mostrarAlerta('No se puede asignar un Motivo de Refactura a prestaciones cuyo débito fue aceptado ("SI").', undefined, 'error');
+    if (filasNoRechazadas.length === this.registrosSeleccionados.length) {
+      this.mostrarAlerta('Solo se puede asignar un Motivo de Refactura a prestaciones cuyo débito haya sido rechazado ("NO").', undefined, 'error');
       this.motivoRefacturaMasivoSeleccionado = '';
       this.cdr.detectChanges();
       return;
     }
 
-    const registrosAptos = this.registrosSeleccionados.filter(p => p.debitoAceptado !== 'SI');
+    const registrosAptos = this.registrosSeleccionados.filter(p => p.debitoAceptado === 'NO');
     const registrosConPrevio = registrosAptos.filter(p => p.motivoRefactura && p.motivoRefactura !== '');
 
     if (registrosConPrevio.length > 0) {
@@ -1739,25 +1774,25 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
           cantidadRegistrosPendientes: registrosConPrevio.length
         }).subscribe({ error: () => { } });
 
-        this.ejecutarMasivoRefactura(motivo, true, filasConDebitoSi.length);
+        this.ejecutarMasivoRefactura(motivo, true, filasNoRechazadas.length);
         this.cerrarModal();
       };
 
       this.modalCancelarCb = () => {
-        this.ejecutarMasivoRefactura(motivo, false, filasConDebitoSi.length);
+        this.ejecutarMasivoRefactura(motivo, false, filasNoRechazadas.length);
         this.cerrarModal();
       };
 
       this.modalVisible = true;
     } else {
-      this.ejecutarMasivoRefactura(motivo, true, filasConDebitoSi.length);
+      this.ejecutarMasivoRefactura(motivo, true, filasNoRechazadas.length);
     }
   }
 
-  ejecutarMasivoRefactura(motivo: string, sobreescribirTodos: boolean, cantidadIgnoradosSi: number = 0) {
+  ejecutarMasivoRefactura(motivo: string, sobreescribirTodos: boolean, cantidadIgnorados: number = 0) {
     let aplicados = 0;
     this.registrosSeleccionados.forEach(p => {
-      if (p.debitoAceptado === 'SI') return;
+      if (p.debitoAceptado !== 'NO') return;
       if (!sobreescribirTodos && p.motivoRefactura && p.motivoRefactura !== '') return;
       if (motivo === 'Borrar') {
         p.motivoRefactura = '';
@@ -1767,9 +1802,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
         p.importeRefactura = undefined;
       } else {
         p.motivoRefactura = motivo;
-        if (p.debitoAceptado?.trim().toUpperCase() === 'NO') {
-          p.importeRefactura = p.total;
-        }
+        p.importeRefactura = p.total;
       }
       this.registrarCambio(p);
       aplicados++;
@@ -1780,8 +1813,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gridApi?.refreshCells();
     this.cdr.detectChanges();
 
-    if (cantidadIgnoradosSi > 0) {
-      this.mostrarAlerta(`El motivo de refactura se aplicó a ${aplicados} fila(s). Se ignoraron ${cantidadIgnoradosSi} fila(s) cuyo débito fue aceptado ("SI").`);
+    if (cantidadIgnorados > 0) {
+      this.mostrarAlerta(`El motivo de refactura se aplicó a ${aplicados} fila(s). Se ignoraron ${cantidadIgnorados} fila(s) que no tienen el débito en "NO".`);
     }
   }
 
@@ -1844,6 +1877,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   aplicarImporteDebitadoMasivo() {
     if (this.registrosSeleccionados.length === 0 || this.importeDebitadoMasivo == null) return;
 
+    const filasSinDebito = this.registrosSeleccionados.filter(p => !this.tieneDebitoAceptado(p));
+    if (filasSinDebito.length > 0) {
+      this.mostrarAlerta(
+        `Hay ${filasSinDebito.length} registro(s) seleccionado(s) cuyo campo 'Débito Aceptado' no está definido. Por favor, definí si el débito es 'SI' o 'NO' antes de asignar un importe debitado.`,
+        undefined,
+        'error'
+      );
+      return;
+    }
+
     this.registrosSeleccionados.forEach(p => {
       p.importeDebitado = this.importeDebitadoMasivo;
       this.registrarCambio(p);
@@ -1858,10 +1901,10 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   aplicarImporteRefacturaMasivo() {
     if (this.registrosSeleccionados.length === 0 || this.importeRefacturaMasivo == null) return;
 
-    const filasConDebitoSi = this.registrosSeleccionados.filter(p => p.debitoAceptado === 'SI');
+    const filasNoRechazadas = this.registrosSeleccionados.filter(p => p.debitoAceptado !== 'NO');
 
-    if (filasConDebitoSi.length === this.registrosSeleccionados.length) {
-      this.mostrarAlerta('No se puede asignar un Importe de Refactura a prestaciones cuyo débito fue aceptado ("SI").', undefined, 'error');
+    if (filasNoRechazadas.length === this.registrosSeleccionados.length) {
+      this.mostrarAlerta('Solo se puede asignar un Importe de Refactura a prestaciones cuyo débito haya sido rechazado ("NO").', undefined, 'error');
       this.importeRefacturaMasivo = undefined;
       this.cdr.detectChanges();
       return;
@@ -1869,7 +1912,7 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     let aplicados = 0;
     this.registrosSeleccionados.forEach(p => {
-      if (p.debitoAceptado === 'SI') return;
+      if (p.debitoAceptado !== 'NO') return;
       p.importeRefactura = this.importeRefacturaMasivo;
       this.registrarCambio(p);
       aplicados++;
@@ -1880,8 +1923,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.gridApi?.refreshCells();
     this.cdr.detectChanges();
 
-    if (filasConDebitoSi.length > 0) {
-      this.mostrarAlerta(`El importe de refactura se aplicó a ${aplicados} fila(s). Se ignoraron ${filasConDebitoSi.length} fila(s) cuyo débito fue aceptado ("SI").`);
+    if (filasNoRechazadas.length > 0) {
+      this.mostrarAlerta(`El importe de refactura se aplicó a ${aplicados} fila(s). Se ignoraron ${filasNoRechazadas.length} fila(s) que no tienen el débito en "NO".`);
     }
   }
 
@@ -1931,6 +1974,14 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
   aplicarComentariosDebitoMasivo() {
     if (this.registrosSeleccionados.length === 0 || !this.comentariosDebitoMasivo) return;
+
+    const filasSinDebito = this.registrosSeleccionados.filter(p => !this.tieneDebitoAceptado(p));
+    if (filasSinDebito.length === this.registrosSeleccionados.length) {
+      this.mostrarAlerta("No se pueden asignar Comentarios de Débito a prestaciones sin 'Débito Aceptado' definido.", undefined, 'error');
+      this.comentariosDebitoMasivo = '';
+      this.cdr.detectChanges();
+      return;
+    }
 
     let aplicados = 0;
     this.registrosSeleccionados.forEach(p => {
@@ -2254,7 +2305,18 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    // 3. Ejecución normal si pasa las validaciones
+    // 3. Validación: Ninguna fila seleccionada puede tener Débito Aceptado sin definir
+    const filasSinDebito = this.registrosSeleccionados.filter(p => !this.tieneDebitoAceptado(p));
+    if (filasSinDebito.length > 0) {
+      this.mostrarAlerta(
+        `Hay ${filasSinDebito.length} registro(s) seleccionado(s) cuyo campo 'Débito Aceptado' no está definido. Por favor, definí si el débito es 'SI' o 'NO' antes de asignar un motivo.`,
+        undefined,
+        'error'
+      );
+      return;
+    }
+
+    // 4. Ejecución normal si pasa las validaciones
     const motivo = this.motivoMasivoSeleccionado;
     const registrosConPrevio = this.registrosSeleccionados.filter(p => p.motivoDebito && p.motivoDebito !== '');
 
@@ -2459,6 +2521,30 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.fechasList = [...new Set(datos.map(p => p.fecha))].sort();
   }
 
+  onCambiarFiltroDebitoAceptado() {
+    if (this.soloDebitoAceptado) {
+      this.soloDebitoRechazado = false;
+    }
+    this.aplicarFiltros();
+  }
+
+  onCambiarFiltroDebitoRechazado() {
+    if (this.soloDebitoRechazado) {
+      this.soloDebitoAceptado = false;
+    }
+    this.aplicarFiltros();
+  }
+
+  esDebitoAceptado(p: Prestacion): boolean {
+    const val = (p?.debitoAceptado != null ? String(p.debitoAceptado) : '').trim().toUpperCase();
+    return val === 'SI' || val === 'TRUE' || (p as any)?.debitoAceptado === true;
+  }
+
+  esDebitoRechazado(p: Prestacion): boolean {
+    const val = (p?.debitoAceptado != null ? String(p.debitoAceptado) : '').trim().toUpperCase();
+    return val === 'NO' || val === 'FALSE' || (p as any)?.debitoAceptado === false;
+  }
+
   aplicarFiltros() {
     this.prestacionesFiltradas = this.prestaciones.filter(p => {
       const cumpleCombos =
@@ -2474,7 +2560,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
       const cumpleSinNC = !this.soloSinNC || !p.ncNumero;
       const cumpleConDebitoAceptado = !this.soloConDebitoAceptado || (!!p.debitoAceptado && p.debitoAceptado.trim() !== '');
 
-      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas && cumpleSinNC && cumpleConDebitoAceptado;
+      let cumpleDebitoEstado = true;
+      if (this.soloDebitoAceptado && this.soloDebitoRechazado) {
+        cumpleDebitoEstado = this.esDebitoAceptado(p) || this.esDebitoRechazado(p);
+      } else if (this.soloDebitoAceptado) {
+        cumpleDebitoEstado = this.esDebitoAceptado(p);
+      } else if (this.soloDebitoRechazado) {
+        cumpleDebitoEstado = this.esDebitoRechazado(p);
+      }
+
+      return cumpleCombos && cumpleSinDebito && cumpleSinRefactura && cumpleValorizadas && cumpleSinNC && cumpleConDebitoAceptado && cumpleDebitoEstado;
     });
 
     this.prepararFiltros(this.prestacionesFiltradas);
@@ -2514,6 +2609,8 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     this.soloValorizadas = false;
     this.soloSinNC = false;
     this.soloConDebitoAceptado = false;
+    this.soloDebitoAceptado = false;
+    this.soloDebitoRechazado = false;
     this.prepararFiltros(this.prestaciones);
     this.aplicarFiltros();
   }
@@ -2704,6 +2801,29 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  tieneDebitoAceptado(p: Prestacion): boolean {
+    const val = (p?.debitoAceptado || '').trim().toUpperCase();
+    return val === 'SI' || val === 'NO';
+  }
+
+  tieneOtrasColumnasEdicion(p: Prestacion): boolean {
+    const tieneMotivoDeb = !!p.motivoDebito && p.motivoDebito.trim() !== '' && p.motivoDebito !== 'Borrar' && p.motivoDebito !== 'No aplica';
+    const tieneDias = p.diasFacturados != null && p.diasFacturados !== undefined && String(p.diasFacturados).trim() !== '';
+    const tieneEnglobante = !!p.prestacionEnglobante && p.prestacionEnglobante.trim() !== '';
+    const tieneImporteDeb = p.importeDebitado != null && p.importeDebitado !== undefined && !isNaN(Number(p.importeDebitado));
+    const tieneComentariosDeb = !!p.comentariosDebito && p.comentariosDebito.trim() !== '';
+    const tieneMotivoRef = !!p.motivoRefactura && p.motivoRefactura.trim() !== '' && p.motivoRefactura !== 'Borrar' && p.motivoRefactura !== 'No aplica';
+    const tieneImporteRef = p.importeRefactura != null && p.importeRefactura !== undefined && !isNaN(Number(p.importeRefactura));
+    const tieneComentariosRef = !!p.comentarios && p.comentarios.trim() !== '';
+
+    return tieneMotivoDeb || tieneDias || tieneEnglobante || tieneImporteDeb ||
+      tieneComentariosDeb || tieneMotivoRef || tieneImporteRef || tieneComentariosRef;
+  }
+
+  obtenerPrestacionesConDebitoAceptadoIncompleto(): Prestacion[] {
+    return this.prestaciones.filter(p => !this.tieneDebitoAceptado(p) && this.tieneOtrasColumnasEdicion(p));
+  }
+
   guardarParcialmente(silencioso: boolean = false) {
     if (!this.puedeEditarPrestaciones) {
       return;
@@ -2716,6 +2836,26 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.idEstadoActual === 2) {
       if (!silencioso) {
         this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder guardar modificaciones.', undefined, 'peligro');
+      }
+      return;
+    }
+
+    const prestacionesIncompletas = this.obtenerPrestacionesConDebitoAceptadoIncompleto();
+    if (prestacionesIncompletas.length > 0) {
+      if (!silencioso) {
+        this.auditoriaService.registrarMetricaUsabilidad({
+          usuario: this.authService.obtenerUsuario(),
+          documentoReferencia: `${this.tipoBusquedaRealizada}-${this.busquedaForm.value.letra}-${this.busquedaForm.value.puntoVenta}-${this.busquedaForm.value.numero}`,
+          evento: 'INTENTO_GUARDAR_DEBITO_ACEPTADO_INCOMPLETO',
+          fechaHora: new Date().toISOString(),
+          cantidadRegistrosPendientes: prestacionesIncompletas.length
+        }).subscribe({ error: () => { } });
+
+        this.mostrarAlerta(
+          `Hay ${prestacionesIncompletas.length} prestación(es) cuyo campo 'Débito Aceptado' está incompleto pero tienen datos cargados en otras columnas. Por favor, definí si el débito es 'SI' o 'NO' antes de guardar.`,
+          undefined,
+          'error'
+        );
       }
       return;
     }
@@ -2946,6 +3086,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
 
     if (this.idEstadoActual === 2) {
       this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
+    const prestacionesIncompletas = this.obtenerPrestacionesConDebitoAceptadoIncompleto();
+    if (prestacionesIncompletas.length > 0) {
+      this.mostrarAlerta(
+        `Hay ${prestacionesIncompletas.length} prestación(es) cuyo campo 'Débito Aceptado' está incompleto. Por favor, completá este campo antes de generar una nueva Nota.`,
+        undefined,
+        'error'
+      );
       return;
     }
 
@@ -3793,6 +3943,16 @@ export class AuditoriaComponent implements OnInit, OnDestroy, AfterViewInit {
   guardarNuevaNotaBD() {
     if (this.idEstadoActual === 2) {
       this.mostrarAlerta('El trámite se encuentra finalizado. Debe reabrir el trámite para poder generar o agregar prestaciones a un comprobante.', undefined, 'peligro');
+      return;
+    }
+
+    const prestacionesIncompletas = this.obtenerPrestacionesConDebitoAceptadoIncompleto();
+    if (prestacionesIncompletas.length > 0) {
+      this.mostrarAlerta(
+        `No se puede generar la Nota de ${this.tipoNuevaNota === 'NC' ? 'Crédito' : 'Débito'} porque hay ${prestacionesIncompletas.length} prestación(es) cuyo campo 'Débito Aceptado' está incompleto. Por favor, definí si el débito es 'SI' o 'NO' antes de continuar.`,
+        undefined,
+        'error'
+      );
       return;
     }
 

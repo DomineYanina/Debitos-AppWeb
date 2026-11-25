@@ -22,6 +22,7 @@ public class DirectorioPrestacionDetalleDTO {
     private String comentariosDebito;
     private BigDecimal importeDebitado = BigDecimal.ZERO;
     private Boolean debitoAceptado;
+    private String operador;
 
     public DirectorioPrestacionDetalleDTO() {}
 
@@ -30,6 +31,16 @@ public class DirectorioPrestacionDetalleDTO {
                                         String tipoDoc, String letraDoc, Integer ptovtaDoc, Integer numeroDoc,
                                         LocalDate fechaDoc, String motivoDebito, String comentariosDebito,
                                         BigDecimal importeDebitado, Boolean debitoAceptado) {
+        this(id, paciente, carnet, plan, efector, medico, fechaPrestacion, codigo, descripcion,
+             tipoDoc, letraDoc, ptovtaDoc, numeroDoc, fechaDoc, motivoDebito, comentariosDebito,
+             importeDebitado, debitoAceptado, null);
+    }
+
+    public DirectorioPrestacionDetalleDTO(Integer id, String paciente, String carnet, String plan, String efector,
+                                        String medico, LocalDate fechaPrestacion, String codigo, String descripcion,
+                                        String tipoDoc, String letraDoc, Integer ptovtaDoc, Integer numeroDoc,
+                                        LocalDate fechaDoc, String motivoDebito, String comentariosDebito,
+                                        BigDecimal importeDebitado, Boolean debitoAceptado, String operador) {
         this.id = id;
         this.paciente = paciente;
         this.carnet = carnet;
@@ -48,6 +59,7 @@ public class DirectorioPrestacionDetalleDTO {
         this.comentariosDebito = comentariosDebito;
         this.importeDebitado = importeDebitado != null ? importeDebitado : BigDecimal.ZERO;
         this.debitoAceptado = debitoAceptado;
+        this.operador = operador;
     }
 
     public Integer getId() {
@@ -192,5 +204,13 @@ public class DirectorioPrestacionDetalleDTO {
 
     public void setDebitoAceptado(Boolean debitoAceptado) {
         this.debitoAceptado = debitoAceptado;
+    }
+
+    public String getOperador() {
+        return operador;
+    }
+
+    public void setOperador(String operador) {
+        this.operador = operador;
     }
 }

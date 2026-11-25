@@ -124,9 +124,17 @@ export class GestionContableService {
     page: number = 0,
     size: number = 20,
     sortBy?: string,
-    sortDir?: string
+    sortDir?: string,
+    tipo?: string,
+    filtro?: string
   ): Observable<PageResponse<FacturaAnuladaDTO>> {
-    const params = this.buildPageParams(page, size, sortBy, sortDir);
+    let params = this.buildPageParams(page, size, sortBy, sortDir);
+    if (tipo && tipo.trim().length > 0 && tipo !== 'TODOS') {
+      params = params.set('tipo', tipo.trim());
+    }
+    if (filtro && filtro.trim().length > 0) {
+      params = params.set('filtro', filtro.trim());
+    }
     return this.http.get<PageResponse<FacturaAnuladaDTO>>(`${this.apiUrl}/facturas-anuladas`, { params });
   }
 

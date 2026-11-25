@@ -2714,3 +2714,88 @@ button {
 [data-theme="dark"] .btn-warning-rechazo:hover:not(:disabled) {
   background-color: #b45309 !important;
 }
+
+/* Filas clicables y Modal de Detalle de Documento Anulado */
+.data-table tbody tr.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.data-table tbody tr.clickable-row:hover {
+  background-color: rgba(37, 99, 235, 0.06);
+}
+
+:host-context([data-theme="dark"]) .data-table tbody tr.clickable-row:hover,
+[data-theme="dark"] .data-table tbody tr.clickable-row:hover {
+  background-color: rgba(59, 130, 246, 0.14) !important;
+}
+
+.detalle-audit-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.audit-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #475569);
+  background: var(--bg-subtle, #f1f5f9);
+  border: 1px solid var(--border-color, #cbd5e1);
+}
+
+:host-context([data-theme="dark"]) .audit-meta-pill,
+[data-theme="dark"] .audit-meta-pill {
+  color: #cbd5e1 !important;
+  background: rgba(30, 41, 59, 0.85) !important;
+  border-color: #334155 !important;
+}
+
+.detalle-anulacion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+:host-context([data-theme="dark"]) .detalle-anulacion-grid,
+[data-theme="dark"] .detalle-anulacion-grid {
+  border-top-color: #334155 !important;
+}
+
+.detalle-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.detalle-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary, #64748b);
+}
+
+.detalle-val {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+:host-context([data-theme="dark"]) .detalle-label,
+[data-theme="dark"] .detalle-label {
+  color: #94a3b8 !important;
+}
+
+:host-context([data-theme="dark"]) .detalle-val,
+[data-theme="dark"] .detalle-val {
+  color: #f1f5f9 !important;
+}

@@ -236,11 +236,31 @@ public class AuditoriaService {
         } else if ("NC".equals(tipoUpper) || "NCE".equals(tipoUpper)) {
             // 1. Primero busca en notadecredito
             try {
-                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero(tipoUpper, letraStr, puntoVentaInt, numero);
+                if (cabOpt.isEmpty()) {
+                    cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+                }
                 if (cabOpt.isPresent()) {
-                    List<PrestacionAuditoriaDTO> resultadosNc = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
-                    if (resultadosNc != null && !resultadosNc.isEmpty()) {
-                        resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNc);
+                    Cabecera cab = cabOpt.get();
+                    boolean tienePrestacionesEnNc = cab.getId() != null && !notaDeCreditoRepository.findByCabecera_Id(cab.getId()).isEmpty();
+                    if (!tienePrestacionesEnNc) {
+                        List<NotaDeCredito> candidatas = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                        tienePrestacionesEnNc = candidatas.stream().anyMatch(nc -> {
+                            Cabecera cNc = nc.getCabecera();
+                            if (cNc == null) return false;
+                            if (Objects.equals(cNc.getId(), cab.getId())) return true;
+                            if (cab.getTipo() != null && !cab.getTipo().equalsIgnoreCase(cNc.getTipo())) return false;
+                            if (cab.getFecha() != null && cNc.getFecha() != null) {
+                                return cab.getFecha().getYear() == cNc.getFecha().getYear();
+                            }
+                            return false;
+                        });
+                    }
+                    if (tienePrestacionesEnNc) {
+                        List<PrestacionAuditoriaDTO> resultadosNc = obtenerPrestaciones(cab.getTipo(), letraStr, puntoVentaInt, numero);
+                        if (resultadosNc != null && !resultadosNc.isEmpty()) {
+                            resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNc);
+                        }
                     }
                 }
             } catch (Exception ignored) {}
@@ -264,11 +284,31 @@ public class AuditoriaService {
         } else if ("ND".equals(tipoUpper) || "NDE".equals(tipoUpper)) {
             // 1. Primero busca en notadedebito
             try {
-                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+                Optional<Cabecera> cabOpt = cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero(tipoUpper, letraStr, puntoVentaInt, numero);
+                if (cabOpt.isEmpty()) {
+                    cabOpt = cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(tiposEquivalentes, letraStr, puntoVentaInt, numero).stream().findFirst();
+                }
                 if (cabOpt.isPresent()) {
-                    List<PrestacionAuditoriaDTO> resultadosNd = obtenerPrestaciones(tipoUpper, letraStr, puntoVentaInt, numero);
-                    if (resultadosNd != null && !resultadosNd.isEmpty()) {
-                        resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNd);
+                    Cabecera cab = cabOpt.get();
+                    boolean tienePrestacionesEnNd = cab.getId() != null && !notaDeDebitoRepository.findByCabecera_Id(cab.getId()).isEmpty();
+                    if (!tienePrestacionesEnNd) {
+                        List<NotaDeDebito> candidatas = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                        tienePrestacionesEnNd = candidatas.stream().anyMatch(nd -> {
+                            Cabecera cNd = nd.getCabecera();
+                            if (cNd == null) return false;
+                            if (Objects.equals(cNd.getId(), cab.getId())) return true;
+                            if (cab.getTipo() != null && !cab.getTipo().equalsIgnoreCase(cNd.getTipo())) return false;
+                            if (cab.getFecha() != null && cNd.getFecha() != null) {
+                                return cab.getFecha().getYear() == cNd.getFecha().getYear();
+                            }
+                            return false;
+                        });
+                    }
+                    if (tienePrestacionesEnNd) {
+                        List<PrestacionAuditoriaDTO> resultadosNd = obtenerPrestaciones(cab.getTipo(), letraStr, puntoVentaInt, numero);
+                        if (resultadosNd != null && !resultadosNd.isEmpty()) {
+                            resultado = ResultadoBusquedaDTO.dePrestaciones(resultadosNd);
+                        }
                     }
                 }
             } catch (Exception ignored) {}
@@ -650,11 +690,12 @@ public class AuditoriaService {
         for (Cabecera c : familia) {
             if (Objects.equals(c.getId(), raiz.getId())) continue;
 
-            Long padreId = c.getAsociado();
+            Long pId = c.getAsociado();
             // Si el asociado apunta a sí mismo:
-            if (padreId != null && padreId.equals(c.getId())) {
-                padreId = null;
+            if (pId != null && pId.equals(c.getId())) {
+                pId = null;
             }
+            final Long padreId = pId;
 
             if (padreId != null) {
                 hijosPorPadre.computeIfAbsent(padreId, k -> new ArrayList<>()).add(c);
@@ -1202,7 +1243,19 @@ public class AuditoriaService {
 
             List<NotaDeCredito> ncs = (cab.getId() != null) ? notaDeCreditoRepository.findByCabecera_Id(cab.getId()) : Collections.emptyList();
             if (ncs.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
-                ncs = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                List<NotaDeCredito> candidatas = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                ncs = candidatas.stream()
+                        .filter(nc -> {
+                            Cabecera cNc = nc.getCabecera();
+                            if (cNc == null) return false;
+                            if (cab.getId() != null && Objects.equals(cNc.getId(), cab.getId())) return true;
+                            if (cab.getTipo() != null && !cab.getTipo().equalsIgnoreCase(cNc.getTipo())) return false;
+                            if (cab.getFecha() != null && cNc.getFecha() != null) {
+                                return cab.getFecha().getYear() == cNc.getFecha().getYear();
+                            }
+                            return false;
+                        })
+                        .toList();
             }
 
             boolean tienePrestacionesNc = !ncs.isEmpty();
@@ -1246,9 +1299,21 @@ public class AuditoriaService {
                 porcIva = ndIva.getPorcIva();
             } else {
                 origenTipo = "REF";
-                List<NotaDeDebito> nds = notaDeDebitoRepository.findByCabecera_Id(cab.getId());
+                List<NotaDeDebito> nds = (cab.getId() != null) ? notaDeDebitoRepository.findByCabecera_Id(cab.getId()) : Collections.emptyList();
                 if (nds.isEmpty() && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
-                    nds = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                    List<NotaDeDebito> candidatas = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                    nds = candidatas.stream()
+                            .filter(nd -> {
+                                Cabecera cNd = nd.getCabecera();
+                                if (cNd == null) return false;
+                                if (cab.getId() != null && Objects.equals(cNd.getId(), cab.getId())) return true;
+                                if (cab.getTipo() != null && !cab.getTipo().equalsIgnoreCase(cNd.getTipo())) return false;
+                                if (cab.getFecha() != null && cNd.getFecha() != null) {
+                                    return cab.getFecha().getYear() == cNd.getFecha().getYear();
+                                }
+                                return false;
+                            })
+                            .toList();
                 }
                 montoNeto = nds.stream()
                         .map(NotaDeDebito::getImporterefactura)
@@ -1265,14 +1330,34 @@ public class AuditoriaService {
             boolean enNcIva = buscarNcAjusteDeIvaSeguro(cab).isPresent();
             boolean enNc = cab.getId() != null && !notaDeCreditoRepository.findByCabecera_Id(cab.getId()).isEmpty();
             if (!enNc && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
-                enNc = !notaDeCreditoRepository.findPrestacionesPorNotaCredito(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
+                List<NotaDeCredito> candidatas = notaDeCreditoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                enNc = candidatas.stream().anyMatch(nc -> {
+                    Cabecera cNc = nc.getCabecera();
+                    if (cNc == null) return false;
+                    if (cab.getId() != null && Objects.equals(cNc.getId(), cab.getId())) return true;
+                    if (cab.getTipo() != null && !cab.getTipo().equalsIgnoreCase(cNc.getTipo())) return false;
+                    if (cab.getFecha() != null && cNc.getFecha() != null) {
+                        return cab.getFecha().getYear() == cNc.getFecha().getYear();
+                    }
+                    return false;
+                });
             }
             tienePrestaciones = enNcIva || enNc;
         } else if ("ND".equalsIgnoreCase(tipoBase)) {
             boolean enNdIva = buscarNdAjusteDeIvaSeguro(cab).isPresent();
             boolean enNd = cab.getId() != null && !notaDeDebitoRepository.findByCabecera_Id(cab.getId()).isEmpty();
             if (!enNd && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
-                enNd = !notaDeDebitoRepository.findPrestacionesPorNotaDebito(cab.getLetra(), cab.getPtovta(), cab.getNumero()).isEmpty();
+                List<NotaDeDebito> candidatas = notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero(cab.getLetra(), cab.getPtovta(), cab.getNumero());
+                enNd = candidatas.stream().anyMatch(nd -> {
+                    Cabecera cNd = nd.getCabecera();
+                    if (cNd == null) return false;
+                    if (cab.getId() != null && Objects.equals(cNd.getId(), cab.getId())) return true;
+                    if (cab.getTipo() != null && !cab.getTipo().equalsIgnoreCase(cNd.getTipo())) return false;
+                    if (cab.getFecha() != null && cNd.getFecha() != null) {
+                        return cab.getFecha().getYear() == cNd.getFecha().getYear();
+                    }
+                    return false;
+                });
             }
             tienePrestaciones = enNdIva || enNd;
         } else if ("FC".equalsIgnoreCase(tipoBase)) {
@@ -1775,7 +1860,7 @@ public class AuditoriaService {
                                             : (ncCab.getAsociado() != null && ncCab.getAsociado() != 0
                                                     ? ncCab.getAsociado()
                                                     : ncCab.getId()));
-                            if (targetGrupo != null && (cabecera.getAsociadogrupo() == null || !targetGrupo.equals(cabecera.getAsociadogrupo()))) {
+                            if (targetGrupo != null && (cabecera.getAsociadogrupo() == null || cabecera.getAsociadogrupo() == 0)) {
                                 cabecera.setAsociadogrupo(targetGrupo);
                                 if (cabecera.getAsociado() == null) {
                                     cabecera.setAsociado(ncCab.getId());
@@ -2405,6 +2490,13 @@ public class AuditoriaService {
         }
         if (cabecera == null && tipoDoc != null && letraDoc != null && puntoVenta > 0 && numero > 0) {
             cabecera = cabeceraRepository.findByTipoAndLetraAndPtovtaAndNumero(tipoDoc, letraDoc, puntoVenta, numero).orElse(null);
+            if (cabecera != null && cabeceraOrigenOpt.isPresent()) {
+                Cabecera origenCab = cabeceraOrigenOpt.get();
+                if (cabecera.getFecha() != null && origenCab.getFecha() != null && cabecera.getFecha().isBefore(origenCab.getFecha().minusMonths(3))) {
+                    // La cabecera encontrada pertenece a un período/año anterior; no reutilizar para este expediente actual
+                    cabecera = null;
+                }
+            }
         }
 
         if (cabecera == null) {
@@ -2465,7 +2557,7 @@ public class AuditoriaService {
                     cabecera.setGrupo(origenCab.getGrupo() != null && origenCab.getGrupo() != 0 ? origenCab.getGrupo() : asociadogrupoDestino);
                     modificado = true;
                 }
-                if (asociadogrupoDestino != null && (cabecera.getAsociadogrupo() == null || cabecera.getAsociadogrupo() == 0 || !asociadogrupoDestino.equals(cabecera.getAsociadogrupo()))) {
+                if (asociadogrupoDestino != null && (cabecera.getAsociadogrupo() == null || cabecera.getAsociadogrupo() == 0)) {
                     cabecera.setAsociadogrupo(asociadogrupoDestino);
                     modificado = true;
                 }

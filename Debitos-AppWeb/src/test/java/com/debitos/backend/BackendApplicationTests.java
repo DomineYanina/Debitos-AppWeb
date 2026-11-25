@@ -42,6 +42,9 @@ class BackendApplicationTests {
     void testPagingCoberturas() {
         Page<CoberturaAliasDTO> page = gestionContableService.buscarCoberturasPaginadas(null, PageRequest.of(0, 20));
         assertNotNull(page);
+        org.junit.jupiter.api.Assertions.assertFalse(page.getContent().stream()
+                .anyMatch(c -> "1".equals(c.getCodigoCobertura()) || (c.getNombreOriginal() != null && c.getNombreOriginal().toUpperCase().contains("SISTEMAS PP"))),
+                "No debe incluirse SISTEMAS PP en coberturas");
 
         Page<CoberturaAliasDTO> pageFiltro = gestionContableService.buscarCoberturasPaginadas("OSDE", PageRequest.of(0, 20));
         assertNotNull(pageFiltro);

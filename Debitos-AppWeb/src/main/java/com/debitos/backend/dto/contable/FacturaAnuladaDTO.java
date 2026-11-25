@@ -2,6 +2,7 @@ package com.debitos.backend.dto.contable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class FacturaAnuladaDTO {
     private Long idCabecera;
@@ -16,10 +17,25 @@ public class FacturaAnuladaDTO {
     private String codigoCobertura;
     private String cobertura;
     private BigDecimal importe;
+    private String tipoRegistro;
+    private String comprobanteAsociado;
     private boolean anulada;
     private String origenAnulacion; // "MANUAL" | "GESTION"
+    private LocalDateTime fechaAnulacion;
+    private String usuarioAnulacion;
     private Long idCabeceraAnulador;
     private String comprobanteAnulador;
+    private String tipoAnulador;
+    private String letraAnulador;
+    private Integer ptovtaAnulador;
+    private Integer numeroAnulador;
+    private LocalDate fechaAnulador;
+    private LocalDate periodoAnulador;
+    private String codigoCoberturaAnulador;
+    private String coberturaAnulador;
+    private BigDecimal importeAnulador;
+    private Long asociadogrupoAnulador;
+    private String tipoRegistroAnulador;
     private boolean tieneSolicitudAnulacion;
     private Long idNotificacionSolicitud;
     private String usuarioSolicitante;
@@ -185,5 +201,125 @@ public class FacturaAnuladaDTO {
 
     public void setMotivoSolicitudAnulacion(String motivoSolicitudAnulacion) {
         this.motivoSolicitudAnulacion = motivoSolicitudAnulacion;
+    }
+
+    public String getTipoRegistro() {
+        return tipoRegistro;
+    }
+
+    public void setTipoRegistro(String tipoRegistro) {
+        this.tipoRegistro = tipoRegistro;
+    }
+
+    public String getComprobanteAsociado() {
+        return comprobanteAsociado;
+    }
+
+    public void setComprobanteAsociado(String comprobanteAsociado) {
+        this.comprobanteAsociado = comprobanteAsociado;
+    }
+
+    public LocalDateTime getFechaAnulacion() {
+        return fechaAnulacion;
+    }
+
+    public void setFechaAnulacion(LocalDateTime fechaAnulacion) {
+        this.fechaAnulacion = fechaAnulacion;
+    }
+
+    public String getUsuarioAnulacion() {
+        return usuarioAnulacion;
+    }
+
+    public void setUsuarioAnulacion(String usuarioAnulacion) {
+        this.usuarioAnulacion = usuarioAnulacion;
+    }
+
+    public String getTipoAnulador() {
+        return tipoAnulador;
+    }
+
+    public void setTipoAnulador(String tipoAnulador) {
+        this.tipoAnulador = tipoAnulador;
+    }
+
+    public String getLetraAnulador() {
+        return letraAnulador;
+    }
+
+    public void setLetraAnulador(String letraAnulador) {
+        this.letraAnulador = letraAnulador;
+    }
+
+    public Integer getPtovtaAnulador() {
+        return ptovtaAnulador;
+    }
+
+    public void setPtovtaAnulador(Integer ptovtaAnulador) {
+        this.ptovtaAnulador = ptovtaAnulador;
+    }
+
+    public Integer getNumeroAnulador() {
+        return numeroAnulador;
+    }
+
+    public void setNumeroAnulador(Integer numeroAnulador) {
+        this.numeroAnulador = numeroAnulador;
+    }
+
+    public LocalDate getFechaAnulador() {
+        return fechaAnulador;
+    }
+
+    public void setFechaAnulador(LocalDate fechaAnulador) {
+        this.fechaAnulador = fechaAnulador;
+    }
+
+    public LocalDate getPeriodoAnulador() {
+        return periodoAnulador;
+    }
+
+    public void setPeriodoAnulador(LocalDate periodoAnulador) {
+        this.periodoAnulador = periodoAnulador;
+    }
+
+    public String getCodigoCoberturaAnulador() {
+        return codigoCoberturaAnulador;
+    }
+
+    public void setCodigoCoberturaAnulador(String codigoCoberturaAnulador) {
+        this.codigoCoberturaAnulador = codigoCoberturaAnulador;
+    }
+
+    public String getCoberturaAnulador() {
+        return coberturaAnulador;
+    }
+
+    public void setCoberturaAnulador(String coberturaAnulador) {
+        this.coberturaAnulador = coberturaAnulador;
+    }
+
+    public BigDecimal getImporteAnulador() {
+        return importeAnulador;
+    }
+
+    public void setImporteAnulador(BigDecimal importeAnulador) {
+        this.importeAnulador = importeAnulador;
+    }
+
+    public Long getAsociadogrupoAnulador() {
+        return asociadogrupoAnulador;
+    }
+
+    public void setAsociadogrupoAnulador(Long asociadogrupoAnulador) {
+        this.asociadogrupoAnulador = asociadogrupoAnulador;
+    }
+
+    public String getTipoRegistroAnulador() {
+        return tipoRegistroAnulador;
+    }
+
+    public void setTipoRegistroAnulador(String tipoRegistroAnulador) {
+        this.tipoRegistroAnulador = tipoRegistroAnulador;
     }
 }

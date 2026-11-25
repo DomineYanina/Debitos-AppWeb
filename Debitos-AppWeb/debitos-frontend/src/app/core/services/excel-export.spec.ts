@@ -26,25 +26,59 @@ describe('ExcelExportService', () => {
     expect(saveAs).not.toHaveBeenCalled();
   });
 
-  it('exportarPrestaciones debería exportar para tipo NC y guardar archivo', async () => {
+  it('obtenerConfiguracionColumnas debería retornar exactamente las 14 columnas requeridas para Buscador de Documentos', () => {
+    const cols = (service as any).obtenerConfiguracionColumnas('FC');
+    expect(cols.length).toBe(14);
+    expect(cols.map((c: any) => c.header)).toEqual([
+      'Carnet',
+      'Paciente',
+      'Plan',
+      'Fecha',
+      'Código',
+      'Descripción',
+      'Cant.',
+      'Débito Aceptado',
+      'MOTIVO DEBITO',
+      'COMENTARIO DEBITO',
+      'Imp. Debitado',
+      'Imp. Refactura',
+      'MOTIVO REFACTURA',
+      'Comentarios Refactura'
+    ]);
+    expect(cols.map((c: any) => c.key)).toEqual([
+      'carnet',
+      'paciente',
+      'plan',
+      'fecha',
+      'codigo',
+      'descripcion',
+      'cantidad',
+      'debitoAceptado',
+      'motivoDebito',
+      'comentariosDebito',
+      'importeDebitado',
+      'importeRefactura',
+      'motivoRefactura',
+      'comentarios'
+    ]);
+  });
+
+  it('exportarPrestaciones debería exportar para tipo NC y guardar archivo con las 14 columnas', async () => {
     const data: any[] = [
       {
         carnet: '123',
         paciente: 'Perez Juan',
-        cobertura: 'OSDE',
         plan: '210',
-        grupomodulo: 'MOD1',
-        medico: 'Dr. House',
         fecha: '2025-05-10',
         codigo: '420101',
         descripcion: 'Consulta',
         cantidad: 1,
-        totalNeto: 1000,
-        coseguro: 0,
-        total: 1000,
-        comentarioPrevio: 'Obs previa',
-        motivoRefactura: '01',
+        debitoAceptado: 'NO',
+        motivoDebito: 'Falta documentación',
+        comentariosDebito: 'No presenta historia clínica',
+        importeDebitado: 1000,
         importeRefactura: 500,
+        motivoRefactura: '01',
         comentarios: 'Refacturado'
       }
     ];
@@ -53,11 +87,11 @@ describe('ExcelExportService', () => {
     expect(saveAs).toHaveBeenCalled();
   });
 
-  it('exportarPrestaciones debería filtrar registros con debitoAceptado SI/NO para tipo FC e incluir agrupamiento de motivo de débito', async () => {
+  it('exportarPrestaciones debería filtrar registros con debitoAceptado SI/NO para tipo FC y exportar las 14 columnas', async () => {
     const data: any[] = [
-      { carnet: '1', paciente: 'P1', debitoAceptado: 'SI', motivoDebito: 'Demora en resolución quirúrgica', fecha: '2025-01-01T00:00:00' },
-      { carnet: '2', paciente: 'P2', debitoAceptado: 'NO', motivoDebito: 'Falta de autorización', fecha: '' },
-      { carnet: '3', paciente: 'P3', debitoAceptado: '', fecha: null }
+      { carnet: '1', paciente: 'P1', plan: 'Plan A', debitoAceptado: 'SI', motivoDebito: 'Demora en resolución', comentariosDebito: 'Sin objeción', importeDebitado: 300, importeRefactura: 0, motivoRefactura: '', comentarios: '', fecha: '2025-01-01T00:00:00' },
+      { carnet: '2', paciente: 'P2', plan: 'Plan B', debitoAceptado: 'NO', motivoDebito: 'Falta de autorización', comentariosDebito: 'Auditoría médica', importeDebitado: 500, importeRefactura: 500, motivoRefactura: 'Refac', comentarios: 'Reingresar', fecha: '' },
+      { carnet: '3', paciente: 'P3', plan: 'Plan C', debitoAceptado: '', fecha: null }
     ];
 
     await service.exportarPrestaciones(data, 'FC', 'export_fc.xlsx');
@@ -535,7 +569,8 @@ describe('ExcelExportService', () => {
           motivoDebito: 'Falta de autorización',
           comentariosDebito: 'Sin orden médica',
           importeDebitado: 4500,
-          debitoAceptado: true
+          debitoAceptado: true,
+          operador: 'OPERADOR_JUAN'
         },
         {
           id: 2,
@@ -555,7 +590,8 @@ describe('ExcelExportService', () => {
           motivoDebito: 'Falta de autorización',
           comentariosDebito: '',
           importeDebitado: 8000,
-          debitoAceptado: false
+          debitoAceptado: false,
+          operador: 'OPERADOR_ANA'
         }
       ];
 
@@ -570,6 +606,17 @@ describe('ExcelExportService', () => {
       );
 
       expect(saveAs).toHaveBeenCalled();
+      const filenameArg = saveAs.mock.calls[saveAs.mock.calls.length - 1][1];
+      expect(filenameArg).toContain('Detalle_Motivo');
+    });
+
+    it('exportarDetalleMotivo no debería exportar si la lista de prestaciones está vacía o es nula', async () => {
+      saveAs.mockClear();
+      await service.exportarDetalleMotivo([], { motivo: 'Test', totalDebitado: 0, totalCasos: 0 }, contextoBase);
+      expect(saveAs).not.toHaveBeenCalled();
+
+      await service.exportarDetalleMotivo(null as any, { motivo: 'Test', totalDebitado: 0, totalCasos: 0 }, contextoBase);
+      expect(saveAs).not.toHaveBeenCalled();
     });
 
     it('debería exportar Solapa 11: Prestaciones Facturadas en Factura Madre', async () => {

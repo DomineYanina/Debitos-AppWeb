@@ -25,6 +25,9 @@ public interface NotaDeDebitoRepository extends JpaRepository<NotaDeDebito, Inte
 
     List<NotaDeDebito> findByCabecera_IdIn(java.util.Collection<Long> idCabeceras);
 
+    @Query("SELECT DISTINCT nd.cabecera.id FROM NotaDeDebito nd WHERE nd.cabecera.id IN :idCabeceras")
+    java.util.Set<Long> findCabeceraIdsConPrestaciones(@Param("idCabeceras") java.util.Collection<Long> idCabeceras);
+
     @Query("""
         SELECT new com.debitos.backend.dto.NotaDebitoLigeraDTO(
             nd.cabecera.id, nd.usuario

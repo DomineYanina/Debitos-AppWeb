@@ -31,7 +31,8 @@ describe('DirectorioMotivoDetalleComponent', () => {
       motivoDebito: 'Falta de autorización',
       comentariosDebito: 'Sin orden adjunta en el expediente',
       importeDebitado: 4500,
-      debitoAceptado: true
+      debitoAceptado: true,
+      operador: 'OPERADOR_JUAN'
     },
     {
       id: 2,
@@ -51,7 +52,8 @@ describe('DirectorioMotivoDetalleComponent', () => {
       motivoDebito: 'Falta de autorización/Token',
       comentariosDebito: '',
       importeDebitado: 8000,
-      debitoAceptado: false
+      debitoAceptado: false,
+      operador: 'OPERADOR_ANA'
     }
   ];
 
@@ -145,6 +147,13 @@ describe('DirectorioMotivoDetalleComponent', () => {
     expect(component.prestacionesFiltradas[0].paciente).toBe('GARCIA MARIA');
     expect(component.totalMontoFiltrado).toBe(4500);
     expect(component.hayFiltrosActivos).toBe(true);
+  });
+
+  it('debería filtrar por operador en búsqueda rápida de texto', () => {
+    component.filtroBusqueda = 'OPERADOR_ANA';
+    expect(component.prestacionesFiltradas.length).toBe(1);
+    expect(component.prestacionesFiltradas[0].operador).toBe('OPERADOR_ANA');
+    expect(component.totalMontoFiltrado).toBe(8000);
   });
 
   it('debería filtrar por prestación médica seleccionada', () => {

@@ -24,6 +24,10 @@ public class CcComprobanteDTO {
     private String comprobanteAsociado;
     private Integer nivel = 0;
     private String origenTipo;
+    private String letra;
+    private Integer ptovta;
+    private Integer numero;
+    private boolean tienePrestaciones = false;
     private java.util.List<CcComprobanteDTO> hijos = new java.util.ArrayList<>();
 
     public CcComprobanteDTO() {}
@@ -169,5 +173,41 @@ public class CcComprobanteDTO {
 
     public void setSaldo(BigDecimal saldo) {
         this.saldo = saldo;
+    }
+
+    public String getLetra() {
+        return letra;
+    }
+
+    public void setLetra(String letra) {
+        this.letra = letra;
+    }
+
+    public Integer getPtovta() {
+        return ptovta;
+    }
+
+    public void setPtovta(Integer ptovta) {
+        this.ptovta = ptovta;
+    }
+
+    public Integer getNumero() {
+        return numero;
+    }
+
+    public void setNumero(Integer numero) {
+        this.numero = numero;
+    }
+
+    public boolean isTienePrestaciones() {
+        return tienePrestaciones;
+    }
+
+    public boolean getTienePrestaciones() {
+        return tienePrestaciones;
+    }
+
+    public void setTienePrestaciones(boolean tienePrestaciones) {
+        this.tienePrestaciones = tienePrestaciones;
     }
 }

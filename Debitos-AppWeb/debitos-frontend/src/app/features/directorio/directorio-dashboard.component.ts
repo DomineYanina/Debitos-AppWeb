@@ -222,6 +222,9 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     ) {
       this.tipoDocSeleccionado = 'TODOS';
     }
+    if (solapa === 'usuarios-carga') {
+      this.tipoRegistroOperador = 'Todos';
+    }
     if (solapa !== 'analistas' && this.criterioFechaCc === 'analisis') {
       this.criterioFechaCc = 'periodo';
       const fDesde = this._ccPeriodoDesde || this.fechaDesde;
@@ -543,7 +546,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   pasoOrdenMedico: number = 0;
 
   operadoresDatos: MetricaOperadorDTO[] = [];
-  tipoRegistroOperador: 'Ambulatorios' | 'Internados' = 'Ambulatorios';
+  tipoRegistroOperador: 'Ambulatorios' | 'Internados' | 'Todos' = 'Todos';
   filtroOperadorSeleccionado: string = 'TODOS';
   busquedaTextoOperador: string = '';
   operadoresPaginaActual: number = 1;
@@ -2870,6 +2873,26 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.actualizarAlturasSticky();
   }
 
+  abrirPrestacionesEnBuscador(item: CcComprobanteDTO, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (!item || !item.tienePrestaciones) {
+      return;
+    }
+    const queryParams: Record<string, string | number> = {
+      tipo: item.tipo || 'FC',
+      letra: item.letra || '',
+      puntoVenta: item.ptovta != null ? item.ptovta : '',
+      numero: item.numero != null ? item.numero : ''
+    };
+
+    const url = this.router.serializeUrl(
+      this.router.createUrlTree(['/auditoria'], { queryParams })
+    );
+    window.open(url, '_blank');
+  }
+
   // Paginación Cuenta Corriente (Nivel 1: Financiadores)
   ccPaginaActual: number = 1;
   ccItemsPorPagina: number = 15;
@@ -3554,7 +3577,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               if (f.financiador) distinctFins.add(f.financiador);
             }));
             const totalMontoA = a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0;
-            const difA = Math.max(0, totalMontoA - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0)));
+            const difA = totalMontoA - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0));
             return {
               ...a,
               _originalIndex: idxA,
@@ -3563,7 +3586,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               diferencia: difA,
               motivos: (a.motivos || []).map((m, idxM) => {
                 const montoM = m.montoDebitado || 0;
-                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                const difM = montoM - ((m.aceptado || 0) + (m.refacturado || 0));
                 return {
                   ...m,
                   _originalIndex: idxM,
@@ -3571,7 +3594,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                   diferencia: difM,
                   financiadores: (m.financiadores || []).map((f, idxF) => {
                     const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
-                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    const difF = montoF - ((f.aceptado || 0) + (f.refacturado || 0));
                     return {
                       ...f,
                       _originalIndex: idxF,
@@ -3608,7 +3631,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
       });
   }
 
-  cambiarTipoRegistroOperador(tipo: 'Ambulatorios' | 'Internados'): void {
+  cambiarTipoRegistroOperador(tipo: 'Ambulatorios' | 'Internados' | 'Todos'): void {
     if (this.tipoRegistroOperador === tipo) return;
     this.tipoRegistroOperador = tipo;
     this.operadoresPaginaActual = 1;
@@ -3629,7 +3652,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         next: (operadores) => {
           this.operadoresDatos = (operadores || []).map((op, idxOp) => {
             const totalMontoOp = op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados) || 0;
-            const difOp = Math.max(0, totalMontoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
+            const difOp = totalMontoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0));
             return {
               ...op,
               _originalIndex: idxOp,
@@ -3637,7 +3660,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               diferencia: difOp,
               motivos: (op.motivos || []).map((m, idxM) => {
                 const montoM = m.montoDebitado || 0;
-                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                const difM = montoM - ((m.aceptado || 0) + (m.refacturado || 0));
                 return {
                   ...m,
                   _originalIndex: idxM,
@@ -3645,7 +3668,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                   diferencia: difM,
                   financiadores: (m.financiadores || []).map((f, idxF) => {
                     const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
-                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    const difF = montoF - ((f.aceptado || 0) + (f.refacturado || 0));
                     return {
                       ...f,
                       _originalIndex: idxF,
@@ -3694,7 +3717,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
         next: (medicos) => {
           this.medicosDatos = (medicos || []).map((med, idxMed) => {
             const totalMontoMed = med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados) || 0;
-            const difMed = Math.max(0, totalMontoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
+            const difMed = totalMontoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0));
             return {
               ...med,
               _originalIndex: idxMed,
@@ -3702,7 +3725,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               diferencia: difMed,
               motivos: (med.motivos || []).map((m, idxM) => {
                 const montoM = m.montoDebitado || 0;
-                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                const difM = montoM - ((m.aceptado || 0) + (m.refacturado || 0));
                 return {
                   ...m,
                   _originalIndex: idxM,
@@ -3710,7 +3733,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                   diferencia: difM,
                   financiadores: (m.financiadores || []).map((f, idxF) => {
                     const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
-                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    const difF = montoF - ((f.aceptado || 0) + (f.refacturado || 0));
                     return {
                       ...f,
                       _originalIndex: idxF,
@@ -3759,20 +3782,33 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             (a.motivos || []).forEach(m => (m.financiadores || []).forEach(f => {
               if (f.financiador) distinctFins.add(f.financiador);
             }));
+            const totalMontoA = a.totalTramitado || (a.debitosAceptados + a.debitosRefacturados) || 0;
+            const difA = totalMontoA - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0));
             return {
               ...a,
               _originalIndex: idxA,
               expanded: false,
               cantidadFinanciadores: distinctFins.size,
-              motivos: (a.motivos || []).map((m, idxM) => ({
-                ...m,
-                _originalIndex: idxM,
-                expanded: false,
-                financiadores: (m.financiadores || []).map((f, idxF) => ({
-                  ...f,
-                  _originalIndex: idxF
-                }))
-              }))
+              diferencia: difA,
+              motivos: (a.motivos || []).map((m, idxM) => {
+                const montoM = m.montoDebitado || 0;
+                const difM = montoM - ((m.aceptado || 0) + (m.refacturado || 0));
+                return {
+                  ...m,
+                  _originalIndex: idxM,
+                  expanded: false,
+                  diferencia: difM,
+                  financiadores: (m.financiadores || []).map((f, idxF) => {
+                    const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
+                    const difF = montoF - ((f.aceptado || 0) + (f.refacturado || 0));
+                    return {
+                      ...f,
+                      _originalIndex: idxF,
+                      diferencia: difF
+                    };
+                  })
+                };
+              })
             };
           });
 
@@ -3790,7 +3826,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
           this.medicosDatos = (data?.medicos || []).map((med, idxMed) => {
             const totalMontoMed = med.totalTramitado || (med.debitosAceptados + med.debitosRefacturados) || 0;
-            const difMed = Math.max(0, totalMontoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
+            const difMed = totalMontoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0));
             return {
               ...med,
               _originalIndex: idxMed,
@@ -3798,7 +3834,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               diferencia: difMed,
               motivos: (med.motivos || []).map((m, idxM) => {
                 const montoM = m.montoDebitado || 0;
-                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                const difM = montoM - ((m.aceptado || 0) + (m.refacturado || 0));
                 return {
                   ...m,
                   _originalIndex: idxM,
@@ -3806,7 +3842,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                   diferencia: difM,
                   financiadores: (m.financiadores || []).map((f, idxF) => {
                     const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
-                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    const difF = montoF - ((f.aceptado || 0) + (f.refacturado || 0));
                     return {
                       ...f,
                       _originalIndex: idxF,
@@ -3829,7 +3865,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
 
           this.operadoresDatos = (data?.operadores || []).map((op, idxOp) => {
             const totalMontoOp = op.totalTramitado || (op.debitosAceptados + op.debitosRefacturados) || 0;
-            const difOp = Math.max(0, totalMontoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
+            const difOp = totalMontoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0));
             return {
               ...op,
               _originalIndex: idxOp,
@@ -3837,7 +3873,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
               diferencia: difOp,
               motivos: (op.motivos || []).map((m, idxM) => {
                 const montoM = m.montoDebitado || 0;
-                const difM = Math.max(0, montoM - ((m.aceptado || 0) + (m.refacturado || 0)));
+                const difM = montoM - ((m.aceptado || 0) + (m.refacturado || 0));
                 return {
                   ...m,
                   _originalIndex: idxM,
@@ -3845,7 +3881,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
                   diferencia: difM,
                   financiadores: (m.financiadores || []).map((f, idxF) => {
                     const montoF = (f.montoDebitado != null ? f.montoDebitado : f.monto) || 0;
-                    const difF = Math.max(0, montoF - ((f.aceptado || 0) + (f.refacturado || 0)));
+                    const difF = montoF - ((f.aceptado || 0) + (f.refacturado || 0));
                     return {
                       ...f,
                       _originalIndex: idxF,
@@ -3923,7 +3959,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   get totalDiferenciaAnalistas(): number {
-    return Math.max(0, this.totalMontoDebitadoAnalistas - (this.totalAceptadosAnalistas + this.totalRefacturadosAnalistas));
+    return (this.analistasFiltrados || []).reduce((acc, a) => {
+      const dif = a.diferencia != null
+        ? a.diferencia
+        : ((a.totalTramitado || ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0))) - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0)));
+      return acc + dif;
+    }, 0);
   }
 
   get ticketPromedioGlobalAnalistas(): number {
@@ -4767,7 +4808,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   get totalDiferenciaMedicos(): number {
-    return Math.max(0, this.totalMontoDebitadoMedicos - (this.totalAceptadosMedicos + this.totalRefacturadosMedicos));
+    return (this.medicosFiltrados || []).reduce((acc, med) => {
+      const dif = med.diferencia != null
+        ? med.diferencia
+        : ((med.totalTramitado || ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0))) - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
+      return acc + dif;
+    }, 0);
   }
 
   get ticketPromedioGlobalMedicos(): number {
@@ -5351,7 +5397,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
             const montoMot = finsFiltrados.reduce((acc, f) => acc + (f.monto || (f as any).montoDebitado || 0), 0);
             const aceptadoMot = finsFiltrados.reduce((acc, f) => acc + (f.aceptado || 0), 0);
             const refacturadoMot = finsFiltrados.reduce((acc, f) => acc + (f.refacturado || 0), 0);
-            const difMot = Math.max(0, montoMot - (aceptadoMot + refacturadoMot));
+            const difMot = montoMot - (aceptadoMot + refacturadoMot);
 
             motivosFiltrados.push({
               ...mot,
@@ -5369,7 +5415,7 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
           const aceptadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.aceptado || 0), 0);
           const refacturadosTotal = motivosFiltrados.reduce((acc, m) => acc + (m.refacturado || 0), 0);
           const montoTotal = motivosFiltrados.reduce((acc, m) => acc + (m.montoDebitado || 0), 0);
-          const difTotal = Math.max(0, montoTotal - (aceptadosTotal + refacturadosTotal));
+          const difTotal = montoTotal - (aceptadosTotal + refacturadosTotal);
           const ticketProm = casosTotal > 0 ? (montoTotal / casosTotal) : 0;
           const tasaRec = montoTotal > 0 ? (refacturadosTotal * 100 / montoTotal) : 0;
 
@@ -5466,7 +5512,12 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
   }
 
   get totalDiferenciaOperadores(): number {
-    return Math.max(0, this.totalMontoDebitadoOperadores - (this.totalAceptadosOperadores + this.totalRefacturadosOperadores));
+    return (this.operadoresFiltrados || []).reduce((acc, op) => {
+      const dif = op.diferencia != null
+        ? op.diferencia
+        : ((op.totalTramitado || ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0))) - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
+      return acc + dif;
+    }, 0);
   }
 
   get ticketPromedioGlobalOperadores(): number {
@@ -5957,8 +6008,11 @@ export class DirectorioDashboardComponent implements OnInit, AfterViewInit, OnDe
     this.exportandoExcel = true;
     this.cdr.markForCheck();
     try {
+      const tipoLabel = this.tipoRegistroOperador === 'Internados'
+        ? 'Operador Liquidación'
+        : (this.tipoRegistroOperador === 'Todos' ? 'Operador Carga / Liquidación' : 'Operador Carga');
       const extras: string[] = [
-        `Atención: ${this.tipoRegistroOperador} (${this.tipoRegistroOperador === 'Internados' ? 'Operador Liquidación' : 'Operador Carga'})`
+        `Atención: ${this.tipoRegistroOperador} (${tipoLabel})`
       ];
       if (this.filtroOperadorSeleccionado !== 'TODOS') {
         extras.push(`Operador: ${this.filtroOperadorSeleccionado}`);

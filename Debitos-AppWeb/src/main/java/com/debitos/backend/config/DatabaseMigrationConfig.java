@@ -483,6 +483,22 @@ public class DatabaseMigrationConfig {
             }
 
             try {
+                int comprobantesSinTexto = jdbcTemplate.update("""
+                            UPDATE cabecera
+                            SET comprobante = UPPER(TRIM(tipo)) || ' ' || UPPER(TRIM(letra)) || LPAD(ptovta::text, 4, '0') || '-' || LPAD(numero::text, 8, '0')
+                            WHERE comprobante IS NULL
+                              AND tipo IS NOT NULL AND letra IS NOT NULL AND ptovta IS NOT NULL AND numero IS NOT NULL
+                              AND UPPER(TRIM(tipo)) NOT IN ('RC', 'REC', 'RCA', 'RCB', 'OP')
+                        """);
+                if (comprobantesSinTexto > 0) {
+                    log.info("Migración automática aplicada: calculado comprobante para {} comprobantes con comprobante nulo.",
+                            comprobantesSinTexto);
+                }
+            } catch (Exception e) {
+                log.debug("Aviso migración comprobante general calculado: {}", e.getMessage());
+            }
+
+            try {
                 int periodosReparados = jdbcTemplate.update("""
                             UPDATE cabecera
                             SET periodo = DATE_TRUNC('month', fecha)::date
@@ -525,7 +541,8 @@ public class DatabaseMigrationConfig {
                                     JOIN notadecredito nc ON nd.id_notadecredito = nc.id
                                     JOIN cabecera c_nc ON nc.idcabecera = c_nc.id
                                     WHERE nd.idcabecera = c_nd.id
-                                      AND (c_nd.asociadogrupo IS NULL OR c_nd.asociadogrupo <> COALESCE(NULLIF(c_nc.asociadogrupo, 0), NULLIF(c_nc.grupo, 0), NULLIF(c_nc.asociado, 0), c_nc.id))
+                                      AND (c_nd.asociadogrupo IS NULL OR c_nd.asociadogrupo = 0)
+                                      AND (c_nd.fecha IS NULL OR c_nc.fecha IS NULL OR c_nd.fecha >= c_nc.fecha - INTERVAL '30 days')
                                 """);
                 if (ndSincronizadas > 0) {
                     log.info(
@@ -722,7 +739,9 @@ public class DatabaseMigrationConfig {
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_periodo ON cabecera ((COALESCE(periodo, fecha)), codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 36, 53)",
                     "CREATE INDEX IF NOT EXISTS idx_cabecera_fc_prestaciones_fecha ON cabecera (fecha, codigo_cobertura, id) WHERE UPPER(TRIM(tipo)) IN ('FC', 'FAC', 'FCE', 'FCA') AND ptovta IN (30, 31, 32, 36, 53)",
                     "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_idcabecera_fecha ON amb_liquidado (idcabecera, fecha DESC, id DESC)",
-                    "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_codigo ON amb_liquidado (codigo)"
+                    "CREATE INDEX IF NOT EXISTS idx_amb_liquidado_codigo ON amb_liquidado (codigo)",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_norm_comprobante ON cabecera (REPLACE(REPLACE(UPPER(TRIM(comprobante)), ' ', ''), '-', '')) WHERE UPPER(TRIM(tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')",
+                    "CREATE INDEX IF NOT EXISTS idx_cabecera_norm_comprobante_asoc ON cabecera (REPLACE(REPLACE(UPPER(TRIM(comprobante_asociado)), ' ', ''), '-', '')) WHERE comprobante_asociado IS NOT NULL"
             };
 
             try {
@@ -920,6 +939,13 @@ public class DatabaseMigrationConfig {
                         nombre_original VARCHAR(255),
                         nombre_mostrar VARCHAR(255) NOT NULL
                     )
+                """);
+                // Saneamiento de coberturas_alias: excluir SISTEMAS PP (idpersona 259/10001583) y médicos/proveedores
+                jdbcTemplate.execute("""
+                    DELETE FROM coberturas_alias
+                    WHERE codigo_cobertura IN ('1', '259', '10001583', '002014', '002016', '002018', '800', '1186', '1193', '1969', '2029')
+                       OR UPPER(TRIM(nombre_original)) LIKE '%SISTEMAS PP%'
+                       OR UPPER(TRIM(nombre_mostrar)) LIKE '%SISTEMAS PP%'
                 """);
             } catch (Exception e) {
                 log.debug("Aviso migración coberturas_alias: {}", e.getMessage());

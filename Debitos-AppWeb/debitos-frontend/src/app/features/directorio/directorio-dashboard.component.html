@@ -756,6 +756,7 @@
                     Saldo <span class="sort-indicator" [class.active]="columnaOrdenCc === 'saldo'">{{ columnaOrdenCc ===
                       'saldo' ? (direccionOrdenCc === 'asc' ? '▲' : '▼') : '↕' }}</span>
                   </th>
+                  <th class="text-center th-acciones-prestaciones">Ver Prestaciones</th>
                 </tr>
 
                 <!-- Fila Fija de Totales Consolidados de Cuenta Corriente (Sticky) -->
@@ -787,6 +788,7 @@
                     [ngClass]="totalSaldoCc > 0 ? 'color-saldo-positivo' : (totalSaldoCc < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                     {{ totalSaldoCc | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </th>
+                  <th class="text-center text-muted font-weight-bold">—</th>
                 </tr>
               </thead>
               <tbody *ngFor="let f of cuentaCorrienteDatosPaginados; trackBy: trackByFinanciador">
@@ -821,6 +823,7 @@
                     [ngClass]="f.saldo > 0 ? 'color-saldo-positivo' : (f.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                     {{ f.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                   </td>
+                  <td class="text-center text-muted">—</td>
                 </tr>
 
                 <!-- NIVEL 2: Períodos (solo si financiador está expandido) -->
@@ -857,6 +860,7 @@
                         [ngClass]="p.saldo > 0 ? 'color-saldo-positivo' : (p.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                         {{ p.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                       </td>
+                      <td class="text-center text-muted">—</td>
                     </tr>
 
                     <!-- NIVEL 3: Facturas Madres y Comprobantes Hijos -->
@@ -904,6 +908,14 @@
                             [ngClass]="fc.saldo > 0 ? 'color-saldo-positivo' : (fc.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                             {{ fc.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
                           </td>
+                          <td class="text-center td-acciones-prestaciones">
+                            <a *ngIf="fc.tienePrestaciones" href="javascript:void(0)"
+                              (click)="abrirPrestacionesEnBuscador(fc, $event)"
+                              class="historial-link-ver-prestaciones" title="Ver prestaciones en Buscador de Documentos">
+                              Ver prestaciones
+                            </a>
+                            <span *ngIf="!fc.tienePrestaciones" class="text-muted">—</span>
+                          </td>
                         </tr>
 
                         <!-- Comprobantes Hijos (solo si la Factura Madre está expandida) -->
@@ -950,6 +962,14 @@
                             <td class="text-right font-weight-bold"
                               [ngClass]="h.saldo > 0 ? 'color-saldo-positivo' : (h.saldo < 0 ? 'color-saldo-negativo' : 'color-saldo-cero')">
                               {{ h.saldo | currency:'ARS':'symbol-narrow':'1.2-2':'es-AR' }}
+                            </td>
+                            <td class="text-center td-acciones-prestaciones">
+                              <a *ngIf="h.tienePrestaciones" href="javascript:void(0)"
+                                (click)="abrirPrestacionesEnBuscador(h, $event)"
+                                class="historial-link-ver-prestaciones" title="Ver prestaciones en Buscador de Documentos">
+                                Ver prestaciones
+                              </a>
+                              <span *ngIf="!h.tienePrestaciones" class="text-muted">—</span>
                             </td>
                           </tr>
                         </ng-container>
@@ -1702,7 +1722,7 @@
           </div>
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <div class="total-debitado-badge" *ngIf="motivosDebito.length > 0">
-              Total Debitado: <strong>{{ formatearMoneda(obtenerTotalDebitadoGeneral()) }}</strong>
+              Total Debitado: <strong>{{ formatearMoneda(totalDebitadoMotivos) }}</strong>
             </div>
             <button type="button" id="btn-export-motivos" class="btn-export-excel"
               [disabled]="cargandoMotivos || exportandoExcel || motivosDebito.length === 0"
@@ -2006,7 +2026,7 @@
               </tr>
 
               <!-- Fila Fija de Totales Consolidados (Sticky debajo de los títulos) -->
-              <tr class="tr-totales-fijos">
+              <tr class="tr-totales-fijos tr-totales-fijos-analistas">
                 <th class="th-tree th-total-label">
                   TOTAL GENERAL ({{ analistasFiltrados.length }} {{ analistasFiltrados.length === 1 ? 'Analista' :
                   'Analistas' }})
@@ -2015,7 +2035,7 @@
                   <span class="badge-docs-analista">{{ totalFinanciadoresAnalistas }}</span>
                 </th>
                 <th class="text-center font-weight-bold">
-                  <span class="badge-docs-analista">{{ totalCasosAnalistas }}</span>
+                  <span class="badge-docs-analista">{{ totalCasosAnalistas | number:'1.0-0':'es-AR' }}</span>
                 </th>
                 <th class="text-right font-weight-bold color-facturado">
                   {{ totalMontoDebitadoAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
@@ -2026,7 +2046,9 @@
                 <th class="text-right font-weight-bold color-refacturado">
                   {{ totalRefacturadosAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </th>
-                <th class="text-right font-weight-bold color-diferencia">
+                <th class="text-right font-weight-bold color-diferencia"
+                  [class.diferencia-excedente]="totalDiferenciaAnalistas < 0"
+                  [title]="totalDiferenciaAnalistas < 0 ? 'Excedente de gestión neto' : ''">
                   {{ totalDiferenciaAnalistas | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </th>
                 <th class="text-right"></th>
@@ -2062,7 +2084,9 @@
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ a.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
-                <td class="text-right font-weight-bold color-diferencia">
+                <td class="text-right font-weight-bold color-diferencia"
+                  [class.diferencia-excedente]="(a.diferencia || 0) < 0"
+                  [title]="(a.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                   {{ a.diferencia | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-ticket-promedio">
@@ -2107,7 +2131,9 @@
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
-                    <td class="text-right font-weight-bold color-diferencia">
+                    <td class="text-right font-weight-bold color-diferencia"
+                      [class.diferencia-excedente]="(m.diferencia || 0) < 0"
+                      [title]="(m.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                       {{ m.diferencia | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-ticket-promedio">
@@ -2152,7 +2178,9 @@
                       <td class="text-right color-refacturado">
                         {{ (fin.refacturado || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
-                      <td class="text-right color-diferencia">
+                      <td class="text-right color-diferencia"
+                        [class.diferencia-excedente]="(fin.diferencia || 0) < 0"
+                        [title]="(fin.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                         {{ (fin.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right color-ticket-promedio">
@@ -2484,14 +2512,14 @@
             </div>
             <p class="section-subtitle">
               Auditoría de emisión original a 3 niveles: Nivel 1 ({{ tipoRegistroOperador === 'Internados' ? 'Operador
-              Liquidación FC' : 'Operador FC' }}) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3
+              Liquidación FC' : (tipoRegistroOperador === 'Todos' ? 'Operador FC / Liquidación' : 'Operador FC') }}) ➔ Nivel 2 (Motivo de Débito) ➔ Nivel 3
               (Financiador Afectado).
             </p>
           </div>
 
           <!-- Controles y Filtro exclusivo de la Solapa Operadores -->
           <div class="analistas-header-controls">
-            <!-- Selector de Tipo de Atención (Ambulatorios / Internados) -->
+            <!-- Selector de Tipo de Atención (Todos / Ambulatorios / Internados) -->
             <div class="filtro-analista-container">
               <label for="select-tipo-registro-operador" class="filtro-analista-label">
                 Tipo de Atención:
@@ -2499,6 +2527,7 @@
               <div class="select-wrapper-analista">
                 <select id="select-tipo-registro-operador" class="form-control select-custom select-filtro-analista"
                   [ngModel]="tipoRegistroOperador" (ngModelChange)="cambiarTipoRegistroOperador($event)">
+                  <option value="Todos">Todos</option>
                   <option value="Ambulatorios">Ambulatorios</option>
                   <option value="Internados">Internados</option>
                 </select>
@@ -2642,7 +2671,9 @@
                 <th class="text-right font-weight-bold color-refacturado">
                   {{ totalRefacturadosOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </th>
-                <th class="text-right font-weight-bold color-diferencia">
+                <th class="text-right font-weight-bold color-diferencia"
+                  [class.diferencia-excedente]="totalDiferenciaOperadores < 0"
+                  [title]="totalDiferenciaOperadores < 0 ? 'Excedente de gestión neto' : ''">
                   {{ totalDiferenciaOperadores | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </th>
                 <th class="text-right"></th>
@@ -2676,7 +2707,9 @@
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ op.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
-                <td class="text-right font-weight-bold color-diferencia">
+                <td class="text-right font-weight-bold color-diferencia"
+                  [class.diferencia-excedente]="(op.diferencia || 0) < 0"
+                  [title]="(op.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                   {{ (op.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-ticket-promedio">
@@ -2714,7 +2747,9 @@
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
-                    <td class="text-right font-weight-bold color-diferencia">
+                    <td class="text-right font-weight-bold color-diferencia"
+                      [class.diferencia-excedente]="(m.diferencia || 0) < 0"
+                      [title]="(m.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                       {{ (m.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-ticket-promedio">
@@ -2754,7 +2789,9 @@
                         {{ (fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR')
                         : '—') }}
                       </td>
-                      <td class="text-right color-diferencia">
+                      <td class="text-right color-diferencia"
+                        [class.diferencia-excedente]="(fin.diferencia || 0) < 0"
+                        [title]="(fin.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                         {{ (fin.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right color-ticket-promedio">
@@ -2995,7 +3032,9 @@
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ totalRefacturadosMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
-                <td class="text-right font-weight-bold color-diferencia">
+                <td class="text-right font-weight-bold color-diferencia"
+                  [class.diferencia-excedente]="totalDiferenciaMedicos < 0"
+                  [title]="totalDiferenciaMedicos < 0 ? 'Excedente de gestión neto' : ''">
                   {{ totalDiferenciaMedicos | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right text-muted font-weight-bold">—</td>
@@ -3038,7 +3077,9 @@
                 <td class="text-right font-weight-bold color-refacturado">
                   {{ med.debitosRefacturados | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
-                <td class="text-right font-weight-bold color-diferencia">
+                <td class="text-right font-weight-bold color-diferencia"
+                  [class.diferencia-excedente]="(med.diferencia || 0) < 0"
+                  [title]="(med.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                   {{ (med.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                 </td>
                 <td class="text-right font-weight-bold color-ticket">
@@ -3079,7 +3120,9 @@
                     <td class="text-right color-refacturado">
                       {{ m.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
-                    <td class="text-right font-weight-bold color-diferencia">
+                    <td class="text-right font-weight-bold color-diferencia"
+                      [class.diferencia-excedente]="(m.diferencia || 0) < 0"
+                      [title]="(m.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                       {{ (m.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                     </td>
                     <td class="text-right color-ticket">
@@ -3120,7 +3163,9 @@
                         {{ fin.refacturado != null ? (fin.refacturado | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR')
                         : '—' }}
                       </td>
-                      <td class="text-right color-diferencia">
+                      <td class="text-right color-diferencia"
+                        [class.diferencia-excedente]="(fin.diferencia || 0) < 0"
+                        [title]="(fin.diferencia || 0) < 0 ? 'Excedente de gestión: Aceptados + Refacturados superan al débito original' : ''">
                         {{ (fin.diferencia || 0) | currency:'ARS':'symbol-narrow':'1.0-0':'es-AR' }}
                       </td>
                       <td class="text-right color-ticket">

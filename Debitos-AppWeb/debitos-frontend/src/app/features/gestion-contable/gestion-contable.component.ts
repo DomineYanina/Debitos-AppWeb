@@ -122,6 +122,10 @@ export class GestionContableComponent implements OnInit {
   facturasAnuladasPage: PageResponse<FacturaAnuladaDTO> | null = null;
   paginaActualAnuladas: number = 0;
   ordenAnuladas: EstadoOrdenTabla = { columna: '', direccion: 'desc', paso: 0 };
+  filtroAnuladasTipo: string = '';
+  filtroAnuladasTexto: string = '';
+  modalDetalleAnulacionVisible: boolean = false;
+  detalleAnulacionSeleccionada: FacturaAnuladaDTO | null = null;
 
   // 5. Historial de Ajustes
   filtroHistorialRef: string = '';
@@ -558,7 +562,14 @@ export class GestionContableComponent implements OnInit {
   // =========================================================================
 
   buscarFacturaAnulacion(): void {
-    if (!this.busquedaAnulPtoVta || !this.busquedaAnulNumero) {
+    if (!this.busquedaAnulNumero) {
+      this.facturaAnulacionSeleccionada = null;
+      this.filtroAnuladasTipo = this.busquedaAnulTipo || '';
+      this.limpiarMensajes();
+      this.cargarFacturasAnuladas(0);
+      return;
+    }
+    if (!this.busquedaAnulPtoVta) {
       this.mostrarError('Complete Punto de Venta y Número de comprobante.');
       return;
     }
@@ -583,7 +594,7 @@ export class GestionContableComponent implements OnInit {
       error: (err) => {
         this.cargando = false;
         this.facturaAnulacionSeleccionada = null;
-        this.mostrarError('No se encontró la factura solicitada.');
+        this.mostrarError('No se encontró el documento solicitado.');
         this.cdr.markForCheck();
       }
     });
@@ -656,6 +667,25 @@ export class GestionContableComponent implements OnInit {
   cerrarModalAnulacion(): void {
     this.modalAnulacionVisible = false;
     this.cdr.markForCheck();
+  }
+
+  abrirModalDetalleAnulacion(fa: FacturaAnuladaDTO): void {
+    this.detalleAnulacionSeleccionada = fa;
+    this.modalDetalleAnulacionVisible = true;
+    this.cdr.markForCheck();
+  }
+
+  cerrarModalDetalleAnulacion(): void {
+    this.modalDetalleAnulacionVisible = false;
+    this.detalleAnulacionSeleccionada = null;
+    this.cdr.markForCheck();
+  }
+
+  reactivarDesdeModalDetalle(): void {
+    if (!this.detalleAnulacionSeleccionada) return;
+    const id = this.detalleAnulacionSeleccionada.idCabecera;
+    this.cerrarModalDetalleAnulacion();
+    this.cambiarAnulacion(id, false);
   }
 
   abrirModalConFactura(fa: FacturaAnuladaDTO): void {
@@ -886,12 +916,25 @@ export class GestionContableComponent implements OnInit {
 
   cargarFacturasAnuladas(pagina: number = 0): void {
     this.paginaActualAnuladas = pagina;
-    this.contableService.listarFacturasAnuladas(
-      this.paginaActualAnuladas,
-      15,
-      this.ordenAnuladas.columna || undefined,
-      this.ordenAnuladas.columna ? this.ordenAnuladas.direccion : undefined
-    ).subscribe({
+    const tipoParam = this.filtroAnuladasTipo?.trim() || undefined;
+    const filtroParam = this.filtroAnuladasTexto?.trim() || undefined;
+    const obs$ = (tipoParam || filtroParam)
+      ? this.contableService.listarFacturasAnuladas(
+          this.paginaActualAnuladas,
+          15,
+          this.ordenAnuladas.columna || undefined,
+          this.ordenAnuladas.columna ? this.ordenAnuladas.direccion : undefined,
+          tipoParam,
+          filtroParam
+        )
+      : this.contableService.listarFacturasAnuladas(
+          this.paginaActualAnuladas,
+          15,
+          this.ordenAnuladas.columna || undefined,
+          this.ordenAnuladas.columna ? this.ordenAnuladas.direccion : undefined
+        );
+
+    obs$.subscribe({
       next: (page) => {
         this.facturasAnuladasPage = page;
         this.cdr.markForCheck();
@@ -900,6 +943,16 @@ export class GestionContableComponent implements OnInit {
         console.error('Error al listar facturas anuladas', err);
       }
     });
+  }
+
+  buscarFacturasAnuladasConFiltro(): void {
+    this.cargarFacturasAnuladas(0);
+  }
+
+  limpiarFiltroFacturasAnuladas(): void {
+    this.filtroAnuladasTipo = '';
+    this.filtroAnuladasTexto = '';
+    this.cargarFacturasAnuladas(0);
   }
 
   // =========================================================================
@@ -1154,12 +1207,24 @@ export class GestionContableComponent implements OnInit {
         }
 
         case 'anuladas': {
-          this.contableService.listarFacturasAnuladas(
-            0,
-            10000,
-            this.ordenAnuladas.columna || undefined,
-            this.ordenAnuladas.columna ? this.ordenAnuladas.direccion : undefined
-          ).subscribe({
+          const tipoParam = this.filtroAnuladasTipo?.trim() || undefined;
+          const filtroParam = this.filtroAnuladasTexto?.trim() || undefined;
+          const obsAnuladas$ = (tipoParam || filtroParam)
+            ? this.contableService.listarFacturasAnuladas(
+                0,
+                10000,
+                this.ordenAnuladas.columna || undefined,
+                this.ordenAnuladas.columna ? this.ordenAnuladas.direccion : undefined,
+                tipoParam,
+                filtroParam
+              )
+            : this.contableService.listarFacturasAnuladas(
+                0,
+                10000,
+                this.ordenAnuladas.columna || undefined,
+                this.ordenAnuladas.columna ? this.ordenAnuladas.direccion : undefined
+              );
+          obsAnuladas$.subscribe({
             next: async (res) => {
               try {
                 if (!res.content || res.content.length === 0) {

@@ -177,7 +177,7 @@ class DirectorioControllerTest {
                                 LocalDate.of(2026, 8, 10), "420101", "CONSULTA MEDICA",
                                 "NC", "A", 1, 301, LocalDate.of(2026, 8, 20),
                                 "Falta de autorización/Token", "No adjunta autorización previa",
-                                new BigDecimal("4500.00"), true);
+                                new BigDecimal("4500.00"), true, "OPERADOR_TEST");
 
                 when(directorioService.obtenerPrestacionesPorMotivoPaginado(eq("Falta de autorización/Token"), any(), any(),
                                 any(), any(), any(), anyInt(), anyInt()))
@@ -191,6 +191,7 @@ class DirectorioControllerTest {
                                 .andExpect(jsonPath("$.totalElements").value(1))
                                 .andExpect(jsonPath("$.content[0].paciente").value("GOMEZ JUAN"))
                                 .andExpect(jsonPath("$.content[0].motivoDebito").value("Falta de autorización/Token"))
+                                .andExpect(jsonPath("$.content[0].operador").value("OPERADOR_TEST"))
                                 .andExpect(jsonPath("$.content[0].comentariosDebito")
                                                 .value("No adjunta autorización previa"));
         }

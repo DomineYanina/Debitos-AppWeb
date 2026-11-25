@@ -953,26 +953,24 @@ public class SincronizacionCtaCteService {
                 }
                 contadorAsociados[0] += facturasAutoAsociadas;
 
-                // Paso 4.2: En documentos hijos con comprobante_asociado textual, vincular al ID del padre y heredar asociadogrupo
-                StringBuilder sqlHijos = new StringBuilder("""
+                // Paso 4.2a: En documentos hijos con comprobante_asociado textual, vincular al ID del padre directo (sargable e indexado)
+                StringBuilder sqlHijosDirecto = new StringBuilder("""
                     UPDATE cabecera c_hijo
                     SET asociado = c_padre.id,
                         asociadogrupo = COALESCE(c_padre.asociadogrupo, c_hijo.asociadogrupo)
                     FROM cabecera c_padre
                     WHERE c_hijo.comprobante_asociado IS NOT NULL
                       AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
-                      AND (
-                          UPPER(TRIM(COALESCE(c_padre.comprobante, c_padre.comprobante_asociado))) = UPPER(TRIM(c_hijo.comprobante_asociado))
-                          OR REPLACE(REPLACE(UPPER(TRIM(COALESCE(c_padre.comprobante, UPPER(TRIM(c_padre.tipo)) || UPPER(TRIM(c_padre.letra)) || LPAD(c_padre.ptovta::text, 4, '0') || LPAD(c_padre.numero::text, 8, '0')))), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_hijo.comprobante_asociado)), ' ', ''), '-', '')
-                      )
+                      AND UPPER(TRIM(c_padre.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                      AND UPPER(TRIM(c_padre.comprobante)) = UPPER(TRIM(c_hijo.comprobante_asociado))
                       AND (
                           c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id
                           OR (c_padre.asociadogrupo IS NOT NULL AND c_padre.asociadogrupo > 0 AND (c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo <> c_padre.asociadogrupo))
                       )
                 """);
-                int hijosAsociados;
+                int hijosAsociadosDirecto;
                 if (anio > 2000) {
-                    sqlHijos.append("""
+                    sqlHijosDirecto.append("""
                       AND (
                           (c_hijo.periodo >= ? AND c_hijo.periodo <= ?)
                           OR (c_hijo.periodo IS NULL AND c_hijo.fecha >= ? AND c_hijo.fecha <= ?)
@@ -980,11 +978,39 @@ public class SincronizacionCtaCteService {
                     """);
                     Date fechaDesde = Date.valueOf(LocalDate.of(anio, 1, 1));
                     Date fechaHasta = Date.valueOf(LocalDate.of(anio, 12, 31));
-                    hijosAsociados = debitosJdbcTemplate.update(sqlHijos.toString(), fechaDesde, fechaHasta, fechaDesde, fechaHasta);
+                    hijosAsociadosDirecto = debitosJdbcTemplate.update(sqlHijosDirecto.toString(), fechaDesde, fechaHasta, fechaDesde, fechaHasta);
                 } else {
-                    hijosAsociados = debitosJdbcTemplate.update(sqlHijos.toString());
+                    hijosAsociadosDirecto = debitosJdbcTemplate.update(sqlHijosDirecto.toString());
                 }
-                contadorAsociados[0] += hijosAsociados;
+                contadorAsociados[0] += hijosAsociadosDirecto;
+
+                // Paso 4.2b: Fallback normalizado SOLO para los documentos que sigan huérfanos tras el paso directo
+                StringBuilder sqlHijosNorm = new StringBuilder("""
+                    UPDATE cabecera c_hijo
+                    SET asociado = c_padre.id,
+                        asociadogrupo = COALESCE(c_padre.asociadogrupo, c_hijo.asociadogrupo)
+                    FROM cabecera c_padre
+                    WHERE (c_hijo.asociado IS NULL OR c_hijo.asociado = 0)
+                      AND c_hijo.comprobante_asociado IS NOT NULL
+                      AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                      AND UPPER(TRIM(c_padre.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                      AND REPLACE(REPLACE(UPPER(TRIM(c_padre.comprobante)), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_hijo.comprobante_asociado)), ' ', ''), '-', '')
+                """);
+                int hijosAsociadosNorm;
+                if (anio > 2000) {
+                    sqlHijosNorm.append("""
+                      AND (
+                          (c_hijo.periodo >= ? AND c_hijo.periodo <= ?)
+                          OR (c_hijo.periodo IS NULL AND c_hijo.fecha >= ? AND c_hijo.fecha <= ?)
+                      )
+                    """);
+                    Date fechaDesde = Date.valueOf(LocalDate.of(anio, 1, 1));
+                    Date fechaHasta = Date.valueOf(LocalDate.of(anio, 12, 31));
+                    hijosAsociadosNorm = debitosJdbcTemplate.update(sqlHijosNorm.toString(), fechaDesde, fechaHasta, fechaDesde, fechaHasta);
+                } else {
+                    hijosAsociadosNorm = debitosJdbcTemplate.update(sqlHijosNorm.toString());
+                }
+                contadorAsociados[0] += hijosAsociadosNorm;
 
                 // Paso 4.3: Propagar tiporegistro de facturas a documentos hijos (NC, ND, RC) vinculados
                 debitosJdbcTemplate.update("""
@@ -1271,7 +1297,7 @@ public class SincronizacionCtaCteService {
                 log.info("Reconciliación Nivel 1.5: {} documentos con ID de padre completaron su comprobante_asociado textual.", porIdAsociadoExistente);
             }
 
-            // Nivel 2: Documentos con comprobante_asociado textual pero asociado o asociadogrupo desactualizado o nulo
+            // Nivel 2: Documentos con comprobante_asociado textual pero asociado o asociadogrupo desactualizado o nulo (directo indexado)
             int porComprobanteAsoc = debitosJdbcTemplate.update("""
                 UPDATE cabecera c_hijo
                 SET asociado = c_padre.id,
@@ -1279,18 +1305,31 @@ public class SincronizacionCtaCteService {
                 FROM cabecera c_padre
                 WHERE c_hijo.comprobante_asociado IS NOT NULL
                   AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
-                  AND (
-                      UPPER(TRIM(COALESCE(c_padre.comprobante, c_padre.comprobante_asociado))) = UPPER(TRIM(c_hijo.comprobante_asociado))
-                      OR REPLACE(REPLACE(UPPER(TRIM(COALESCE(c_padre.comprobante, UPPER(TRIM(c_padre.tipo)) || UPPER(TRIM(c_padre.letra)) || LPAD(c_padre.ptovta::text, 4, '0') || LPAD(c_padre.numero::text, 8, '0')))), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_hijo.comprobante_asociado)), ' ', ''), '-', '')
-                  )
+                  AND UPPER(TRIM(c_padre.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND UPPER(TRIM(c_padre.comprobante)) = UPPER(TRIM(c_hijo.comprobante_asociado))
                   AND (
                       c_hijo.asociado IS NULL OR c_hijo.asociado = 0 OR c_hijo.asociado <> c_padre.id
                       OR (c_padre.asociadogrupo IS NOT NULL AND c_padre.asociadogrupo > 0 AND (c_hijo.asociadogrupo IS NULL OR c_hijo.asociadogrupo <> c_padre.asociadogrupo))
                   )
             """);
-            totalReconciliados += porComprobanteAsoc;
-            if (porComprobanteAsoc > 0) {
-                log.info("Reconciliación Nivel 2: {} huérfanos vinculados directamente por comprobante_asociado.", porComprobanteAsoc);
+
+            // Nivel 2b: Fallback normalizado para documentos que continúan huérfanos con posibles discrepancias de espaciado
+            int porComprobanteAsocNorm = debitosJdbcTemplate.update("""
+                UPDATE cabecera c_hijo
+                SET asociado = c_padre.id,
+                    asociadogrupo = COALESCE(c_padre.asociadogrupo, c_hijo.asociadogrupo)
+                FROM cabecera c_padre
+                WHERE (c_hijo.asociado IS NULL OR c_hijo.asociado = 0)
+                  AND c_hijo.comprobante_asociado IS NOT NULL
+                  AND UPPER(TRIM(c_hijo.tipo)) NOT IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND UPPER(TRIM(c_padre.tipo)) IN ('FAC', 'FC', 'FCE', 'FR', 'FCA', 'FCB')
+                  AND REPLACE(REPLACE(UPPER(TRIM(c_padre.comprobante)), ' ', ''), '-', '') = REPLACE(REPLACE(UPPER(TRIM(c_hijo.comprobante_asociado)), ' ', ''), '-', '')
+            """);
+
+            totalReconciliados += porComprobanteAsoc + porComprobanteAsocNorm;
+            if (porComprobanteAsoc + porComprobanteAsocNorm > 0) {
+                log.info("Reconciliación Nivel 2: {} huérfanos vinculados directamente por comprobante_asociado ({} directos, {} normalizados).",
+                        porComprobanteAsoc + porComprobanteAsocNorm, porComprobanteAsoc, porComprobanteAsocNorm);
             }
 
             // Nivel 2.5: Alinear asociadogrupo de comprobantes cuyo padre pertenece a una familia con asociadogrupo

@@ -218,6 +218,51 @@ describe('AuditoriaComponent', () => {
       expect(component.filtroPaciente).toBe('');
       expect(component.prestacionesFiltradas.length).toBe(3);
     });
+
+    it('debería filtrar solo prestaciones con débito aceptado (debitoaceptado=true)', () => {
+      component.soloDebitoAceptado = true;
+      component.aplicarFiltros();
+
+      // Debería quedar solo id 1 ('SI')
+      expect(component.prestacionesFiltradas.length).toBe(1);
+      expect(component.prestacionesFiltradas[0].id).toBe(1);
+      expect(component.prestacionesFiltradas[0].debitoAceptado).toBe('SI');
+    });
+
+    it('debería filtrar solo prestaciones con débito rechazado (debitoaceptado=false)', () => {
+      component.soloDebitoRechazado = true;
+      component.aplicarFiltros();
+
+      // Debería quedar solo id 2 ('NO')
+      expect(component.prestacionesFiltradas.length).toBe(1);
+      expect(component.prestacionesFiltradas[0].id).toBe(2);
+      expect(component.prestacionesFiltradas[0].debitoAceptado).toBe('NO');
+    });
+
+    it('onCambiarFiltroDebitoAceptado y onCambiarFiltroDebitoRechazado deben desmarcar al opuesto', () => {
+      component.soloDebitoAceptado = true;
+      component.onCambiarFiltroDebitoAceptado();
+      expect(component.soloDebitoAceptado).toBe(true);
+      expect(component.soloDebitoRechazado).toBe(false);
+      expect(component.prestacionesFiltradas.length).toBe(1);
+      expect(component.prestacionesFiltradas[0].id).toBe(1);
+
+      // Ahora activamos débito rechazado
+      component.soloDebitoRechazado = true;
+      component.onCambiarFiltroDebitoRechazado();
+      expect(component.soloDebitoAceptado).toBe(false);
+      expect(component.soloDebitoRechazado).toBe(true);
+      expect(component.prestacionesFiltradas.length).toBe(1);
+      expect(component.prestacionesFiltradas[0].id).toBe(2);
+    });
+
+    it('debería resetear soloDebitoAceptado y soloDebitoRechazado al llamar a resetFiltros', () => {
+      component.soloDebitoAceptado = true;
+      component.resetFiltros();
+      expect(component.soloDebitoAceptado).toBe(false);
+      expect(component.soloDebitoRechazado).toBe(false);
+      expect(component.prestacionesFiltradas.length).toBe(3);
+    });
   });
 
   describe('Lógica de Acciones Masivas', () => {
@@ -422,9 +467,9 @@ describe('AuditoriaComponent', () => {
     });
 
     it('debería armar el payload correcto y enviarlo a la API (Camino Feliz)', () => {
-      // PREPARACIÓN: Dos registros, pero solo uno tiene el motivo cargado
+      // PREPARACIÓN: Dos registros, pero solo uno tiene el motivo cargado y débito aceptado
       component.prestaciones = [
-        { id: 1, motivoDebito: 'Falta firma' },
+        { id: 1, motivoDebito: 'Falta firma', debitoAceptado: 'SI' },
         { id: 2, motivoDebito: '' }
       ] as unknown as Prestacion[];
       component.modificadosSinGuardar.add(1);
@@ -488,7 +533,7 @@ describe('AuditoriaComponent', () => {
 
     it('debería impedir abrir el modal de NC a partir de una ND con ajuste de IVA (Camino de Error)', () => {
       component.tipoBusquedaRealizada = 'ND';
-      component.prestaciones = [{ id: 1, motivoRefactura: 'Por ajuste de IVA' }] as any;
+      component.prestaciones = [{ id: 1, motivoRefactura: 'Por ajuste de IVA', debitoAceptado: 'NO' }] as any;
       let alerta = '';
       component.mostrarAlerta = (msg: string) => alerta = msg;
 
@@ -501,7 +546,7 @@ describe('AuditoriaComponent', () => {
     });
 
     it('debería abrir el modal y pre-cargar el tipo si hay registros válidos (Camino Feliz)', () => {
-      component.prestaciones = [{ id: 1, motivoDebito: 'Falta documentación' }] as any;
+      component.prestaciones = [{ id: 1, motivoDebito: 'Falta documentación', debitoAceptado: 'SI' }] as any;
 
       component.abrirModalNuevaNota('NC');
 
@@ -512,7 +557,7 @@ describe('AuditoriaComponent', () => {
 
     it('debería armar el payload completo Todo-en-Uno al guardar la nueva nota', () => {
       // 1. Preparar registros válidos
-      component.prestaciones = [{ id: 1, motivoDebito: 'Falta documentación' }] as any;
+      component.prestaciones = [{ id: 1, motivoDebito: 'Falta documentación', debitoAceptado: 'SI' }] as any;
       component.tipoNuevaNota = 'NC';
       component.modalNuevaNotaVisible = true;
 
@@ -1054,7 +1099,7 @@ describe('AuditoriaComponent', () => {
 
   describe('Acciones Masivas Adicionales', () => {
     it('aplicarImporteDebitadoMasivo debería asignar importe a las filas seleccionadas', () => {
-      const p1 = { id: 1, motivoDebito: 'Diferencia de aranceles', importeDebitado: undefined } as any;
+      const p1 = { id: 1, debitoAceptado: 'SI', motivoDebito: 'Diferencia de aranceles', importeDebitado: undefined } as any;
       component.registrosSeleccionados = [p1];
       component.importeDebitadoMasivo = 250;
 
@@ -1084,7 +1129,7 @@ describe('AuditoriaComponent', () => {
       component.mostrarAlerta = (msg: string) => { alerta = msg; };
 
       component.aplicarImporteRefacturaMasivo();
-      expect(alerta).toContain('No se puede asignar un Importe de Refactura');
+      expect(alerta).toContain('Solo se puede asignar un Importe de Refactura');
     });
 
     it('aplicarComentariosMasivo y aplicarComentariosDebitoMasivo deberían asignar comentarios a filas seleccionadas', () => {
@@ -1601,6 +1646,8 @@ describe('AuditoriaComponent', () => {
     });
 
     it('aplicar acciones masivas a filas seleccionadas', () => {
+      component.prestaciones[0].debitoAceptado = 'NO';
+      component.prestaciones[1].debitoAceptado = 'NO';
       component.registrosSeleccionados = [component.prestaciones[0], component.prestaciones[1]];
 
       component.motivoMasivoSeleccionado = 'Falta firma';
@@ -1831,6 +1878,16 @@ describe('AuditoriaComponent', () => {
       expect(component.hayFiltrosActivos).toBe(false);
       component.filtroPaciente = 'Gomez';
       expect(component.hayFiltrosActivos).toBe(true);
+      component.filtroPaciente = '';
+      expect(component.hayFiltrosActivos).toBe(false);
+
+      component.soloDebitoAceptado = true;
+      expect(component.hayFiltrosActivos).toBe(true);
+      component.soloDebitoAceptado = false;
+
+      component.soloDebitoRechazado = true;
+      expect(component.hayFiltrosActivos).toBe(true);
+      component.soloDebitoRechazado = false;
     });
 
     it('onPorcIvaChange y onTipoNdChange', () => {
@@ -2025,7 +2082,7 @@ describe('AuditoriaComponent', () => {
       expect(alertSpy.mock.calls[0][0]).toContain('No hay registros');
 
       // Éxito silencioso
-      component.prestaciones = [{ id: 1, motivoDebito: 'Falta firma' } as any];
+      component.prestaciones = [{ id: 1, motivoDebito: 'Falta firma', debitoAceptado: 'SI' } as any];
       component.modificadosSinGuardar.add(1);
       auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(of({}));
       component.guardarParcialmente(true);
@@ -2234,7 +2291,7 @@ describe('AuditoriaComponent', () => {
 
       // Con motivo previo en filas (modal aceptar y cancelar)
       component.registrosSeleccionados = [
-        { id: 1, total: 1000, motivoDebito: 'Previo', importeDebitado: 500 } as any
+        { id: 1, total: 1000, motivoDebito: 'Previo', importeDebitado: 500, debitoAceptado: 'SI' } as any
       ];
       component.motivoMasivoSeleccionado = 'Iva mal facturado';
       component.aplicarMotivoMasivo();
@@ -2315,7 +2372,7 @@ describe('AuditoriaComponent', () => {
       const alertSpy = vi.spyOn(component, 'mostrarAlerta');
       component.filasHistorialComprobantes = [{ nivel: 0, idGrupo: 1, idEstado: 1 } as any];
       component.tipoNuevaNota = 'NC';
-      component.prestaciones = [{ id: 1, motivoDebito: 'Falta firma' } as any];
+      component.prestaciones = [{ id: 1, motivoDebito: 'Falta firma', debitoAceptado: 'SI' } as any];
       component.nuevaNotaForm.patchValue({
         tipo: 'NC',
         letra: 'A',
@@ -2356,6 +2413,8 @@ describe('AuditoriaComponent', () => {
       component.filtroFecha = '2026-09-11';
       component.soloValorizadas = true;
       component.soloConDebitoAceptado = true;
+      component.soloDebitoAceptado = false;
+      component.soloDebitoRechazado = true;
       component.soloSinNC = true;
       component.soloSinMotivoDebito = true;
       component.soloSinMotivoRefactura = true;
@@ -2722,7 +2781,7 @@ describe('AuditoriaComponent', () => {
       // aplicarComentariosDebitoMasivo: ninguna con motivo
       alertSpy.mockClear();
       component.registrosSeleccionados = [
-        { id: 1, motivoDebito: '' } as any
+        { id: 1, motivoDebito: '', debitoAceptado: 'SI' } as any
       ];
       component.comentariosDebitoMasivo = 'Obs';
       component.aplicarComentariosDebitoMasivo();
@@ -2731,8 +2790,8 @@ describe('AuditoriaComponent', () => {
       // aplicarComentariosDebitoMasivo: algunas con motivo y otras sin
       alertSpy.mockClear();
       component.registrosSeleccionados = [
-        { id: 1, motivoDebito: 'Falta firma' } as any,
-        { id: 2, motivoDebito: '' } as any
+        { id: 1, motivoDebito: 'Falta firma', debitoAceptado: 'SI' } as any,
+        { id: 2, motivoDebito: '', debitoAceptado: 'SI' } as any
       ];
       component.comentariosDebitoMasivo = 'Obs';
       component.aplicarComentariosDebitoMasivo();
@@ -2743,7 +2802,7 @@ describe('AuditoriaComponent', () => {
       component.registrosSeleccionados = [{ id: 1, debitoAceptado: 'SI' } as any];
       component.importeRefacturaMasivo = 150;
       component.aplicarImporteRefacturaMasivo();
-      expect(alertSpy.mock.calls[0][0]).toContain('No se puede asignar un Importe de Refactura');
+      expect(alertSpy.mock.calls[0][0]).toContain('Solo se puede asignar un Importe de Refactura');
 
       // aplicarImporteRefacturaMasivo: algunas con debito SI
       alertSpy.mockClear();
@@ -2802,7 +2861,7 @@ describe('AuditoriaComponent', () => {
 
       // NC Ajuste IVA Prestacional con motivo "Iva mal facturado"
       component.tipoNuevaNota = 'NC';
-      component.prestaciones = [{ id: 1, total: 1000, motivoDebito: 'Iva mal facturado' } as any];
+      component.prestaciones = [{ id: 1, total: 1000, motivoDebito: 'Iva mal facturado', debitoAceptado: 'SI' } as any];
       component.nuevaNotaForm.patchValue({
         tipo: 'NC',
         letra: 'A',
@@ -2817,7 +2876,7 @@ describe('AuditoriaComponent', () => {
       expect(auditoriaServiceSpy.guardarNuevaNotaCredito).toHaveBeenCalled();
 
       // NC Refactura con prestaciones pendientes
-      component.prestaciones = [{ id: 2, motivoDebito: 'Falta firma' } as any];
+      component.prestaciones = [{ id: 2, motivoDebito: 'Falta firma', debitoAceptado: 'SI' } as any];
       component.nuevaNotaForm.patchValue({ tipoNc: 'Refactura', subtipoIva: '' });
       component.guardarNuevaNotaBD();
       expect(auditoriaServiceSpy.guardarNuevaNotaCredito).toHaveBeenCalled();
@@ -2948,7 +3007,7 @@ describe('AuditoriaComponent', () => {
       const spyParcial = vi.spyOn(component, 'guardarParcialmente').mockImplementation(() => {});
       component.tipoNuevaNota = 'NC';
       component.tipoBusquedaRealizada = 'FC';
-      component.prestaciones = [{ id: 10, ncNumero: 50, motivoDebito: 'Falta' } as any];
+      component.prestaciones = [{ id: 10, ncNumero: 50, motivoDebito: 'Falta', debitoAceptado: 'SI' } as any];
       component.modificadosSinGuardar.add(10);
       component.nuevaNotaForm.patchValue({
         tipo: 'NC',
@@ -3147,6 +3206,85 @@ describe('AuditoriaComponent', () => {
       component.themeService.setTheme('dark');
       expect(component.themeService.getResolvedTheme()).toBe('dark');
       expect(component.theme).toBeTruthy();
+    });
+
+    it('debería validar correctamente si una prestación tiene Débito Aceptado definido o incompleto', () => {
+      expect(component.tieneDebitoAceptado({ debitoAceptado: 'SI' } as any)).toBe(true);
+      expect(component.tieneDebitoAceptado({ debitoAceptado: 'NO' } as any)).toBe(true);
+      expect(component.tieneDebitoAceptado({ debitoAceptado: 'si' } as any)).toBe(true);
+      expect(component.tieneDebitoAceptado({ debitoAceptado: '' } as any)).toBe(false);
+      expect(component.tieneDebitoAceptado({ debitoAceptado: 'Borrar' } as any)).toBe(false);
+      expect(component.tieneDebitoAceptado({} as any)).toBe(false);
+    });
+
+    it('debería identificar si una prestación tiene valores en otras columnas de edición', () => {
+      expect(component.tieneOtrasColumnasEdicion({ motivoDebito: '01' } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ diasFacturados: 5 } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ prestacionEnglobante: 'ENG-1' } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ importeDebitado: 500 } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ comentariosDebito: 'Nota' } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ motivoRefactura: 'Ref' } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ importeRefactura: 250 } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ comentarios: 'Comentario' } as any)).toBe(true);
+      expect(component.tieneOtrasColumnasEdicion({ motivoDebito: '', diasFacturados: undefined } as any)).toBe(false);
+    });
+
+    it('debería bloquear guardarParcialmente y alertar si hay prestaciones con Débito Aceptado incompleto', () => {
+      const alertSpy = vi.spyOn(component, 'mostrarAlerta');
+      auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(of({}));
+
+      component.tipoBusquedaRealizada = 'FC';
+      component.busquedaForm.patchValue({ tipo: 'FC', letra: 'A', puntoVenta: '1', numero: '100' });
+      component.prestaciones = [{ id: 1, motivoDebito: '01', debitoAceptado: '' } as any];
+      component.modificadosSinGuardar.add(1);
+
+      component.guardarParcialmente(false);
+
+      expect(alertSpy).toHaveBeenCalled();
+      expect(alertSpy.mock.calls[0][0]).toContain("'Débito Aceptado' está incompleto");
+      expect(auditoriaServiceSpy.guardarParcialmente).not.toHaveBeenCalled();
+    });
+
+    it('no debería emitir alerta modal durante el autoguardado silencioso con prestaciones incompletas', () => {
+      const alertSpy = vi.spyOn(component, 'mostrarAlerta');
+      auditoriaServiceSpy.guardarParcialmente = vi.fn().mockReturnValue(of({}));
+
+      component.prestaciones = [{ id: 1, motivoDebito: '01', debitoAceptado: '' } as any];
+      component.modificadosSinGuardar.add(1);
+
+      component.guardarParcialmente(true);
+
+      expect(alertSpy).not.toHaveBeenCalled();
+      expect(auditoriaServiceSpy.guardarParcialmente).not.toHaveBeenCalled();
+    });
+
+    it('debería bloquear acciones masivas si alguna fila seleccionada no tiene Débito Aceptado', () => {
+      const alertSpy = vi.spyOn(component, 'mostrarAlerta');
+      component.registrosSeleccionados = [
+        { id: 1, debitoAceptado: 'SI' } as any,
+        { id: 2, debitoAceptado: '' } as any
+      ];
+
+      // Aplicar motivo masivo
+      component.motivoMasivoSeleccionado = 'Falta documentación';
+      component.aplicarMotivoMasivo();
+      expect(alertSpy.mock.calls[0][0]).toContain("'Débito Aceptado' no está definido");
+
+      // Aplicar importe debitado masivo
+      component.importeDebitadoMasivo = 1200;
+      component.aplicarImporteDebitadoMasivo();
+      expect(alertSpy.mock.calls[1][0]).toContain("'Débito Aceptado' no está definido");
+    });
+
+    it('debería bloquear abrirModalNuevaNota si hay prestaciones con Débito Aceptado incompleto', () => {
+      const alertSpy = vi.spyOn(component, 'mostrarAlerta');
+      component.prestaciones = [{ id: 1, motivoDebito: '01', debitoAceptado: '' } as any];
+
+      component.abrirModalNuevaNota('NC');
+
+      expect(alertSpy).toHaveBeenCalled();
+      expect(alertSpy.mock.calls[0][0]).toContain("'Débito Aceptado' está incompleto");
+      expect(component.modalNuevaNotaVisible).toBe(false);
     });
   });
 });

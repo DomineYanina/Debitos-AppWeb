@@ -5,8 +5,8 @@ export const LISTA_MOTIVOS_DEBITO = [
       'Afiliado dado de baja', 'Afiliado capitado', 'Coseguro no cobrado/ No descontado', 'Débito sin motivo', 'Diferencia de coseguro',
       'Error de carga (códigos-inclusiones)', 'Error en el cálculo de porcentaje de códigos múltiples',
       'Facturación duplicada', 'Facturado a financiador incorrecto', 'Falta de autorización/Token',
-      'Honorarios profesionales pagados en forma directa', 'Iva mal facturado', 'Prestación fuera de término',
-      'Prestación incluida en otra liquidación', 'Prestación no realizada', 'Supera tope'
+      'Honorarios profesionales pagados en forma directa', 'Iva mal facturado', 'Prestación ambulatoria debitada por supuesta internación',
+      'Prestación fuera de término', 'Prestación incluida en otra liquidación', 'Prestación no realizada', 'Supera tope'
     ]
   },
   {

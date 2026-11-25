@@ -59,12 +59,12 @@ class GestionContableServiceTest {
     @DisplayName("Coberturas: ordena por nombreMostrar descendente con desempate por codigoCobertura")
     void testOrdenCoberturasValido() {
         Page<CoberturaAlias> emptyPage = new PageImpl<>(List.of());
-        when(coberturaAliasRepository.findAll(any(Pageable.class))).thenReturn(emptyPage);
+        when(coberturaAliasRepository.buscarConFiltro(any(), any(Pageable.class))).thenReturn(emptyPage);
 
         service.buscarCoberturasPaginadas(null, 0, 20, "nombreMostrar", "desc");
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(coberturaAliasRepository).findAll(captor.capture());
+        verify(coberturaAliasRepository).buscarConFiltro(isNull(), captor.capture());
 
         Sort sort = captor.getValue().getSort();
         assertEquals(Sort.Direction.DESC, sort.getOrderFor("nombreMostrar").getDirection());
@@ -75,16 +75,42 @@ class GestionContableServiceTest {
     @DisplayName("Coberturas: columna inválida vuelve de forma segura al orden natural")
     void testOrdenCoberturasInvalidoFallback() {
         Page<CoberturaAlias> emptyPage = new PageImpl<>(List.of());
-        when(coberturaAliasRepository.findAll(any(Pageable.class))).thenReturn(emptyPage);
+        when(coberturaAliasRepository.buscarConFiltro(any(), any(Pageable.class))).thenReturn(emptyPage);
 
         service.buscarCoberturasPaginadas("", 0, 20, "columnaInexistente", "desc");
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(coberturaAliasRepository).findAll(captor.capture());
+        verify(coberturaAliasRepository).buscarConFiltro(isNull(), captor.capture());
 
         Sort sort = captor.getValue().getSort();
         assertNotNull(sort.getOrderFor("codigoCobertura"));
         assertEquals(Sort.Direction.ASC, sort.getOrderFor("codigoCobertura").getDirection());
+    }
+
+    @Test
+    @DisplayName("Coberturas: obtenerCobertura retorna null para SISTEMAS PP o médicos no institucionales")
+    void testObtenerCoberturaExcluidosRetornaNull() {
+        assertNull(service.obtenerCobertura("1"));
+        assertNull(service.obtenerCobertura("259"));
+        assertNull(service.obtenerCobertura("10001583"));
+        assertNull(service.obtenerCobertura("800"));
+        assertNull(service.obtenerCobertura("002014"));
+    }
+
+    @Test
+    @DisplayName("Coberturas: guardarAliasCobertura lanza excepción para códigos no institucionales o SISTEMAS PP")
+    void testGuardarAliasCoberturaExcluidosLanzaExcepcion() {
+        com.debitos.backend.dto.contable.GuardarAliasRequest req1 = new com.debitos.backend.dto.contable.GuardarAliasRequest();
+        req1.setCodigoCobertura("1");
+        req1.setNombreOriginal("SISTEMAS PP");
+        req1.setNombreMostrar("ALIAS TEST");
+        assertThrows(IllegalArgumentException.class, () -> service.guardarAliasCobertura(req1, "operador1"));
+
+        com.debitos.backend.dto.contable.GuardarAliasRequest req2 = new com.debitos.backend.dto.contable.GuardarAliasRequest();
+        req2.setCodigoCobertura("999");
+        req2.setNombreOriginal("SISTEMAS PP");
+        req2.setNombreMostrar("ALIAS TEST");
+        assertThrows(IllegalArgumentException.class, () -> service.guardarAliasCobertura(req2, "operador1"));
     }
 
     @Test
@@ -153,6 +179,119 @@ class GestionContableServiceTest {
         assertEquals(Sort.Direction.ASC, sort.getOrderFor("cabecera.ptovta").getDirection());
         assertEquals(Sort.Direction.ASC, sort.getOrderFor("cabecera.numero").getDirection());
         assertEquals(Sort.Direction.DESC, sort.getOrderFor("idCabecera").getDirection());
+    }
+
+    @Test
+    @DisplayName("Documentos Anulados: filtra por categoría (FACTURAS, NOTAS_CREDITO, NOTAS_DEBITO), tipo puntual y texto libre")
+    void testListarFacturasAnuladasConFiltros() {
+        Page<FacturaAnuladaManual> emptyPage = new PageImpl<>(List.of());
+        when(facturaAnuladaManualRepository.findFacturasAnuladasConCabeceraFiltradas(
+                eq(GestionContableService.PTO_VTA_PERMITIDOS),
+                anyBoolean(),
+                anyCollection(),
+                anyString(),
+                any(Pageable.class))).thenReturn(emptyPage);
+
+        // 1. Categoría FACTURAS + texto "OSDE"
+        service.listarFacturasAnuladas("FACTURAS", "OSDE", 0, 15, "fecha", "desc");
+        verify(facturaAnuladaManualRepository).findFacturasAnuladasConCabeceraFiltradas(
+                eq(GestionContableService.PTO_VTA_PERMITIDOS),
+                eq(true),
+                eq(List.of("FC", "FAC", "FCE", "FCA")),
+                eq("OSDE"),
+                any(Pageable.class));
+
+        // 2. Categoría NOTAS_CREDITO sin texto
+        service.listarFacturasAnuladas("NOTAS_CREDITO", null, 0, 15, null, null);
+        verify(facturaAnuladaManualRepository).findFacturasAnuladasConCabeceraFiltradas(
+                eq(GestionContableService.PTO_VTA_PERMITIDOS),
+                eq(true),
+                eq(List.of("NC", "NCE", "NCA", "NCB")),
+                eq(""),
+                any(Pageable.class));
+
+        // 3. Tipo puntual NDE
+        service.listarFacturasAnuladas("NDE", "", 0, 15, null, null);
+        verify(facturaAnuladaManualRepository).findFacturasAnuladasConCabeceraFiltradas(
+                eq(GestionContableService.PTO_VTA_PERMITIDOS),
+                eq(true),
+                eq(List.of("NDE")),
+                eq(""),
+                any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Documentos Anulados: puebla detalles completos del documento anulador y resuelve contrapartida inversa")
+    void testListarFacturasAnuladas_DetallesAnuladorYContrapartidaInversa() {
+        Cabecera nce = new Cabecera();
+        nce.setId(951L);
+        nce.setAsociadogrupo(220587L);
+        nce.setTipo("NCE");
+        nce.setLetra("A");
+        nce.setPtovta(31);
+        nce.setNumero(951);
+        nce.setFecha(LocalDate.of(2026, 10, 25));
+        nce.setPeriodo(LocalDate.of(2026, 10, 1));
+        nce.setCodigoCobertura("679");
+        nce.setCobertura("SWISS MEDICAL GROUP");
+        nce.setHaber(new BigDecimal("1278968.29"));
+        nce.setTiporegistro("Ambulatorios");
+
+        Cabecerande: {
+        }
+        Cabecera nde = new Cabecera();
+        nde.setId(516L);
+        nde.setAsociadogrupo(220587L);
+        nde.setTipo("NDE");
+        nde.setLetra("A");
+        nde.setPtovta(31);
+        nde.setNumero(516);
+        nde.setFecha(LocalDate.of(2026, 10, 25));
+        nde.setPeriodo(LocalDate.of(2026, 10, 1));
+        nde.setCodigoCobertura("679");
+        nde.setCobertura("SWISS MEDICAL GROUP");
+        nde.setDebe(new BigDecimal("1278968.29"));
+        nde.setTiporegistro("Ambulatorios");
+
+        // NCE apunta directamente a NDE como su anulador
+        FacturaAnuladaManual famNce = new FacturaAnuladaManual(nce, true);
+        famNce.setIdCabeceraAnulador(516L);
+        famNce.setCabeceraAnulador(nde);
+        famNce.setUsuario("operador1");
+
+        // NDE está en facturas_anuladas_manual sin idCabeceraAnulador propio
+        FacturaAnuladaManual famNde = new FacturaAnuladaManual(nde, true);
+        famNde.setUsuario("operador1");
+
+        Page<FacturaAnuladaManual> page = new PageImpl<>(List.of(famNde, famNce));
+        when(facturaAnuladaManualRepository.findFacturasAnuladasConCabecera(eq(GestionContableService.PTO_VTA_PERMITIDOS), any(Pageable.class)))
+                .thenReturn(page);
+        when(facturaAnuladaManualRepository.findActivasPorIdsCabeceraOAnulador(List.of(516L)))
+                .thenReturn(List.of(famNce, famNde));
+
+        Page<FacturaAnuladaDTO> resultado = service.listarFacturasAnuladas(0, 15, null, null);
+
+        assertEquals(2, resultado.getContent().size());
+
+        // Fila 0 (NDE 516) resolvió su contrapartida inversa (NCE 951)
+        FacturaAnuladaDTO dtoNde = resultado.getContent().get(0);
+        assertEquals(516L, dtoNde.getIdCabecera());
+        assertEquals(951L, dtoNde.getIdCabeceraAnulador());
+        assertEquals("NCE", dtoNde.getTipoAnulador());
+        assertEquals(951, dtoNde.getNumeroAnulador());
+        assertEquals(new BigDecimal("1278968.29"), dtoNde.getImporteAnulador());
+
+        // Fila 1 (NCE 951) tiene todos los detalles de su anulador directo (NDE 516)
+        FacturaAnuladaDTO dtoNce = resultado.getContent().get(1);
+        assertEquals(951L, dtoNce.getIdCabecera());
+        assertEquals(516L, dtoNce.getIdCabeceraAnulador());
+        assertEquals("NDE", dtoNce.getTipoAnulador());
+        assertEquals("A", dtoNce.getLetraAnulador());
+        assertEquals(31, dtoNce.getPtovtaAnulador());
+        assertEquals(516, dtoNce.getNumeroAnulador());
+        assertEquals(new BigDecimal("1278968.29"), dtoNce.getImporteAnulador());
+        assertEquals("SWISS MEDICAL GROUP", dtoNce.getCoberturaAnulador());
+        assertEquals("operador1", dtoNce.getUsuarioAnulacion());
     }
 
     @Test

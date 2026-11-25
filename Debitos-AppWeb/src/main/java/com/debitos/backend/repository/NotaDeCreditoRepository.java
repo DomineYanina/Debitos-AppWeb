@@ -41,6 +41,9 @@ public interface NotaDeCreditoRepository extends JpaRepository<NotaDeCredito, In
 
     List<NotaDeCredito> findByCabecera_IdIn(java.util.Collection<Long> idCabeceras);
 
+    @Query("SELECT DISTINCT nc.cabecera.id FROM NotaDeCredito nc WHERE nc.cabecera.id IN :idCabeceras")
+    java.util.Set<Long> findCabeceraIdsConPrestaciones(@Param("idCabeceras") java.util.Collection<Long> idCabeceras);
+
     @Query("""
         SELECT new com.debitos.backend.dto.NotaCreditoLigeraDTO(
             nc.cabecera.id, nc.usuario, nc.motivoDebito

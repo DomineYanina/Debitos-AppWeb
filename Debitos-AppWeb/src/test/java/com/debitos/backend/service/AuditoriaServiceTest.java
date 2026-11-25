@@ -2807,5 +2807,87 @@ class AuditoriaServiceTest {
         FilaHistorialDTO filaFc = historial.stream().filter(f -> f.getNumero() != null && f.getNumero() == 1865).findFirst().orElseThrow();
         assertFalse(filaFc.isSolicitudAnulacionPendiente(), "FC 1865 no tiene solicitud pendiente");
     }
+
+    @Test
+    @DisplayName("obtenerHistorialComprobantes - NDE preserva monto debe de cabecera y no roba prestaciones de ND histórica")
+    void testObtenerHistorialComprobantes_NdePreservaMontoDebeYNoRobaPrestacionesDeNdHistorica() {
+        Cabecera fc = new Cabecera();
+        fc.setId(5368L);
+        fc.setTipo("FCE");
+        fc.setLetra("A");
+        fc.setPtovta(31);
+        fc.setNumero(1865);
+        fc.setFecha(LocalDate.of(2026, 6, 2));
+        fc.setPeriodo(LocalDate.of(2026, 5, 1));
+        fc.setDebe(new BigDecimal("154460763.10"));
+        fc.setAsociadogrupo(227674L);
+        fc.setAsociado(5368L);
+
+        Cabecera nce = new Cabecera();
+        nce.setId(17342L);
+        nce.setTipo("NCE");
+        nce.setLetra("A");
+        nce.setPtovta(31);
+        nce.setNumero(898);
+        nce.setFecha(LocalDate.of(2026, 8, 24));
+        nce.setPeriodo(LocalDate.of(2026, 5, 1));
+        nce.setHaber(new BigDecimal("34588581.90"));
+        nce.setAsociadogrupo(227674L);
+        nce.setAsociado(5368L);
+
+        // NDE 1137 legítima de 2026 (sin prestaciones directas en notadedebito)
+        Cabecera nde = new Cabecera();
+        nde.setId(260623L);
+        nde.setTipo("NDE");
+        nde.setLetra("A");
+        nde.setPtovta(32);
+        nde.setNumero(1137);
+        nde.setFecha(LocalDate.of(2026, 11, 10));
+        nde.setPeriodo(LocalDate.of(2026, 5, 1));
+        nde.setDebe(new BigDecimal("31292202.08"));
+        nde.setAsociadogrupo(227674L);
+        nde.setAsociado(17342L);
+
+        // ND 1137 histórica de 2024
+        Cabecera ndHistorica = new Cabecera();
+        ndHistorica.setId(27598L);
+        ndHistorica.setTipo("ND");
+        ndHistorica.setLetra("A");
+        ndHistorica.setPtovta(32);
+        ndHistorica.setNumero(1137);
+        ndHistorica.setFecha(LocalDate.of(2024, 4, 9));
+        ndHistorica.setPeriodo(LocalDate.of(2023, 8, 1));
+        ndHistorica.setDebe(new BigDecimal("81325.86"));
+        ndHistorica.setAsociadogrupo(81540L);
+        ndHistorica.setAsociado(283248L);
+
+        when(cabeceraRepository.findByTipoInAndLetraAndPtovtaAndNumero(anyList(), eq("A"), eq(31), eq(1865)))
+                .thenReturn(List.of(fc));
+        when(cabeceraRepository.findByAsociadogrupo(227674L))
+                .thenReturn(List.of(fc, nce, nde));
+
+        // Mock para prestaciones de la ND histórica de 2024 (2723 registros sumando 30.678.629,49)
+        NotaDeDebito prestacion2024 = new NotaDeDebito();
+        prestacion2024.setId(1);
+        prestacion2024.setCabecera(ndHistorica);
+        prestacion2024.setImporterefactura(new BigDecimal("30678629.49"));
+
+        // NDE 260623 no tiene registros propios en notadedebito
+        when(notaDeDebitoRepository.findByCabecera_Id(260623L)).thenReturn(Collections.emptyList());
+        // Fallback por número devuelve la prestación de la ND histórica de 2024
+        when(notaDeDebitoRepository.findByCabecera_LetraAndCabecera_PtovtaAndCabecera_Numero("A", 32, 1137))
+                .thenReturn(List.of(prestacion2024));
+
+        List<FilaHistorialDTO> historial = auditoriaService.obtenerHistorialComprobantes("FCE", "A", 31, 1865);
+
+        assertNotNull(historial);
+        // Debe incluir la NDE 1137 de 2026 con su importe debe correcto de cabecera ($ 31.292.202,08) y sin prestaciones
+        FilaHistorialDTO filaNde = historial.stream()
+                .filter(f -> "NDE".equalsIgnoreCase(f.getTipoDocumento()) && f.getNumero() != null && f.getNumero() == 1137)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(new BigDecimal("31292202.08"), filaNde.getMontoNeto(), "El monto de la NDE debe ser el debe de cabecera ($ 31.292.202,08), no el de la ND 2024 ($ 30.678.629,49)");
+        assertFalse(filaNde.isTienePrestaciones(), "La NDE sin prestaciones propias debe figurar con tienePrestaciones = false");
+    }
 }
 

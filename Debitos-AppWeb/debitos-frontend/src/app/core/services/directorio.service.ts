@@ -366,7 +366,7 @@ export class DirectorioService {
     fechaDesde?: string,
     fechaHasta?: string,
     criterioFecha?: string,
-    tipoRegistro: 'Ambulatorios' | 'Internados' = 'Ambulatorios'
+    tipoRegistro: 'Ambulatorios' | 'Internados' | 'Todos' = 'Ambulatorios'
   ): Observable<MetricaOperadorDTO[]> {
     let params = new HttpParams();
     if (periodo && periodo !== 'TODOS') params = params.set('periodo', periodo);

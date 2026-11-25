@@ -220,4 +220,18 @@ describe('LoginComponent', () => {
     f3.detectChanges();
     expect(f3.nativeElement).toBeTruthy();
   });
+
+  it('debería contener los inputs de usuario y contraseña con sus atributos en el formulario principal', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const inputUsuario = compiled.querySelector('#usuario') as HTMLInputElement;
+    const inputPassword = compiled.querySelector('#password') as HTMLInputElement;
+
+    expect(inputUsuario).toBeTruthy();
+    expect(inputUsuario.placeholder).toBe('Ingresá tu usuario');
+    expect(inputUsuario.getAttribute('autocomplete')).toBe('username');
+
+    expect(inputPassword).toBeTruthy();
+    expect(inputPassword.placeholder).toBe('Ingresá tu contraseña');
+    expect(inputPassword.getAttribute('autocomplete')).toBe('current-password');
+  });
 });

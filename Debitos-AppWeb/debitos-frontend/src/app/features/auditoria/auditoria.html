@@ -121,7 +121,7 @@
         </div>
         <div class="botones-limpieza-stack">
           <button class="btn-clear" (click)="resetFiltros()"
-            [disabled]="!filtroPaciente && !filtroProfesional && !filtroPrestacion && !filtroGrupo && !filtroFecha && !soloValorizadas && !soloSinMotivoDebito && !soloSinMotivoRefactura && !soloSinNC && !soloConDebitoAceptado">Limpiar
+            [disabled]="!hayFiltrosActivos">Limpiar
             Filtros</button>
         </div>
       </div>
@@ -138,6 +138,18 @@
           <label for="checkDebAceptado" class="has-tooltip"
             data-tooltip="Muestra únicamente las prestaciones con Débito cargado (SI o NO)">Ver solo
             prestaciones debitadas</label>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" id="checkDebAceptadoSi" [(ngModel)]="soloDebitoAceptado" (change)="onCambiarFiltroDebitoAceptado()">
+          <label for="checkDebAceptadoSi" class="has-tooltip"
+            data-tooltip="Muestra únicamente las prestaciones con débito aceptado (SI)">Ver solo
+            prestaciones con débito aceptado</label>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" id="checkDebAceptadoNo" [(ngModel)]="soloDebitoRechazado" (change)="onCambiarFiltroDebitoRechazado()">
+          <label for="checkDebAceptadoNo" class="has-tooltip"
+            data-tooltip="Muestra únicamente las prestaciones con débito rechazado (NO)">Ver solo
+            prestaciones con débito rechazado</label>
         </div>
         <ng-container *ngIf="esTipoFactura()">
           <div class="check-item">

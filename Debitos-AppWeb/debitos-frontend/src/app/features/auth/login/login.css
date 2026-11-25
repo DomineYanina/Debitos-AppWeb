@@ -2,12 +2,14 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
   background-color: #f5f7fa;
+  color-scheme: light;
 }
 
 .login-form {
-  background: white;
+  background: #ffffff;
+  color-scheme: light;
   padding: 2.5rem;
   border-radius: 8px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -56,11 +58,36 @@
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       font-size: 1rem;
-      transition: border-color 0.2s;
+      background-color: #ffffff !important;
+      color: #2d3748 !important;
+      color-scheme: light !important;
+      transition: border-color 0.2s, box-shadow 0.2s;
+
+      &::placeholder {
+        color: #a0aec0;
+        opacity: 1;
+      }
 
       &:focus {
         outline: none;
         border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+      }
+
+      &:-webkit-autofill,
+      &:-webkit-autofill:hover,
+      &:-webkit-autofill:focus,
+      &:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+        -webkit-text-fill-color: #2d3748 !important;
+        caret-color: #2d3748 !important;
+        transition: background-color 5000s ease-in-out 0s;
+      }
+
+      &:autofill {
+        box-shadow: 0 0 0 1000px #ffffff inset !important;
+        -webkit-text-fill-color: #2d3748 !important;
+        caret-color: #2d3748 !important;
       }
     }
 
@@ -288,11 +315,36 @@
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       font-size: 1rem;
-      transition: border-color 0.2s;
+      background-color: #ffffff !important;
+      color: #2d3748 !important;
+      color-scheme: light !important;
+      transition: border-color 0.2s, box-shadow 0.2s;
+
+      &::placeholder {
+        color: #a0aec0;
+        opacity: 1;
+      }
 
       &:focus {
         outline: none;
         border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+      }
+
+      &:-webkit-autofill,
+      &:-webkit-autofill:hover,
+      &:-webkit-autofill:focus,
+      &:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+        -webkit-text-fill-color: #2d3748 !important;
+        caret-color: #2d3748 !important;
+        transition: background-color 5000s ease-in-out 0s;
+      }
+
+      &:autofill {
+        box-shadow: 0 0 0 1000px #ffffff inset !important;
+        -webkit-text-fill-color: #2d3748 !important;
+        caret-color: #2d3748 !important;
       }
     }
 
@@ -424,5 +476,45 @@
     width: 95%;
   }
 }
+
+/* Compatibilidad con tema oscuro seleccionado en el perfil:
+   Los campos input (usuario, contraseña y modales) mantienen siempre el mismo color
+   de fondo blanco (#ffffff) de la vista, ni gris ni oscuro, idéntico al modo claro. */
+:host-context([data-theme="dark"]) .login-container {
+  background-color: #f5f7fa;
+  color-scheme: light;
+}
+
+:host-context([data-theme="dark"]) .login-form,
+:host-context([data-theme="dark"]) .modal-content {
+  background-color: #ffffff !important;
+  color-scheme: light !important;
+}
+
+:host-context([data-theme="dark"]) .login-form input,
+:host-context([data-theme="dark"]) .modal-content input {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  color-scheme: light !important;
+}
+
+:host-context([data-theme="dark"]) .login-form input::placeholder,
+:host-context([data-theme="dark"]) .modal-content input::placeholder {
+  color: #a0aec0 !important;
+}
+
+:host-context([data-theme="dark"]) .login-form input:-webkit-autofill,
+:host-context([data-theme="dark"]) .login-form input:-webkit-autofill:hover,
+:host-context([data-theme="dark"]) .login-form input:-webkit-autofill:focus,
+:host-context([data-theme="dark"]) .login-form input:-webkit-autofill:active,
+:host-context([data-theme="dark"]) .modal-content input:-webkit-autofill,
+:host-context([data-theme="dark"]) .modal-content input:-webkit-autofill:hover,
+:host-context([data-theme="dark"]) .modal-content input:-webkit-autofill:focus,
+:host-context([data-theme="dark"]) .modal-content input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #2d3748 !important;
+  caret-color: #2d3748 !important;
+}
+
 
 

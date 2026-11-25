@@ -65,6 +65,10 @@ public class GestionContableService {
             "importe", List.of("cabecera.debe")
     );
 
+    public static final Set<String> CODIGOS_NO_INSTITUCIONALES_EXCLUIDOS = Set.of(
+            "1", "259", "10001583", "002014", "002016", "002018", "800", "1186", "1193", "1969", "2029"
+    );
+
     private static final Map<String, List<String>> ORDEN_HISTORIAL = Map.of(
             "fechahora", List.of("fechaHora"),
             "operacion", List.of("tipoOperacion.descripcion"),
@@ -144,14 +148,20 @@ public class GestionContableService {
         return buscarCoberturasPaginadas(filtro, pageable);
     }
 
+    private boolean esCodigoNoInstitucional(String codigo) {
+        if (codigo == null) return false;
+        return CODIGOS_NO_INSTITUCIONALES_EXCLUIDOS.contains(codigo.trim());
+    }
+
+    private boolean esNombreSistemasPP(String nombre) {
+        if (nombre == null) return false;
+        return nombre.toUpperCase().contains("SISTEMAS PP");
+    }
+
     @Transactional(readOnly = true)
     public Page<CoberturaAliasDTO> buscarCoberturasPaginadas(String filtro, Pageable pageable) {
-        Page<CoberturaAlias> page;
-        if (filtro != null && !filtro.isBlank()) {
-            page = coberturaAliasRepository.buscarConFiltro(filtro.trim(), pageable);
-        } else {
-            page = coberturaAliasRepository.findAll(pageable);
-        }
+        String f = (filtro != null && !filtro.isBlank()) ? filtro.trim() : null;
+        Page<CoberturaAlias> page = coberturaAliasRepository.buscarConFiltro(f, pageable);
         return page.map(c -> new CoberturaAliasDTO(c.getCodigoCobertura(), c.getNombreOriginal(), c.getNombreMostrar()));
     }
 
@@ -161,11 +171,17 @@ public class GestionContableService {
             return null;
         }
         String codigoLimpio = codigo.trim();
+        if (esCodigoNoInstitucional(codigoLimpio)) {
+            return null;
+        }
 
         // 1. Buscar si ya tiene alias guardado
         Optional<CoberturaAlias> aliasOpt = coberturaAliasRepository.findById(codigoLimpio);
         if (aliasOpt.isPresent()) {
             CoberturaAlias a = aliasOpt.get();
+            if (esNombreSistemasPP(a.getNombreOriginal()) || esNombreSistemasPP(a.getNombreMostrar())) {
+                return null;
+            }
             return new CoberturaAliasDTO(a.getCodigoCobertura(), a.getNombreOriginal(), a.getNombreMostrar());
         }
 
@@ -182,6 +198,10 @@ public class GestionContableService {
             }
         } catch (Exception ignored) {}
 
+        if (esNombreSistemasPP(nombreOriginal)) {
+            return null;
+        }
+
         return new CoberturaAliasDTO(codigoLimpio, nombreOriginal, nombreOriginal);
     }
 
@@ -191,6 +211,9 @@ public class GestionContableService {
             throw new IllegalArgumentException("El código de cobertura es obligatorio.");
         }
         String cod = req.getCodigoCobertura().trim();
+        if (esCodigoNoInstitucional(cod) || esNombreSistemasPP(req.getNombreOriginal()) || esNombreSistemasPP(req.getNombreMostrar())) {
+            throw new IllegalArgumentException("No está permitido modificar o asignar alias a una entidad no institucional.");
+        }
         String nuevoNombreMostrar = req.getNombreMostrar() != null ? req.getNombreMostrar().trim() : "";
 
         Optional<CoberturaAlias> actualOpt = coberturaAliasRepository.findById(cod);
@@ -431,14 +454,36 @@ public class GestionContableService {
         FacturaAnuladaDTO dto;
         if (manualOpt.isPresent() && Boolean.TRUE.equals(manualOpt.get().getAnulada())) {
             FacturaAnuladaManual fam = manualOpt.get();
+            Cabecera cabAnulador = fam.getCabeceraAnulador();
+            Long idAnulador = fam.getIdCabeceraAnulador();
             String compAnulador = fam.getComprobanteAnulador();
-            if (compAnulador == null && fam.getIdCabeceraAnulador() != null) {
-                compAnulador = cabeceraRepository.findById(fam.getIdCabeceraAnulador())
-                        .map(c -> c.getComprobante() != null ? c.getComprobante() :
-                                String.format("%s %s%04d-%08d", c.getTipo(), c.getLetra(), c.getPtovta(), c.getNumero()))
-                        .orElse(null);
+            if (cabAnulador == null && idAnulador != null) {
+                cabAnulador = cabeceraRepository.findById(idAnulador).orElse(null);
             }
-            dto = construirFacturaAnuladaDTO(cab, true, "MANUAL", fam.getIdCabeceraAnulador(), compAnulador);
+            if (cabAnulador == null && idAnulador == null && cab.getId() != null) {
+                List<FacturaAnuladaManual> vinculadas = facturaAnuladaManualRepository.findActivasPorIdsCabeceraOAnulador(List.of(cab.getId()));
+                if (vinculadas != null) {
+                    for (FacturaAnuladaManual vinc : vinculadas) {
+                        if (vinc != null && Objects.equals(vinc.getIdCabeceraAnulador(), cab.getId()) && vinc.getCabecera() != null) {
+                            cabAnulador = vinc.getCabecera();
+                            idAnulador = cabAnulador.getId();
+                            break;
+                        }
+                    }
+                }
+            }
+            if ((compAnulador == null || compAnulador.isBlank()) && cabAnulador != null) {
+                compAnulador = formatearComprobanteCabecera(cabAnulador);
+            }
+            dto = construirFacturaAnuladaDTO(
+                    cab,
+                    true,
+                    "MANUAL",
+                    idAnulador,
+                    compAnulador,
+                    cabAnulador,
+                    fam.getFechaAnulacion(),
+                    fam.getUsuario());
         } else if (estaEnComprobantesAnulados(cab.getId())) {
             dto = construirFacturaAnuladaDTO(cab, true, "GESTION", null, null);
         } else {
@@ -568,22 +613,94 @@ public class GestionContableService {
 
     @Transactional(readOnly = true)
     public Page<FacturaAnuladaDTO> listarFacturasAnuladas(int page, int size, String sortBy, String sortDir) {
+        return listarFacturasAnuladas(null, null, page, size, sortBy, sortDir);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<FacturaAnuladaDTO> listarFacturasAnuladas(String tipo, String filtro, int page, int size, String sortBy, String sortDir) {
         Pageable pageable = construirPageable(
                 page, size, sortBy, sortDir, ORDEN_ANULADAS,
                 Sort.by(Sort.Direction.DESC, "cabecera.fecha").and(Sort.by(Sort.Direction.DESC, "idCabecera")),
                 Sort.Order.desc("idCabecera"));
-        return listarFacturasAnuladas(pageable);
+        return listarFacturasAnuladas(tipo, filtro, pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<FacturaAnuladaDTO> listarFacturasAnuladas(Pageable pageable) {
-        Page<FacturaAnuladaManual> manuales = facturaAnuladaManualRepository.findFacturasAnuladasConCabecera(PTO_VTA_PERMITIDOS, pageable);
-        return manuales.map(fam -> construirFacturaAnuladaDTO(
-                fam.getCabecera(),
-                true,
-                "MANUAL",
-                fam.getIdCabeceraAnulador(),
-                fam.getComprobanteAnulador()));
+        return listarFacturasAnuladas(null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<FacturaAnuladaDTO> listarFacturasAnuladas(String tipo, String filtro, Pageable pageable) {
+        List<String> tiposFiltro = resolverTiposFiltroAnuladas(tipo);
+        boolean filtrarTipos = !tiposFiltro.isEmpty();
+        String filtroNorm = (filtro != null) ? filtro.trim() : "";
+
+        Page<FacturaAnuladaManual> manuales;
+        if (!filtrarTipos && filtroNorm.isEmpty()) {
+            manuales = facturaAnuladaManualRepository.findFacturasAnuladasConCabecera(PTO_VTA_PERMITIDOS, pageable);
+        } else {
+            List<String> tiposQuery = filtrarTipos ? tiposFiltro : List.of("FC");
+            manuales = facturaAnuladaManualRepository.findFacturasAnuladasConCabeceraFiltradas(
+                    PTO_VTA_PERMITIDOS,
+                    filtrarTipos,
+                    tiposQuery,
+                    filtroNorm,
+                    pageable);
+        }
+        Map<Long, Cabecera> contrapartidasInversas = new java.util.HashMap<>();
+        List<Long> idsSinAnulador = new ArrayList<>();
+        for (FacturaAnuladaManual fam : manuales.getContent()) {
+            if (fam != null && fam.getIdCabeceraAnulador() == null && fam.getCabeceraAnulador() == null && fam.getIdCabecera() != null) {
+                idsSinAnulador.add(fam.getIdCabecera());
+            }
+        }
+        if (!idsSinAnulador.isEmpty()) {
+            List<FacturaAnuladaManual> vinculadas = facturaAnuladaManualRepository.findActivasPorIdsCabeceraOAnulador(idsSinAnulador);
+            if (vinculadas != null) {
+                for (FacturaAnuladaManual vinc : vinculadas) {
+                    if (vinc != null && vinc.getIdCabeceraAnulador() != null && vinc.getCabecera() != null) {
+                        contrapartidasInversas.putIfAbsent(vinc.getIdCabeceraAnulador(), vinc.getCabecera());
+                    }
+                }
+            }
+        }
+
+        return manuales.map(fam -> {
+            Cabecera cabAnulador = fam.getCabeceraAnulador();
+            Long idAnulador = fam.getIdCabeceraAnulador();
+            String compAnulador = fam.getComprobanteAnulador();
+            if (cabAnulador == null && idAnulador == null && fam.getIdCabecera() != null) {
+                Cabecera inversa = contrapartidasInversas.get(fam.getIdCabecera());
+                if (inversa != null) {
+                    cabAnulador = inversa;
+                    idAnulador = inversa.getId();
+                    compAnulador = formatearComprobanteCabecera(inversa);
+                }
+            }
+            return construirFacturaAnuladaDTO(
+                    fam.getCabecera(),
+                    true,
+                    "MANUAL",
+                    idAnulador,
+                    compAnulador,
+                    cabAnulador,
+                    fam.getFechaAnulacion(),
+                    fam.getUsuario());
+        });
+    }
+
+    private List<String> resolverTiposFiltroAnuladas(String tipo) {
+        if (tipo == null || tipo.isBlank() || "TODOS".equalsIgnoreCase(tipo.trim())) {
+            return Collections.emptyList();
+        }
+        String norm = tipo.trim().toUpperCase();
+        return switch (norm) {
+            case "FACTURAS" -> List.of("FC", "FAC", "FCE", "FCA");
+            case "NOTAS_CREDITO" -> List.of("NC", "NCE", "NCA", "NCB");
+            case "NOTAS_DEBITO" -> List.of("ND", "NDE", "NDA", "NDB");
+            default -> List.of(norm);
+        };
     }
 
     @Transactional
@@ -698,7 +815,10 @@ public class GestionContableService {
                 nuevaAnulada,
                 nuevaAnulada ? "MANUAL" : null,
                 fam.getIdCabeceraAnulador(),
-                fam.getComprobanteAnulador());
+                fam.getComprobanteAnulador(),
+                fam.getCabeceraAnulador(),
+                fam.getFechaAnulacion(),
+                fam.getUsuario());
     }
 
     // =========================================================================
@@ -793,21 +913,41 @@ public class GestionContableService {
         return opt.orElse(null);
     }
 
-    private FacturaAnuladaDTO construirFacturaAnuladaDTO(
-            Cabecera cab,
-            boolean anulada,
-            String origenAnulacion,
-            Long idCabeceraAnulador,
-            String comprobanteAnulador) {
-        FacturaAnuladaDTO dto = new FacturaAnuladaDTO();
-        dto.setIdCabecera(cab.getId());
-        dto.setAsociadogrupo(cab.getAsociadogrupo());
+    private String formatearComprobanteCabecera(Cabecera cab) {
+        if (cab == null) {
+            return null;
+        }
         String comp = cab.getComprobante();
         if (comp == null || comp.isBlank()) {
             if (cab.getTipo() != null && cab.getLetra() != null && cab.getPtovta() != null && cab.getNumero() != null) {
                 comp = String.format("%s %s%04d-%08d", cab.getTipo().trim(), cab.getLetra().trim(), cab.getPtovta(), cab.getNumero());
             }
         }
+        return comp;
+    }
+
+    private FacturaAnuladaDTO construirFacturaAnuladaDTO(
+            Cabecera cab,
+            boolean anulada,
+            String origenAnulacion,
+            Long idCabeceraAnulador,
+            String comprobanteAnulador) {
+        return construirFacturaAnuladaDTO(cab, anulada, origenAnulacion, idCabeceraAnulador, comprobanteAnulador, null, null, null);
+    }
+
+    private FacturaAnuladaDTO construirFacturaAnuladaDTO(
+            Cabecera cab,
+            boolean anulada,
+            String origenAnulacion,
+            Long idCabeceraAnulador,
+            String comprobanteAnulador,
+            Cabecera cabAnulador,
+            LocalDateTime fechaAnulacion,
+            String usuarioAnulacion) {
+        FacturaAnuladaDTO dto = new FacturaAnuladaDTO();
+        dto.setIdCabecera(cab.getId());
+        dto.setAsociadogrupo(cab.getAsociadogrupo());
+        String comp = formatearComprobanteCabecera(cab);
         dto.setComprobante(comp);
         dto.setTipo(cab.getTipo());
         dto.setLetra(cab.getLetra());
@@ -818,10 +958,30 @@ public class GestionContableService {
         dto.setCodigoCobertura(cab.getCodigoCobertura());
         dto.setCobertura(cab.getCobertura());
         dto.setImporte(resolverImporteDocumento(cab));
+        dto.setTipoRegistro(cab.getTiporegistro());
+        dto.setComprobanteAsociado(cab.getComprobanteAsociado());
         dto.setAnulada(anulada);
         dto.setOrigenAnulacion(origenAnulacion);
-        dto.setIdCabeceraAnulador(idCabeceraAnulador);
-        dto.setComprobanteAnulador(comprobanteAnulador);
+        dto.setFechaAnulacion(fechaAnulacion);
+        dto.setUsuarioAnulacion(usuarioAnulacion);
+        dto.setIdCabeceraAnulador(idCabeceraAnulador != null ? idCabeceraAnulador : (cabAnulador != null ? cabAnulador.getId() : null));
+        String compAnulEfectivo = (comprobanteAnulador != null && !comprobanteAnulador.isBlank())
+                ? comprobanteAnulador
+                : formatearComprobanteCabecera(cabAnulador);
+        dto.setComprobanteAnulador(compAnulEfectivo);
+        if (cabAnulador != null) {
+            dto.setTipoAnulador(cabAnulador.getTipo());
+            dto.setLetraAnulador(cabAnulador.getLetra());
+            dto.setPtovtaAnulador(cabAnulador.getPtovta() != null ? cabAnulador.getPtovta().intValue() : null);
+            dto.setNumeroAnulador(cabAnulador.getNumero() != null ? cabAnulador.getNumero().intValue() : null);
+            dto.setFechaAnulador(cabAnulador.getFecha());
+            dto.setPeriodoAnulador(cabAnulador.getPeriodo());
+            dto.setCodigoCoberturaAnulador(cabAnulador.getCodigoCobertura());
+            dto.setCoberturaAnulador(cabAnulador.getCobertura());
+            dto.setImporteAnulador(resolverImporteDocumento(cabAnulador));
+            dto.setAsociadogrupoAnulador(cabAnulador.getAsociadogrupo());
+            dto.setTipoRegistroAnulador(cabAnulador.getTiporegistro());
+        }
         return dto;
     }
 

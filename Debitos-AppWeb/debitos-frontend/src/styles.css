@@ -191,3 +191,75 @@ html[data-theme="dark"] .texto-modal,
 html[data-theme="dark"] .modal-body p {
   color: #f1f5f9 !important;
 }
+
+/* =============================================
+   Pantalla de Inicio de Sesión (Login)
+   Los campos input (usuario y contraseña) deben tener siempre el fondo blanco (#ffffff)
+   idéntico a la tarjeta/vista, ni gris ni oscuro, independientemente de si el usuario
+   tiene seleccionado modo claro o modo oscuro en su perfil.
+   ============================================= */
+.login-container input,
+.login-form input,
+.login-container .modal-content input,
+[data-theme="dark"] .login-container input,
+[data-theme="dark"] .login-form input,
+[data-theme="dark"] .login-container .modal-content input,
+html[data-theme="dark"] .login-container input,
+html[data-theme="dark"] .login-form input,
+html[data-theme="dark"] .login-container .modal-content input {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  color-scheme: light !important;
+}
+
+.login-form input::placeholder,
+.login-container .modal-content input::placeholder,
+[data-theme="dark"] .login-form input::placeholder,
+[data-theme="dark"] .login-container .modal-content input::placeholder,
+html[data-theme="dark"] .login-form input::placeholder,
+html[data-theme="dark"] .login-container .modal-content input::placeholder {
+  color: #a0aec0 !important;
+  opacity: 1 !important;
+}
+
+.login-form input:-webkit-autofill,
+.login-form input:-webkit-autofill:hover,
+.login-form input:-webkit-autofill:focus,
+.login-form input:-webkit-autofill:active,
+.login-container .modal-content input:-webkit-autofill,
+.login-container .modal-content input:-webkit-autofill:hover,
+.login-container .modal-content input:-webkit-autofill:focus,
+.login-container .modal-content input:-webkit-autofill:active,
+[data-theme="dark"] .login-form input:-webkit-autofill,
+[data-theme="dark"] .login-form input:-webkit-autofill:hover,
+[data-theme="dark"] .login-form input:-webkit-autofill:focus,
+[data-theme="dark"] .login-form input:-webkit-autofill:active,
+[data-theme="dark"] .login-container .modal-content input:-webkit-autofill,
+[data-theme="dark"] .login-container .modal-content input:-webkit-autofill:hover,
+[data-theme="dark"] .login-container .modal-content input:-webkit-autofill:focus,
+[data-theme="dark"] .login-container .modal-content input:-webkit-autofill:active,
+html[data-theme="dark"] .login-form input:-webkit-autofill,
+html[data-theme="dark"] .login-form input:-webkit-autofill:hover,
+html[data-theme="dark"] .login-form input:-webkit-autofill:focus,
+html[data-theme="dark"] .login-form input:-webkit-autofill:active,
+html[data-theme="dark"] .login-container .modal-content input:-webkit-autofill,
+html[data-theme="dark"] .login-container .modal-content input:-webkit-autofill:hover,
+html[data-theme="dark"] .login-container .modal-content input:-webkit-autofill:focus,
+html[data-theme="dark"] .login-container .modal-content input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #2d3748 !important;
+  caret-color: #2d3748 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.login-form input:autofill,
+.login-container .modal-content input:autofill,
+[data-theme="dark"] .login-form input:autofill,
+[data-theme="dark"] .login-container .modal-content input:autofill,
+html[data-theme="dark"] .login-form input:autofill,
+html[data-theme="dark"] .login-container .modal-content input:autofill {
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #2d3748 !important;
+  caret-color: #2d3748 !important;
+}
+

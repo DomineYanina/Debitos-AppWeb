@@ -25,6 +25,7 @@ import {
   FacturaAnuladaDTO,
   HistorialAjusteDTO
 } from '../models/gestion-contable.model';
+import { obtenerCategoriaDeMotivo } from '../constants/motivos';
 
 export interface ContextoFiltroExportacion {
   solapaTitulo: string;
@@ -60,18 +61,32 @@ export class ExcelExportService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Auditoría');
 
-    // 1. Definición de Columnas según el tipo de documento
+    // 1. Definición de Columnas según el estándar unificado de Buscador de Documentos (14 columnas)
     const columnas = this.obtenerConfiguracionColumnas(tipoBusqueda);
     worksheet.columns = columnas;
 
     // 2. Mapeo y formateo de datos
     registrosAExportar.forEach(p => {
-      const registro = { ...p } as any;
-      registro.fecha = this.formatearFecha(p.fecha || '');
+      const registro: any = {
+        carnet: p.carnet || '',
+        paciente: p.paciente || '',
+        plan: p.plan || '',
+        fecha: this.formatearFecha(p.fecha || ''),
+        codigo: p.codigo || '',
+        descripcion: p.descripcion || '',
+        cantidad: p.cantidad != null ? p.cantidad : '',
+        debitoAceptado: p.debitoAceptado || '',
+        motivoDebito: p.motivoDebito || '',
+        comentariosDebito: p.comentariosDebito || '',
+        importeDebitado: p.importeDebitado != null ? Number(p.importeDebitado) : null,
+        importeRefactura: p.importeRefactura != null ? Number(p.importeRefactura) : null,
+        motivoRefactura: p.motivoRefactura || '',
+        comentarios: p.comentarios || ''
+      };
       worksheet.addRow(registro);
     });
 
-    // 3. Aplicar Estilos (Header, Auto-size, Colores, Bordes)
+    // 3. Aplicar Estilos (Header, Auto-size, Colores, Bordes, Alineaciones)
     this.aplicarEstilosVistosos(worksheet, columnas.length);
 
     // 4. Generar y descargar el archivo
@@ -79,50 +94,21 @@ export class ExcelExportService {
     this.guardarArchivo(new Blob([buffer]), filename);
   }
 
-  private obtenerConfiguracionColumnas(tipo: string): any[] {
-    const baseCols = [
+  private obtenerConfiguracionColumnas(tipo?: string): any[] {
+    return [
       { header: 'Carnet', key: 'carnet' },
       { header: 'Paciente', key: 'paciente' },
-      { header: 'Cobertura', key: 'cobertura' },
-      { header: 'Plan', key: 'plan' }
-    ];
-
-    if (tipo === 'NC') {
-      return [
-        ...baseCols,
-        { header: 'Grupo Módulo', key: 'grupomodulo' },
-        { header: 'Médico', key: 'medico' },
-        { header: 'Fecha', key: 'fecha' },
-        { header: 'Código', key: 'codigo' },
-        { header: 'Descripción', key: 'descripcion' },
-        { header: 'Cant.', key: 'cantidad' },
-        { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
-        { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
-        { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentario Previo', key: 'comentarioPrevio' },
-        { header: 'Motivo Refactura', key: 'motivoRefactura' },
-        { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
-        { header: 'Comentarios Refactura', key: 'comentarios' }
-      ];
-    }
-
-    return [
-      ...baseCols,
-      { header: 'Efector', key: 'efector' },
-      { header: 'Médico', key: 'medico' },
+      { header: 'Plan', key: 'plan' },
       { header: 'Fecha', key: 'fecha' },
       { header: 'Código', key: 'codigo' },
       { header: 'Descripción', key: 'descripcion' },
       { header: 'Cant.', key: 'cantidad' },
-      { header: 'Total Neto', key: 'totalNeto', style: { numFmt: '#,##0.00' } },
-      { header: 'Coseguro', key: 'coseguro', style: { numFmt: '#,##0.00' } },
-      { header: 'Total', key: 'total', style: { numFmt: '#,##0.00' } },
       { header: 'Débito Aceptado', key: 'debitoAceptado' },
-      { header: 'Motivo Débito', key: 'motivoDebito' },
-      { header: 'Días Fact.', key: 'diasFacturados' },
+      { header: 'MOTIVO DEBITO', key: 'motivoDebito' },
+      { header: 'COMENTARIO DEBITO', key: 'comentariosDebito' },
       { header: 'Imp. Debitado', key: 'importeDebitado', style: { numFmt: '#,##0.00' } },
-      { header: 'Motivo Refactura', key: 'motivoRefactura' },
       { header: 'Imp. Refactura', key: 'importeRefactura', style: { numFmt: '#,##0.00' } },
+      { header: 'MOTIVO REFACTURA', key: 'motivoRefactura' },
       { header: 'Comentarios Refactura', key: 'comentarios' }
     ];
   }
@@ -150,7 +136,7 @@ export class ExcelExportService {
       cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'medium' }, right: { style: 'thin' } };
     }
 
-    // Filas intercaladas y bordes
+    // Filas intercaladas, bordes y alineaciones
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1) {
         // Forzamos la creación y pintado de TODAS las celdas, tengan o no datos
@@ -162,9 +148,13 @@ export class ExcelExportService {
           }
           cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
-          // Divisor de bloque (columna 13)
-          if (col === 13) {
-            cell.border.right = { style: 'medium' };
+          // Alineaciones específicas
+          if (col === 1 || col === 4 || col === 5 || col === 7 || col === 8) {
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          } else if (col === 11 || col === 12) {
+            cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          } else {
+            cell.alignment = { vertical: 'middle', horizontal: 'left' };
           }
         }
       }
@@ -1733,7 +1723,7 @@ export class ExcelExportService {
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Detalle de Prestaciones');
-    const totalCols = 12;
+    const totalCols = 14;
 
     let currentRow = this.escribirEncabezadoTablero(
       worksheet,
@@ -1749,10 +1739,12 @@ export class ExcelExportService {
       'PACIENTE',
       'CARNET',
       'PLAN',
-      'MÉDICO / EFECTOR',
+      'MÉDICO',
       'CÓDIGO',
       'PRESTACIÓN MÉDICA',
+      'CLASIFICACIÓN DEL MOTIVO',
       'MOTIVO DE DÉBITO',
+      'OPERADOR',
       'COMENTARIOS DEL OPERADOR',
       'IMPORTE DEBITADO ($)',
       'DÉBITO ACEPTADO'
@@ -1765,18 +1757,18 @@ export class ExcelExportService {
     totalRow.getCell(1).value = `TOTAL GENERAL (${prestaciones.length} Prestaciones)`;
     totalRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
 
-    for (let c = 2; c <= 10; c++) {
+    for (let c = 2; c <= 12; c++) {
       totalRow.getCell(c).value = '—';
       totalRow.getCell(c).alignment = { vertical: 'middle', horizontal: 'center' };
     }
 
     const sumaTotalDebitado = prestaciones.reduce((acc, p) => acc + (p.importeDebitado || 0), 0);
-    totalRow.getCell(11).value = Number(sumaTotalDebitado || 0);
-    totalRow.getCell(11).numFmt = '$ #,##0.00;($ #,##0.00);$ 0.00';
-    totalRow.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+    totalRow.getCell(13).value = Number(sumaTotalDebitado || 0);
+    totalRow.getCell(13).numFmt = '$ #,##0.00;($ #,##0.00);$ 0.00';
+    totalRow.getCell(13).alignment = { vertical: 'middle', horizontal: 'right' };
 
-    totalRow.getCell(12).value = '—';
-    totalRow.getCell(12).alignment = { vertical: 'middle', horizontal: 'center' };
+    totalRow.getCell(14).value = '—';
+    totalRow.getCell(14).alignment = { vertical: 'middle', horizontal: 'center' };
 
     this.estilizarFilaTotalTablero(totalRow, totalCols);
     currentRow++;
@@ -1808,8 +1800,8 @@ export class ExcelExportService {
       row.getCell(5).value = p.plan || 'General';
       row.getCell(5).alignment = { vertical: 'middle', horizontal: 'left' };
 
-      // 6. Médico / Efector
-      row.getCell(6).value = p.medico || p.efector || 'Efector S/D';
+      // 6. Médico
+      row.getCell(6).value = p.medico || p.efector || 'Sin médico asignado';
       row.getCell(6).alignment = { vertical: 'middle', horizontal: 'left' };
 
       // 7. Código
@@ -1820,22 +1812,30 @@ export class ExcelExportService {
       row.getCell(8).value = p.descripcion || '';
       row.getCell(8).alignment = { vertical: 'middle', horizontal: 'left' };
 
-      // 9. Motivo de Débito
-      row.getCell(9).value = p.motivoDebito || '';
+      // 9. Clasificación del Motivo
+      row.getCell(9).value = obtenerCategoriaDeMotivo(p.motivoDebito);
       row.getCell(9).alignment = { vertical: 'middle', horizontal: 'left' };
 
-      // 10. Comentarios del Operador
-      row.getCell(10).value = p.comentariosDebito || 'Sin observaciones registradas';
+      // 10. Motivo de Débito
+      row.getCell(10).value = p.motivoDebito || '';
       row.getCell(10).alignment = { vertical: 'middle', horizontal: 'left' };
 
-      // 11. Importe Debitado ($)
-      row.getCell(11).value = Number(p.importeDebitado || 0);
-      row.getCell(11).numFmt = '$ #,##0.00;($ #,##0.00);$ 0.00';
-      row.getCell(11).alignment = { vertical: 'middle', horizontal: 'right' };
+      // 11. Operador
+      row.getCell(11).value = p.operador || 'Sin operador asignado';
+      row.getCell(11).alignment = { vertical: 'middle', horizontal: 'left' };
 
-      // 12. Débito Aceptado
-      row.getCell(12).value = p.debitoAceptado === true ? 'SÍ (Pérdida)' : 'NO (Refacturable)';
-      row.getCell(12).alignment = { vertical: 'middle', horizontal: 'center' };
+      // 12. Comentarios del Operador
+      row.getCell(12).value = p.comentariosDebito || 'Sin observaciones registradas';
+      row.getCell(12).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // 13. Importe Debitado ($)
+      row.getCell(13).value = Number(p.importeDebitado || 0);
+      row.getCell(13).numFmt = '$ #,##0.00;($ #,##0.00);$ 0.00';
+      row.getCell(13).alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // 14. Débito Aceptado
+      row.getCell(14).value = p.debitoAceptado === true ? 'SÍ (Pérdida)' : 'NO (Refacturable)';
+      row.getCell(14).alignment = { vertical: 'middle', horizontal: 'center' };
 
       // Estilizar bordes y colores alternados
       const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
@@ -1854,7 +1854,7 @@ export class ExcelExportService {
       currentRow++;
     });
 
-    const minWidths = [18, 12, 26, 16, 14, 24, 12, 34, 28, 36, 18, 18];
+    const minWidths = [18, 12, 26, 16, 14, 26, 12, 34, 28, 28, 24, 36, 18, 18];
     this.ajustarAnchosTablero(worksheet, minWidths, filaHeader, currentRow - 1);
 
     worksheet.autoFilter = {
@@ -1947,7 +1947,7 @@ export class ExcelExportService {
       // NIVEL 0: Analista
       const rowA = worksheet.getRow(currentRow);
       const montoA = a.totalTramitado || ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0));
-      const difA = a.diferencia != null ? a.diferencia : Math.max(0, montoA - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0)));
+      const difA = a.diferencia != null ? a.diferencia : (montoA - ((a.debitosAceptados || 0) + (a.debitosRefacturados || 0)));
 
       rowA.getCell(1).value = a.analista || 'Sin analista';
       rowA.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -1983,7 +1983,7 @@ export class ExcelExportService {
         const montoM = m.montoDebitado || 0;
         const aceptadoM = m.aceptado || 0;
         const refactM = m.refacturado || 0;
-        const difM = m.diferencia != null ? m.diferencia : Math.max(0, montoM - (aceptadoM + refactM));
+        const difM = m.diferencia != null ? m.diferencia : (montoM - (aceptadoM + refactM));
         const ticketM = m.casos > 0 ? montoM / m.casos : 0;
         const recM = montoM > 0 ? (refactM * 100) / montoM : 0;
 
@@ -2021,7 +2021,7 @@ export class ExcelExportService {
           const montoF = (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) || 0;
           const aceptadoF = fin.aceptado || 0;
           const refactF = fin.refacturado || 0;
-          const difF = fin.diferencia != null ? fin.diferencia : Math.max(0, montoF - (aceptadoF + refactF));
+          const difF = fin.diferencia != null ? fin.diferencia : (montoF - (aceptadoF + refactF));
           const ticketF = fin.casos > 0 ? montoF / fin.casos : 0;
           const recF = montoF > 0 ? (refactF * 100) / montoF : 0;
 
@@ -2352,7 +2352,7 @@ export class ExcelExportService {
       // NIVEL 0: Operador
       const rowOp = worksheet.getRow(currentRow);
       const montoOp = op.totalTramitado || ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0));
-      const difOp = op.diferencia != null ? op.diferencia : Math.max(0, montoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
+      const difOp = op.diferencia != null ? op.diferencia : (montoOp - ((op.debitosAceptados || 0) + (op.debitosRefacturados || 0)));
 
       rowOp.getCell(1).value = `${op.operador || 'Sin operador'} (${op.motivos?.length || 0} motivos)`;
       rowOp.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -2381,7 +2381,7 @@ export class ExcelExportService {
         const montoM = m.montoDebitado || 0;
         const aceptadoM = m.aceptado || 0;
         const refactM = m.refacturado || 0;
-        const difM = m.diferencia != null ? m.diferencia : Math.max(0, montoM - (aceptadoM + refactM));
+        const difM = m.diferencia != null ? m.diferencia : (montoM - (aceptadoM + refactM));
         const ticketM = m.casos > 0 ? montoM / m.casos : 0;
         const recM = montoM > 0 ? (refactM * 100) / montoM : 0;
 
@@ -2412,7 +2412,7 @@ export class ExcelExportService {
           const montoF = (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) || 0;
           const aceptadoF = fin.aceptado || 0;
           const refactF = fin.refacturado || 0;
-          const difF = fin.diferencia != null ? fin.diferencia : Math.max(0, montoF - (aceptadoF + refactF));
+          const difF = fin.diferencia != null ? fin.diferencia : (montoF - (aceptadoF + refactF));
           const ticketF = fin.casos > 0 ? montoF / fin.casos : 0;
           const recF = montoF > 0 ? (refactF * 100) / montoF : 0;
 
@@ -2534,7 +2534,7 @@ export class ExcelExportService {
       // NIVEL 0: Médico
       const rowMed = worksheet.getRow(currentRow);
       const montoMed = med.totalTramitado || ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0));
-      const difMed = med.diferencia != null ? med.diferencia : Math.max(0, montoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
+      const difMed = med.diferencia != null ? med.diferencia : (montoMed - ((med.debitosAceptados || 0) + (med.debitosRefacturados || 0)));
 
       rowMed.getCell(1).value = med.medico || 'Médico no especificado';
       rowMed.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -2567,7 +2567,7 @@ export class ExcelExportService {
         const montoM = m.montoDebitado || 0;
         const aceptadoM = m.aceptado || 0;
         const refactM = m.refacturado || 0;
-        const difM = m.diferencia != null ? m.diferencia : Math.max(0, montoM - (aceptadoM + refactM));
+        const difM = m.diferencia != null ? m.diferencia : (montoM - (aceptadoM + refactM));
         const ticketM = m.casos > 0 ? montoM / m.casos : 0;
         const recM = montoM > 0 ? (refactM * 100) / montoM : 0;
 
@@ -2602,7 +2602,7 @@ export class ExcelExportService {
           const montoF = (fin.montoDebitado != null ? fin.montoDebitado : fin.monto) || 0;
           const aceptadoF = fin.aceptado || 0;
           const refactF = fin.refacturado || 0;
-          const difF = fin.diferencia != null ? fin.diferencia : Math.max(0, montoF - (aceptadoF + refactF));
+          const difF = fin.diferencia != null ? fin.diferencia : (montoF - (aceptadoF + refactF));
           const ticketF = fin.casos > 0 ? montoF / fin.casos : 0;
           const recF = montoF > 0 ? (refactF * 100) / montoF : 0;
 

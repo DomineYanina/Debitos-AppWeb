@@ -652,7 +652,7 @@ describe('DirectorioDashboardComponent', () => {
 
       component.cargarOperadores();
 
-      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15', 'periodo', 'Ambulatorios');
+      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-15', 'periodo', 'Todos');
       expect(component.operadoresDatos.length).toBe(1);
       expect(component.operadoresDatos[0].operador).toBe('Operador Test');
       expect(component.cargandoOperadores).toBe(false);
@@ -681,6 +681,41 @@ describe('DirectorioDashboardComponent', () => {
       expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-31', 'periodo', 'Internados');
       expect(component.operadoresDatos.length).toBe(1);
       expect(component.operadoresDatos[0].operador).toBe('NAGYP');
+    });
+
+    it('cambiarTipoRegistroOperador debería actualizar tipoRegistroOperador a Todos y consultar sin restricción de tipo', () => {
+      const mockOpsTodos = [
+        {
+          operador: 'OJEDAD',
+          cantidadRegistros: 10,
+          debitosAceptados: 5000,
+          debitosRefacturados: 25000,
+          totalTramitado: 30000,
+          ticketPromedio: 3000,
+          tasaRecupero: 83.3,
+          motivos: []
+        },
+        {
+          operador: 'NAGYP',
+          cantidadRegistros: 25,
+          debitosAceptados: 182995,
+          debitosRefacturados: 27324245,
+          totalTramitado: 27507240,
+          ticketPromedio: 1100290,
+          tasaRecupero: 99.3,
+          motivos: []
+        }
+      ];
+      directorioServiceSpy.getDesempenoOperadores = vi.fn().mockReturnValue(of(mockOpsTodos));
+      component.fechaDesde = '2026-08-01';
+      component.fechaHasta = '2026-08-31';
+
+      component.tipoRegistroOperador = 'Ambulatorios';
+      component.cambiarTipoRegistroOperador('Todos');
+
+      expect(component.tipoRegistroOperador).toBe('Todos');
+      expect(directorioServiceSpy.getDesempenoOperadores).toHaveBeenCalledWith('2026-08', '2026-08-01', '2026-08-31', 'periodo', 'Todos');
+      expect(component.operadoresDatos.length).toBe(2);
     });
 
     it('debería calcular correctamente los totales consolidados de operadores', () => {
@@ -1224,6 +1259,32 @@ describe('DirectorioDashboardComponent', () => {
       expect(component.categoriaMotivoSeleccionada).toBe('TODAS');
       expect(component.motivosDebito.length).toBe(2);
       expect(component.totalDebitadoMotivos).toBe(2000);
+    });
+
+    it('el badge de Total Debitado en la solapa motivos debe actualizarse al filtrar por categoría', () => {
+      component.solapaActiva = 'motivos';
+      component.cargandoMotivos = false;
+      component.motivosDebitoOriginal = [
+        { motivo: 'Facturación duplicada', montoTotal: 1000, cantidadCasos: 2, montoAceptado: 400, montoRefacturado: 600, porcentaje: 50 },
+        { motivo: 'Demora en resolución quirúrgica', montoTotal: 1000, cantidadCasos: 1, montoAceptado: 1000, montoRefacturado: 0, porcentaje: 50 }
+      ];
+      component.totalElementsMotivos = 2;
+      component.totalDebitadoGeneralCalculado = 2000;
+      component.categoriaMotivoSeleccionada = 'TODAS';
+      component.aplicarFiltroCategoriaMotivos();
+      fixture.detectChanges();
+
+      let badge = fixture.nativeElement.querySelector('.total-debitado-badge strong');
+      expect(badge).toBeTruthy();
+      expect(badge.textContent.trim()).toBe('$ 2.000,00');
+
+      // Filtrar por categoría
+      component.categoriaMotivoSeleccionada = '2. MÉDICOS / AUDITORÍA';
+      component.onCategoriaMotivoChange();
+      fixture.detectChanges();
+
+      badge = fixture.nativeElement.querySelector('.total-debitado-badge strong');
+      expect(badge.textContent.trim()).toBe('$ 1.000,00');
     });
 
     it('renderizarParetoMotivos debe actualizar motivosChartData según la categoría seleccionada', () => {

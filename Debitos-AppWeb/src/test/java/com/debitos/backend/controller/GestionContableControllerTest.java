@@ -152,6 +152,32 @@ class GestionContableControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/contable/facturas-anuladas debe aceptar filtros tipo y filtro")
+    void testListarFacturasAnuladasConTipoYFiltro() throws Exception {
+        FacturaAnuladaDTO dto = new FacturaAnuladaDTO();
+        dto.setIdCabecera(2L);
+        dto.setComprobante("NCE A 0031-00000888");
+        dto.setTipo("NCE");
+        Page<FacturaAnuladaDTO> page = new PageImpl<>(List.of(dto), PageRequest.of(0, 15), 1);
+
+        when(gestionContableService.listarFacturasAnuladas("NOTAS_CREDITO", "OSDE", 0, 15, "fecha", "desc")).thenReturn(page);
+
+        mockMvc.perform(get("/api/contable/facturas-anuladas")
+                .param("tipo", "NOTAS_CREDITO")
+                .param("filtro", "OSDE")
+                .param("page", "0")
+                .param("size", "15")
+                .param("sortBy", "fecha")
+                .param("sortDir", "desc")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].idCabecera").value(2))
+                .andExpect(jsonPath("$.content[0].tipo").value("NCE"));
+
+        verify(gestionContableService).listarFacturasAnuladas("NOTAS_CREDITO", "OSDE", 0, 15, "fecha", "desc");
+    }
+
+    @Test
     @DisplayName("GET /api/contable/historial debe aceptar sortBy y sortDir")
     void testObtenerHistorialConOrden() throws Exception {
         HistorialAjusteDTO dto = new HistorialAjusteDTO();

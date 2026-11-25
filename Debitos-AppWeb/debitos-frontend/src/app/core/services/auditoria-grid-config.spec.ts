@@ -57,16 +57,35 @@ describe('AuditoriaGridConfigService', () => {
   it('debería evaluar reglas dinámicas de edición y cellClassRules', () => {
     const cols = service.getConfiguracionColumnas('FC', false, false, [], [], null);
 
+    // Motivo Débito
+    const motDebitoCol = cols.find(c => c.field === 'motivoDebito')!;
+    expect(typeof motDebitoCol.editable).toBe('function');
+    expect((motDebitoCol.editable as any)({ data: { debitoAceptado: 'SI' } })).toBe(true);
+    expect((motDebitoCol.editable as any)({ data: { debitoAceptado: 'NO' } })).toBe(true);
+    expect((motDebitoCol.editable as any)({ data: { debitoAceptado: '' } })).toBe(false);
+    expect((motDebitoCol.editable as any)({ data: {} })).toBe(false);
+
+    // Días Facturados
+    const diasCol = cols.find(c => c.field === 'diasFacturados')!;
+    expect((diasCol.editable as any)({ data: { debitoAceptado: 'SI' } })).toBe(true);
+    expect((diasCol.editable as any)({ data: { debitoAceptado: '' } })).toBe(false);
+
+    // Importe Debitado
+    const impDebCol = cols.find(c => c.field === 'importeDebitado')!;
+    expect((impDebCol.editable as any)({ data: { debitoAceptado: 'NO' } })).toBe(true);
+    expect((impDebCol.editable as any)({ data: { debitoAceptado: '' } })).toBe(false);
+
     // Comentarios Débito
     const comDebitoCol = cols.find(c => c.field === 'comentariosDebito')!;
     expect(typeof comDebitoCol.editable).toBe('function');
-    expect((comDebitoCol.editable as any)({ data: { motivoDebito: '01' } })).toBe(true);
-    expect((comDebitoCol.editable as any)({ data: { motivoDebito: '' } })).toBe(false);
+    expect((comDebitoCol.editable as any)({ data: { motivoDebito: '01', debitoAceptado: 'SI' } })).toBe(true);
+    expect((comDebitoCol.editable as any)({ data: { motivoDebito: '01', debitoAceptado: '' } })).toBe(false);
+    expect((comDebitoCol.editable as any)({ data: { motivoDebito: '', debitoAceptado: 'SI' } })).toBe(false);
 
     const fnGris = comDebitoCol.cellClassRules?.['bg-gris'] as (params: any) => boolean;
     const fnNaranja = comDebitoCol.cellClassRules?.['bg-naranja'] as (params: any) => boolean;
-    expect(fnGris({ data: { motivoDebito: '01' } })).toBe(true);
-    expect(fnNaranja({ data: { motivoDebito: '' } })).toBe(true);
+    expect(fnGris({ data: { motivoDebito: '01', debitoAceptado: 'SI' } })).toBe(true);
+    expect(fnNaranja({ data: { motivoDebito: '01', debitoAceptado: '' } })).toBe(true);
     expect((comDebitoCol.tooltipValueGetter as any)({ value: 'com' })).toBe('com');
     expect((comDebitoCol.tooltipValueGetter as any)({ value: null })).toBe('');
 
@@ -75,6 +94,7 @@ describe('AuditoriaGridConfigService', () => {
     expect(typeof motRefacturaCol.editable).toBe('function');
     expect((motRefacturaCol.editable as any)({ data: { debitoAceptado: 'NO' } })).toBe(true);
     expect((motRefacturaCol.editable as any)({ data: { debitoAceptado: 'SI' } })).toBe(false);
+    expect((motRefacturaCol.editable as any)({ data: { debitoAceptado: '' } })).toBe(false);
 
     // Importe Refactura
     const impRefacturaCol = cols.find(c => c.field === 'importeRefactura')!;

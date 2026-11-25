@@ -603,7 +603,7 @@ describe('GestionContableComponent', () => {
       expect(component.modalExitoVisible).toBe(false);
     });
 
-    it('debe renderizar los 4 filtros de búsqueda de documento y botón en .doc-search-grid de Anuladas', () => {
+    it('debe renderizar los 4 filtros de búsqueda de documento (incluyendo FC, NC y ND) y botón en .doc-search-grid de Anuladas', () => {
       component.subSolapaActiva = 'anuladas';
       fixture.detectChanges();
 
@@ -617,10 +617,136 @@ describe('GestionContableComponent', () => {
       const boton = grid?.querySelector('.form-group-btn button.btn-primary') as HTMLButtonElement | null;
 
       expect(tipo).toBeTruthy();
+      const opcionesTipo = Array.from(tipo?.options || []).map(opt => opt.value);
+      expect(opcionesTipo).toEqual(['FC', 'FAC', 'FCE', 'FCA', 'NCE', 'NC', 'NDE', 'ND']);
       expect(letra).toBeTruthy();
       expect(ptoVta).toBeTruthy();
       expect(numero).toBeTruthy();
       expect(boton?.textContent?.trim()).toBe('Buscar Documento');
+    });
+
+    it('buscarFacturaAnulacion debe permitir buscar Notas de Crédito y Notas de Débito desde el buscador principal', () => {
+      const mockNce = {
+        idCabecera: 303,
+        asociadogrupo: 220587,
+        comprobante: 'NCE A 0031-00000888',
+        tipo: 'NCE',
+        letra: 'A',
+        ptovta: 31,
+        numero: 888,
+        fecha: '2026-05-11',
+        periodo: '2026-05-01',
+        codigoCobertura: '443',
+        cobertura: 'OSDE',
+        importe: 50000,
+        anulada: false,
+        origenAnulacion: null
+      };
+      contableServiceMock.buscarFacturaParaAnulacion.mockReturnValue(of(mockNce));
+
+      component.busquedaAnulTipo = 'NCE';
+      component.busquedaAnulLetra = 'A';
+      component.busquedaAnulPtoVta = 31;
+      component.busquedaAnulNumero = 888;
+      component.buscarFacturaAnulacion();
+
+      expect(contableServiceMock.buscarFacturaParaAnulacion).toHaveBeenCalledWith('NCE', 'A', 31, 888);
+      expect(component.facturaAnulacionSeleccionada).toEqual(mockNce);
+    });
+
+    it('buscarFacturaAnulacion sin número específico debe filtrar la tabla de documentos anulados por el tipo seleccionado', () => {
+      contableServiceMock.listarFacturasAnuladas.mockClear();
+      component.busquedaAnulTipo = 'FC';
+      component.busquedaAnulNumero = null;
+
+      component.buscarFacturaAnulacion();
+
+      expect(contableServiceMock.buscarFacturaParaAnulacion).not.toHaveBeenCalled();
+      expect(component.filtroAnuladasTipo).toBe('FC');
+      expect(contableServiceMock.listarFacturasAnuladas).toHaveBeenCalledWith(0, 15, undefined, undefined, 'FC', undefined);
+    });
+
+    it('debe filtrar la tabla de documentos anulados por tipo/categoría y texto, y limpiar filtros al presionar Limpiar', () => {
+      component.subSolapaActiva = 'anuladas';
+      fixture.detectChanges();
+
+      component.filtroAnuladasTipo = 'FACTURAS';
+      component.filtroAnuladasTexto = 'OSDE';
+      contableServiceMock.listarFacturasAnuladas.mockClear();
+
+      component.buscarFacturasAnuladasConFiltro();
+      expect(contableServiceMock.listarFacturasAnuladas).toHaveBeenCalledWith(0, 15, undefined, undefined, 'FACTURAS', 'OSDE');
+
+      contableServiceMock.listarFacturasAnuladas.mockClear();
+      component.limpiarFiltroFacturasAnuladas();
+      expect(component.filtroAnuladasTipo).toBe('');
+      expect(component.filtroAnuladasTexto).toBe('');
+      expect(contableServiceMock.listarFacturasAnuladas).toHaveBeenCalledWith(0, 15, undefined, undefined);
+    });
+
+    it('debe abrir el modal de detalle al hacer clic en una fila de documentos anulados y mostrar datos del documento anulado y su anulador', () => {
+      const mockItem = {
+        idCabecera: 951,
+        asociadogrupo: 220587,
+        comprobante: 'NCE A0031-00000951',
+        tipo: 'NCE',
+        letra: 'A',
+        ptovta: 31,
+        numero: 951,
+        fecha: '2026-10-25',
+        periodo: '2026-10-01',
+        codigoCobertura: '679',
+        cobertura: 'SWISS MEDICAL GROUP',
+        importe: 1278968.29,
+        tipoRegistro: 'Ambulatorios',
+        anulada: true,
+        origenAnulacion: 'MANUAL' as const,
+        usuarioAnulacion: 'operador1',
+        idCabeceraAnulador: 516,
+        comprobanteAnulador: 'NDE A0031-00000516',
+        tipoAnulador: 'NDE',
+        letraAnulador: 'A',
+        ptovtaAnulador: 31,
+        numeroAnulador: 516,
+        fechaAnulador: '2026-10-25',
+        periodoAnulador: '2026-10-01',
+        codigoCoberturaAnulador: '679',
+        coberturaAnulador: 'SWISS MEDICAL GROUP',
+        importeAnulador: 1278968.29,
+        asociadogrupoAnulador: 220587
+      };
+
+      component.subSolapaActiva = 'anuladas';
+      component.facturasAnuladasPage = {
+        content: [mockItem],
+        totalElements: 1,
+        totalPages: 1,
+        number: 0,
+        size: 15,
+        first: true,
+        last: true,
+        empty: false
+      };
+      fixture.detectChanges();
+
+      const row = fixture.nativeElement.querySelector('tr.clickable-row') as HTMLTableRowElement | null;
+      expect(row).toBeTruthy();
+
+      row?.click();
+      fixture.detectChanges();
+
+      expect(component.modalDetalleAnulacionVisible).toBe(true);
+      expect(component.detalleAnulacionSeleccionada).toEqual(mockItem);
+
+      const modalText = fixture.nativeElement.textContent;
+      expect(modalText).toContain('Detalle de Documento Anulado y su Anulador');
+      expect(modalText).toContain('NCE A0031-00000951');
+      expect(modalText).toContain('NDE A0031-00000516');
+      expect(modalText).toContain('SWISS MEDICAL GROUP');
+
+      component.cerrarModalDetalleAnulacion();
+      expect(component.modalDetalleAnulacionVisible).toBe(false);
+      expect(component.detalleAnulacionSeleccionada).toBeNull();
     });
 
     it('debería procesar queryParams y abrir modal de anulación si vienen en la ruta', () => {

@@ -144,11 +144,15 @@ public class GestionContableController {
 
     @GetMapping("/facturas-anuladas")
     public ResponseEntity<Page<FacturaAnuladaDTO>> listarFacturasAnuladas(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String filtro,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false, defaultValue = "desc") String sortDir) {
-        Page<FacturaAnuladaDTO> resultado = gestionContableService.listarFacturasAnuladas(page, size, sortBy, sortDir);
+        Page<FacturaAnuladaDTO> resultado = (tipo == null && filtro == null)
+                ? gestionContableService.listarFacturasAnuladas(page, size, sortBy, sortDir)
+                : gestionContableService.listarFacturasAnuladas(tipo, filtro, page, size, sortBy, sortDir);
         return ResponseEntity.ok(resultado);
     }
 
